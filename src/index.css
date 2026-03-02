@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+/* Definimos tu paleta de colores personalizada */
+@theme {
+  --color-donezo-primary: #0F5132;
+  --color-donezo-green: #198754;
+  --color-donezo-bg: #f8f9fa;
+  --color-donezo-dark-bg: #121212;
+  --color-donezo-card-dark: #1e1e1e;
+  
+  /* Aquí podrás llamar a tus texturas webp luego */
+  --background-image-donezo-pattern: url('/textures/tu-textura.webp');
+}
+
+/* Forzamos a que el Dark Mode funcione cuando le pongamos la clase 'dark' al HTML */
+@variant dark (&:where(.dark, .dark *));
+
+/* Algunos estilos base para que el fondo respete el modo oscuro/claro */
+@layer base {
+  body {
+    @apply bg-donezo-bg text-gray-900 transition-colors duration-300;
+  }
+  .dark body {
+    @apply bg-donezo-dark-bg text-white;
+  }
+}
