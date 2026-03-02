@@ -11,9 +11,26 @@ export default function Proveedores() {
     direccion: '',
     estado_venezuela: ''
   });
-
+  const formatIdentificador = (val) => {
+    let raw = val.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!raw) return '';
+    const letra = raw.charAt(0);
+    const numeros = raw.slice(1);
+    if (['V', 'E'].includes(letra)) return numeros.length > 0 ? `${letra}-${numeros}` : letra;
+    else if (['J', 'G', 'P'].includes(letra)) {
+      if (numeros.length > 8) return `${letra}-${numeros.slice(0, 8)}-${numeros.slice(8, 9)}`;
+      else if (numeros.length > 0) return `${letra}-${numeros}`;
+      return letra;
+    }
+    return raw;
+  };
   const handleProvChange = (e) => {
-    setFormProv({ ...formProv, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    if (name === 'identificador') {
+      setFormProv({ ...formProv, [name]: formatIdentificador(value) });
+    } else {
+      setFormProv({ ...formProv, [name]: value });
+    }
   };
 
   const handleRegistrarProveedor = async (e) => {
