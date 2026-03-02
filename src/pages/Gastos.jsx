@@ -9,8 +9,7 @@ export default function Gastos() {
     concepto: '',
     monto_bs: '',
     tasa_cambio: '',
-    total_cuotas: 1,
-    periodo_cobro: ''
+    total_cuotas: 1
   });
 
   useEffect(() => {
@@ -56,7 +55,7 @@ export default function Gastos() {
       const data = await response.json();
       if (data.status === 'success') {
         alert(data.message || 'Gasto registrado con éxito');
-        setFormGasto({ proveedor_id: '', concepto: '', monto_bs: '', tasa_cambio: '', total_cuotas: 1, periodo_cobro: '' });
+        setFormGasto({ proveedor_id: '', concepto: '', monto_bs: '', tasa_cambio: '', total_cuotas: 1 });
       } else {
         alert(data.message || 'Error al registrar gasto');
       }
@@ -97,7 +96,6 @@ export default function Gastos() {
         <input type="number" step="0.01" min="0" name="monto_bs" value={formGasto.monto_bs} onChange={handleGastoChange} placeholder="Monto (Bs)" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-green dark:text-white" required />
         <input type="number" step="0.0001" min="0" name="tasa_cambio" value={formGasto.tasa_cambio} onChange={handleGastoChange} placeholder="Tasa de Cambio (Bs/$)" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-green dark:text-white" required />
         <input type="number" min="1" name="total_cuotas" value={formGasto.total_cuotas} onChange={handleGastoChange} placeholder="Total Cuotas" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-green dark:text-white" required />
-        <input type="text" name="periodo_cobro" value={formGasto.periodo_cobro} onChange={handleGastoChange} placeholder="Periodo de Cobro (Ej: Cierre 1)" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-green dark:text-white" required />
 
         <div className="md:col-span-2 rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-900/20 p-4">
           <p className="text-sm text-emerald-700 dark:text-emerald-300">
