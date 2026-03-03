@@ -9,6 +9,7 @@ import Propiedades from './pages/Propiedades';
 import CuentasPorCobrar from './pages/CuentasPorCobrar';
 import Bancos from './pages/Bancos';
 import Zonas from './pages/Zonas';
+import HistorialRecibos from './pages/HistorialRecibos';
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/cuentas-cobrar" element={<CuentasPorCobrar />} />
           <Route path="/bancos" element={<Bancos />} />
           <Route path="/zonas" element={<Zonas />} />
+          <Route path="/historial-recibos" element={<HistorialRecibos />} />
         </Route>
       </Routes>
     </BrowserRouter>

@@ -67,7 +67,8 @@ export default function Layout() {
               <p className="px-4 text-xs font-bold text-gray-400 uppercase mt-6 mb-2">Contabilidad</p>
               <Link to="/proveedores" className={navClass('/proveedores')}>🤝 Proveedores</Link>
               <Link to="/gastos" className={navClass('/gastos')}>🧾 Gastos</Link>
-              <Link to="/cierres" className={navClass('/cierres')}>🔒 Cierres y Recibos</Link>
+              <Link to="/cierres" className={navClass('/cierres')}>🔒 Cierres Preliminares</Link>
+              <Link to="/historial-recibos" className={navClass('/historial-recibos')}>🗂️ Historial Recibos</Link>
               <Link to="/cuentas-cobrar" className={navClass('/cuentas-cobrar')}>💰 Cobranza</Link>
             </>
           )}
