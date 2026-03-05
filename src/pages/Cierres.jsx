@@ -4,16 +4,15 @@ import { useOutletContext } from 'react-router-dom';
 export default function Cierres() {
   const { userRole } = useOutletContext();
   const [data, setData] = useState({ 
-    ciclo_actual: 0, 
+    mes_actual: '', 
+    mes_texto: '',
     total_usd: '0.00', 
     gastos: [], 
-    alicuotas_disponibles: [], // Nueva lista del backend
+    alicuotas_disponibles: [], 
     metodo_division: 'Alicuota' 
   });
   const [loading, setLoading] = useState(true);
   const [selectedGasto, setSelectedGasto] = useState(null);
-  
-  // Estado para el simulador
   const [simulacionAlicuota, setSimulacionAlicuota] = useState('');
 
   const fetchPreliminar = async () => {
@@ -23,67 +22,68 @@ export default function Cierres() {
       const result = await res.json();
       if (result.status === 'success') {
         setData(result);
-        // Pre-seleccionar la primera alícuota si existe
-        if(result.alicuotas_disponibles.length > 0) {
-          setSimulacionAlicuota(result.alicuotas_disponibles[0]);
-        }
+        if(result.alicuotas_disponibles.length > 0) setSimulacionAlicuota(result.alicuotas_disponibles[0]);
       }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
+    } catch (error) { console.error(error); } 
+    finally { setLoading(false); }
   };
 
-  useEffect(() => {
-    if (userRole === 'Administrador') fetchPreliminar();
-  }, [userRole]);
+  useEffect(() => { if (userRole === 'Administrador') fetchPreliminar(); }, [userRole]);
 
   const handleCerrarCiclo = async () => {
-    if (!window.confirm(`¿Seguro de cerrar el Ciclo ${data.ciclo_actual}? Se generarán los avisos de cobro.`)) return;
+    if (!window.confirm(`⚠️ ESTÁS A PUNTO DE CERRAR EL MES DE ${data.mes_texto.toUpperCase()}.\n\n¿Estás seguro? Todos los recibos se generarán y no podrás deshacer esta acción.`)) return;
     const token = localStorage.getItem('habioo_token');
     try {
-      const res = await fetch('https://auth.habioo.cloud/cerrar-ciclo', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await fetch('https://auth.habioo.cloud/cerrar-ciclo', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
       const result = await res.json();
       alert(result.message);
       if (result.status === 'success') fetchPreliminar();
-    } catch (error) {
-      alert("Error de conexión");
-    }
+    } catch (error) { alert("Error de conexión"); }
   };
 
-  // Cálculo de Proyección
   const calcularProyeccion = () => {
     const total = parseFloat(data.total_usd);
     if (data.metodo_division === 'Alicuota') {
       const alicuota = parseFloat(simulacionAlicuota) || 0;
       return (total * (alicuota / 100)).toFixed(2);
     } else {
-      // Si es partes iguales, necesitaríamos la cantidad de aptos, pero por ahora mostramos mensaje genérico
       return "N/A (División exacta)"; 
     }
   };
 
   if (loading) return <p className="p-6 text-gray-500">Cargando datos contables...</p>;
 
+  // Obtener fecha actual para la alerta inteligente
+  const hoy = new Date();
+  const diaActual = hoy.getDate();
+  const mostrarAlerta = diaActual < 25; // Si no es final de mes, avisamos
+
   return (
     <div className="space-y-6 relative">
       
+      {/* ALERTA INTELIGENTE */}
+      {mostrarAlerta && (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-4 rounded-xl shadow-sm flex items-start gap-3">
+          <span className="text-2xl">⚠️</span>
+          <div>
+            <h4 className="text-yellow-800 dark:text-yellow-300 font-bold">Recordatorio Contable</h4>
+            <p className="text-yellow-700 dark:text-yellow-400 text-sm mt-1">
+              Es recomendable generar los recibos de cobro durante los <strong>últimos 5 días del mes o el día 1 del siguiente</strong>. Si apruebas este preliminar hoy, cualquier gasto ingresado mañana pasará automáticamente al recibo del próximo mes.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* SECCIÓN DE RESUMEN Y SIMULACIÓN */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        
-        {/* TARJETA IZQUIERDA: TOTALES */}
         <div className="bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 flex justify-between items-center">
           <div>
-            <p className="text-gray-500 dark:text-gray-400 font-medium">Ciclo Abierto Actual</p>
-            <h2 className="text-4xl font-bold text-donezo-primary dark:text-white">#{data.ciclo_actual}</h2>
+            <p className="text-gray-500 dark:text-gray-400 font-medium uppercase text-xs tracking-wider">Mes de Cobro Abierto</p>
+            <h2 className="text-3xl md:text-4xl font-bold text-donezo-primary dark:text-white capitalize">{data.mes_texto}</h2>
           </div>
           <div className="text-right">
-            <p className="text-gray-500 dark:text-gray-400 font-medium">Total Gastos Comunes</p>
-            <h2 className="text-4xl font-bold text-red-500">${data.total_usd}</h2>
+            <p className="text-gray-500 dark:text-gray-400 font-medium uppercase text-xs tracking-wider">Total Comunes</p>
+            <h2 className="text-3xl md:text-4xl font-bold text-red-500">${data.total_usd}</h2>
           </div>
         </div>
 

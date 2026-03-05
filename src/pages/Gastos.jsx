@@ -1,6 +1,13 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 
+// Helper para dar formato a los meses en la tabla
+const formatMonthText = (yyyy_mm) => {
+    if (!yyyy_mm) return '';
+    const [year, month] = yyyy_mm.split('-');
+    const meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+    return `${meses[parseInt(month) - 1]} ${year}`;
+};
 export default function Gastos() {
   const { userRole } = useOutletContext();
   const [gastosAgrupados, setGastosAgrupados] = useState([]);
@@ -155,7 +162,7 @@ export default function Gastos() {
 
   const handleDelete = async (gasto_id, e) => {
     e.stopPropagation();
-    if (!window.confirm('⚠️ ¿Eliminar este gasto y todas sus cuotas?')) return;
+    if (!window.confirm('?? ¿Eliminar este gasto y todas sus cuotas?')) return;
     const token = localStorage.getItem('habioo_token');
     try {
       const res = await fetch(`https://auth.habioo.cloud/gastos/${gasto_id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
@@ -171,9 +178,9 @@ export default function Gastos() {
     <div className="space-y-6 relative">
       {/* CABECERA */}
       <div className="flex flex-col sm:flex-row justify-between items-center bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 gap-4">
-        <h3 className="text-xl font-bold text-gray-800 dark:text-white">🧾 Historial de Gastos</h3>
+        <h3 className="text-xl font-bold text-gray-800 dark:text-white">?? Historial de Gastos</h3>
         <div className="flex-1 max-w-md w-full relative">
-          <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">🔍</span>
+          <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">??</span>
           <input 
             type="text" placeholder="Buscar concepto, proveedor..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 p-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-green dark:text-white transition-all"
@@ -230,7 +237,7 @@ export default function Gastos() {
         <tr onDoubleClick={() => setSelectedGasto(g)} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors">
           <td className="p-3 text-center" onClick={(e) => toggleRow(g.gasto_id, e)}>
             <button className="text-gray-400 hover:text-donezo-primary transition-colors text-lg">
-              {expandedRows[g.gasto_id] ? '▼' : '▶'}
+              {expandedRows[g.gasto_id] ? '?' : '?'}
             </button>
           </td>
           <td className="p-3 text-gray-500 text-sm">{g.fecha}</td>
@@ -257,8 +264,8 @@ export default function Gastos() {
           <td className="p-3 text-right font-bold text-gray-800 dark:text-white">${g.monto_total_usd}</td>
           <td className="p-3 text-center">
             {g.canDelete ? (
-              <button onClick={(e) => handleDelete(g.gasto_id, e)} className="text-red-400 hover:text-red-600 p-2" title="Eliminar">🗑️</button>
-            ) : <span className="text-gray-300 cursor-not-allowed" title="Bloqueado">🔒</span>}
+              <button onClick={(e) => handleDelete(g.gasto_id, e)} className="text-red-400 hover:text-red-600 p-2" title="Eliminar">???</button>
+            ) : <span className="text-gray-300 cursor-not-allowed" title="Bloqueado">??</span>}
           </td>
         </tr>
         
@@ -266,7 +273,7 @@ export default function Gastos() {
         {expandedRows[g.gasto_id] && g.cuotas.map((c) => (
           <tr key={c.cuota_id} className="bg-gray-50/50 dark:bg-gray-800/30 border-b border-gray-50 dark:border-gray-800/50">
             <td className="p-3 border-l-2 border-donezo-primary"></td>
-            <td className="p-3 text-gray-500 text-sm" colSpan="2">↳ Ciclo #{c.ciclo_asignado}</td>
+            <td className="p-3 text-gray-500 text-sm" colSpan="2">↳ Cobro en: <strong>{formatMonthText(c.mes_asignado)}</strong></td>
             <td className="p-3 text-gray-500 text-sm">Fracción {c.numero_cuota}/{g.total_cuotas}</td>
             <td className="p-3 text-center"><span className="text-xs font-bold bg-white dark:bg-gray-700 px-2 py-1 rounded">{c.estado}</span></td>
             
@@ -318,7 +325,7 @@ export default function Gastos() {
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
           <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-2xl shadow-2xl border border-gray-100 dark:border-gray-800 relative my-8">
-            <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl">✕</button>
+            <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl">?</button>
             <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">Registrar Gasto</h3>
             
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-6">
@@ -371,7 +378,7 @@ export default function Gastos() {
                       onClick={() => setForm({...form, zona_id: zonas[0]?.id || 'error'})} 
                       className="w-full py-2.5 rounded-xl border-2 border-dashed border-gray-300 text-gray-500 hover:border-donezo-primary hover:text-donezo-primary transition-all font-medium text-sm flex items-center justify-center gap-2"
                     >
-                      🏢 Asignar a Zona
+                      ?? Asignar a Zona
                     </button>
                   ) : (
                     <div className="flex gap-2">
@@ -389,7 +396,7 @@ export default function Gastos() {
                         type="button" 
                         onClick={() => setForm({...form, zona_id: ''})} 
                         className="px-3 bg-red-100 text-red-500 hover:bg-red-200 rounded-xl font-bold"
-                      >✕</button>
+                      >?</button>
                     </div>
                   )}
                 </div>
@@ -413,7 +420,7 @@ export default function Gastos() {
       {selectedGasto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 relative">
-            <button onClick={() => setSelectedGasto(null)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl">✕</button>
+            <button onClick={() => setSelectedGasto(null)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl">?</button>
             <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Inspección de Gasto</h3>
             <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
               <p><strong className="text-gray-800 dark:text-white">Fecha:</strong> {selectedGasto.fecha}</p>
@@ -422,7 +429,7 @@ export default function Gastos() {
               
               {selectedGasto.tipo === 'No Comun' && (
                 <div className="bg-purple-50 dark:bg-purple-900/20 p-2 rounded-lg border border-purple-100 dark:border-purple-800">
-                  <p className="text-purple-800 dark:text-purple-300 font-bold">🏢 Gasto No Común</p>
+                  <p className="text-purple-800 dark:text-purple-300 font-bold">?? Gasto No Común</p>
                   <p className="text-xs">Solo aplica para: <strong>{selectedGasto.zona_nombre}</strong></p>
                 </div>
               )}
@@ -447,3 +454,5 @@ export default function Gastos() {
     </div>
   );
 }
+
+

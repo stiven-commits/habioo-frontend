@@ -12,6 +12,16 @@ export default function Bancos() {
     "Transferencia Bs", "Pago Móvil", "Zelle", "Efectivo USD", "Efectivo EUR", "Banesco Panamá", "Paypal"
   ];
 
+  const BANCOS_VENEZUELA = [
+    "Banco de Venezuela (BDV)", "Banesco Banco Universal", "Banco Mercantil", "BBVA Provincial",
+    "Banco Nacional de Crédito (BNC)", "Bancamiga Banco Universal", "Banplus Banco Universal",
+    "Banco del Tesoro", "Banco del Caribe (Bancaribe)", "Banco Fondo Común (BFC)", "Banco Caroní",
+    "Banco Activo", "Banco Venezolano de Crédito (BVC)", "Banco Sofitasa", "100% Banco",
+    "Delsur Banco Universal", "Banco Agrícola de Venezuela", "Banco Bicentenario", "Banco Plaza",
+    "Banco Exterior", "Banco de la Fuerza Armada Nacional Bolivariana (Banfanb)",
+    "Banco Digital de los Trabajadores (BDT)", "N58 Banco Digital", "Bancrecer", "Bangente", "R4 Banco Microfinanciero"
+  ];
+
   const fetchData = async () => {
     const token = localStorage.getItem('habioo_token');
     const res = await fetch('https://auth.habioo.cloud/bancos', { headers: { 'Authorization': `Bearer ${token}` } });
@@ -21,23 +31,24 @@ export default function Bancos() {
 
   useEffect(() => { if (userRole === 'Administrador') fetchData(); }, [userRole]);
 
-  // Lógica para saber qué mostrar según el tipo
+  // Lógica Dinámica Inteligente
   const isCash = form.tipo.includes('Efectivo');
-  const isDigital = ['Zelle', 'Paypal'].includes(form.tipo); // Solo correo/tlf, sin banco
-  const isBank = !isCash && !isDigital; // Bancos tradicionales
+  const isDigital = ['Zelle', 'Paypal'].includes(form.tipo);
+  const isPanama = form.tipo === 'Banesco Panamá';
+  const isVenBank = ['Transferencia Bs', 'Pago Móvil'].includes(form.tipo);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem('habioo_token');
 
-    // PREPARAR DATOS AUTOMÁTICOS PARA LA BD (Rellenar huecos)
     let payload = { ...form };
 
+    // Rellenar datos automáticos para no romper la BD
     if (isCash) {
       payload.nombre_banco = 'Caja Fuerte / Oficina';
-      payload.numero_cuenta = 'N/A'; // No aplica
-    } else if (isDigital) {
-      payload.nombre_banco = form.tipo; // El banco es "Zelle" o "Paypal"
+      payload.numero_cuenta = 'N/A';
+    } else if (isDigital || isPanama) {
+      payload.nombre_banco = form.tipo;
     }
 
     const res = await fetch('https://auth.habioo.cloud/bancos', {
@@ -59,74 +70,90 @@ export default function Bancos() {
     fetchData();
   };
 
-  if (userRole !== 'Administrador') return <p>Acceso denegado.</p>;
+  if (userRole !== 'Administrador') return <p className="p-6">Acceso denegado.</p>;
+
+  // Función para renderizar el ícono de flecha en los Select
+  const SelectIcon = () => (
+    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+      </svg>
+    </div>
+  );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
       <div className="bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
-        <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">💳 Configurar Recepción de Pagos</h3>
+        <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-6">💳 Configurar Recepción de Pagos</h3>
         
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-12 gap-5 items-end">
           
-          {/* 1. SELECTOR DE TIPO */}
+          {/* 1. SELECTOR DE TIPO (Con nuevo diseño) */}
           <div className="md:col-span-3">
-            <label className="block text-xs font-bold text-gray-500 mb-1 ml-1">Tipo de Método</label>
-            <select 
-              value={form.tipo} 
-              onChange={e => setForm({...form, tipo: e.target.value, numero_cuenta: '', nombre_banco: ''})} 
-              className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 dark:bg-gray-800 dark:text-white dark:border-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary"
-            >
-              {TIPOS_PAGO.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 ml-1">Tipo de Método</label>
+            <div className="relative">
+              <select 
+                value={form.tipo} 
+                onChange={e => setForm({...form, tipo: e.target.value, numero_cuenta: '', nombre_banco: ''})} 
+                className="w-full p-3 pr-10 appearance-none rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-white dark:border-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary transition-colors cursor-pointer font-medium"
+              >
+                {TIPOS_PAGO.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <SelectIcon />
+            </div>
           </div>
 
-          {/* 2. BANCO (Solo si es Transferencia/Pago Movil) */}
-          {isBank && (
+          {/* 2. BANCO (Selector Venezolano con nuevo diseño) */}
+          {isVenBank && (
             <div className="md:col-span-3">
-              <label className="block text-xs font-bold text-gray-500 mb-1 ml-1">Banco</label>
-              <input 
-                type="text" 
-                placeholder="Ej: Banesco, Mercantil" 
-                value={form.nombre_banco} 
-                onChange={e => setForm({...form, nombre_banco: e.target.value})} 
-                className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-700 outline-none" 
-                required 
-              />
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 ml-1">Banco Destino</label>
+              <div className="relative">
+                <select 
+                  value={form.nombre_banco} 
+                  onChange={e => setForm({...form, nombre_banco: e.target.value})} 
+                  className="w-full p-3 pr-10 appearance-none rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary transition-colors cursor-pointer" 
+                  required 
+                >
+                  <option value="">Seleccione un banco...</option>
+                  {BANCOS_VENEZUELA.map(b => <option key={b} value={b}>{b}</option>)}
+                </select>
+                <SelectIcon />
+              </div>
             </div>
           )}
 
-          {/* 3. IDENTIFICADOR (Cuenta, Correo o Telefono) - Oculto en Efectivo */}
+          {/* 3. DATOS DE CUENTA / CORREO / TELÉFONO */}
           {!isCash && (
-            <div className={isBank ? "md:col-span-3" : "md:col-span-5"}>
-              <label className="block text-xs font-bold text-gray-500 mb-1 ml-1">
-                {isDigital ? 'Correo / Teléfono' : 'Número de Cuenta / Datos'}
+            <div className={isVenBank ? "md:col-span-3" : "md:col-span-5"}>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 ml-1">
+                {isDigital ? 'Correo / Teléfono' : form.tipo === 'Pago Móvil' ? 'Datos (Teléfono, Cédula)' : 'Número de Cuenta'}
               </label>
               <input 
                 type="text" 
-                placeholder={isDigital ? "usuario@email.com" : "0134-..."} 
+                placeholder={isDigital ? "usuario@email.com" : form.tipo === 'Pago Móvil' ? "0414... / V12..." : "0134-..."} 
                 value={form.numero_cuenta} 
                 onChange={e => setForm({...form, numero_cuenta: e.target.value})} 
-                className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-700 outline-none" 
+                className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary transition-all" 
                 required 
               />
             </div>
           )}
 
-          {/* 4. APODO (Siempre visible, ocupa el resto) */}
-          <div className={isCash ? "md:col-span-8 flex gap-2" : "md:col-span-3 flex gap-2"}>
+          {/* 4. ETIQUETA (Ocupa el espacio restante) */}
+          <div className={isCash ? "md:col-span-9 flex gap-3" : "md:col-span-3 flex gap-3"}>
             <div className="flex-1">
-              <label className="block text-xs font-bold text-gray-500 mb-1 ml-1">Apodo (Etiqueta)</label>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 ml-1">Etiqueta</label>
               <input 
                 type="text" 
                 placeholder="Ej: Principal, Caja Chica..." 
                 value={form.apodo} 
                 onChange={e => setForm({...form, apodo: e.target.value})} 
-                className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-700 outline-none" 
+                className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary transition-all" 
                 required 
               />
             </div>
-            <button type="submit" className="bg-donezo-primary text-white font-bold px-5 rounded-xl hover:bg-green-700 shadow-lg h-[50px] mt-auto">
-              +
+            <button type="submit" className="bg-donezo-primary text-white font-bold px-6 rounded-xl hover:bg-green-700 shadow-lg shadow-green-500/30 h-[50px] mt-auto transition-transform active:scale-95 flex items-center justify-center">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4"></path></svg>
             </button>
           </div>
 
@@ -136,9 +163,9 @@ export default function Bancos() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {bancos.map(b => (
           <div key={b.id} className="bg-white dark:bg-donezo-card-dark p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 flex justify-between items-center group hover:shadow-md transition-all">
-            <div>
+            <div className="w-full pr-4">
               <div className="flex items-center gap-2 mb-1">
-                <span className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
                   b.tipo.includes('Efectivo') ? 'bg-green-100 text-green-700' : 
                   b.tipo.includes('Zelle') ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'
                 }`}>
@@ -146,22 +173,23 @@ export default function Bancos() {
                 </span>
               </div>
               
-              {/* Lógica de visualización en la tarjeta */}
               {b.tipo.includes('Efectivo') ? (
                 <h4 className="font-bold text-gray-800 dark:text-white text-lg">Recepción en Oficina</h4>
               ) : (
-                <h4 className="font-bold text-gray-800 dark:text-white text-lg">{b.nombre_banco}</h4>
+                <h4 className="font-bold text-gray-800 dark:text-white text-lg truncate" title={b.nombre_banco}>{b.nombre_banco}</h4>
               )}
 
               {!b.tipo.includes('Efectivo') && (
-                <p className="text-gray-500 text-sm font-mono my-1 truncate max-w-[200px]" title={b.numero_cuenta}>
+                <p className="text-gray-500 text-sm font-mono my-1 truncate w-full" title={b.numero_cuenta}>
                   {b.numero_cuenta}
                 </p>
               )}
               
               <span className="text-donezo-primary text-sm font-medium">{b.apodo}</span>
             </div>
-            <button onClick={() => handleDelete(b.id)} className="text-gray-300 hover:text-red-500 text-xl transition-colors p-2">🗑️</button>
+            <button onClick={() => handleDelete(b.id)} className="text-gray-300 hover:text-red-500 text-xl transition-colors p-2 flex-shrink-0 bg-gray-50 hover:bg-red-50 dark:bg-gray-800 dark:hover:bg-red-900/20 rounded-xl">
+              🗑️
+            </button>
           </div>
         ))}
       </div>
