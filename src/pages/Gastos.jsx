@@ -25,11 +25,13 @@ export default function Gastos() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedGasto, setSelectedGasto] = useState(null); 
   const [expandedRows, setExpandedRows] = useState({});
+  const [archivos, setArchivos] = useState([]); // <-- NUEVO ESTADO
+  const todayString = new Date().toISOString().split('T')[0];
 
   const [form, setForm] = useState({
     proveedor_id: '', concepto: '', monto_bs: '', tasa_cambio: '', total_cuotas: '1', nota: '',
     zona_id: '',
-    fecha_gasto: new Date().toISOString().split('T')[0] // Por defecto, hoy
+    fecha_gasto: todayString // Por defecto, hoy
   });
 
   const fetchData = async () => {
@@ -52,7 +54,10 @@ export default function Gastos() {
               gasto_id: curr.gasto_id,
               proveedor: curr.proveedor,
               concepto: curr.concepto,
-              fecha: curr.fecha || 'N/A',
+              fecha: curr.fecha_factura || curr.fecha || 'N/A',
+              fecha_factura: curr.fecha_factura || curr.fecha || 'N/A',
+              fecha_registro: curr.fecha_registro || 'N/A',
+              imagenes: Array.isArray(curr.imagenes) ? curr.imagenes : [],
               monto_bs: curr.monto_bs,
               tasa_cambio: curr.tasa_cambio,
               monto_total_usd: curr.monto_total_usd,
@@ -143,24 +148,32 @@ export default function Gastos() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem('habioo_token');
+    
+    // Empaquetamos todo en FormData porque llevamos imágenes
+    const formData = new FormData();
     const payload = { ...form, tipo: form.zona_id ? 'No Comun' : 'Comun' };
+    Object.keys(payload).forEach(key => formData.append(key, payload[key]));
+    
+    // Adjuntamos las fotos
+    archivos.forEach(file => formData.append('imagenes', file));
 
     const res = await fetch('https://auth.habioo.cloud/gastos', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify(payload)
+      headers: { 'Authorization': `Bearer ${token}` }, // NO PONER Content-Type, el navegador lo hace solo
+      body: formData
     });
-    const data = await res.json();
-    if (data.status === 'success') {
-      alert(data.message);
+
+    if (res.ok) {
       setForm({
         proveedor_id: '', concepto: '', monto_bs: '', tasa_cambio: '', total_cuotas: '1', nota: '', zona_id: '',
-        fecha_gasto: new Date().toISOString().split('T')[0]
+        fecha_gasto: todayString
       });
+      setArchivos([]); // Limpiar fotos
       setIsModalOpen(false);
       fetchData();
     } else {
-      alert(data.message || data.error);
+      const data = await res.json().catch(() => ({}));
+      alert(data.message || data.error || 'No se pudo registrar el gasto.');
     }
   };
 
@@ -177,8 +190,6 @@ export default function Gastos() {
   };
 
   if (userRole !== 'Administrador') return <p className="p-6">No tienes permisos.</p>;
-// Límite de fecha (Hoy)
-  const todayString = new Date().toISOString().split('T')[0];
   return (
     <div className="space-y-6 relative">
       {/* CABECERA */}
@@ -434,6 +445,29 @@ export default function Gastos() {
                 <textarea name="nota" value={form.nota} onChange={handleChange} placeholder="Detalles adicionales..." rows="2" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none dark:text-white" />
               </div>
 
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Soporte / Factura (Máx 4 fotos)
+                </label>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={(e) => {
+                    const seleccionadas = Array.from(e.target.files);
+                    if (seleccionadas.length > 4) {
+                      alert("Solo se permiten 4 imágenes como máximo.");
+                      e.target.value = "";
+                      setArchivos([]);
+                    } else {
+                      setArchivos(seleccionadas);
+                    }
+                  }}
+                  className="w-full p-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+                {archivos.length > 0 && <p className="text-xs text-green-500 mt-2 font-bold">✅ {archivos.length} imagen(es) lista(s) para subir.</p>}
+              </div>
+
               <div className="md:col-span-2 flex justify-end gap-3 mt-2 pt-4 border-t border-gray-100 dark:border-gray-800">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-3 rounded-xl bg-gray-100 dark:bg-gray-800 dark:text-gray-300">Cancelar</button>
                 <button type="submit" className="px-6 py-3 rounded-xl font-bold bg-donezo-primary text-white hover:bg-green-700 shadow-md">Guardar Gasto</button>
@@ -474,6 +508,23 @@ export default function Gastos() {
                 </p>
               </div>
             </div>
+            {/* GALERÍA DE IMÁGENES DEL GASTO */}
+            {selectedGasto.imagenes && selectedGasto.imagenes.length > 0 && (
+              <div className="mt-4">
+                <p className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">Soportes Adjuntos</p>
+                <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                  {selectedGasto.imagenes.map((img, idx) => (
+                    <a key={idx} href={`https://auth.habioo.cloud${img}`} target="_blank" rel="noreferrer" className="flex-shrink-0">
+                      <img
+                        src={`https://auth.habioo.cloud${img}`}
+                        alt={`Soporte ${idx + 1}`}
+                        className="w-20 h-20 object-cover rounded-lg border border-gray-200 shadow-sm hover:scale-105 transition-transform"
+                      />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
             <button onClick={() => setSelectedGasto(null)} className="mt-6 w-full px-6 py-3 rounded-xl font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700 transition-all">Cerrar</button>
           </div>
         </div>
@@ -481,4 +532,3 @@ export default function Gastos() {
     </div>
   );
 }
-
