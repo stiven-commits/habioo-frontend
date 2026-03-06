@@ -3,20 +3,20 @@ import { useOutletContext } from 'react-router-dom';
 
 export default function Cierres() {
   const { userRole } = useOutletContext();
-  const [data, setData] = useState({ 
-    mes_actual: '', 
+  const [data, setData] = useState({
+    mes_actual: '',
     mes_texto: '',
-    total_usd: '0.00', 
-    gastos: [], 
-    alicuotas_disponibles: [], 
-    metodo_division: 'Alicuota' 
+    total_usd: '0.00',
+    gastos: [],
+    alicuotas_disponibles: [],
+    metodo_division: 'Alicuota'
   });
-  
+
   // Estados para el Buscador Inteligente
   const [propiedades, setPropiedades] = useState([]);
   const [searchProp, setSearchProp] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
-  
+
   const [loading, setLoading] = useState(true);
   const [selectedGasto, setSelectedGasto] = useState(null);
   const [simulacionAlicuota, setSimulacionAlicuota] = useState('');
@@ -26,8 +26,8 @@ export default function Cierres() {
     try {
       // Pedimos al servidor el preliminar Y la lista de inmuebles al mismo tiempo
       const [resPreliminar, resProps] = await Promise.all([
-        fetch('https://auth.habioo.cloud/preliminar', { headers: { 'Authorization': `Bearer ${token}` }}),
-        fetch('https://auth.habioo.cloud/propiedades-admin', { headers: { 'Authorization': `Bearer ${token}` }})
+        fetch('https://auth.habioo.cloud/preliminar', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('https://auth.habioo.cloud/propiedades-admin', { headers: { 'Authorization': `Bearer ${token}` } })
       ]);
 
       const result = await resPreliminar.json();
@@ -35,13 +35,13 @@ export default function Cierres() {
 
       if (result.status === 'success') {
         setData(result);
-        if(result.alicuotas_disponibles.length > 0) setSimulacionAlicuota(result.alicuotas_disponibles[0]);
+        if (result.alicuotas_disponibles.length > 0) setSimulacionAlicuota(result.alicuotas_disponibles[0]);
       }
 
       if (dataProps.status === 'success') {
         setPropiedades(dataProps.propiedades);
       }
-    } catch (error) { console.error(error); } 
+    } catch (error) { console.error(error); }
     finally { setLoading(false); }
   };
 
@@ -57,7 +57,7 @@ export default function Cierres() {
   const gastosFuturos = data.gastos.filter(g => g.mes_asignado > data.mes_actual);
 
   const proyecciones = gastosFuturos.reduce((acc, g) => {
-    if(!acc[g.mes_asignado]) acc[g.mes_asignado] = { total: 0, items: [] };
+    if (!acc[g.mes_asignado]) acc[g.mes_asignado] = { total: 0, items: [] };
     acc[g.mes_asignado].items.push(g);
     acc[g.mes_asignado].total += parseFloat(g.monto_cuota_usd);
     return acc;
@@ -87,14 +87,14 @@ export default function Cierres() {
     if (data.metodo_division === 'Alicuota') {
       const alicuota = parseFloat(simulacionAlicuota) || 0;
       return (total * (alicuota / 100)).toFixed(2);
-    } else return "N/A"; 
+    } else return "N/A";
   };
 
   if (loading) return <p className="p-6 text-gray-500 dark:text-gray-400">Cargando datos contables...</p>;
 
   return (
     <div className="space-y-6 relative">
-      
+
       {!canCloseMonth && (
         <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded-xl shadow-sm flex items-start gap-3">
           <span className="text-2xl">🔒</span>
@@ -107,12 +107,12 @@ export default function Cierres() {
 
       {/* SECCIÓN RESUMEN MES ACTUAL Y SIMULADOR INTELIGENTE */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        
+
         {/* TARJETA TOTAL */}
         <div className="bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col justify-center border-l-4 border-l-donezo-primary md:col-span-1">
           <p className="text-gray-500 dark:text-gray-400 font-medium uppercase text-xs tracking-wider">Cobro Oficial del Mes</p>
           <h2 className="text-3xl font-bold text-gray-800 dark:text-white capitalize mb-4">{data.mes_texto}</h2>
-          
+
           <p className="text-gray-500 dark:text-gray-400 font-medium uppercase text-xs tracking-wider">Total a Repartir</p>
           <h2 className="text-4xl font-black text-red-500">${data.total_usd}</h2>
         </div>
@@ -120,7 +120,7 @@ export default function Cierres() {
         {/* WIDGET DEL SIMULADOR (COMBOBOX) */}
         <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-2xl border border-blue-100 dark:border-blue-800 flex flex-col justify-center md:col-span-2">
           <p className="text-blue-800 dark:text-blue-300 font-bold mb-4 text-sm uppercase">🔍 Simulador de Cuota ({data.mes_texto})</p>
-          
+
           <div className="flex flex-col sm:flex-row gap-4 items-center">
             {data.metodo_division === 'Alicuota' ? (
               <>
@@ -140,29 +140,29 @@ export default function Cierres() {
                     placeholder="Ej: Apto 12, V123..."
                     className="p-2.5 rounded-xl border border-blue-200 bg-white dark:bg-gray-800 dark:border-blue-800 outline-none focus:ring-2 focus:ring-blue-400 w-full text-sm dark:text-white"
                   />
-                  
+
                   {/* LISTA DESPLEGABLE DEL COMBOBOX */}
                   {showDropdown && searchProp && (
                     <ul className="absolute z-50 w-full bg-white dark:bg-gray-800 border border-blue-100 dark:border-blue-700 rounded-xl shadow-2xl max-h-48 overflow-y-auto mt-2 custom-scrollbar">
                       {propiedades
                         .filter(p => p.identificador.toLowerCase().includes(searchProp.toLowerCase()) || (p.prop_cedula && p.prop_cedula.toLowerCase().includes(searchProp.toLowerCase())))
                         .map(p => (
-                        <li
-                          key={p.id}
-                          className="p-3 hover:bg-blue-50 dark:hover:bg-blue-900/30 cursor-pointer border-b border-gray-50 dark:border-gray-700/50 last:border-0 transition-colors"
-                          onClick={() => {
-                            setSearchProp(`${p.identificador} (${p.prop_nombre || 'Sin Propietario'})`);
-                            setSimulacionAlicuota(p.alicuota);
-                            setShowDropdown(false);
-                          }}
-                        >
-                          <div className="flex justify-between items-center">
-                            <strong className="text-gray-800 dark:text-white text-sm">{p.identificador}</strong>
-                            <span className="text-xs font-bold text-donezo-primary">{p.alicuota}%</span>
-                          </div>
-                          <p className="text-xs text-gray-500 mt-0.5 dark:text-gray-400">{p.prop_cedula || 'Sin ID'} - {p.prop_nombre || 'Desconocido'}</p>
-                        </li>
-                      ))}
+                          <li
+                            key={p.id}
+                            className="p-3 hover:bg-blue-50 dark:hover:bg-blue-900/30 cursor-pointer border-b border-gray-50 dark:border-gray-700/50 last:border-0 transition-colors"
+                            onClick={() => {
+                              setSearchProp(`${p.identificador} (${p.prop_nombre || 'Sin Propietario'})`);
+                              setSimulacionAlicuota(p.alicuota);
+                              setShowDropdown(false);
+                            }}
+                          >
+                            <div className="flex justify-between items-center">
+                              <strong className="text-gray-800 dark:text-white text-sm">{p.identificador}</strong>
+                              <span className="text-xs font-bold text-donezo-primary">{p.alicuota}%</span>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-0.5 dark:text-gray-400">{p.prop_cedula || 'Sin ID'} - {p.prop_nombre || 'Desconocido'}</p>
+                          </li>
+                        ))}
                       {propiedades.filter(p => p.identificador.toLowerCase().includes(searchProp.toLowerCase()) || (p.prop_cedula && p.prop_cedula.toLowerCase().includes(searchProp.toLowerCase()))).length === 0 && (
                         <li className="p-3 text-sm text-gray-500 text-center dark:text-gray-400">No se encontraron resultados.</li>
                       )}
@@ -173,12 +173,12 @@ export default function Cierres() {
                 {/* 2. SELECTOR MANUAL DE ALÍCUOTA */}
                 <div className="w-full sm:w-1/4">
                   <label className="text-xs text-blue-700 dark:text-blue-300 block mb-1 font-bold">Alícuota Manual</label>
-                  <select 
-                    value={simulacionAlicuota} 
+                  <select
+                    value={simulacionAlicuota}
                     onChange={(e) => {
                       setSimulacionAlicuota(e.target.value);
                       setSearchProp(''); // Si usa el manual, limpiamos el buscador
-                    }} 
+                    }}
                     className="p-2.5 rounded-xl border border-blue-200 bg-white dark:bg-gray-800 dark:border-blue-800 outline-none w-full text-sm font-bold dark:text-white"
                   >
                     {data.alicuotas_disponibles.map((a, i) => <option key={i} value={a}>{a}%</option>)}
@@ -241,7 +241,7 @@ export default function Cierres() {
             {mesesFuturos.map(mes => (
               <div key={mes} className="bg-gray-50 dark:bg-gray-800/50 p-5 rounded-2xl border border-gray-200 dark:border-gray-700 opacity-80 hover:opacity-100 transition-opacity">
                 <h4 className="font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider text-xs mb-3">{formatMonthText(mes)}</h4>
-                
+
                 <div className="space-y-3 mb-4 h-32 overflow-y-auto pr-1 custom-scrollbar">
                   {proyecciones[mes].items.map((item, idx) => (
                     <div key={idx} className="bg-white dark:bg-gray-800 p-2 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 text-xs">
@@ -260,18 +260,18 @@ export default function Cierres() {
                     <span className="text-gray-500 font-bold uppercase dark:text-gray-400">Total del Mes:</span>
                     <span className="font-black text-gray-800 dark:text-white text-sm">${proyecciones[mes].total.toFixed(2)}</span>
                   </div>
-                  
+
                   {/* AQUÍ SE REFLEJA Y PERMITE EDITAR LA ALÍCUOTA SELECCIONADA */}
                   {data.metodo_division === 'Alicuota' && simulacionAlicuota && (
                     <div className="flex flex-col gap-1.5 bg-blue-50 dark:bg-blue-900/30 p-2 rounded-lg border border-blue-100 dark:border-blue-800">
                       <div className="flex justify-between items-center">
                         <span className="text-xs font-bold text-blue-700 dark:text-blue-300">Alícuota:</span>
-                        <select 
-                          value={simulacionAlicuota} 
+                        <select
+                          value={simulacionAlicuota}
                           onChange={(e) => {
                             setSimulacionAlicuota(e.target.value);
                             setSearchProp('');
-                          }} 
+                          }}
                           className="px-1 py-0.5 rounded border border-blue-200 bg-white dark:bg-gray-800 dark:border-blue-700 outline-none text-xs font-bold text-blue-700 dark:text-blue-300"
                         >
                           {data.alicuotas_disponibles.map((a, i) => <option key={i} value={a}>{a}%</option>)}
@@ -296,7 +296,7 @@ export default function Cierres() {
       {/* MODAL DETALLES */}
       {selectedGasto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-           <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 relative">
+          <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 relative">
             <button onClick={() => setSelectedGasto(null)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl">✕</button>
             <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Inspección de Gasto</h3>
             <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">

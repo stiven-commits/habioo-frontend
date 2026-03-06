@@ -40,7 +40,8 @@ export default function Layout() {
     '/inmuebles': 'Directorio de Inmuebles',
     '/cuentas-cobrar': 'Cuentas por Cobrar',
     '/bancos': 'Cuentas Bancarias',
-    '/zonas': 'Áreas / Sectores'
+    '/zonas': 'Áreas / Sectores',
+    '/avisos-cobro': 'Avisos y Recibos'
   };
 
   const navClass = (path) => `block py-3 px-4 rounded-xl transition-all duration-200 font-medium ${
@@ -68,7 +69,7 @@ export default function Layout() {
               <p className="px-4 text-xs font-bold text-gray-400 uppercase mt-6 mb-2">Contabilidad</p>
               <Link to="/gastos" className={navClass('/gastos')}>🧾 Gastos</Link>
               <Link to="/cierres" className={navClass('/cierres')}>🔒 Cierres Preliminares</Link>
-              <Link to="/historial-recibos" className={navClass('/historial-recibos')}>🗂️ Historial Recibos</Link>
+              <Link to="/avisos-cobro" className={navClass('/avisos-cobro')}>🗂️ Avisos y Recibos</Link>
               <Link to="/cuentas-cobrar" className={navClass('/cuentas-cobrar')}>💰 Cobranza</Link>
             </>
           )}

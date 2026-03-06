@@ -1,4 +1,4 @@
-﻿import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import Login from './pages/Login'; // <--- Importamos el archivo nuevo
 import DashboardHome from './pages/DashboardHome';
@@ -9,7 +9,7 @@ import Propiedades from './pages/Propiedades';
 import CuentasPorCobrar from './pages/CuentasPorCobrar';
 import Bancos from './pages/Bancos';
 import Zonas from './pages/Zonas';
-import HistorialRecibos from './pages/HistorialRecibos';
+import HistorialAvisos from './pages/HistorialAvisos';
 
 export default function App() {
   return (
@@ -28,7 +28,7 @@ export default function App() {
           <Route path="/cuentas-cobrar" element={<CuentasPorCobrar />} />
           <Route path="/bancos" element={<Bancos />} />
           <Route path="/zonas" element={<Zonas />} />
-          <Route path="/historial-recibos" element={<HistorialRecibos />} />
+          <Route path="/avisos-cobro" element={<HistorialAvisos />} />
         </Route>
       </Routes>
     </BrowserRouter>
