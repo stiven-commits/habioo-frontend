@@ -28,7 +28,8 @@ export default function Gastos() {
 
   const [form, setForm] = useState({
     proveedor_id: '', concepto: '', monto_bs: '', tasa_cambio: '', total_cuotas: '1', nota: '',
-    zona_id: ''
+    zona_id: '',
+    fecha_gasto: new Date().toISOString().split('T')[0] // Por defecto, hoy
   });
 
   const fetchData = async () => {
@@ -152,7 +153,10 @@ export default function Gastos() {
     const data = await res.json();
     if (data.status === 'success') {
       alert(data.message);
-      setForm({ proveedor_id: '', concepto: '', monto_bs: '', tasa_cambio: '', total_cuotas: '1', nota: '', zona_id: '' });
+      setForm({
+        proveedor_id: '', concepto: '', monto_bs: '', tasa_cambio: '', total_cuotas: '1', nota: '', zona_id: '',
+        fecha_gasto: new Date().toISOString().split('T')[0]
+      });
       setIsModalOpen(false);
       fetchData();
     } else {
@@ -173,7 +177,8 @@ export default function Gastos() {
   };
 
   if (userRole !== 'Administrador') return <p className="p-6">No tienes permisos.</p>;
-
+// Límite de fecha (Hoy)
+  const todayString = new Date().toISOString().split('T')[0];
   return (
     <div className="space-y-6 relative">
       {/* CABECERA */}
@@ -219,77 +224,84 @@ export default function Gastos() {
             <>
               <div className="overflow-x-auto min-h-[300px]">
                 <table className="w-full text-left border-collapse select-none">
-  <thead>
-    <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500">
-      <th className="p-3 w-10"></th>
-      <th className="p-3">Cargado</th>
-      <th className="p-3">Proveedor</th>
-      <th className="p-3">Concepto</th>
-      <th className="p-3 text-center">Cuotas</th>
-      <th className="p-3 text-right">Por Pagar</th> {/* NUEVA COLUMNA */}
-      <th className="p-3 text-right">Monto Total</th>
-      <th className="p-3 text-center">Acciones</th>
-    </tr>
-  </thead>
-  <tbody>
-    {paginatedGastos.map((g) => (
-      <React.Fragment key={g.gasto_id}>
-        <tr onDoubleClick={() => setSelectedGasto(g)} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors">
-          <td className="p-3 text-center" onClick={(e) => toggleRow(g.gasto_id, e)}>
-            <button className="text-gray-400 hover:text-donezo-primary transition-colors text-lg">
-              {expandedRows[g.gasto_id] ? '?' : '?'}
-            </button>
-          </td>
-          <td className="p-3 text-gray-500 text-sm">{g.fecha}</td>
-          <td className="p-3 font-bold text-gray-800 dark:text-gray-300">{g.proveedor}</td>
-          <td className="p-3">
-            <div className="text-gray-600 dark:text-gray-400 truncate max-w-[200px]" title={g.concepto}>{g.concepto}</div>
-            {g.tipo === 'No Comun' && (
-              <span className="inline-block mt-1 bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                Zona: {g.zona_nombre || 'Específica'}
-              </span>
-            )}
-          </td>
-          <td className="p-3 text-center">
-            <span className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 py-1 px-3 rounded-full text-xs font-bold">
-              {g.total_cuotas} Mes{g.total_cuotas > 1 ? 'es' : ''}
-            </span>
-          </td>
-          {/* NUEVA CELDA: POR PAGAR */}
-          <td className="p-3 text-right font-medium text-orange-400 dark:text-orange-300">
-             {/* Calculamos el saldo del padre sumando los hijos pendientes si queremos, o usamos el dato directo */}
-             {/* Usaremos el dato de la primera cuota visible ya que el backend lo calcula por fila */}
-             ${parseFloat(g.cuotas[0]?.saldo_pendiente || 0).toFixed(2)}
-          </td>
-          <td className="p-3 text-right font-bold text-gray-800 dark:text-white">${g.monto_total_usd}</td>
-          <td className="p-3 text-center">
-            {g.canDelete ? (
-              <button onClick={(e) => handleDelete(g.gasto_id, e)} className="text-red-400 hover:text-red-600 p-2" title="Eliminar">???</button>
-            ) : <span className="text-gray-300 cursor-not-allowed" title="Bloqueado">??</span>}
-          </td>
-        </tr>
-        
-        {/* FILAS HIJAS (Desglose) */}
-        {expandedRows[g.gasto_id] && g.cuotas.map((c) => (
-          <tr key={c.cuota_id} className="bg-gray-50/50 dark:bg-gray-800/30 border-b border-gray-50 dark:border-gray-800/50">
-            <td className="p-3 border-l-2 border-donezo-primary"></td>
-            <td className="p-3 text-gray-500 text-sm" colSpan="2">↳ Cobro en: <strong>{formatMonthText(c.mes_asignado)}</strong></td>
-            <td className="p-3 text-gray-500 text-sm">Fracción {c.numero_cuota}/{g.total_cuotas}</td>
-            <td className="p-3 text-center"><span className="text-xs font-bold bg-white dark:bg-gray-700 px-2 py-1 rounded">{c.estado}</span></td>
-            
-            {/* SALDO DE LA CUOTA INDIVIDUAL (Lo que falta después de pagar esta) */}
-            <td className="p-3 text-right text-gray-400 text-xs">
-               Restan: ${(parseFloat(c.saldo_pendiente)).toFixed(2)}
-            </td>
+                  <thead>
+                    <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500">
+                      <th className="p-3 w-10"></th>
+                      <th className="p-3">Fechas</th>
+                      <th className="p-3">Proveedor</th>
+                      <th className="p-3">Concepto</th>
+                      <th className="p-3 text-center">Cuotas</th>
+                      <th className="p-3 text-right">Por Pagar</th>
+                      <th className="p-3 text-right">Monto Total</th>
+                      <th className="p-3 text-center">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedGastos.map((g) => (
+                      <React.Fragment key={g.gasto_id}>
+                        <tr onDoubleClick={() => setSelectedGasto(g)} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors">
+                          <td className="p-3 text-center" onClick={(e) => toggleRow(g.gasto_id, e)}>
+                            <button className="text-gray-400 hover:text-donezo-primary transition-colors text-lg">
+                              {expandedRows[g.gasto_id] ? '▼' : '▶'}
+                            </button>
+                          </td>
+                          
+                          {/* AQUÍ ESTÁ LA CELDA DE FECHAS CORREGIDA (Ya no hay otra celda de fecha suelta) */}
+                          <td className="p-3">
+                            <span className="block text-xs font-bold text-gray-800 dark:text-gray-300" title="Fecha de Factura">📄 {g.fecha_factura || 'N/A'}</span>
+                            <span className="block text-[10px] text-gray-400" title="Fecha de Registro en Sistema">💻 {g.fecha_registro}</span>
+                          </td>
+                          
+                          <td className="p-3 font-bold text-gray-800 dark:text-gray-300">{g.proveedor}</td>
+                          
+                          <td className="p-3">
+                            <div className="text-gray-600 dark:text-gray-400 truncate max-w-[200px]" title={g.concepto}>{g.concepto}</div>
+                            {g.tipo === 'No Comun' && (
+                              <span className="inline-block mt-1 bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                                Zona: {g.zona_nombre || 'Específica'}
+                              </span>
+                            )}
+                          </td>
+                          
+                          <td className="p-3 text-center">
+                            <span className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 py-1 px-3 rounded-full text-xs font-bold">
+                              {g.total_cuotas} Mes{g.total_cuotas > 1 ? 'es' : ''}
+                            </span>
+                          </td>
+                          
+                          <td className="p-3 text-right font-medium text-orange-400 dark:text-orange-300">
+                            ${parseFloat(g.cuotas[0]?.saldo_pendiente || 0).toFixed(2)}
+                          </td>
+                          
+                          <td className="p-3 text-right font-bold text-gray-800 dark:text-white">${g.monto_total_usd}</td>
+                          
+                          <td className="p-3 text-center">
+                            {g.canDelete ? (
+                              <button onClick={(e) => handleDelete(g.gasto_id, e)} className="text-red-400 hover:text-red-600 p-2" title="Eliminar">🗑️</button>
+                            ) : <span className="text-gray-300 cursor-not-allowed" title="Bloqueado">🔒</span>}
+                          </td>
+                        </tr>
+                        
+                        {/* FILAS HIJAS (Desglose de Cuotas) */}
+                        {expandedRows[g.gasto_id] && g.cuotas.map((c) => (
+                          <tr key={c.cuota_id} className="bg-gray-50/50 dark:bg-gray-800/30 border-b border-gray-50 dark:border-gray-800/50">
+                            <td className="p-3 border-l-2 border-donezo-primary"></td>
+                            <td className="p-3 text-gray-500 text-sm" colSpan="2">↳ Cobro en: <strong>{formatMonthText(c.mes_asignado)}</strong></td>
+                            <td className="p-3 text-gray-500 text-sm">Fracción {c.numero_cuota}/{g.total_cuotas}</td>
+                            <td className="p-3 text-center"><span className="text-xs font-bold bg-white dark:bg-gray-700 px-2 py-1 rounded">{c.estado}</span></td>
+                            
+                            <td className="p-3 text-right text-gray-400 text-xs">
+                              Restan: ${(parseFloat(c.saldo_pendiente)).toFixed(2)}
+                            </td>
 
-            <td className="p-3 text-right text-gray-600 dark:text-gray-400 font-medium">${c.monto_cuota_usd}</td>
-            <td></td>
-          </tr>
-        ))}
-      </React.Fragment>
-    ))}
-  </tbody>
-</table>
+                            <td className="p-3 text-right text-gray-600 dark:text-gray-400 font-medium">${c.monto_cuota_usd}</td>
+                            <td></td>
+                          </tr>
+                        ))}
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
               </div>
 
               {/* CONTROLES DE PAGINACIÓN */}
@@ -337,9 +349,24 @@ export default function Gastos() {
                 </select>
               </div>
 
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Concepto <span className="text-red-500">*</span></label>
-                <input type="text" name="concepto" value={form.concepto} onChange={handleChange} placeholder="Ej: Reparación de tubería..." required className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none dark:text-white" />
+              {/* Concepto y Fecha */}
+              <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Concepto <span className="text-red-500">*</span></label>
+                  <input type="text" name="concepto" value={form.concepto} onChange={handleChange} placeholder="Ej: Reparación de tubería..." required className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none dark:text-white" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha Factura <span className="text-red-500">*</span></label>
+                    <input 
+                      type="date" 
+                      name="fecha_gasto" 
+                      value={form.fecha_gasto} 
+                      onChange={handleChange} 
+                      max={todayString} /* ESTA ES LA MAGIA QUE BLOQUEA EL FUTURO */
+                      required 
+                      className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none dark:text-white" 
+                    />
+                </div>
               </div>
 
               <div>
@@ -454,5 +481,4 @@ export default function Gastos() {
     </div>
   );
 }
-
 
