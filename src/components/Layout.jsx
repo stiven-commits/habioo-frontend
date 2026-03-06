@@ -64,8 +64,8 @@ export default function Layout() {
               <Link to="/bancos" className={navClass('/bancos')}>💳 Cuentas Bancarias</Link>
               <Link to="/zonas" className={navClass('/zonas')}>🏢 Áreas / Sectores</Link>
               <Link to="/inmuebles" className={navClass('/inmuebles')}>🏠 Inmuebles</Link>
-              <p className="px-4 text-xs font-bold text-gray-400 uppercase mt-6 mb-2">Contabilidad</p>
               <Link to="/proveedores" className={navClass('/proveedores')}>🤝 Proveedores</Link>
+              <p className="px-4 text-xs font-bold text-gray-400 uppercase mt-6 mb-2">Contabilidad</p>
               <Link to="/gastos" className={navClass('/gastos')}>🧾 Gastos</Link>
               <Link to="/cierres" className={navClass('/cierres')}>🔒 Cierres Preliminares</Link>
               <Link to="/historial-recibos" className={navClass('/historial-recibos')}>🗂️ Historial Recibos</Link>
