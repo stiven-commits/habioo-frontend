@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 
 export default function Layout() {
@@ -40,7 +40,7 @@ export default function Layout() {
     '/inmuebles': 'Directorio de Inmuebles',
     '/cuentas-cobrar': 'Cuentas por Cobrar',
     '/bancos': 'Cuentas Bancarias',
-    '/zonas': 'Zonificación'
+    '/zonas': 'Áreas / Sectores'
   };
 
   const navClass = (path) => `block py-3 px-4 rounded-xl transition-all duration-200 font-medium ${
@@ -62,7 +62,7 @@ export default function Layout() {
             <>
               <p className="px-4 text-xs font-bold text-gray-400 uppercase mt-6 mb-2">Configuración</p>
               <Link to="/bancos" className={navClass('/bancos')}>💳 Cuentas Bancarias</Link>
-              <Link to="/zonas" className={navClass('/zonas')}>🏢 Zonas / Etapas</Link>
+              <Link to="/zonas" className={navClass('/zonas')}>🏢 Áreas / Sectores</Link>
               <Link to="/inmuebles" className={navClass('/inmuebles')}>🏠 Inmuebles</Link>
               <p className="px-4 text-xs font-bold text-gray-400 uppercase mt-6 mb-2">Contabilidad</p>
               <Link to="/proveedores" className={navClass('/proveedores')}>🤝 Proveedores</Link>

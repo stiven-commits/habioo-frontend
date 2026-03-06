@@ -150,10 +150,10 @@ export default function Propiedades() {
                 {filteredProps.map(p => (
                   <tr key={p.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                     <td className="p-3 font-bold text-gray-800 dark:text-white">{p.identificador}</td>
-                    <td className="p-3 text-right font-mono text-donezo-primary">{p.alicuota}%</td>
+                    <td className="p-3 text-right font-mono text-donezo-primary dark:text-green-400">{p.alicuota}%</td>
                     <td className="p-3">
                       <div className="font-medium text-gray-800 dark:text-gray-300">{p.prop_nombre}</div>
-                      <div className="text-xs text-gray-400">{p.prop_cedula}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">{p.prop_cedula}</div>
                     </td>
                     <td className="p-3 text-sm text-gray-600 dark:text-gray-400">
                       <div>{p.prop_telefono || '-'}</div>
@@ -189,7 +189,7 @@ export default function Propiedades() {
               
               {/* SECCIÓN 1: EL APARTAMENTO */}
               <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
-                <h4 className="font-bold text-donezo-primary mb-3">1. Datos del Inmueble</h4>
+                <h4 className="font-bold text-donezo-primary dark:text-green-400 mb-3">1. Datos del Inmueble</h4>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Identificador <span className="text-red-500">*</span></label>
@@ -204,7 +204,7 @@ export default function Propiedades() {
 
               {/* SECCIÓN 2: EL PROPIETARIO */}
               <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
-                <h4 className="font-bold text-blue-600 mb-3">2. Datos del Propietario (Login)</h4>
+                <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-3">2. Datos del Propietario (Login)</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cédula (Usuario) <span className="text-red-500">*</span></label>

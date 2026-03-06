@@ -99,7 +99,7 @@ export default function Zonas() {
   };
 
   const handleDelete = async (id) => {
-    if(!confirm("¿Estás seguro de eliminar esta zona permanentemente?")) return;
+    if(!confirm("¿Estás seguro de eliminar esta área / sector permanentemente?")) return;
     const token = localStorage.getItem('habioo_token');
     const res = await fetch(`https://auth.habioo.cloud/zonas/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
     const data = await res.json();
@@ -111,7 +111,7 @@ export default function Zonas() {
   const toggleStatus = async (zona) => {
     const nuevoEstado = !zona.activa;
     const accion = nuevoEstado ? "ACTIVAR" : "DESACTIVAR";
-    if(!confirm(`¿Deseas ${accion} la zona "${zona.nombre}" para futuros gastos?`)) return;
+    if(!confirm(`¿Deseas ${accion} el área / sector "${zona.nombre}" para futuros gastos?`)) return;
 
     // Reutilizamos el endpoint PUT
     const token = localStorage.getItem('habioo_token');
@@ -132,8 +132,8 @@ export default function Zonas() {
   return (
     <div className="space-y-6 relative">
       <div className="flex justify-between items-center bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
-        <h3 className="text-xl font-bold text-gray-800 dark:text-white">🏢 Zonificación del Condominio</h3>
-        <button onClick={handleCreate} className="bg-donezo-primary hover:bg-green-700 text-white font-bold py-2 px-6 rounded-xl transition-all shadow-lg shadow-green-500/30">+ Crear Zona</button>
+        <h3 className="text-xl font-bold text-gray-800 dark:text-white">🏢 Áreas / Sectores del Condominio</h3>
+        <button onClick={handleCreate} className="bg-donezo-primary hover:bg-green-700 text-white font-bold py-2 px-6 rounded-xl transition-all shadow-lg shadow-green-500/30">+ Crear Área / Sector</button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -155,7 +155,7 @@ export default function Zonas() {
                   <button 
                     onClick={() => toggleStatus(z)} 
                     className={`p-2 rounded-lg font-bold text-xs ${z.activa ? 'text-orange-500 hover:bg-orange-50' : 'text-green-500 hover:bg-green-50'}`}
-                    title={z.activa ? "Desactivar para nuevos gastos" : "Reactivar zona"}
+                    title={z.activa ? "Desactivar para nuevos gastos" : "Reactivar área / sector"}
                   >
                     {z.activa ? '⛔' : '✅'}
                   </button>
@@ -189,14 +189,14 @@ export default function Zonas() {
           <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-2xl shadow-2xl h-[85vh] flex flex-col border border-gray-100 dark:border-gray-700">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-2xl font-bold text-gray-800 dark:text-white">
-                {editingId ? '✏️ Editar Zona' : '🏢 Nueva Zona'}
+                {editingId ? '✏️ Editar Área / Sector' : '🏢 Nueva Área / Sector'}
               </h3>
               <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-red-500 text-xl">✕</button>
             </div>
             
             <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
               <div className="mb-4">
-                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Nombre de la Zona</label>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Nombre del Área / Sector</label>
                 <input 
                   type="text" 
                   value={form.nombre} 
@@ -211,14 +211,14 @@ export default function Zonas() {
                 <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-xl mb-4 border border-yellow-200 dark:border-yellow-800 flex items-start gap-2">
                   <span className="text-yellow-600">⚠️</span>
                   <p className="text-xs text-yellow-800 dark:text-yellow-200">
-                    No puedes modificar los apartamentos de esta zona porque ya tiene gastos contables asociados. Solo puedes cambiar el nombre o desactivarla.
+                    No puedes modificar los apartamentos de esta área / sector porque ya tiene gastos contables asociados. Solo puedes cambiar el nombre o desactivarla.
                   </p>
                 </div>
               )}
 
               <div className={`flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700 ${hasGastos && editingId ? 'opacity-50 pointer-events-none' : ''}`}>
                 <div className="flex justify-between items-center mb-3">
-                  <p className="text-sm font-bold text-gray-500 dark:text-gray-400">Inmuebles en esta zona:</p>
+                  <p className="text-sm font-bold text-gray-500 dark:text-gray-400">Inmuebles en esta área / sector:</p>
                   <span className="text-xs text-donezo-primary font-bold">{form.propiedades_ids.length} seleccionados</span>
                 </div>
                 
@@ -244,7 +244,7 @@ export default function Zonas() {
               <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 flex justify-end gap-3">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-3 rounded-xl bg-gray-100 dark:bg-gray-800 dark:text-gray-300 font-medium hover:bg-gray-200 transition-colors">Cancelar</button>
                 <button type="submit" className="px-6 py-3 rounded-xl bg-donezo-primary text-white font-bold hover:bg-green-700 shadow-md transition-all transform hover:scale-105">
-                  {editingId ? 'Guardar Cambios' : 'Crear Zona'}
+                  {editingId ? 'Guardar Cambios' : 'Crear Área / Sector'}
                 </button>
               </div>
             </form>
