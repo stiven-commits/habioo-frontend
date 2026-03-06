@@ -127,14 +127,14 @@ export default function Proveedores() {
 
       <div className="bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
         {loading ? (
-          <p className="text-gray-500">Cargando directorio...</p>
+          <p className="text-gray-500 dark:text-gray-400">Cargando directorio...</p>
         ) : filteredProveedores.length === 0 ? (
-          <p className="text-gray-500 text-center py-4">No se encontraron proveedores.</p>
+          <p className="text-gray-500 text-center py-4 dark:text-gray-400">No se encontraron proveedores.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500">
+                <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400">
                   <th className="p-3">RIF / Identificador</th>
                   <th className="p-3">Nombre</th>
                   <th className="p-3">Teléfonos</th>

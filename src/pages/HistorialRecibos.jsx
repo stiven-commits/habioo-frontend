@@ -172,12 +172,12 @@ export default function HistorialRecibos() {
 
       {/* TABLA */}
       <div className="bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
-        {loading ? <p className="text-gray-500">Cargando...</p> : filteredRecibos.length === 0 ? <p className="text-gray-500 text-center py-4">No hay recibos emitidos.</p> : (
+        {loading ? <p className="text-gray-500 dark:text-gray-400">Cargando...</p> : filteredRecibos.length === 0 ? <p className="text-gray-500 text-center py-4 dark:text-gray-400">No hay recibos emitidos.</p> : (
           <>
             <div className="overflow-x-auto min-h-[400px]">
               <table className="w-full text-left border-collapse select-none">
                 <thead>
-                  <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 text-sm">
+                  <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 text-sm dark:text-gray-400">
                     <th className="p-3">Recibo</th>
                     <th className="p-3">Inmueble</th>
                     <th className="p-3">Propietario</th>
@@ -191,7 +191,7 @@ export default function HistorialRecibos() {
                     <tr key={r.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-sm">
                       <td className="p-3">
                         <span className="font-mono text-gray-400 block">#{r.id}</span>
-                        <span className="text-xs text-gray-500">{r.fecha}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">{r.fecha}</span>
                       </td>
                       <td className="p-3 font-bold text-gray-800 dark:text-white">
                         {r.apto}
@@ -236,12 +236,12 @@ export default function HistorialRecibos() {
             <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl mb-4 text-center">
               <p className="text-xs text-blue-600 dark:text-blue-300 mb-1">Deuda Total</p>
               <p className="text-2xl font-black text-blue-800 dark:text-blue-200">${showPayModal.monto_usd}</p>
-              <p className="text-xs text-gray-500">{showPayModal.apto} - {showPayModal.mes_cobro}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{showPayModal.apto} - {showPayModal.mes_cobro}</p>
             </div>
 
             <form onSubmit={handleSubmitPago} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Cuenta Destino</label>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Cuenta Destino</label>
                 <select name="cuenta_id" value={formPago.cuenta_id} onChange={handlePagoChange} className="w-full p-3 rounded-xl border bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none" required>
                   <option value="">Seleccione Banco...</option>
                   {bancos.map(b => (
@@ -252,12 +252,12 @@ export default function HistorialRecibos() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Monto Pagado</label>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Monto Pagado</label>
                   <input type="text" name="monto_origen" value={formPago.monto_origen} onChange={handlePagoChange} placeholder="0,00" className="w-full p-3 rounded-xl border dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none" required />
                 </div>
                 {requiresTasa && (
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tasa Cambio</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Tasa Cambio</label>
                     <input type="text" name="tasa_cambio" value={formPago.tasa_cambio} onChange={handlePagoChange} placeholder="0,00" className="w-full p-3 rounded-xl border dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none" required />
                   </div>
                 )}
@@ -288,7 +288,7 @@ export default function HistorialRecibos() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
            <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-8 w-full max-w-lg shadow-2xl text-center">
              <h3 className="font-bold text-gray-800 dark:text-white mb-4">Vista Previa</h3>
-             <p className="text-gray-500 mb-6">Recibo #{showPrintModal.id}</p>
+             <p className="text-gray-500 mb-6 dark:text-gray-400">Recibo #{showPrintModal.id}</p>
              <button onClick={() => setShowPrintModal(null)} className="px-6 py-2 bg-gray-200 rounded-xl font-bold">Cerrar</button>
            </div>
         </div>

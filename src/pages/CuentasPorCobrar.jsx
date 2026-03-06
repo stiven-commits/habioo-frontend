@@ -31,11 +31,11 @@ export default function CuentasPorCobrar() {
       case 'Validado':
         return <span className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 py-1 px-3 rounded-full text-xs font-bold">Pagado y Validado</span>;
       default:
-        return <span className="bg-gray-100 text-gray-800 py-1 px-3 rounded-full text-xs font-bold">{estado}</span>;
+        return <span className="bg-gray-100 text-gray-800 py-1 px-3 rounded-full text-xs font-bold dark:text-gray-200">{estado}</span>;
     }
   };
 
-  if (loading) return <p className="text-gray-500">Cargando cuentas por cobrar...</p>;
+  if (loading) return <p className="text-gray-500 dark:text-gray-400">Cargando cuentas por cobrar...</p>;
 
   return (
     <div className="space-y-6">
@@ -48,12 +48,12 @@ export default function CuentasPorCobrar() {
         </div>
 
         {recibos.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">Aún no has generado deudas para tus inmuebles.</p>
+          <p className="text-gray-500 text-center py-8 dark:text-gray-400">Aún no has generado deudas para tus inmuebles.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500">
+                <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400">
                   <th className="p-3">Recibo #</th>
                   <th className="p-3">Inmueble</th>
                   <th className="p-3">Descripción</th>
@@ -68,7 +68,7 @@ export default function CuentasPorCobrar() {
                     <td className="p-3 text-gray-400 text-sm">#{r.id.toString().padStart(4, '0')}</td>
                     <td className="p-3 font-bold text-gray-800 dark:text-white">{r.inmueble}</td>
                     <td className="p-3 text-gray-600 dark:text-gray-400 capitalize">{r.ciclo}</td>
-                    <td className="p-3 text-gray-500 text-sm">{r.fecha}</td>
+                    <td className="p-3 text-gray-500 text-sm dark:text-gray-400">{r.fecha}</td>
                     <td className="p-3">{getStatusBadge(r.estado)}</td>
                     <td className="p-3 text-right font-bold text-red-500">${r.monto_usd}</td>
                   </tr>

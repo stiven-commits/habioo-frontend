@@ -74,7 +74,7 @@ export default function Bancos() {
 
   // Función para renderizar el ícono de flecha en los Select
   const SelectIcon = () => (
-    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
+    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500 dark:text-gray-400">
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
       </svg>
@@ -90,7 +90,7 @@ export default function Bancos() {
           
           {/* 1. SELECTOR DE TIPO (Con nuevo diseño) */}
           <div className="md:col-span-3">
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 ml-1">Tipo de Método</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 ml-1 dark:text-gray-400">Tipo de Método</label>
             <div className="relative">
               <select 
                 value={form.tipo} 
@@ -106,7 +106,7 @@ export default function Bancos() {
           {/* 2. BANCO (Selector Venezolano con nuevo diseño) */}
           {isVenBank && (
             <div className="md:col-span-3">
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 ml-1">Banco Destino</label>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 ml-1 dark:text-gray-400">Banco Destino</label>
               <div className="relative">
                 <select 
                   value={form.nombre_banco} 
@@ -125,7 +125,7 @@ export default function Bancos() {
           {/* 3. DATOS DE CUENTA / CORREO / TELÉFONO */}
           {!isCash && (
             <div className={isVenBank ? "md:col-span-3" : "md:col-span-5"}>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 ml-1">
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 ml-1 dark:text-gray-400">
                 {isDigital ? 'Correo / Teléfono' : form.tipo === 'Pago Móvil' ? 'Datos (Teléfono, Cédula)' : 'Número de Cuenta'}
               </label>
               <input 
@@ -142,7 +142,7 @@ export default function Bancos() {
           {/* 4. ETIQUETA (Ocupa el espacio restante) */}
           <div className={isCash ? "md:col-span-9 flex gap-3" : "md:col-span-3 flex gap-3"}>
             <div className="flex-1">
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 ml-1">Etiqueta</label>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 ml-1 dark:text-gray-400">Etiqueta</label>
               <input 
                 type="text" 
                 placeholder="Ej: Principal, Caja Chica..." 
@@ -180,7 +180,7 @@ export default function Bancos() {
               )}
 
               {!b.tipo.includes('Efectivo') && (
-                <p className="text-gray-500 text-sm font-mono my-1 truncate w-full" title={b.numero_cuenta}>
+                <p className="text-gray-500 text-sm font-mono my-1 truncate w-full dark:text-gray-400" title={b.numero_cuenta}>
                   {b.numero_cuenta}
                 </p>
               )}

@@ -143,7 +143,7 @@ export default function Zonas() {
             <div className="flex justify-between items-start mb-3">
               <h4 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
                 {z.nombre}
-                {!z.activa && <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-md">Inactiva</span>}
+                {!z.activa && <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-md dark:text-gray-400">Inactiva</span>}
               </h4>
               
               <div className="flex gap-1">
@@ -218,7 +218,7 @@ export default function Zonas() {
 
               <div className={`flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700 ${hasGastos && editingId ? 'opacity-50 pointer-events-none' : ''}`}>
                 <div className="flex justify-between items-center mb-3">
-                  <p className="text-sm font-bold text-gray-500">Inmuebles en esta zona:</p>
+                  <p className="text-sm font-bold text-gray-500 dark:text-gray-400">Inmuebles en esta zona:</p>
                   <span className="text-xs text-donezo-primary font-bold">{form.propiedades_ids.length} seleccionados</span>
                 </div>
                 

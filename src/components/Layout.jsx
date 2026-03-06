@@ -74,7 +74,7 @@ export default function Layout() {
           )}
         </nav>
         <div className="p-4 border-t border-gray-100 dark:border-gray-800">
-          <button onClick={handleLogout} className="flex items-center gap-3 text-gray-500 hover:text-red-500 w-full p-2 rounded-lg"><span>🚪</span> Salir</button>
+          <button onClick={handleLogout} className="flex items-center gap-3 text-gray-500 hover:text-red-500 w-full p-2 rounded-lg dark:text-gray-400"><span>🚪</span> Salir</button>
         </div>
       </aside>
 
@@ -83,7 +83,7 @@ export default function Layout() {
         <header className="flex justify-between items-center mb-8">
           <div>
             <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{pageTitles[location.pathname] || 'Bienvenido'}</h2>
-            <p className="text-gray-500 text-sm">Hola, {user.nombre}</p>
+            <p className="text-gray-500 text-sm dark:text-gray-400">Hola, {user.nombre}</p>
           </div>
           <div className="flex items-center gap-4">
             {/* BOTÓN TEMA */}
