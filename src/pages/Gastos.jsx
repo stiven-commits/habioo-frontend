@@ -25,7 +25,8 @@ export default function Gastos() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedGasto, setSelectedGasto] = useState(null); 
   const [expandedRows, setExpandedRows] = useState({});
-  const [archivos, setArchivos] = useState([]); // <-- NUEVO ESTADO
+  const [facturaFile, setFacturaFile] = useState(null); // Para la factura (1)
+  const [soportesFiles, setSoportesFiles] = useState([]); // Para soportes (Máx 4)
   const todayString = new Date().toISOString().split('T')[0];
 
   const [form, setForm] = useState({
@@ -33,7 +34,11 @@ export default function Gastos() {
     zona_id: '',
     fecha_gasto: todayString // Por defecto, hoy
   });
-
+  // === NUEVO: CALCULADORA EN TIEMPO REAL ===
+  const montoBsNum = parseFloat(form.monto_bs.replace(/\./g, '').replace(',', '.')) || 0;
+  const tasaNum = parseFloat(form.tasa_cambio.replace(/\./g, '').replace(',', '.')) || 0;
+  const equivalenteUSD = tasaNum > 0 ? (montoBsNum / tasaNum).toFixed(2) : '0.00';
+  
   const fetchData = async () => {
     const token = localStorage.getItem('habioo_token');
     try {
@@ -149,31 +154,27 @@ export default function Gastos() {
     e.preventDefault();
     const token = localStorage.getItem('habioo_token');
     
-    // Empaquetamos todo en FormData porque llevamos imágenes
     const formData = new FormData();
-    const payload = { ...form, tipo: form.zona_id ? 'No Comun' : 'Comun' };
-    Object.keys(payload).forEach(key => formData.append(key, payload[key]));
+    Object.keys(form).forEach(key => formData.append(key, form[key]));
     
-    // Adjuntamos las fotos
-    archivos.forEach(file => formData.append('imagenes', file));
+    // Adjuntamos la Factura (Solo 1)
+    if (facturaFile) formData.append('factura_img', facturaFile);
+    
+    // Adjuntamos los Soportes Adicionales
+    soportesFiles.forEach(file => formData.append('soportes', file));
 
     const res = await fetch('https://auth.habioo.cloud/gastos', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` }, // NO PONER Content-Type, el navegador lo hace solo
+      headers: { 'Authorization': `Bearer ${token}` }, 
       body: formData
     });
 
     if (res.ok) {
-      setForm({
-        proveedor_id: '', concepto: '', monto_bs: '', tasa_cambio: '', total_cuotas: '1', nota: '', zona_id: '',
-        fecha_gasto: todayString
-      });
-      setArchivos([]); // Limpiar fotos
+      setForm({ proveedor_id: '', concepto: '', monto_bs: '', tasa_cambio: '', total_cuotas: '1', nota: '', zona_id: '', fecha_gasto: todayString });
+      setFacturaFile(null);
+      setSoportesFiles([]);
       setIsModalOpen(false);
-      fetchData();
-    } else {
-      const data = await res.json().catch(() => ({}));
-      alert(data.message || data.error || 'No se pudo registrar el gasto.');
+      fetchData(); // <--- CÁMBIALO AL NOMBRE CORRECTO (Generalmente es fetchData)
     }
   };
 
@@ -380,14 +381,24 @@ export default function Gastos() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Monto (Bs) <span className="text-red-500">*</span></label>
-                <input type="text" name="monto_bs" value={form.monto_bs} onChange={handleMonedaChange} placeholder="0,00" required className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none dark:text-white" />
-              </div>
+              {/* MONTO, TASA Y CALCULADORA */}
+              <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Monto (Bs) <span className="text-red-500">*</span></label>
+                  <input type="text" name="monto_bs" value={form.monto_bs} onChange={handleMonedaChange} placeholder="0,00" required className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none dark:text-white" />
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tasa BCV <span className="text-red-500">*</span></label>
-                <input type="text" name="tasa_cambio" value={form.tasa_cambio} onChange={handleMonedaChange} placeholder="0,00" required className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none dark:text-white" />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tasa BCV <span className="text-red-500">*</span></label>
+                  <input type="text" name="tasa_cambio" value={form.tasa_cambio} onChange={handleMonedaChange} placeholder="0,00" required className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none dark:text-white" />
+                </div>
+                
+                {/* WIDGET DEL EQUIVALENTE EN USD */}
+                <div className="md:col-span-2 flex justify-end -mt-3 mb-2">
+                   <span className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 px-4 py-1.5 rounded-lg text-sm font-bold shadow-sm border border-green-200 dark:border-green-800/50">
+                     Equivalente: ${equivalenteUSD} USD
+                   </span>
+                </div>
               </div>
 
               {/* SECCIÓN CUOTAS Y ZONAS */}
@@ -445,27 +456,43 @@ export default function Gastos() {
                 <textarea name="nota" value={form.nota} onChange={handleChange} placeholder="Detalles adicionales..." rows="2" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none dark:text-white" />
               </div>
 
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Soporte / Factura (Máx 4 fotos)
-                </label>
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={(e) => {
-                    const seleccionadas = Array.from(e.target.files);
-                    if (seleccionadas.length > 4) {
-                      alert("Solo se permiten 4 imágenes como máximo.");
-                      e.target.value = "";
-                      setArchivos([]);
-                    } else {
-                      setArchivos(seleccionadas);
-                    }
-                  }}
-                  className="w-full p-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                />
-                {archivos.length > 0 && <p className="text-xs text-green-500 mt-2 font-bold">✅ {archivos.length} imagen(es) lista(s) para subir.</p>}
+              {/* SECCIÓN DE FOTOS */}
+              <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-5 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700 mt-2">
+                {/* FACTURA PRINCIPAL */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    📸 Factura Principal (1 foto)
+                  </label>
+                  <input 
+                    type="file" 
+                    accept="image/*"
+                    onChange={(e) => setFacturaFile(e.target.files[0] || null)}
+                    className="w-full p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl outline-none dark:text-white file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 text-xs"
+                  />
+                </div>
+
+                {/* SOPORTES ADICIONALES */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">
+                    📎 Soportes Adicionales (Máx 4)
+                  </label>
+                  <input 
+                    type="file" 
+                    multiple 
+                    accept="image/*"
+                    onChange={(e) => {
+                      const seleccionadas = Array.from(e.target.files);
+                      if (seleccionadas.length > 4) {
+                          alert("Solo se permiten 4 soportes como máximo.");
+                          e.target.value = "";
+                          setSoportesFiles([]);
+                      } else {
+                          setSoportesFiles(seleccionadas);
+                      }
+                    }}
+                    className="w-full p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl outline-none dark:text-white file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 text-xs"
+                  />
+                </div>
               </div>
 
               <div className="md:col-span-2 flex justify-end gap-3 mt-2 pt-4 border-t border-gray-100 dark:border-gray-800">
@@ -477,55 +504,68 @@ export default function Gastos() {
         </div>
       )}
 
-      {/* MODAL DETALLES (IGUAL QUE ANTES) */}
+      {/* MODAL DETALLES */}
       {selectedGasto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 relative">
-            <button onClick={() => setSelectedGasto(null)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl">?</button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 relative my-8">
+            <button onClick={() => setSelectedGasto(null)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl">✕</button>
             <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Inspección de Gasto</h3>
+            
             <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
-              <p><strong className="text-gray-800 dark:text-white">Fecha:</strong> {selectedGasto.fecha}</p>
-              <p><strong className="text-gray-800 dark:text-white">Proveedor:</strong> {selectedGasto.proveedor}</p>
+              
+              {/* ENCABEZADO Y FECHAS */}
+              <div className="flex justify-between items-start border-b border-gray-100 dark:border-gray-700 pb-3">
+                <div>
+                  <p><strong className="text-gray-800 dark:text-white">Proveedor:</strong> <br/>{selectedGasto.proveedor}</p>
+                </div>
+                <div className="text-right">
+                  <span className="block text-xs text-gray-500">Factura: <strong className="text-gray-800 dark:text-gray-300">{selectedGasto.fecha_factura || 'N/A'}</strong></span>
+                  <span className="block text-[10px] text-gray-400">Sistema: {selectedGasto.fecha_registro}</span>
+                </div>
+              </div>
+              
               <p><strong className="text-gray-800 dark:text-white">Concepto:</strong> {selectedGasto.concepto}</p>
               
-              {selectedGasto.tipo === 'No Comun' && (
-                <div className="bg-purple-50 dark:bg-purple-900/20 p-2 rounded-lg border border-purple-100 dark:border-purple-800">
-                  <p className="text-purple-800 dark:text-purple-300 font-bold">?? Gasto No Común</p>
-                  <p className="text-xs">Solo aplica para: <strong>{selectedGasto.zona_nombre}</strong></p>
+              {/* DESGLOSE CONTABLE */}
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl my-2 border border-gray-200 dark:border-gray-700">
+                <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 pb-2 mb-2 text-xs">
+                   <p className="text-gray-500">Monto Base: <br/><strong className="text-gray-700 dark:text-gray-300 text-sm">Bs. {selectedGasto.monto_bs}</strong></p>
+                   <span className="text-gray-300 dark:text-gray-600">÷</span>
+                   <p className="text-right text-gray-500">Tasa Aplicada: <br/><strong className="text-gray-700 dark:text-gray-300 text-sm">Bs. {selectedGasto.tasa_cambio}</strong></p>
                 </div>
-              )}
-
-              <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-xl my-2 border border-gray-200 dark:border-gray-700">
-                <p><strong>Monto Original (Bs):</strong> {selectedGasto.monto_bs}</p>
-                <p><strong>Tasa BCV:</strong> {selectedGasto.tasa_cambio}</p>
-                <p className="text-lg mt-1"><strong className="text-donezo-primary">Total USD:</strong> ${selectedGasto.monto_total_usd}</p>
-              </div>
-              
-              <div className="mt-4 border-t border-gray-100 dark:border-gray-700 pt-4">
-                <strong className="text-gray-800 dark:text-white block mb-1">Nota Adjunta:</strong>
-                <p className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-xl italic text-gray-700 dark:text-gray-300">
-                  {selectedGasto.nota || "Sin notas adicionales."}
+                <p className="flex justify-between">
+                  <strong>Monto Total de Factura:</strong> 
+                  <span className="text-lg font-black text-gray-800 dark:text-white">${selectedGasto.monto_total_usd}</span>
                 </p>
               </div>
+
             </div>
-            {/* GALERÍA DE IMÁGENES DEL GASTO */}
-            {selectedGasto.imagenes && selectedGasto.imagenes.length > 0 && (
-              <div className="mt-4">
-                <p className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">Soportes Adjuntos</p>
-                <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-                  {selectedGasto.imagenes.map((img, idx) => (
-                    <a key={idx} href={`https://auth.habioo.cloud${img}`} target="_blank" rel="noreferrer" className="flex-shrink-0">
-                      <img
-                        src={`https://auth.habioo.cloud${img}`}
-                        alt={`Soporte ${idx + 1}`}
-                        className="w-20 h-20 object-cover rounded-lg border border-gray-200 shadow-sm hover:scale-105 transition-transform"
-                      />
-                    </a>
-                  ))}
+
+            {/* FOTOS Y SOPORTES */}
+            <div className="mt-4 space-y-4">
+              {selectedGasto.factura_img && (
+                <div>
+                  <p className="text-xs font-bold text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider">Factura Original</p>
+                  <a href={`https://auth.habioo.cloud${selectedGasto.factura_img}`} target="_blank" rel="noreferrer">
+                    <img src={`https://auth.habioo.cloud${selectedGasto.factura_img}`} alt="Factura" className="w-full h-32 object-cover rounded-xl border border-blue-200 shadow-sm hover:opacity-90 transition-opacity"/>
+                  </a>
                 </div>
-              </div>
-            )}
-            <button onClick={() => setSelectedGasto(null)} className="mt-6 w-full px-6 py-3 rounded-xl font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700 transition-all">Cerrar</button>
+              )}
+              {selectedGasto.imagenes && selectedGasto.imagenes.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">Soportes Adjuntos</p>
+                  <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                    {selectedGasto.imagenes.map((img, idx) => (
+                      <a key={idx} href={`https://auth.habioo.cloud${img}`} target="_blank" rel="noreferrer" className="flex-shrink-0">
+                        <img src={`https://auth.habioo.cloud${img}`} alt={`Soporte ${idx+1}`} className="w-20 h-20 object-cover rounded-lg border border-gray-200 shadow-sm hover:scale-105 transition-transform"/>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <button onClick={() => setSelectedGasto(null)} className="mt-6 w-full px-6 py-3 rounded-xl font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all">Cerrar</button>
           </div>
         </div>
       )}
