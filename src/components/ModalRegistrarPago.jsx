@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 
 export default function ModalRegistrarPago({ recibo, bancos, onClose, onSuccess }) {
   const [formPago, setFormPago] = useState({
@@ -100,7 +100,7 @@ export default function ModalRegistrarPago({ recibo, bancos, onClose, onSuccess 
 
   const handleSubmitPago = async (e) => {
     e.preventDefault();
-    if (!confirm(`¿Confirmar pago por $${conversionUSD}?`)) return;
+    if (!confirm(`Â¿Confirmar pago por $${conversionUSD}?`)) return;
 
     const token = localStorage.getItem('habioo_token');
     const res = await fetch('https://auth.habioo.cloud/pagos-admin', {
@@ -139,37 +139,61 @@ export default function ModalRegistrarPago({ recibo, bancos, onClose, onSuccess 
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Cuenta Destino</label>
             <select name="cuenta_id" value={formPago.cuenta_id} onChange={handlePagoChange} className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required>
-              <option value="">Seleccione Banco...</option>
+                  <option value="">Seleccione Banco...</option>
               {bancos.map(b => (
-                <option key={b.id} value={b.id}>{b.nombre_banco} ({b.tipo})</option>
+                <option key={b.id} value={b.id}>{b.nombre_banco} ({b.apodo})</option>
               ))}
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          {requiresTasa ? (
+            <div className="grid grid-cols-2 gap-3 items-stretch">
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Monto Pagado</label>
+                  <input type="text" name="monto_origen" value={formPago.monto_origen} onChange={handlePagoChange} placeholder="0,00" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">
+                    Tasa de Cambio <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="tasa_cambio"
+                    value={formPago.tasa_cambio}
+                    onChange={handlePagoChange}
+                    placeholder="Ej: 36,50"
+                    required
+                    className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary"
+                  />
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={fetchBCV}
+                disabled={isFetchingBCV}
+                className="h-full min-h-[118px] w-full bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/40 dark:text-blue-400 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-donezo-primary disabled:opacity-60"
+                title="Consultar tasa actual del BCV"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                {isFetchingBCV ? 'Consultando...' : 'Obtener BCV'}
+              </button>
+            </div>
+          ) : (
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Monto Pagado</label>
               <input type="text" name="monto_origen" value={formPago.monto_origen} onChange={handlePagoChange} placeholder="0,00" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
             </div>
-            {requiresTasa && (
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400 flex justify-between">
-                  <span>Tasa Cambio</span>
-                  <button type="button" onClick={fetchBCV} disabled={isFetchingBCV} className="text-donezo-primary dark:text-green-400 hover:underline">
-                    {isFetchingBCV ? 'Consultando...' : 'Obtener BCV 🔄'}
-                  </button>
-                </label>
-                <input type="text" name="tasa_cambio" value={formPago.tasa_cambio} onChange={handlePagoChange} placeholder="0,00" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
-              </div>
-            )}
-          </div>
+          )}
 
           {requiresTasa && (
             <div className="grid grid-cols-2 gap-3 mt-3 border-t border-gray-100 dark:border-gray-800 pt-3">
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Banco de Origen</label>
                 <select name="banco_origen" value={formPago.banco_origen} onChange={handlePagoChange} className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required>
-                  <option value="">Seleccione Banco...</option>
+              <option value="">Seleccione Banco...</option>
                   {BANCOS_VENEZUELA.map(b => <option key={b} value={b}>{b}</option>)}
                 </select>
               </div>
@@ -206,3 +230,4 @@ export default function ModalRegistrarPago({ recibo, bancos, onClose, onSuccess 
     </div>
   );
 }
+
