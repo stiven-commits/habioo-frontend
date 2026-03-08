@@ -1,8 +1,9 @@
-﻿import { useState, useEffect } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { formatMoney } from '../utils/currency';
 import { API_BASE_URL } from '../config/api';
-import { ModalAjusteSaldo, ModalEstadoCuenta, ModalPropiedadForm } from '../components/propiedades/PropiedadesModals';
+import * as XLSX from 'xlsx';
+import { ModalAjusteSaldo, ModalEstadoCuenta, ModalPropiedadForm, ModalCargaMasiva } from '../components/propiedades/PropiedadesModals';
 
 export default function Propiedades() {
   const { userRole } = useOutletContext();
@@ -12,7 +13,7 @@ export default function Propiedades() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 13;
 
   const [editingId, setEditingId] = useState(null);
   const [openDropdownId, setOpenDropdownId] = useState(null);
@@ -28,6 +29,14 @@ export default function Propiedades() {
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
 
+  // 💡 ESTADOS PARA CARGA MASIVA Y BARRA DE PROGRESO
+  const [loteModalOpen, setLoteModalOpen] = useState(false);
+  const [loteData, setLoteData] = useState([]);
+  const [loteErrors, setLoteErrors] = useState(0);
+  const [isUploadingLote, setIsUploadingLote] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0); // Nuevo estado
+  const fileInputRef = useRef(null);
+
   const initialForm = {
     identificador: '', alicuota: '', prop_nombre: '', prop_cedula: '', prop_email: '', prop_telefono: '', prop_password: '',
     tiene_inquilino: false, inq_nombre: '', inq_cedula: '', inq_email: '', inq_telefono: '', inq_password: '',
@@ -42,17 +51,11 @@ export default function Propiedades() {
       const res = await fetch(`${API_BASE_URL}/propiedades-admin`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (data.status === 'success') setPropiedades(data.propiedades);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
+    } catch (error) { console.error(error); } 
+    finally { setLoading(false); }
   };
 
-  useEffect(() => {
-    if (userRole === 'Administrador') fetchPropiedades();
-  }, [userRole]);
-
+  useEffect(() => { if (userRole === 'Administrador') fetchPropiedades(); }, [userRole]);
   useEffect(() => { setCurrentPage(1); }, [searchTerm]);
 
   const fetchEstadoCuenta = async (propId) => {
@@ -62,26 +65,17 @@ export default function Propiedades() {
       const res = await fetch(`${API_BASE_URL}/propiedades-admin/${propId}/estado-cuenta`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (data.status === 'success') setEstadoCuentaData(data.movimientos);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoadingCuenta(false);
-    }
+    } catch (error) { console.error(error); } 
+    finally { setLoadingCuenta(false); }
   };
 
   const handleOpenEstadoCuenta = (prop) => {
-    setOpenDropdownId(null);
-    setSelectedPropCuenta(prop);
-    setFechaDesde('');
-    setFechaHasta('');
-    fetchEstadoCuenta(prop.id);
-    setEstadoCuentaModalOpen(true);
+    setOpenDropdownId(null); setSelectedPropCuenta(prop); setFechaDesde(''); setFechaHasta('');
+    fetchEstadoCuenta(prop.id); setEstadoCuentaModalOpen(true);
   };
 
   const handleOpenAjuste = (prop) => {
-    setSelectedPropAjuste(prop);
-    setFormAjuste({ monto: '', tipo_ajuste: 'CARGAR_DEUDA', nota: '' });
-    setAjusteModalOpen(true);
+    setSelectedPropAjuste(prop); setFormAjuste({ monto: '', tipo_ajuste: 'CARGAR_DEUDA', nota: '' }); setAjusteModalOpen(true);
   };
 
   const formatCedula = (val) => {
@@ -102,16 +96,8 @@ export default function Propiedades() {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    if (type === 'checkbox') {
-      setForm({ ...form, [name]: checked });
-      return;
-    }
-
-    if (name === 'prop_cedula' || name === 'inq_cedula') {
-      setForm({ ...form, [name]: formatCedula(value) });
-      return;
-    }
-
+    if (type === 'checkbox') return setForm({ ...form, [name]: checked });
+    if (name === 'prop_cedula' || name === 'inq_cedula') return setForm({ ...form, [name]: formatCedula(value) });
     if (name === 'alicuota' || name === 'monto_saldo_inicial') {
       let rawVal = value.replace(/\./g, ',').replace(/[^0-9,]/g, '');
       const parts = rawVal.split(',');
@@ -120,65 +106,36 @@ export default function Propiedades() {
         const [entero = '', decimal = ''] = rawVal.split(',');
         rawVal = rawVal.includes(',') ? `${entero},${decimal.slice(0, 3)}` : entero;
       }
-      setForm({ ...form, [name]: rawVal });
-      return;
+      return setForm({ ...form, [name]: rawVal });
     }
-
     setForm({ ...form, [name]: value });
   };
 
   const handleEdit = (prop) => {
-    setOpenDropdownId(null);
-    setEditingId(prop.id);
+    setOpenDropdownId(null); setEditingId(prop.id);
     setForm({
-      identificador: prop.identificador,
-      alicuota: formatAlicuotaDisplay(prop.alicuota),
-      prop_nombre: prop.prop_nombre || '',
-      prop_cedula: prop.prop_cedula || '',
-      prop_email: prop.prop_email || '',
-      prop_telefono: prop.prop_telefono || '',
-      prop_password: '',
-      tiene_inquilino: !!prop.inq_cedula,
-      inq_nombre: prop.inq_nombre || '',
-      inq_cedula: prop.inq_cedula || '',
-      inq_email: prop.inq_email || '',
-      inq_telefono: prop.inq_telefono || '',
-      inq_password: '',
-      monto_saldo_inicial: '',
-      tipo_saldo_inicial: 'CERO'
+      identificador: prop.identificador, alicuota: formatAlicuotaDisplay(prop.alicuota),
+      prop_nombre: prop.prop_nombre || '', prop_cedula: prop.prop_cedula || '', prop_email: prop.prop_email || '', prop_telefono: prop.prop_telefono || '', prop_password: '',
+      tiene_inquilino: !!prop.inq_cedula, inq_nombre: prop.inq_nombre || '', inq_cedula: prop.inq_cedula || '', inq_email: prop.inq_email || '', inq_telefono: prop.inq_telefono || '', inq_password: '',
+      monto_saldo_inicial: '', tipo_saldo_inicial: 'CERO'
     });
     setIsModalOpen(true);
   };
 
-  const handleCreateNew = () => {
-    setEditingId(null);
-    setForm(initialForm);
-    setIsModalOpen(true);
-  };
+  const handleCreateNew = () => { setEditingId(null); setForm(initialForm); setIsModalOpen(true); };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const alicuotaNum = parseFloat(form.alicuota.toString().replace(',', '.'));
-    if (isNaN(alicuotaNum) || alicuotaNum <= 0 || alicuotaNum > 100) {
-      alert('⚠️ Error: La alícuota debe ser un porcentaje mayor a 0 y máximo 100.');
-      return;
-    }
+    if (isNaN(alicuotaNum) || alicuotaNum <= 0 || alicuotaNum > 100) return alert('⚠️ Error: La alícuota debe ser un porcentaje mayor a 0 y máximo 100.');
 
     const token = localStorage.getItem('habioo_token');
     const url = editingId ? `${API_BASE_URL}/propiedades-admin/${editingId}` : `${API_BASE_URL}/propiedades-admin`;
 
-    const res = await fetch(url, {
-      method: editingId ? 'PUT' : 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify(form)
-    });
+    const res = await fetch(url, { method: editingId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(form) });
     const data = await res.json();
-    if (data.status === 'success') {
-      setIsModalOpen(false);
-      fetchPropiedades();
-    } else {
-      alert(data.error || data.message);
-    }
+    if (data.status === 'success') { setIsModalOpen(false); fetchPropiedades(); } 
+    else { alert(data.error || data.message); }
   };
 
   const handleSubmitAjuste = async (e) => {
@@ -186,35 +143,164 @@ export default function Propiedades() {
     if (!confirm(`¿Registrar ajuste para ${selectedPropAjuste.identificador}?`)) return;
     const token = localStorage.getItem('habioo_token');
     const res = await fetch(`${API_BASE_URL}/propiedades-admin/${selectedPropAjuste.id}/ajustar-saldo`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify(formAjuste)
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(formAjuste)
     });
     const data = await res.json();
     if (data.status === 'success') {
-      alert(data.message);
-      setAjusteModalOpen(false);
-      fetchPropiedades();
+      alert(data.message); setAjusteModalOpen(false); fetchPropiedades();
       if (selectedPropCuenta?.id === selectedPropAjuste.id) fetchEstadoCuenta(selectedPropCuenta.id);
-    } else {
-      alert(data.error);
-    }
+    } else { alert(data.error); }
   };
 
+  // ==========================================
+  // FUNCIONES DE LA CARGA MASIVA DE EXCEL
+  // ==========================================
+  const handleDownloadTemplate = () => {
+    const data = [
+      { Apto: '1A', Nombre: 'Juan Perez', Cedula: 'V12345678', Alicuota: '2.555', SaldoInicial: '50.00', Correo: 'juan@gmail.com', Telefono: '04141234567' },
+      { Apto: '1B', Nombre: 'Maria Lopez', Cedula: 'E87654321', Alicuota: '2.5', SaldoInicial: '-20.50', Correo: '', Telefono: '' }
+    ];
+    const ws = XLSX.utils.json_to_sheet(data);
+
+    if (ws['C1']) ws['C1'].c = [{ a: 'Sistema', t: '¡IMPORTANTE! La letra de la cédula (V, E, J, G, P) debe ser obligatoriamente en MAYÚSCULA.' }];
+    if (ws['D1']) ws['D1'].c = [{ a: 'Sistema', t: 'El porcentaje debe tener máximo 3 decimales (Ejemplo: 2.555 o 2,555).' }];
+    if (ws['E1']) ws['E1'].c = [{ a: 'Sistema', t: 'Si no tiene saldo deje en 0. Si le debe al condominio use números positivos (50). Si tiene a favor use número negativo (-50).' }];
+
+    ws['!cols'] = [ {wch: 10}, {wch: 25}, {wch: 15}, {wch: 12}, {wch: 15}, {wch: 25}, {wch: 15} ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Plantilla");
+    XLSX.writeFile(wb, "Plantilla_Habioo_Inmuebles.xlsx");
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const bstr = event.target.result;
+      const wb = XLSX.read(bstr, { type: 'binary' });
+      const wsname = wb.SheetNames[0];
+      const ws = wb.Sheets[wsname];
+      const rawData = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+      let errCount = 0;
+      let seenEmails = new Set(); 
+
+      const parsedData = rawData.map((row, index) => {
+        const apto = row['Apto'] || row['Identificador'] || row['Apartamento'] || row['Casa'] || '';
+        const nombre = row['Nombre'] || row['Propietario'] || '';
+        const cedulaRaw = row['Cedula'] || row['Cédula'] || '';
+        const alicuota = row['Alicuota'] || row['Alícuota'] || '';
+        const saldo = row['SaldoInicial'] || row['Saldo Inicial'] || row['Saldo'] || '0';
+        const correo = String(row['Correo'] || row['Email'] || '').trim().toLowerCase(); 
+        const telefono = row['Telefono'] || row['Teléfono'] || '';
+
+        const cedulaFmt = formatCedula(String(cedulaRaw));
+        let aliNum = parseFloat(String(alicuota).replace(',', '.'));
+        const isAliValid = !isNaN(aliNum) && aliNum > 0 && aliNum <= 100;
+
+        if (isAliValid) {
+           aliNum = parseFloat(aliNum.toFixed(3)); 
+        }
+
+        let errorMsg = [];
+        if (!apto) errorMsg.push("Apto vacío");
+        if (!nombre) errorMsg.push("Nombre vacío");
+        if (!cedulaFmt) errorMsg.push("Cédula inválida (Use V/E)");
+        if (!isAliValid) errorMsg.push("Alícuota inválida");
+        
+        if (correo) {
+           if (seenEmails.has(correo)) {
+              errorMsg.push("Correo duplicado");
+           } else {
+              seenEmails.add(correo);
+           }
+        }
+
+        if (errorMsg.length > 0) errCount++;
+
+        return {
+          rowNum: index + 2,
+          identificador: String(apto).trim(),
+          nombre: String(nombre).trim(),
+          cedula: cedulaFmt,
+          alicuota: isAliValid ? aliNum : alicuota,
+          saldo_inicial: String(saldo).replace(',', '.'),
+          correo: correo, 
+          telefono: String(telefono).trim(),
+          isValid: errorMsg.length === 0,
+          errors: errorMsg.join(' | ')
+        };
+      });
+
+      setLoteData(parsedData);
+      setLoteErrors(errCount);
+    };
+    reader.readAsBinaryString(file);
+    e.target.value = null; 
+  };
+
+  // 💡 LÓGICA DE GUARDADO MEJORADA CON PROGRESO
+  const handleSaveLote = async () => {
+    if (loteErrors > 0) return alert("Por favor corrija los errores en el Excel antes de continuar.");
+    if (!confirm(`¿Está seguro de guardar ${loteData.length} inmuebles de golpe?`)) return;
+
+    setIsUploadingLote(true);
+    setUploadProgress(0);
+
+    // Animación de la barra de progreso
+    const progressInterval = setInterval(() => {
+      setUploadProgress((prev) => {
+        // La barra llega hasta el 90% esperando a que el servidor termine
+        if (prev >= 90) return 90;
+        // Calculamos un incremento variable para que se vea más natural
+        const increment = Math.random() * 15;
+        return prev + increment;
+      });
+    }, 500); // Se actualiza cada medio segundo
+
+    try {
+      const token = localStorage.getItem('habioo_token');
+      const res = await fetch(`${API_BASE_URL}/propiedades-admin/lote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ inmuebles: loteData })
+      });
+      
+      clearInterval(progressInterval);
+      const data = await res.json();
+      
+      if (data.status === 'success') {
+        setUploadProgress(100); 
+        
+        setTimeout(() => {
+          alert(data.message); 
+          setLoteModalOpen(false); 
+          setLoteData([]); 
+          fetchPropiedades();
+          setIsUploadingLote(false);
+          setUploadProgress(0); // Reiniciamos para la próxima
+        }, 500);
+        
+      } else { 
+        setIsUploadingLote(false);
+        setUploadProgress(0);
+        alert("Error del servidor: " + (data.error || data.message)); 
+      }
+    } catch (err) { 
+      clearInterval(progressInterval);
+      setIsUploadingLote(false);
+      setUploadProgress(0);
+      alert("Error de conexión al cargar lote."); 
+    } 
+  };
+
+  // Cálculos y Paginación
   let saldoAcumulado = 0;
-  const dataConSaldo = estadoCuentaData.map((mov) => {
-    saldoAcumulado += parseFloat(mov.cargo) - parseFloat(mov.abono);
-    return { ...mov, saldoFila: saldoAcumulado };
-  });
-
-  const estadoCuentaFiltrado = dataConSaldo.filter((m) => {
-    if (!fechaDesde && !fechaHasta) return true;
-    const f = new Date(m.fecha_registro);
-    if (fechaDesde && f < new Date(fechaDesde)) return false;
-    if (fechaHasta && f > new Date(fechaHasta)) return false;
-    return true;
-  });
-
+  const dataConSaldo = estadoCuentaData.map((mov) => { saldoAcumulado += parseFloat(mov.cargo) - parseFloat(mov.abono); return { ...mov, saldoFila: saldoAcumulado }; });
+  const estadoCuentaFiltrado = dataConSaldo.filter((m) => { if (!fechaDesde && !fechaHasta) return true; const f = new Date(m.fecha_registro); if (fechaDesde && f < new Date(fechaDesde)) return false; if (fechaHasta && f > new Date(fechaHasta)) return false; return true; });
   const totalCargo = estadoCuentaFiltrado.reduce((acc, m) => acc + parseFloat(m.cargo), 0);
   const totalAbono = estadoCuentaFiltrado.reduce((acc, m) => acc + parseFloat(m.abono), 0);
 
@@ -226,19 +312,30 @@ export default function Propiedades() {
 
   return (
     <div className="space-y-6 relative" onClick={() => setOpenDropdownId(null)}>
-      <div className="flex flex-col sm:flex-row justify-between items-center bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 gap-4">
-        <h3 className="text-xl font-bold text-gray-800 dark:text-white">🏠 Inmuebles y Residentes</h3>
-        <div className="flex-1 max-w-md w-full relative">
+      
+      {/* HEADER PRINCIPAL */}
+      <div className="flex flex-col xl:flex-row justify-between items-center bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 gap-4">
+        <h3 className="text-xl font-bold text-gray-800 dark:text-white whitespace-nowrap">🏠 Inmuebles y Residentes</h3>
+        <div className="flex-1 w-full relative">
           <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">🔍</span>
-          <input type="text" placeholder="Buscar apartamento o propietario..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 p-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white transition-all"/>
+          <input type="text" placeholder="Buscar apartamento o propietario..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 p-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white transition-all"/>
         </div>
-        <button onClick={handleCreateNew} className="bg-donezo-primary hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-xl transition-all shadow-md">+ Registrar Inmueble</button>
+        <div className="flex gap-3 w-full xl:w-auto">
+          <button onClick={() => setLoteModalOpen(true)} className="flex-1 xl:flex-none bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 dark:border-green-800/50 dark:text-green-400 font-bold py-2.5 px-5 rounded-xl transition-all shadow-sm text-sm flex items-center justify-center gap-2">
+            📊 Carga Masiva
+          </button>
+          
+          <button onClick={handleCreateNew} className="flex-1 xl:flex-none bg-donezo-primary hover:bg-blue-700 text-white font-bold py-2.5 px-5 rounded-xl transition-all shadow-md text-sm whitespace-nowrap">
+            + Agregar Inmueble
+          </button>
+        </div>
       </div>
 
+      {/* TABLA DE PROPIEDADES */}
       <div className="bg-white dark:bg-donezo-card-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
         {loading ? <p className="text-gray-500 p-6">Cargando...</p> : currentProps.length === 0 ? <p className="text-gray-500 text-center py-10">No hay inmuebles registrados.</p> : (
           <>
-            <div className="overflow-x-auto pb-32 pt-2 px-6">
+            <div className="overflow-x-auto pt-2 px-6">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 text-sm">
@@ -329,6 +426,20 @@ export default function Propiedades() {
         setFormAjuste={setFormAjuste}
         handleSubmitAjuste={handleSubmitAjuste}
       />
+
+      <ModalCargaMasiva 
+        isOpen={loteModalOpen}
+        setLoteModalOpen={setLoteModalOpen}
+        loteData={loteData}
+        setLoteData={setLoteData}
+        loteErrors={loteErrors}
+        isUploadingLote={isUploadingLote}
+        uploadProgress={uploadProgress} 
+        handleDownloadTemplate={handleDownloadTemplate}
+        handleSaveLote={handleSaveLote}
+        handleFileUpload={handleFileUpload}
+      />
+
     </div>
   );
 }
