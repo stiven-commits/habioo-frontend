@@ -1,23 +1,25 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import ModalFondos from '../components/ModalFondos';
 
 export default function Bancos() {
   const { userRole } = useOutletContext();
   const [bancos, setBancos] = useState([]);
+  const [selectedBancoForFondos, setSelectedBancoForFondos] = useState(null);
   const [form, setForm] = useState({ 
     numero_cuenta: '', nombre_banco: '', apodo: '', tipo: 'Transferencia Bs' 
   });
 
   const TIPOS_PAGO = [
-    "Transferencia Bs", "Pago Móvil", "Zelle", "Efectivo USD", "Efectivo EUR", "Banesco Panamá", "Paypal"
+    "Transferencia Bs", "Pago MÃ³vil", "Zelle", "Efectivo USD", "Efectivo EUR", "Banesco PanamÃ¡", "Paypal"
   ];
 
   const BANCOS_VENEZUELA = [
     "Banco de Venezuela (BDV)", "Banesco Banco Universal", "Banco Mercantil", "BBVA Provincial",
-    "Banco Nacional de Crédito (BNC)", "Bancamiga Banco Universal", "Banplus Banco Universal",
-    "Banco del Tesoro", "Banco del Caribe (Bancaribe)", "Banco Fondo Común (BFC)", "Banco Caroní",
-    "Banco Activo", "Banco Venezolano de Crédito (BVC)", "Banco Sofitasa", "100% Banco",
-    "Delsur Banco Universal", "Banco Agrícola de Venezuela", "Banco Bicentenario", "Banco Plaza",
+    "Banco Nacional de CrÃ©dito (BNC)", "Bancamiga Banco Universal", "Banplus Banco Universal",
+    "Banco del Tesoro", "Banco del Caribe (Bancaribe)", "Banco Fondo ComÃºn (BFC)", "Banco CaronÃ­",
+    "Banco Activo", "Banco Venezolano de CrÃ©dito (BVC)", "Banco Sofitasa", "100% Banco",
+    "Delsur Banco Universal", "Banco AgrÃ­cola de Venezuela", "Banco Bicentenario", "Banco Plaza",
     "Banco Exterior", "Banco de la Fuerza Armada Nacional Bolivariana (Banfanb)",
     "Banco Digital de los Trabajadores (BDT)", "N58 Banco Digital", "Bancrecer", "Bangente", "R4 Banco Microfinanciero"
   ];
@@ -31,11 +33,11 @@ export default function Bancos() {
 
   useEffect(() => { if (userRole === 'Administrador') fetchData(); }, [userRole]);
 
-  // Lógica Dinámica Inteligente
+  // LÃ³gica DinÃ¡mica Inteligente
   const isCash = form.tipo.includes('Efectivo');
   const isDigital = ['Zelle', 'Paypal'].includes(form.tipo);
-  const isPanama = form.tipo === 'Banesco Panamá';
-  const isVenBank = ['Transferencia Bs', 'Pago Móvil'].includes(form.tipo);
+  const isPanama = form.tipo === 'Banesco PanamÃ¡';
+  const isVenBank = ['Transferencia Bs', 'Pago MÃ³vil'].includes(form.tipo);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -43,7 +45,7 @@ export default function Bancos() {
 
     let payload = { ...form };
 
-    // Rellenar datos automáticos para no romper la BD
+    // Rellenar datos automÃ¡ticos para no romper la BD
     if (isCash) {
       payload.nombre_banco = 'Caja Fuerte / Oficina';
       payload.numero_cuenta = 'N/A';
@@ -75,7 +77,7 @@ export default function Bancos() {
         return;
       }
       if (res.status === 404) {
-        alert('La ruta para marcar cuenta principal no está disponible en el backend desplegado.');
+        alert('La ruta para marcar cuenta principal no estÃ¡ disponible en el backend desplegado.');
         return;
       }
       alert('No se pudo actualizar la cuenta principal.');
@@ -85,7 +87,7 @@ export default function Bancos() {
   };
 
   const handleDelete = async (id) => {
-    if(!confirm("¿Eliminar este método de pago?")) return;
+    if(!confirm("Â¿Eliminar este mÃ©todo de pago?")) return;
     const token = localStorage.getItem('habioo_token');
     await fetch(`https://auth.habioo.cloud/bancos/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
     fetchData();
@@ -93,7 +95,7 @@ export default function Bancos() {
 
   if (userRole !== 'Administrador') return <p className="p-6">Acceso denegado.</p>;
 
-  // Función para renderizar el ícono de flecha en los Select
+  // FunciÃ³n para renderizar el Ã­cono de flecha en los Select
   const SelectIcon = () => (
     <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500 dark:text-gray-400">
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -105,13 +107,13 @@ export default function Bancos() {
   return (
     <div className="space-y-6 relative">
       <div className="bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
-        <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-6">💳 Configurar Recepción de Pagos</h3>
+        <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-6">ðŸ’³ Configurar RecepciÃ³n de Pagos</h3>
         
         <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-12 gap-5 items-end">
           
-          {/* 1. SELECTOR DE TIPO (Con nuevo diseño) */}
+          {/* 1. SELECTOR DE TIPO (Con nuevo diseÃ±o) */}
           <div className="md:col-span-3">
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 ml-1 dark:text-gray-400">Tipo de Método</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 ml-1 dark:text-gray-400">Tipo de MÃ©todo</label>
             <div className="relative">
               <select 
                 value={form.tipo} 
@@ -124,7 +126,7 @@ export default function Bancos() {
             </div>
           </div>
 
-          {/* 2. BANCO (Selector Venezolano con nuevo diseño) */}
+          {/* 2. BANCO (Selector Venezolano con nuevo diseÃ±o) */}
           {isVenBank && (
             <div className="md:col-span-3">
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 ml-1 dark:text-gray-400">Banco Destino</label>
@@ -143,15 +145,15 @@ export default function Bancos() {
             </div>
           )}
 
-          {/* 3. DATOS DE CUENTA / CORREO / TELÉFONO */}
+          {/* 3. DATOS DE CUENTA / CORREO / TELÃ‰FONO */}
           {!isCash && (
             <div className={isVenBank ? "md:col-span-3" : "md:col-span-5"}>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 ml-1 dark:text-gray-400">
-                {isDigital ? 'Correo / Teléfono' : form.tipo === 'Pago Móvil' ? 'Datos (Teléfono, Cédula)' : 'Número de Cuenta'}
+                {isDigital ? 'Correo / TelÃ©fono' : form.tipo === 'Pago MÃ³vil' ? 'Datos (TelÃ©fono, CÃ©dula)' : 'NÃºmero de Cuenta'}
               </label>
               <input 
                 type="text" 
-                placeholder={isDigital ? "usuario@email.com" : form.tipo === 'Pago Móvil' ? "0414... / V12..." : "0134-..."} 
+                placeholder={isDigital ? "usuario@email.com" : form.tipo === 'Pago MÃ³vil' ? "0414... / V12..." : "0134-..."} 
                 value={form.numero_cuenta} 
                 onChange={e => setForm({...form, numero_cuenta: e.target.value})} 
                 className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary transition-all" 
@@ -195,7 +197,7 @@ export default function Bancos() {
               </div>
               
               {b.tipo.includes('Efectivo') ? (
-                <h4 className="font-bold text-gray-800 dark:text-white text-lg">Recepción en Oficina</h4>
+                <h4 className="font-bold text-gray-800 dark:text-white text-lg">RecepciÃ³n en Oficina</h4>
               ) : (
                 <h4 className="font-bold text-gray-800 dark:text-white text-lg truncate" title={b.nombre_banco}>{b.nombre_banco}</h4>
               )}
@@ -208,36 +210,54 @@ export default function Bancos() {
               
               <span className="text-donezo-primary text-sm font-medium">{b.apodo}</span>
             </div>
-            {/* GRUPO DE BOTONES: PREDETERMINADA Y ELIMINAR */}
-<div className="flex shadow-sm rounded-xl overflow-hidden mt-4">
-  {b.es_predeterminada ? (
-    <div className="flex-1 inline-flex items-center justify-center gap-1.5 bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs font-bold px-4 py-2 border border-green-200 dark:border-green-800 border-r-0 rounded-l-xl cursor-default">
-      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-      </svg>
-      Cuenta Principal
-    </div>
-  ) : (
-    <button 
-      onClick={() => handleSetPredeterminada(b.id)}
-      className="flex-1 text-xs text-blue-600 hover:text-blue-700 font-bold bg-white hover:bg-blue-50 dark:bg-gray-800 dark:text-blue-400 dark:hover:bg-blue-900/20 px-4 py-2 transition-colors border border-gray-200 dark:border-gray-700 border-r-0 rounded-l-xl"
-      title="Los avisos de cobro pedirán transferir a esta cuenta"
-    >
-      Hacer Principal
-    </button>
-  )}
-  
-  <button 
-    onClick={() => handleDelete(b.id)} 
-    className="flex items-center justify-center px-3 py-2 bg-white hover:bg-red-50 dark:bg-gray-800 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 text-lg transition-colors border border-gray-200 dark:border-gray-700 rounded-r-xl"
-    title="Eliminar cuenta"
-  >
-    🗑️
-  </button>
-</div>
+            {/* BUTTON GROUP: FONDOS + PRINCIPAL + ELIMINAR */}
+            <div className="flex w-full shadow-sm rounded-xl overflow-hidden mt-3">
+              <button
+                onClick={() => setSelectedBancoForFondos(b)}
+                className="flex-1 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border border-gray-200 dark:border-gray-700 border-r-0"
+                title="Gestionar sub-cuentas de fondos"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                Fondos
+              </button>
+
+              {b.es_predeterminada ? (
+                <div className="flex-1 inline-flex items-center justify-center gap-1.5 bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs font-bold px-3 py-2 border border-green-200 dark:border-green-800 border-r-0 cursor-default">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  Principal
+                </div>
+              ) : (
+                <button
+                  onClick={() => handleSetPredeterminada(b.id)}
+                  className="flex-1 text-xs text-blue-600 hover:text-blue-700 font-bold bg-white hover:bg-blue-50 dark:bg-gray-800 dark:text-blue-400 dark:hover:bg-blue-900/20 px-3 py-2 transition-colors border border-gray-200 dark:border-gray-700 border-r-0"
+                  title="Los avisos de cobro pedirán transferir a esta cuenta"
+                >
+                  Hacer Principal
+                </button>
+              )}
+
+              <button
+                onClick={() => handleDelete(b.id)}
+                className="flex items-center justify-center px-3 py-2 bg-white hover:bg-red-50 dark:bg-gray-800 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 text-lg transition-colors border border-gray-200 dark:border-gray-700"
+                title="Eliminar cuenta"
+              >
+                🗑️
+              </button>
+            </div>
           </div>
         ))}
       </div>
+      {/* MODAL DE FONDOS */}
+      {selectedBancoForFondos && (
+        <ModalFondos 
+          cuenta={selectedBancoForFondos} 
+          onClose={() => setSelectedBancoForFondos(null)} 
+        />
+      )}
     </div>
   );
 }
