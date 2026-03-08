@@ -1,6 +1,7 @@
 ﻿import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { formatMoney } from '../utils/currency'; // <-- Asumiendo que tienes esta utilidad
+import { formatMoney } from '../utils/currency';
+import { API_BASE_URL } from '../config/api';
 
 export default function Propiedades() {
   const { userRole } = useOutletContext();
@@ -29,7 +30,7 @@ export default function Propiedades() {
   const fetchPropiedades = async () => {
     try {
       const token = localStorage.getItem('habioo_token');
-      const res = await fetch('https://auth.habioo.cloud/propiedades-admin', {
+      const res = await fetch(`${API_BASE_URL}/propiedades-admin`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -128,7 +129,7 @@ export default function Propiedades() {
     }
 
     const token = localStorage.getItem('habioo_token');
-    const url = editingId ? `https://auth.habioo.cloud/propiedades-admin/${editingId}` : 'https://auth.habioo.cloud/propiedades-admin';
+    const url = editingId ? `${API_BASE_URL}/propiedades-admin/${editingId}` : `${API_BASE_URL}/propiedades-admin`;
     const method = editingId ? 'PUT' : 'POST';
 
     const res = await fetch(url, {
@@ -154,18 +155,34 @@ export default function Propiedades() {
     e.preventDefault();
     if (!confirm(`¿Está seguro de registrar este ajuste para ${selectedPropAjuste.identificador}? Quedará guardado en la auditoría.`)) return;
 
-    const token = localStorage.getItem('habioo_token');
-    const res = await fetch(`https://auth.habioo.cloud/propiedades-admin/${selectedPropAjuste.id}/ajustar-saldo`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify(formAjuste)
-    });
-    const data = await res.json();
-    if (data.status === 'success') {
-      alert(data.message);
-      setAjusteModalOpen(false);
-      fetchPropiedades();
-    } else { alert(data.error); }
+    try {
+      const token = localStorage.getItem('habioo_token');
+      const endpoint = `${API_BASE_URL}/propiedades-admin/${selectedPropAjuste.id}/ajustar-saldo`;
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(formAjuste)
+      });
+
+      const contentType = res.headers.get('content-type') || '';
+      const payload = contentType.includes('application/json') ? await res.json() : { error: await res.text() };
+
+      if (!res.ok) {
+        const message = payload?.message || payload?.error || `Error ${res.status}`;
+        throw new Error(message);
+      }
+
+      if (payload.status === 'success') {
+        alert(payload.message);
+        setAjusteModalOpen(false);
+        fetchPropiedades();
+      } else {
+        throw new Error(payload?.message || payload?.error || 'No se pudo aplicar el ajuste.');
+      }
+    } catch (err) {
+      console.error('Error al aplicar ajuste de saldo:', err);
+      alert(`No se pudo aplicar el ajuste.\n${err.message}`);
+    }
   };
 
   const filteredProps = propiedades.filter(p => p.identificador.toLowerCase().includes(searchTerm.toLowerCase()) || p.prop_nombre?.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -394,3 +411,5 @@ export default function Propiedades() {
     </div>
   );
 }
+
+
