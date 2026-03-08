@@ -100,7 +100,7 @@ export default function ModalRegistrarPago({ recibo, bancos, onClose, onSuccess 
 
   const handleSubmitPago = async (e) => {
     e.preventDefault();
-    if (!confirm(`Â¿Confirmar pago por $${conversionUSD}?`)) return;
+    if (!confirm(`¿Confirmar pago por $${conversionUSD}?`)) return;
 
     const token = localStorage.getItem('habioo_token');
     const res = await fetch('https://auth.habioo.cloud/pagos-admin', {

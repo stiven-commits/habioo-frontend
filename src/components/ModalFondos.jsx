@@ -39,6 +39,22 @@ export default function ModalFondos({ cuenta, onClose }) {
     setForm({ ...form, [name]: type === 'checkbox' ? checked : value });
   };
 
+  // --- NUEVAS FUNCIONES PARA FORMATEO DE MONEDA ---
+  const formatCurrencyInput = (value) => {
+    let rawValue = value.replace(/[^0-9,]/g, '');
+    const parts = rawValue.split(',');
+    if (parts.length > 2) rawValue = parts[0] + ',' + parts.slice(1).join('');
+    let [integerPart, decimalPart] = rawValue.split(',');
+    if (integerPart) integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    if (decimalPart !== undefined) return `${integerPart},${decimalPart.slice(0, 2)}`;
+    return integerPart;
+  };
+
+  const handleMonedaChange = (e) => {
+    setForm({ ...form, [e.target.name]: formatCurrencyInput(e.target.value) });
+  };
+  // ------------------------------------------------
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem('habioo_token');
@@ -146,7 +162,15 @@ export default function ModalFondos({ cuenta, onClose }) {
 
             <div>
               <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">Saldo de Apertura</label>
-              <input type="number" step="0.01" name="saldo_inicial" value={form.saldo_inicial} onChange={handleChange} required className="w-full p-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm dark:text-white font-mono" />
+              <input 
+                type="text" 
+                name="saldo_inicial" 
+                value={form.saldo_inicial} 
+                onChange={handleMonedaChange} 
+                placeholder="0,00"
+                required 
+                className="w-full p-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm dark:text-white font-mono" 
+              />
             </div>
 
             <div className="flex items-center mt-6">
