@@ -9,13 +9,39 @@ export default function Layout() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem('habioo_token');
-    const userData = localStorage.getItem('habioo_user');
-    if (!token || !userData) { navigate('/'); return; }
-    const parsedUser = JSON.parse(userData);
-    setUser(parsedUser);
-    const isAdmin = ['J', 'G'].includes(parsedUser.cedula.charAt(0).toUpperCase());
-    setUserRole(isAdmin ? 'Administrador' : 'Residente');
+    const validateSession = async () => {
+      const token = localStorage.getItem('habioo_token');
+      const userData = localStorage.getItem('habioo_user');
+      if (!token || !userData) {
+        navigate('/');
+        return;
+      }
+
+      try {
+        const res = await fetch('https://auth.habioo.cloud/me', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (!res.ok) {
+          localStorage.removeItem('habioo_token');
+          localStorage.removeItem('habioo_user');
+          navigate('/');
+          return;
+        }
+
+        const data = await res.json();
+        const currentUser = data?.user || JSON.parse(userData);
+        setUser(currentUser);
+        const isAdmin = ['J', 'G'].includes((currentUser.cedula || '').charAt(0).toUpperCase());
+        setUserRole(isAdmin ? 'Administrador' : 'Residente');
+      } catch (error) {
+        localStorage.removeItem('habioo_token');
+        localStorage.removeItem('habioo_user');
+        navigate('/');
+      }
+    };
+
+    validateSession();
   }, [navigate]);
 
   // Lógica de Tema
