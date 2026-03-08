@@ -75,7 +75,7 @@ Impacto:
 6. Bancos: listar, crear, eliminar, marcar predeterminada.
 7. Fondos virtuales: listar, crear, eliminar por cuenta bancaria.
 8. Zonas: listar, crear, editar, eliminar.
-9. Propiedades: listar, crear, editar.
+9. Propiedades: listar, crear, editar, ajustar saldo manual y ver estado de cuenta.
 10. Dashboard residente: propiedades y resumen financiero.
 11. Cuentas por cobrar (admin).
 
@@ -151,6 +151,8 @@ Impacto:
 - `GET https://auth.habioo.cloud/propiedades-admin` -> listar inmuebles.
 - `POST https://auth.habioo.cloud/propiedades-admin` -> crear inmueble.
 - `PUT https://auth.habioo.cloud/propiedades-admin/:id` -> editar inmueble.
+- `GET https://auth.habioo.cloud/propiedades-admin/:id/estado-cuenta` -> movimientos de cuenta del inmueble.
+- `POST https://auth.habioo.cloud/propiedades-admin/:id/ajustar-saldo` -> ajuste manual de saldo (deuda/a favor).
 
 ### Dashboard residente
 - `GET https://auth.habioo.cloud/mis-propiedades` -> propiedades del usuario.
@@ -168,10 +170,11 @@ Impacto:
 - `condominios`: condominio y configuración contable (`mes_actual`, `metodo_division`).
 
 ### Habitacional
-- `propiedades`: inmuebles (`identificador`, `alicuota`, `zona_id`).
+- `propiedades`: inmuebles (`identificador`, `alicuota`, `zona_id`, `saldo_actual`).
 - `usuarios_propiedades`: relación usuario-inmueble (`Propietario` / `Inquilino`).
 - `zonas`: áreas/sectores (`activa`).
 - `propiedades_zonas`: relación N:M zona-propiedad.
+- `historial_saldos_inmuebles`: auditoría de saldos (`SALDO_INICIAL`, `CARGAR_DEUDA`, `AGREGAR_FAVOR`).
 
 ### Proveedores y cuentas
 - `proveedores`.
@@ -204,6 +207,7 @@ Impacto:
 1. Propiedades:
    - Corrección de guardado completo en crear/editar (propietario + inquilino).
    - `alicuota` con coma decimal en UI y límite operativo de 3 decimales.
+   - Ajuste manual de saldo por inmueble y estado de cuenta con cargos/abonos.
 2. Gastos:
    - Migración de ciclos numéricos a meses calendario (`mes_actual`, `mes_asignado`).
    - Doble fecha de gasto (`fecha_gasto` y `created_at`).
@@ -217,6 +221,10 @@ Impacto:
 5. Historial de avisos:
    - Filtros activos por texto, estado y rango de fechas.
    - Pestañas de estados alineadas visualmente con el patrón de `Gastos`.
+6. Desarrollo local:
+   - Se incorporó `src/config/api.js` con `API_BASE_URL` dinámico.
+   - En local (`localhost/127.0.0.1`) usa `http://localhost:3000` por defecto.
+   - `main.jsx` reescribe automáticamente llamadas legacy a `https://auth.habioo.cloud` hacia la base local para evitar romper pruebas.
 
 ---
 
@@ -225,6 +233,24 @@ Impacto:
 - Las rutas protegidas requieren `Authorization: Bearer <token>`.
 - `Layout` valida sesión real con `/me`; si falla, limpia sesión y redirige a login.
 - `HistorialAvisos` también maneja 401 explícito para evitar estados rotos.
+
+---
+
+## 11) Ejecución local (frontend + backend)
+
+1. Backend (`habioo-auth`):
+   - Configurar `.env` con `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `JWT_SECRET`.
+   - Ejecutar en `http://localhost:3000`.
+
+2. Frontend (`habioo-frontend`):
+   - Ejecutar Vite en `http://localhost:5173`.
+   - `API_BASE_URL` se resuelve así:
+     - `VITE_API_BASE_URL` (si está definida), o
+     - `http://localhost:3000` cuando estás en localhost, o
+     - `https://auth.habioo.cloud` en producción.
+
+3. Recomendación para pruebas:
+   - Si cambias de prod a local y ves `401`, limpia `localStorage` (token viejo) y vuelve a iniciar sesión.
 
 ---
 
