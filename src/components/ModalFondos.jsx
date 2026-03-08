@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { formatMoney } from '../utils/currency';
 
 export default function ModalFondos({ cuenta, onClose }) {
   const [fondos, setFondos] = useState([]);
@@ -124,7 +125,7 @@ export default function ModalFondos({ cuenta, onClose }) {
                   <div className="text-right">
                     <p className="text-[10px] text-gray-400 uppercase font-bold">Saldo Virtual</p>
                     <p className={`font-black text-lg ${f.moneda === 'USD' ? 'text-green-600 dark:text-green-400' : 'text-gray-800 dark:text-white'}`}>
-                       {f.saldo_actual} <span className="text-xs font-normal">{f.moneda}</span>
+                       {formatMoney(f.saldo_actual)} <span className="text-xs font-normal">{f.moneda}</span>
                     </p>
                   </div>
                 </div>

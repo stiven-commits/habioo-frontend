@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import ModalAgregarGasto from '../components/ModalAgregarGasto';
 import ModalDetallesGasto from '../components/ModalDetallesGasto';
+import { formatMoney } from '../utils/currency';
 
 const formatMonthText = (yyyy_mm) => {
     if (!yyyy_mm) return '';
@@ -168,8 +169,8 @@ export default function Gastos() {
                             )}
                           </td>
                           <td className="p-3 text-center"><span className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 py-1 px-3 rounded-full text-xs font-bold">{g.total_cuotas} Mes{g.total_cuotas > 1 ? 'es' : ''}</span></td>
-                          <td className="p-3 text-right font-bold text-gray-800 dark:text-white text-sm">${g.monto_total_usd}</td>
-                          <td className="p-3 text-right font-medium text-orange-400 dark:text-orange-300 text-sm">${parseFloat(g.cuotas[0]?.saldo_pendiente || 0).toFixed(2)}</td>
+                          <td className="p-3 text-right font-bold text-gray-800 dark:text-white text-sm">${formatMoney(g.monto_total_usd)}</td>
+                          <td className="p-3 text-right font-medium text-orange-400 dark:text-orange-300 text-sm">${formatMoney(g.cuotas[0]?.saldo_pendiente || 0)}</td>
                           <td className="p-3 text-center">{g.canDelete ? <button onClick={(e) => handleDelete(g.gasto_id, e)} className="text-red-400 hover:text-red-600 p-2">🗑️</button> : <span className="text-gray-300">🔒</span>}</td>
                         </tr>
                         {expandedRows[g.gasto_id] && g.cuotas.map((c) => (
@@ -178,8 +179,8 @@ export default function Gastos() {
                             <td className="p-3 text-gray-500 text-xs dark:text-gray-400" colSpan="2">↳ Cobro en: <strong>{formatMonthText(c.mes_asignado)}</strong></td>
                             <td className="p-3 text-gray-500 text-xs dark:text-gray-400">Fracción {c.numero_cuota}/{g.total_cuotas}</td>
                             <td className="p-3 text-center"><span className="text-[10px] font-bold bg-white dark:bg-gray-700 px-2 py-1 rounded border border-gray-200 dark:border-gray-600">{c.estado}</span></td>
-                            <td className="p-3 text-right text-gray-600 dark:text-gray-400 font-medium text-sm">${c.monto_cuota_usd}</td>
-                            <td className="p-3 text-right text-gray-400 text-xs">Restan: ${(parseFloat(c.saldo_pendiente)).toFixed(2)}</td>
+                            <td className="p-3 text-right text-gray-600 dark:text-gray-400 font-medium text-sm">${formatMoney(c.monto_cuota_usd)}</td>
+                            <td className="p-3 text-right text-gray-400 text-xs">Restan: ${formatMoney(c.saldo_pendiente)}</td>
                             <td></td>
                           </tr>
                         ))}

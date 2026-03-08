@@ -1,4 +1,5 @@
 ﻿import React, { useState } from 'react';
+import { formatMoney } from '../utils/currency';
 
 export default function ModalRegistrarPago({ recibo, bancos, onClose, onSuccess }) {
   const [formPago, setFormPago] = useState({
@@ -100,7 +101,7 @@ export default function ModalRegistrarPago({ recibo, bancos, onClose, onSuccess 
 
   const handleSubmitPago = async (e) => {
     e.preventDefault();
-    if (!confirm(`¿Confirmar pago por $${conversionUSD}?`)) return;
+    if (!confirm(`¿Confirmar pago por $${formatMoney(conversionUSD)}?`)) return;
 
     const token = localStorage.getItem('habioo_token');
     const res = await fetch('https://auth.habioo.cloud/pagos-admin', {
@@ -131,7 +132,7 @@ export default function ModalRegistrarPago({ recibo, bancos, onClose, onSuccess 
 
         <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl mb-4 text-center border border-blue-100 dark:border-blue-800/50">
           <p className="text-xs text-blue-600 dark:text-blue-300 mb-1">Deuda Total</p>
-          <p className="text-2xl font-black text-blue-800 dark:text-blue-200">${recibo.monto_usd}</p>
+          <p className="text-2xl font-black text-blue-800 dark:text-blue-200">${formatMoney(recibo.monto_usd)}</p>
           <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">{recibo.apto} - {recibo.mes_cobro}</p>
         </div>
 
@@ -206,7 +207,7 @@ export default function ModalRegistrarPago({ recibo, bancos, onClose, onSuccess 
 
           <div className="flex justify-between items-center px-2 py-1 mt-1 mb-2">
             <span className="text-xs text-gray-400 font-bold">Equivalente en USD:</span>
-            <span className="font-black text-green-600 dark:text-green-400">${conversionUSD}</span>
+            <span className="font-black text-green-600 dark:text-green-400">${formatMoney(conversionUSD)}</span>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -230,4 +231,5 @@ export default function ModalRegistrarPago({ recibo, bancos, onClose, onSuccess 
     </div>
   );
 }
+
 

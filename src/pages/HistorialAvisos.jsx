@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import ModalRegistrarPago from '../components/ModalRegistrarPago';
+import { formatMoney } from '../utils/currency';
 
 export default function HistorialAvisos() {
   const { userRole } = useOutletContext();
@@ -114,7 +115,7 @@ export default function HistorialAvisos() {
                           {r.estado}
                         </span>
                       </td>
-                      <td className="p-3 text-right font-bold text-gray-800 dark:text-white">${r.monto_usd}</td>
+                      <td className="p-3 text-right font-bold text-gray-800 dark:text-white">${formatMoney(r.monto_usd)}</td>
                       <td className="p-3 flex justify-center gap-2">
                         <button onClick={() => setShowPrintModal(r)} className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-lg" title="Ver / Imprimir">🖨️</button>
                         {r.estado !== 'Solvente' && (

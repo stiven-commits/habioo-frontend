@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import { formatMoney } from '../utils/currency';
 
 export default function Cierres() {
   const { userRole } = useOutletContext();
@@ -114,7 +115,7 @@ export default function Cierres() {
           <h2 className="text-3xl font-bold text-gray-800 dark:text-white capitalize mb-4">{data.mes_texto}</h2>
 
           <p className="text-gray-500 dark:text-gray-400 font-medium uppercase text-xs tracking-wider">Total a Repartir</p>
-          <h2 className="text-4xl font-black text-red-500">${data.total_usd}</h2>
+          <h2 className="text-4xl font-black text-red-500">${formatMoney(data.total_usd)}</h2>
         </div>
 
         {/* WIDGET DEL SIMULADOR (COMBOBOX) */}
@@ -188,7 +189,9 @@ export default function Cierres() {
                 {/* 3. RESULTADO DE LA PROYECCIÓN */}
                 <div className="w-full sm:w-1/4 sm:text-right flex flex-col justify-end h-full">
                   <p className="text-xs text-blue-700 dark:text-blue-300 font-bold mb-1">Estimado a Pagar</p>
-                  <p className="text-3xl font-black text-blue-600 dark:text-blue-400 leading-none">${calcularProyeccion()}</p>
+                  <p className="text-3xl font-black text-blue-600 dark:text-blue-400 leading-none">
+                    {calcularProyeccion() === 'N/A' ? 'N/A' : `$${formatMoney(calcularProyeccion())}`}
+                  </p>
                 </div>
               </>
             ) : <p className="text-gray-600 dark:text-gray-300 italic">División en partes iguales.</p>}
@@ -222,7 +225,7 @@ export default function Cierres() {
                     <td className="p-3 text-gray-800 dark:text-gray-300 font-medium text-sm">{g.proveedor}</td>
                     <td className="p-3 text-gray-600 dark:text-gray-400 text-sm">{g.concepto}</td>
                     <td className="p-3 text-center text-gray-500 text-xs dark:text-gray-400">{g.numero_cuota} de {g.total_cuotas}</td>
-                    <td className="p-3 text-right font-bold text-gray-800 dark:text-gray-300">${g.monto_cuota_usd}</td>
+                    <td className="p-3 text-right font-bold text-gray-800 dark:text-gray-300">${formatMoney(g.monto_cuota_usd)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -248,7 +251,7 @@ export default function Cierres() {
                       <p className="font-bold text-gray-800 dark:text-gray-200 truncate">{item.concepto}</p>
                       <div className="flex justify-between items-center mt-1 text-gray-500 dark:text-gray-400">
                         <span>Cuota {item.numero_cuota}/{item.total_cuotas}</span>
-                        <span className="font-bold text-donezo-primary">${item.monto_cuota_usd}</span>
+                        <span className="font-bold text-donezo-primary">${formatMoney(item.monto_cuota_usd)}</span>
                       </div>
                     </div>
                   ))}
@@ -258,7 +261,7 @@ export default function Cierres() {
                 <div className="pt-3 border-t border-gray-200 dark:border-gray-700 flex flex-col gap-2">
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-gray-500 font-bold uppercase dark:text-gray-400">Total del Mes:</span>
-                    <span className="font-black text-gray-800 dark:text-white text-sm">${proyecciones[mes].total.toFixed(2)}</span>
+                    <span className="font-black text-gray-800 dark:text-white text-sm">${formatMoney(proyecciones[mes].total)}</span>
                   </div>
 
                   {/* AQUÍ SE REFLEJA Y PERMITE EDITAR LA ALÍCUOTA SELECCIONADA */}
@@ -280,7 +283,7 @@ export default function Cierres() {
                       <div className="flex justify-between items-center mt-0.5 border-t border-blue-200/50 dark:border-blue-800/50 pt-1">
                         <span className="text-xs font-bold text-blue-700 dark:text-blue-300">Tu Estimado:</span>
                         <span className="text-sm font-black text-blue-600 dark:text-blue-400">
-                          ${(proyecciones[mes].total * (parseFloat(simulacionAlicuota) / 100)).toFixed(2)}
+                          ${formatMoney(proyecciones[mes].total * (parseFloat(simulacionAlicuota) / 100))}
                         </span>
                       </div>
                     </div>
@@ -303,8 +306,8 @@ export default function Cierres() {
               <p><strong className="text-gray-800 dark:text-white">Proveedor:</strong> {selectedGasto.proveedor}</p>
               <p><strong className="text-gray-800 dark:text-white">Concepto:</strong> {selectedGasto.concepto}</p>
               <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-xl my-2 border border-gray-200 dark:border-gray-700">
-                <p><strong>Monto Total de Factura:</strong> ${selectedGasto.monto_total_usd}</p>
-                <p><strong>Fracción a cobrar este mes:</strong> ${selectedGasto.monto_cuota_usd}</p>
+                <p><strong>Monto Total de Factura:</strong> ${formatMoney(selectedGasto.monto_total_usd)}</p>
+                <p><strong>Fracción a cobrar este mes:</strong> ${formatMoney(selectedGasto.monto_cuota_usd)}</p>
               </div>
             </div>
             <button onClick={() => setSelectedGasto(null)} className="mt-6 w-full px-6 py-3 rounded-xl font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all dark:text-gray-300">Cerrar</button>

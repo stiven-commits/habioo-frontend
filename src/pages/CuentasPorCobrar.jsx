@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import { formatMoney } from '../utils/currency';
 
 export default function CuentasPorCobrar() {
   const { userRole } = useOutletContext();
@@ -70,7 +71,7 @@ export default function CuentasPorCobrar() {
                     <td className="p-3 text-gray-600 dark:text-gray-400 capitalize">{r.ciclo}</td>
                     <td className="p-3 text-gray-500 text-sm dark:text-gray-400">{r.fecha}</td>
                     <td className="p-3">{getStatusBadge(r.estado)}</td>
-                    <td className="p-3 text-right font-bold text-red-500">${r.monto_usd}</td>
+                    <td className="p-3 text-right font-bold text-red-500">${formatMoney(r.monto_usd)}</td>
                   </tr>
                 ))}
               </tbody>

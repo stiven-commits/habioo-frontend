@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import { formatMoney } from '../utils/currency';
 
 export default function DashboardHome() {
   const { user, userRole } = useOutletContext();
@@ -40,11 +41,11 @@ export default function DashboardHome() {
       <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-gradient-to-br from-donezo-green to-emerald-600 text-white p-6 rounded-3xl shadow-lg">
           <p className="text-sm opacity-90 mb-2">Total Pagado</p>
-          <h3 className="text-3xl font-bold">${Number(finanzas.total_pagado).toFixed(2)}</h3>
+          <h3 className="text-3xl font-bold">${formatMoney(finanzas.total_pagado)}</h3>
         </div>
         <div className="bg-white dark:bg-donezo-card-dark p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800">
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Mi Deuda Actual</p>
-          <h3 className="text-3xl font-bold text-gray-800 dark:text-white">${Number(finanzas.deuda_actual).toFixed(2)}</h3>
+          <h3 className="text-3xl font-bold text-gray-800 dark:text-white">${formatMoney(finanzas.deuda_actual)}</h3>
         </div>
         <div className="bg-white dark:bg-donezo-card-dark p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800">
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Recibos Pendientes</p>
@@ -81,3 +82,4 @@ export default function DashboardHome() {
     </div>
   );
 }
+

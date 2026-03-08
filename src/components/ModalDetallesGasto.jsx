@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatMoney } from '../utils/currency';
 
 export default function ModalDetallesGasto({ gasto, onClose }) {
   if (!gasto) return null;
@@ -23,13 +24,13 @@ export default function ModalDetallesGasto({ gasto, onClose }) {
           
           <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl my-2 border border-gray-200 dark:border-gray-700">
             <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 pb-2 mb-2 text-xs">
-                <p className="text-gray-500 dark:text-gray-400">Monto Base: <br/><strong className="text-gray-700 dark:text-gray-300 text-sm">Bs. {gasto.monto_bs}</strong></p>
+                <p className="text-gray-500 dark:text-gray-400">Monto Base: <br/><strong className="text-gray-700 dark:text-gray-300 text-sm">Bs. {formatMoney(gasto.monto_bs)}</strong></p>
                 <span className="text-gray-300 dark:text-gray-600">÷</span>
-                <p className="text-right text-gray-500 dark:text-gray-400">Tasa Aplicada: <br/><strong className="text-gray-700 dark:text-gray-300 text-sm">Bs. {gasto.tasa_cambio}</strong></p>
+                <p className="text-right text-gray-500 dark:text-gray-400">Tasa Aplicada: <br/><strong className="text-gray-700 dark:text-gray-300 text-sm">Bs. {formatMoney(gasto.tasa_cambio)}</strong></p>
             </div>
             <p className="flex justify-between items-center">
               <strong>Monto Total (USD):</strong> 
-              <span className="text-lg font-black text-gray-800 dark:text-white">${gasto.monto_total_usd}</span>
+              <span className="text-lg font-black text-gray-800 dark:text-white">${formatMoney(gasto.monto_total_usd)}</span>
             </p>
           </div>
         </div>
