@@ -179,24 +179,6 @@ Este README fusiona la base conceptual original con el inventario actualizado de
 
 ---
 
-## 7) Discrepancias técnicas conocidas (para backlog)
-
-1. Propiedades (PUT):
-   - Front usa `PUT /propiedades-admin/:id`.
-   - Backend usa `PUT /propiedades-admin` con `id` en body.
-   - Recomendado: unificar contrato en una sola forma.
-
-2. Rutas de pagos:
-   - Flujo actual: `/pagos-admin`.
-   - Existe flujo histórico en `/pagos` (no activo en frontend principal).
-   - Recomendado: mantener una sola ruta canónica.
-
-3. Módulo legacy:
-   - `src/Dashboard.jsx` no está en router pero aún contiene lógica y fetches.
-   - Recomendado: retirar o migrar.
-
----
-
 ## 8) Notas de sesión y seguridad
 
 - Las rutas protegidas requieren `Authorization: Bearer <token>`.
