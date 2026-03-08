@@ -17,6 +17,26 @@ Este README fusiona la base conceptual original con el inventario actualizado de
 
 ---
 
+## 1.1) Remanufacturación del backend (marzo 2026)
+
+El backend fue refactorizado de un archivo monolítico a módulos por dominio, manteniendo la misma API pública para el frontend.
+
+- `index.js` ahora solo inicializa la app y registra rutas.
+- Capas nuevas:
+  - `config/db.js`
+  - `middleware/verifyToken.js`
+  - `utils/calendar.js`
+  - `utils/number.js`
+  - `services/pagosColumns.js`
+- Rutas separadas en `routes/*.js`:
+  - `root`, `auth`, `gastos`, `proveedores`, `propiedades`, `bancos`, `zonas`, `recibos`, `fondos`, `pagos`, `dashboard`.
+
+Impacto:
+- Se conserva compatibilidad de URLs/métodos actuales.
+- Mejor mantenibilidad y menor riesgo al extender funcionalidades.
+
+---
+
 ## 2) Lógica de negocio (resumen)
 
 1. Multitenancy por condominio:
@@ -130,7 +150,7 @@ Este README fusiona la base conceptual original con el inventario actualizado de
 ### Propiedades
 - `GET https://auth.habioo.cloud/propiedades-admin` -> listar inmuebles.
 - `POST https://auth.habioo.cloud/propiedades-admin` -> crear inmueble.
-- `PUT https://auth.habioo.cloud/propiedades-admin` -> editar inmueble (backend actual).
+- `PUT https://auth.habioo.cloud/propiedades-admin/:id` -> editar inmueble.
 
 ### Dashboard residente
 - `GET https://auth.habioo.cloud/mis-propiedades` -> propiedades del usuario.
@@ -176,6 +196,27 @@ Este README fusiona la base conceptual original con el inventario actualizado de
   - Pagos por recibo (`monto_origen`, `monto_usd`, `tasa_cambio`, `moneda`, `estado`).
 - `gastos_pagos_fondos`:
   - Relación de pagos de gastos con fondos (estructura disponible para expansión).
+
+---
+
+## 7) Novedades funcionales recientes
+
+1. Propiedades:
+   - Corrección de guardado completo en crear/editar (propietario + inquilino).
+   - `alicuota` con coma decimal en UI y límite operativo de 3 decimales.
+2. Gastos:
+   - Migración de ciclos numéricos a meses calendario (`mes_actual`, `mes_asignado`).
+   - Doble fecha de gasto (`fecha_gasto` y `created_at`).
+   - Soportes de imagen: `factura_img` + `imagenes[]`.
+3. Bancos y fondos:
+   - Cuenta predeterminada (`PUT /bancos/:id/predeterminada`) activa.
+   - Fondos virtuales anclados a cuentas bancarias con trazabilidad.
+4. Pagos:
+   - Flujo consolidado en `POST /pagos-admin`.
+   - Distribución automática en fondos y actualización de estado de recibo.
+5. Historial de avisos:
+   - Filtros activos por texto, estado y rango de fechas.
+   - Pestañas de estados alineadas visualmente con el patrón de `Gastos`.
 
 ---
 

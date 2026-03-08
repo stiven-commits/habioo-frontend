@@ -154,7 +154,10 @@ export default function HistorialAvisos() {
           </div>
         </div>
 
-        <div className="flex border-t border-gray-100 dark:border-gray-800 pt-5 gap-6 overflow-x-auto">
+      </div>
+
+      <div className="bg-white dark:bg-donezo-card-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+        <div className="flex border-b border-gray-100 dark:border-gray-800 px-6 pt-4 gap-6 overflow-x-auto">
           {['Todos', 'Pagado', 'Abonado Parcial', 'Pendiente'].map((estado) => (
             <button
               key={estado}
@@ -168,16 +171,15 @@ export default function HistorialAvisos() {
             </button>
           ))}
         </div>
-      </div>
 
-      <div className="bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
-        {loading ? (
-          <p className="text-gray-500 dark:text-gray-400">Cargando...</p>
-        ) : recibosFiltrados.length === 0 ? (
-          <p className="text-gray-500 text-center py-4 dark:text-gray-400">No hay recibos para esos filtros.</p>
-        ) : (
-          <>
-            <div className="overflow-x-auto min-h-[400px]">
+        <div className="p-6">
+          {loading ? (
+            <p className="text-gray-500 dark:text-gray-400">Cargando...</p>
+          ) : recibosFiltrados.length === 0 ? (
+            <p className="text-gray-500 text-center py-4 dark:text-gray-400">No hay recibos para esos filtros.</p>
+          ) : (
+            <>
+              <div className="overflow-x-auto min-h-[400px]">
               <table className="w-full text-left border-collapse select-none">
                 <thead>
                   <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 text-sm dark:text-gray-400">
@@ -227,31 +229,32 @@ export default function HistorialAvisos() {
                   ))}
                 </tbody>
               </table>
-            </div>
-
-            {totalPages > 1 && (
-              <div className="flex justify-between items-center mt-6 border-t border-gray-100 dark:border-gray-800 pt-4">
-                <p className="text-sm text-gray-500">Página {currentPage} de {totalPages}</p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold transition-all"
-                  >
-                    Anterior
-                  </button>
-                  <button
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                    className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold transition-all"
-                  >
-                    Siguiente
-                  </button>
-                </div>
               </div>
-            )}
-          </>
-        )}
+
+              {totalPages > 1 && (
+                <div className="flex justify-between items-center mt-6 border-t border-gray-100 dark:border-gray-800 pt-4">
+                  <p className="text-sm text-gray-500">Página {currentPage} de {totalPages}</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold transition-all"
+                    >
+                      Anterior
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold transition-all"
+                    >
+                      Siguiente
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {showPayModal && (
