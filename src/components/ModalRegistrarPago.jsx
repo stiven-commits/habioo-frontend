@@ -53,14 +53,8 @@ export default function ModalRegistrarPago({ recibo, bancos, onClose, onSuccess 
       const banco = bancos.find(b => b.id.toString() === updatedForm.cuenta_id);
       const monto = parseFloat(updatedForm.monto_origen.replace(/\./g, '').replace(',', '.')) || 0;
 
-      const isForeign = banco && (
-        banco.tipo.includes('Zelle') ||
-        banco.tipo.includes('USD') ||
-        banco.tipo.includes('EUR') ||
-        banco.tipo.includes('Panamá') ||
-        banco.tipo.includes('Paypal')
-      );
-
+      // 💡 CORRECCIÓN: Buscamos tipos de cuenta extranjera exactos
+      const isForeign = banco && ['Zelle', 'Efectivo'].includes(banco.tipo);
       const tasaRaw = parseFloat(updatedForm.tasa_cambio.replace(/\./g, '').replace(',', '.'));
 
       if (isForeign) {
@@ -99,15 +93,26 @@ export default function ModalRegistrarPago({ recibo, bancos, onClose, onSuccess 
     }
   };
 
+  // 💡 ESTA ES LA VARIABLE CLAVE CORREGIDA
+  const selectedBank = bancos.find(b => b.id.toString() === formPago.cuenta_id);
+  const requiresTasa = selectedBank && ['Transferencia', 'Pago Movil'].includes(selectedBank.tipo);
+
   const handleSubmitPago = async (e) => {
     e.preventDefault();
     if (!confirm(`¿Confirmar pago por $${formatMoney(conversionUSD)}?`)) return;
+
+    // 💡 DETERMINAMOS LA MONEDA REAL SEGÚN EL BANCO SELECCIONADO
+    const monedaReal = requiresTasa ? 'BS' : 'USD';
 
     const token = localStorage.getItem('habioo_token');
     const res = await fetch('https://auth.habioo.cloud/pagos-admin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({ ...formPago, recibo_id: recibo.id })
+      body: JSON.stringify({ 
+        ...formPago, 
+        recibo_id: recibo.id,
+        moneda: monedaReal // Inyectamos la moneda al backend
+      })
     });
     const result = await res.json();
 
@@ -118,9 +123,6 @@ export default function ModalRegistrarPago({ recibo, bancos, onClose, onSuccess 
       alert(result.error);
     }
   };
-
-  const selectedBank = bancos.find(b => b.id.toString() === formPago.cuenta_id);
-  const requiresTasa = selectedBank && (selectedBank.tipo.includes('Bs') || selectedBank.tipo.includes('Móvil'));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -142,7 +144,7 @@ export default function ModalRegistrarPago({ recibo, bancos, onClose, onSuccess 
             <select name="cuenta_id" value={formPago.cuenta_id} onChange={handlePagoChange} className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required>
                   <option value="">Seleccione Banco...</option>
               {bancos.map(b => (
-                <option key={b.id} value={b.id}>{b.nombre_banco} ({b.apodo})</option>
+                <option key={b.id} value={b.id}>{b.nombre_banco || b.tipo} ({b.apodo})</option>
               ))}
             </select>
           </div>
@@ -231,5 +233,3 @@ export default function ModalRegistrarPago({ recibo, bancos, onClose, onSuccess 
     </div>
   );
 }
-
-
