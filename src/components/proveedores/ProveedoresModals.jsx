@@ -217,3 +217,155 @@ export function ModalProveedorDetails({
     </div>
   );
 }
+// 💡 3. NUEVA MODAL PARA CARGA MASIVA DE PROVEEDORES
+export function ModalCargaMasivaProveedores({
+  isOpen,
+  setLoteModalOpen,
+  loteData,
+  setLoteData,
+  loteErrors,
+  isUploadingLote,
+  uploadProgress,
+  handleDownloadTemplate,
+  handleSaveLote,
+  handleFileUpload
+}) {
+  if (!isOpen) return null;
+
+  const handleClose = () => {
+    if (isUploadingLote) return;
+    setLoteData([]); 
+    setLoteModalOpen(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
+      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl w-full max-w-6xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        
+        {/* CABECERA */}
+        <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
+           <div>
+              <h3 className="text-xl font-black text-gray-800 dark:text-white flex items-center gap-2">
+                📦 Carga Masiva de Proveedores
+              </h3>
+              {loteData.length > 0 && (
+                <p className="text-sm text-gray-500 mt-1">
+                  Se encontraron {loteData.length} registros. 
+                  {loteErrors > 0 && <span className="text-red-500 font-bold ml-2">Hay {loteErrors} errores detectados.</span>}
+                </p>
+              )}
+           </div>
+           <button onClick={handleClose} disabled={isUploadingLote} className={`text-gray-400 font-bold text-2xl transition-colors ${isUploadingLote ? 'opacity-30 cursor-not-allowed' : 'hover:text-red-500'}`}>
+             ✕
+           </button>
+        </div>
+
+        {loteData.length === 0 ? (
+          <div className="p-10 flex flex-col items-center justify-center bg-white dark:bg-donezo-card-dark min-h-[300px]">
+            <div className="text-6xl mb-4">🏢</div>
+            <h4 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">Importar Directorio en Excel</h4>
+            <p className="text-gray-500 dark:text-gray-400 text-center max-w-lg mb-8">
+              Descarga la plantilla, rellénala con los datos de tus proveedores y vuelve a subirla. El sistema detectará RIFs duplicados automáticamente.
+            </p>
+            
+            <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md">
+               <button onClick={handleDownloadTemplate} className="flex-1 py-3 px-4 rounded-xl bg-blue-50 text-blue-600 font-bold border border-blue-200 dark:bg-blue-900/30 dark:border-blue-800/50 dark:text-blue-400 hover:bg-blue-100 transition-colors shadow-sm">
+                 1. Descargar Plantilla
+               </button>
+               <label className="flex-1 py-3 px-4 rounded-xl bg-donezo-primary text-white font-bold cursor-pointer shadow-md hover:bg-blue-700 transition-all text-center">
+                 2. Subir Archivo
+                 <input type="file" accept=".xlsx, .xls, .csv" className="hidden" onChange={handleFileUpload} />
+               </label>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="flex-1 overflow-y-auto p-0 bg-white dark:bg-donezo-card-dark custom-scrollbar relative">
+              {/* OVERLAY DE BLOQUEO (BARRA DE PROGRESO) */}
+              {isUploadingLote && (
+                <div className="absolute inset-0 bg-white/50 dark:bg-black/50 backdrop-blur-sm z-20 flex flex-col items-center justify-center">
+                   <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 flex flex-col items-center gap-4 w-full max-w-sm">
+                      <span className="font-bold text-gray-800 dark:text-white text-lg">Procesando {loteData.length} proveedores...</span>
+                      <p className="text-sm text-gray-500 text-center">Por favor, no cierre esta ventana mientras se guardan los datos.</p>
+                      
+                      <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-4 overflow-hidden relative shadow-inner mt-2">
+                        <div className="bg-donezo-primary h-4 rounded-full transition-all duration-300 ease-out" style={{ width: `${Math.round(uploadProgress)}%` }}></div>
+                      </div>
+                      <span className="text-sm font-bold text-blue-600 dark:text-blue-400">{Math.round(uploadProgress)}%</span>
+                   </div>
+                </div>
+              )}
+              <table className="w-full text-left border-collapse text-sm">
+                <thead className="sticky top-0 bg-gray-100 dark:bg-gray-800 shadow-sm z-10">
+                  <tr className="text-gray-600 dark:text-gray-300">
+                    <th className="p-3 font-bold text-center">Estado</th>
+                    <th className="p-3 font-bold">RIF</th>
+                    <th className="p-3 font-bold">Nombre</th>
+                    <th className="p-3 font-bold">Rubro</th>
+                    <th className="p-3 font-bold">Teléfono Principal</th>
+                    <th className="p-3 font-bold">Estado / Provincia</th>
+                    <th className="p-3 font-bold">Dirección</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loteData.map((row, i) => (
+                    <tr key={i} className={`border-b ${row.isValid ? 'border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800' : 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30'}`}>
+                      <td className="p-3 text-center">{row.isValid ? <span className="text-green-500 text-lg" title="Correcto">✅</span> : <span className="text-red-500 text-lg cursor-help" title={row.errors}>❌</span>}</td>
+                      <td className="p-3 font-bold font-mono text-gray-800 dark:text-white">
+                        {row.identificador}
+                        {!row.isValid && row.errors.includes('RIF duplicado') && <div className="text-[10px] text-red-500 font-bold">Repetido en Excel</div>}
+                        {!row.isValid && row.errors.includes('RIF inválido') && <div className="text-[10px] text-red-500 font-bold">Formato Inválido</div>}
+                      </td>
+                      <td className="p-3">
+                        <div className="text-gray-700 dark:text-gray-300 font-medium">{row.nombre}</div>
+                        {!row.isValid && row.errors.includes('Nombre vacío') && <span className="text-[10px] text-red-500 font-bold">Requerido</span>}
+                      </td>
+                      <td className="p-3 text-gray-500 dark:text-gray-400 text-xs">
+                        {row.rubro ? <span className="px-2 py-0.5 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 rounded font-bold uppercase tracking-wide text-[10px]">{row.rubro}</span> : '-'}
+                      </td>
+                      <td className="p-3 font-mono text-gray-600 dark:text-gray-400">
+                        {row.telefono1}
+                        {!row.isValid && row.errors.includes('Teléfono principal') && <div className="text-[10px] text-red-500 font-bold">Requerido</div>}
+                      </td>
+                      <td className="p-3 text-gray-600 dark:text-gray-400 text-xs font-semibold">
+                        {row.estado_venezuela}
+                        {!row.isValid && row.errors.includes('Estado inválido') && <div className="text-[10px] text-red-500 font-bold">Falta o es incorrecto</div>}
+                      </td>
+                      <td className="p-3 text-gray-500 dark:text-gray-400 text-xs truncate max-w-[200px]" title={row.direccion}>
+                        {row.direccion}
+                        {!row.isValid && row.errors.includes('Dirección vacía') && <div className="text-[10px] text-red-500 font-bold">Requerido</div>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* PIE Y BOTONES DE CONFIRMACIÓN */}
+            <div className="p-6 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-800 flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-4 w-full">
+                {!isUploadingLote ? (
+                  <label className="text-blue-600 dark:text-blue-400 font-bold hover:underline cursor-pointer text-sm">
+                     Subir otro archivo
+                     <input type="file" accept=".xlsx, .xls, .csv" className="hidden" onChange={handleFileUpload} />
+                  </label>
+                ) : (
+                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400 animate-pulse">Guardando...</span>
+                )}
+                
+                <div className="flex gap-3 w-full sm:w-auto">
+                  <button onClick={handleClose} disabled={isUploadingLote} className="flex-1 sm:flex-none px-6 py-3 rounded-xl font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    Cancelar
+                  </button>
+                  <button onClick={handleSaveLote} disabled={loteErrors > 0 || isUploadingLote} className="flex-1 sm:flex-none px-6 py-3 rounded-xl font-bold bg-donezo-primary text-white hover:bg-blue-700 shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2">
+                    {isUploadingLote ? 'Guardando...' : `Confirmar y Guardar ${loteData.length}`}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

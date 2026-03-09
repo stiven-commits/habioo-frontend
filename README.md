@@ -3,7 +3,7 @@
 Documento de referencia funcional y técnica del estado actual de la app.
 Este README fusiona la base conceptual original con el inventario actualizado de módulos, endpoints y modelo de datos.
 
-- Última actualización: 2026-03-08
+- Última actualización: 2026-03-09
 - Stack: React + Vite + Tailwind (frontend), Node/Express + PostgreSQL (backend)
 
 ---
@@ -68,7 +68,7 @@ Impacto:
 ### 3.1 Funcionalidades activas
 
 1. Login y sesión JWT (`/login` + validación `/me` en `Layout`).
-2. Proveedores: listar y crear.
+2. Proveedores: listar/crear/editar/eliminar (borrado lógico) por junta (aislados por condominio).
 3. Gastos: crear con factura/soportes, listar, eliminar (si cuotas pendientes).
 4. Cierres: vista preliminar y cierre de ciclo.
 5. Historial de avisos: filtros por texto/estado/fecha y registro de pago.
@@ -114,8 +114,10 @@ Impacto:
   - Acción: valida token vigente.
 
 ### Proveedores
-- `GET https://auth.habioo.cloud/proveedores` -> listar.
-- `POST https://auth.habioo.cloud/proveedores` -> crear.
+- `GET https://auth.habioo.cloud/proveedores` -> listar proveedores activos del condominio del admin autenticado.
+- `POST https://auth.habioo.cloud/proveedores` -> crear proveedor en el condominio del admin (reactiva si existía inactivo con mismo RIF).
+- `PUT https://auth.habioo.cloud/proveedores/:id` -> editar datos de contacto/rubro del proveedor.
+- `DELETE https://auth.habioo.cloud/proveedores/:id` -> borrado lógico (`activo = false`).
 
 ### Gastos
 - `GET https://auth.habioo.cloud/gastos` -> listar gastos/cuotas.
@@ -179,6 +181,9 @@ Impacto:
 
 ### Proveedores y cuentas
 - `proveedores`.
+  - Alcance por junta: cada registro se asocia a `condominio_id` y no se comparte entre condominios.
+  - Borrado lógico: columna `activo` para ocultar sin perder trazabilidad histórica.
+  - Nuevos campos relevantes: `rubro`, `condominio_id`, `activo`.
 - `cuentas_bancarias`:
   - Campos clave actuales: `numero_cuenta`, `nombre_banco`, `apodo`, `tipo`, `es_predeterminada`, `nombre_titular`, `cedula_rif`, `telefono`.
 
@@ -229,6 +234,11 @@ Impacto:
    - Se incorporó `src/config/api.js` con `API_BASE_URL` dinámico.
    - En local (`localhost/127.0.0.1`) usa `http://localhost:3000` por defecto.
    - `main.jsx` reescribe automáticamente llamadas legacy a `https://auth.habioo.cloud` hacia la base local para evitar romper pruebas.
+7. Proveedores (nuevo alcance por junta):
+   - Listado aislado por `condominio_id` (cada junta ve solo sus propios proveedores).
+   - Se agregó `rubro` al proveedor.
+   - Se habilitó borrado lógico con `activo` (eliminar oculta, no destruye).
+   - Alta inteligente: si un proveedor del mismo condominio existe inactivo con el mismo RIF, se reactiva y actualiza.
 
 ---
 
