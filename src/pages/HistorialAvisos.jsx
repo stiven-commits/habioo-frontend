@@ -1,6 +1,5 @@
 ﻿import { useState, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
-import ModalRegistrarPago from '../components/ModalRegistrarPago';
 import { formatMoney } from '../utils/currency';
 
 export default function HistorialAvisos() {
@@ -8,14 +7,12 @@ export default function HistorialAvisos() {
   const navigate = useNavigate();
 
   const [recibos, setRecibos] = useState([]);
-  const [bancos, setBancos] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 15;
 
   const [showPrintModal, setShowPrintModal] = useState(null);
-  const [showPayModal, setShowPayModal] = useState(null);
 
   const [filtroEstado, setFiltroEstado] = useState('Todos');
   const [fechaDesde, setFechaDesde] = useState('');
@@ -30,12 +27,9 @@ export default function HistorialAvisos() {
     }
 
     try {
-      const [resRecibos, resBancos] = await Promise.all([
-        fetch('https://auth.habioo.cloud/recibos-historial', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('https://auth.habioo.cloud/bancos', { headers: { Authorization: `Bearer ${token}` } })
-      ]);
+      const resRecibos = await fetch('https://auth.habioo.cloud/recibos-historial', { headers: { Authorization: `Bearer ${token}` } });
 
-      if (resRecibos.status === 401 || resBancos.status === 401) {
+      if (resRecibos.status === 401) {
         localStorage.removeItem('habioo_token');
         localStorage.removeItem('habioo_user');
         navigate('/');
@@ -43,10 +37,8 @@ export default function HistorialAvisos() {
       }
 
       const dataR = await resRecibos.json();
-      const dataB = await resBancos.json();
 
       if (dataR.status === 'success') setRecibos(dataR.recibos || []);
-      if (dataB.status === 'success') setBancos(dataB.bancos || []);
     } catch (error) {
       console.error(error);
     } finally {
@@ -221,9 +213,6 @@ export default function HistorialAvisos() {
                       <td className="p-3 text-right font-bold text-gray-800 dark:text-white">${formatMoney(r.monto_usd)}</td>
                       <td className="p-3 flex justify-center gap-2">
                         <button onClick={() => setShowPrintModal(r)} className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-lg" title="Ver / Imprimir">🖨️</button>
-                        {mapEstadoTab(r.estado) !== 'Pagado' && (
-                          <button onClick={() => setShowPayModal(r)} className="p-2 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg text-lg" title="Registrar Pago">💵</button>
-                        )}
                       </td>
                     </tr>
                   ))}
@@ -256,18 +245,6 @@ export default function HistorialAvisos() {
           )}
         </div>
       </div>
-
-      {showPayModal && (
-        <ModalRegistrarPago
-          recibo={showPayModal}
-          bancos={bancos}
-          onClose={() => setShowPayModal(null)}
-          onSuccess={() => {
-            setShowPayModal(null);
-            fetchData();
-          }}
-        />
-      )}
 
       {showPrintModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">

@@ -71,13 +71,13 @@ Impacto:
 2. Proveedores: listar/crear/editar/eliminar (borrado lógico) por junta (aislados por condominio).
 3. Gastos: crear con factura/soportes, listar, eliminar (si cuotas pendientes).
 4. Cierres: vista preliminar y cierre de ciclo.
-5. Historial de avisos: filtros por texto/estado/fecha y registro de pago.
+5. Historial de avisos: filtros por texto/estado/fecha.
 6. Bancos: listar, crear, eliminar, marcar predeterminada.
 7. Fondos virtuales: listar, crear, eliminar por cuenta bancaria.
 8. Zonas: listar, crear, editar, eliminar.
-9. Propiedades: listar, crear, editar, ajustar saldo manual, ver estado de cuenta y carga masiva por Excel.
+9. Propiedades: listar, crear, editar, ajustar saldo manual y carga masiva por Excel.
 10. Dashboard residente: propiedades y resumen financiero.
-11. Cuentas por cobrar (admin).
+11. Cuentas por cobrar (admin): tabla paginada de deuda, registrar pago y ver estado de cuenta por inmueble.
 
 ### 3.2 Funcionalidades inactivas/parciales
 
@@ -132,7 +132,9 @@ Impacto:
 
 ### Pagos
 - `POST https://auth.habioo.cloud/pagos-admin`
-  - Registra pago y distribuye a fondos.
+  - Registra pago de administrador por `propiedad_id` (auto-validado), distribuye a fondos y aplica cascada FIFO sobre recibos.
+- `POST https://auth.habioo.cloud/pagos/:id/validar`
+  - Valida pagos pendientes y aplica cascada FIFO de imputación.
 
 ### Bancos y fondos
 - `GET https://auth.habioo.cloud/bancos` -> listar cuentas.
@@ -202,7 +204,9 @@ Impacto:
 - `movimientos_fondos`:
   - Auditoría de ingresos/egresos/ajustes.
 - `pagos`:
-  - Pagos por recibo (`monto_origen`, `monto_usd`, `tasa_cambio`, `moneda`, `estado`).
+  - Pagos por propiedad/recibo (`monto_origen`, `monto_usd`, `tasa_cambio`, `moneda`, `estado`, `propiedad_id`, `cuenta_bancaria_id`).
+- `recibos`:
+  - Incluye `monto_pagado_usd` para control de abonos parciales y liquidación total por cascada.
 - `gastos_pagos_fondos`:
   - Relación de pagos de gastos con fondos (estructura disponible para expansión).
 
@@ -217,6 +221,7 @@ Impacto:
    - Carga masiva desde Excel con validaciones (apto, nombre, cédula, alícuota y duplicados de correo).
    - Paginación de la tabla principal ajustada a 13 inmuebles por página.
    - Modales desacopladas en `src/components/propiedades/PropiedadesModals.jsx`.
+   - La acción `Estado de Cuenta` fue retirada del dropdown de `Inmuebles`.
 2. Gastos:
    - Migración de ciclos numéricos a meses calendario (`mes_actual`, `mes_asignado`).
    - Doble fecha de gasto (`fecha_gasto` y `created_at`).
@@ -225,16 +230,23 @@ Impacto:
    - Cuenta predeterminada (`PUT /bancos/:id/predeterminada`) activa.
    - Fondos virtuales anclados a cuentas bancarias con trazabilidad.
 4. Pagos:
-   - Flujo consolidado en `POST /pagos-admin`.
-   - Distribución automática en fondos y actualización de estado de recibo.
+   - Flujo consolidado en `POST /pagos-admin` con registro por `propiedad_id`.
+   - Validación manual disponible en `POST /pagos/:id/validar`.
+   - Cascada FIFO: el abono se aplica del recibo más antiguo al más reciente.
+   - Actualización automática de `propiedades.saldo_actual` y de `recibos.monto_pagado_usd`/`estado` (`Pagado` o `Parcial`).
 5. Historial de avisos:
    - Filtros activos por texto, estado y rango de fechas.
    - Pestañas de estados alineadas visualmente con el patrón de `Gastos`.
-6. Desarrollo local:
+   - Se retiró la acción de pagar desde esta vista.
+6. Cobranza (ajuste de flujo):
+   - Se centraliza la gestión operativa por inmueble con deuda.
+   - Incluye acciones `Estado de Cuenta` y `Registrar Pago` por fila.
+   - Mantiene paginación de 13 registros por página.
+7. Desarrollo local:
    - Se incorporó `src/config/api.js` con `API_BASE_URL` dinámico.
    - En local (`localhost/127.0.0.1`) usa `http://localhost:3000` por defecto.
    - `main.jsx` reescribe automáticamente llamadas legacy a `https://auth.habioo.cloud` hacia la base local para evitar romper pruebas.
-7. Proveedores (nuevo alcance por junta):
+8. Proveedores (nuevo alcance por junta):
    - Listado aislado por `condominio_id` (cada junta ve solo sus propios proveedores).
    - Se agregó `rubro` al proveedor.
    - Se habilitó borrado lógico con `activo` (eliminar oculta, no destruye).

@@ -368,11 +368,14 @@ export default function Propiedades() {
                             Opciones <span className="text-[9px]">▼</span>
                           </button>
                           {openDropdownId === p.id && (
-                            <div className="absolute right-0 top-12 w-48 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden text-left animate-fadeIn">
-                              <button onClick={(e) => { e.stopPropagation(); handleEdit(p); }} className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 border-b border-gray-50 dark:border-gray-700 transition-colors">✏️ Editar Datos</button>
-                              <button onClick={(e) => { e.stopPropagation(); handleOpenEstadoCuenta(p); }} className="w-full text-left px-4 py-3 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-sm text-blue-600 dark:text-blue-400 font-bold transition-colors">📄 Estado de Cuenta</button>
-                            </div>
-                          )}
+                        <div className="absolute right-0 top-12 w-48 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden text-left animate-fadeIn">
+
+                          <button onClick={(e) => { e.stopPropagation(); handleEdit(p); }} className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors">
+                            ✏️ Editar Datos
+                          </button>
+                          
+                        </div>
+                      )}
                         </td>
                       </tr>
                     );
