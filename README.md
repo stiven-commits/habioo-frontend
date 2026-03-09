@@ -75,7 +75,7 @@ Impacto:
 6. Bancos: listar, crear, eliminar, marcar predeterminada.
 7. Fondos virtuales: listar, crear, eliminar por cuenta bancaria.
 8. Zonas: listar, crear, editar, eliminar.
-9. Propiedades: listar, crear, editar, ajustar saldo manual y ver estado de cuenta.
+9. Propiedades: listar, crear, editar, ajustar saldo manual, ver estado de cuenta y carga masiva por Excel.
 10. Dashboard residente: propiedades y resumen financiero.
 11. Cuentas por cobrar (admin).
 
@@ -153,6 +153,7 @@ Impacto:
 - `PUT https://auth.habioo.cloud/propiedades-admin/:id` -> editar inmueble.
 - `GET https://auth.habioo.cloud/propiedades-admin/:id/estado-cuenta` -> movimientos de cuenta del inmueble.
 - `POST https://auth.habioo.cloud/propiedades-admin/:id/ajustar-saldo` -> ajuste manual de saldo (deuda/a favor).
+- `POST https://auth.habioo.cloud/propiedades-admin/lote` -> carga masiva de inmuebles (Excel/lote).
 
 ### Dashboard residente
 - `GET https://auth.habioo.cloud/mis-propiedades` -> propiedades del usuario.
@@ -208,6 +209,9 @@ Impacto:
    - Corrección de guardado completo en crear/editar (propietario + inquilino).
    - `alicuota` con coma decimal en UI y límite operativo de 3 decimales.
    - Ajuste manual de saldo por inmueble y estado de cuenta con cargos/abonos.
+   - Carga masiva desde Excel con validaciones (apto, nombre, cédula, alícuota y duplicados de correo).
+   - Paginación de la tabla principal ajustada a 13 inmuebles por página.
+   - Modales desacopladas en `src/components/propiedades/PropiedadesModals.jsx`.
 2. Gastos:
    - Migración de ciclos numéricos a meses calendario (`mes_actual`, `mes_asignado`).
    - Doble fecha de gasto (`fecha_gasto` y `created_at`).
@@ -258,7 +262,7 @@ Impacto:
 
 1. Vistas separadas en Configuración (Bancos, Zonas, Inmuebles) y Contabilidad (Gastos, Cierres, Avisos, Cobranza).
 2. En UI, "Zona" se presenta como "Área / Sector" según contexto.
-3. Modales desacopladas para rendimiento (`ModalAgregarGasto`, `ModalDetallesGasto`, `ModalFondos`, `ModalRegistrarPago`).
+3. Modales desacopladas para rendimiento (`ModalAgregarGasto`, `ModalDetallesGasto`, `ModalFondos`, `ModalRegistrarPago`, `ModalPropiedadForm`, `ModalEstadoCuenta`, `ModalAjusteSaldo`, `ModalCargaMasiva`).
 4. Soporte dark/light consistente.
 5. Formato de montos en frontend: miles con `.` y decimales con `,`.
 
