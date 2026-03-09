@@ -40,7 +40,8 @@ export default function Propiedades() {
   const initialForm = {
     identificador: '', alicuota: '', prop_nombre: '', prop_cedula: '', prop_email: '', prop_telefono: '', prop_password: '',
     tiene_inquilino: false, inq_nombre: '', inq_cedula: '', inq_email: '', inq_telefono: '', inq_password: '',
-    monto_saldo_inicial: '', tipo_saldo_inicial: 'CERO'
+    inq_permitir_acceso: true,
+    monto_saldo_inicial: '', tipo_saldo_inicial: 'CERO', saldo_inicial_bs: '', tasa_bcv: ''
   };
 
   const [form, setForm] = useState(initialForm);
@@ -99,13 +100,16 @@ export default function Propiedades() {
     if (type === 'checkbox') return setForm({ ...form, [name]: checked });
     if (name === 'prop_cedula' || name === 'inq_cedula') return setForm({ ...form, [name]: formatCedula(value) });
     if (name === 'alicuota' || name === 'monto_saldo_inicial') {
+      const allowNegative = name === 'monto_saldo_inicial' && String(value).trim().startsWith('-');
       let rawVal = value.replace(/\./g, ',').replace(/[^0-9,]/g, '');
+      if (allowNegative && !rawVal) return setForm({ ...form, [name]: '-' });
       const parts = rawVal.split(',');
       if (parts.length > 2) rawVal = `${parts[0]},${parts.slice(1).join('')}`;
       if (name === 'alicuota') {
         const [entero = '', decimal = ''] = rawVal.split(',');
         rawVal = rawVal.includes(',') ? `${entero},${decimal.slice(0, 3)}` : entero;
       }
+      if (allowNegative && rawVal) rawVal = `-${rawVal}`;
       return setForm({ ...form, [name]: rawVal });
     }
     setForm({ ...form, [name]: value });
@@ -117,7 +121,8 @@ export default function Propiedades() {
       identificador: prop.identificador, alicuota: formatAlicuotaDisplay(prop.alicuota),
       prop_nombre: prop.prop_nombre || '', prop_cedula: prop.prop_cedula || '', prop_email: prop.prop_email || '', prop_telefono: prop.prop_telefono || '', prop_password: '',
       tiene_inquilino: !!prop.inq_cedula, inq_nombre: prop.inq_nombre || '', inq_cedula: prop.inq_cedula || '', inq_email: prop.inq_email || '', inq_telefono: prop.inq_telefono || '', inq_password: '',
-      monto_saldo_inicial: '', tipo_saldo_inicial: 'CERO'
+      inq_permitir_acceso: prop.inq_acceso_portal !== false,
+      monto_saldo_inicial: '', tipo_saldo_inicial: 'CERO', saldo_inicial_bs: '', tasa_bcv: ''
     });
     setIsModalOpen(true);
   };

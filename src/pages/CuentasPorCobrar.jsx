@@ -10,6 +10,10 @@ export default function CuentasPorCobrar() {
   const [propiedades, setPropiedades] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // 💡 NUEVO ESTADO PARA LAS PESTAÑAS
+  const [activeTab, setActiveTab] = useState('Deudores'); 
+
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 13;
 
@@ -44,7 +48,7 @@ export default function CuentasPorCobrar() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, activeTab]); // 💡 Resetea la paginación si cambia el buscador o la pestaña
 
   const handleOpenRegistrarPago = (prop) => {
     setSelectedPropPago(prop);
@@ -75,15 +79,19 @@ export default function CuentasPorCobrar() {
     setEstadoCuentaModalOpen(true);
   };
 
-  const deudas = propiedades.filter((p) => parseFloat(p.saldo_actual || 0) > 0);
-  const filteredDeudas = deudas.filter(
+  // 💡 LÓGICA DE FILTRADO POR PESTAÑAS
+  const baseProperties = activeTab === 'Deudores' 
+    ? propiedades.filter((p) => parseFloat(p.saldo_actual || 0) > 0) 
+    : propiedades;
+
+  const filteredProperties = baseProperties.filter(
     (p) =>
       p.identificador?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.prop_nombre?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const totalPages = Math.ceil(filteredDeudas.length / ITEMS_PER_PAGE);
-  const paginatedDeudas = filteredDeudas.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(filteredProperties.length / ITEMS_PER_PAGE);
+  const paginatedProperties = filteredProperties.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   let saldoAcumulado = 0;
   const dataConSaldo = estadoCuentaData.map((mov) => {
@@ -108,7 +116,8 @@ export default function CuentasPorCobrar() {
   return (
     <div className="space-y-6">
       <div className="bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
+        
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
           <h3 className="text-xl font-bold text-gray-800 dark:text-white">Cobranza de Inmuebles</h3>
           <div className="flex-1 w-full max-w-md relative">
             <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">🔍</span>
@@ -122,8 +131,36 @@ export default function CuentasPorCobrar() {
           </div>
         </div>
 
-        {filteredDeudas.length === 0 ? (
-          <p className="text-gray-500 text-center py-8 dark:text-gray-400">No hay inmuebles con deuda pendiente.</p>
+        {/* 💡 PESTAÑAS DE NAVEGACIÓN */}
+        <div className="flex gap-6 border-b border-gray-100 dark:border-gray-800 mb-6">
+          <button
+            onClick={() => setActiveTab('Deudores')}
+            className={`py-3 px-2 font-bold text-sm border-b-2 transition-all ${
+              activeTab === 'Deudores'
+                ? 'border-donezo-primary text-donezo-primary dark:text-blue-400 dark:border-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+            }`}
+          >
+            ⚠️ Con Deuda Pendiente
+          </button>
+          <button
+            onClick={() => setActiveTab('Todos')}
+            className={`py-3 px-2 font-bold text-sm border-b-2 transition-all ${
+              activeTab === 'Todos'
+                ? 'border-donezo-primary text-donezo-primary dark:text-blue-400 dark:border-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+            }`}
+          >
+            🏢 Todos los Inmuebles
+          </button>
+        </div>
+
+        {filteredProperties.length === 0 ? (
+          <div className="text-center py-10">
+            <p className="text-gray-500 dark:text-gray-400 text-lg">
+              {activeTab === 'Deudores' ? '🎉 ¡Genial! No hay inmuebles con deuda pendiente.' : 'No se encontraron inmuebles.'}
+            </p>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -132,26 +169,35 @@ export default function CuentasPorCobrar() {
                   <th className="p-3">Inmueble</th>
                   <th className="p-3 text-right">Alícuota</th>
                   <th className="p-3">Propietario</th>
-                  <th className="p-3 text-right">Saldo Pendiente</th>
                   <th className="p-3 text-right">Saldo Actual</th>
                   <th className="p-3 text-center">Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {paginatedDeudas.map((p) => {
+                {paginatedProperties.map((p) => {
                   const saldo = parseFloat(p.saldo_actual || 0);
+                  
+                  // 💡 LÓGICA DE COLORES DINÁMICOS PARA EL SALDO
+                  const isDeuda = saldo > 0;
+                  const isFavor = saldo < 0;
+                  const colorClass = isDeuda ? 'text-red-500' : isFavor ? 'text-green-500' : 'text-gray-500 dark:text-gray-400';
+                  const label = isDeuda ? 'Deuda' : isFavor ? 'A Favor' : 'Al Día';
+
                   return (
                     <tr key={p.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                      <td className="p-3 font-bold text-gray-800 dark:text-white">{p.identificador}</td>
+                      <td className="p-3 font-bold text-gray-800 dark:text-white text-base">{p.identificador}</td>
                       <td className="p-3 text-right font-mono text-blue-600 dark:text-blue-400 font-bold">{String(p.alicuota || 0).replace('.', ',')}%</td>
                       <td className="p-3">
                         <div className="font-medium text-gray-800 dark:text-gray-300 text-sm">{p.prop_nombre || 'Sin asignar'}</div>
                         <div className="text-xs text-gray-500">{p.prop_cedula || '-'}</div>
                       </td>
-                      <td className="p-3 text-right font-black font-mono text-red-500">${formatMoney(saldo)}</td>
                       <td className="p-3 text-right">
-                        <div className="font-black font-mono tracking-tight text-red-500">${formatMoney(Math.abs(saldo))}</div>
-                        <div className="text-[10px] uppercase font-bold text-gray-400">Deuda</div>
+                        <div className={`font-black font-mono tracking-tight text-lg ${colorClass}`}>
+                          {isFavor ? '+' : ''}${formatMoney(Math.abs(saldo))}
+                        </div>
+                        <div className={`text-[10px] uppercase font-bold tracking-wider ${isDeuda ? 'text-red-400' : isFavor ? 'text-green-400' : 'text-gray-400'}`}>
+                          {label}
+                        </div>
                       </td>
                       <td className="p-3 text-center">
                         <div className="flex items-center justify-center gap-2">
@@ -234,4 +280,3 @@ export default function CuentasPorCobrar() {
     </div>
   );
 }
-

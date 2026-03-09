@@ -21,11 +21,11 @@ export default function Cierres() {
   const [loading, setLoading] = useState(true);
   const [selectedGasto, setSelectedGasto] = useState(null);
   const [simulacionAlicuota, setSimulacionAlicuota] = useState('');
+  const [cambiandoMetodo, setCambiandoMetodo] = useState(false);
 
   const fetchPreliminar = async () => {
     const token = localStorage.getItem('habioo_token');
     try {
-      // Pedimos al servidor el preliminar Y la lista de inmuebles al mismo tiempo
       const [resPreliminar, resProps] = await Promise.all([
         fetch('https://auth.habioo.cloud/preliminar', { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch('https://auth.habioo.cloud/propiedades-admin', { headers: { 'Authorization': `Bearer ${token}` } })
@@ -53,7 +53,6 @@ export default function Cierres() {
   const realCurrentYM = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}`;
   const canCloseMonth = data.mes_actual && data.mes_actual < realCurrentYM;
 
-  // DIVISIÓN DE GASTOS (HOY vs FUTURO)
   const gastosMesActual = data.gastos.filter(g => g.mes_asignado === data.mes_actual);
   const gastosFuturos = data.gastos.filter(g => g.mes_asignado > data.mes_actual);
 
@@ -73,7 +72,7 @@ export default function Cierres() {
   };
 
   const handleCerrarCiclo = async () => {
-    if (!window.confirm(`⚠️ ESTÁS A PUNTO DE CERRAR EL MES DE ${data.mes_texto.toUpperCase()}.\n\nTodos los recibos se generarán. ¿Estás seguro?`)) return;
+    if (!window.confirm(`⚠️ ESTÁS A PUNTO DE CERRAR EL MES DE ${data.mes_texto.toUpperCase()}.\n\nTodos los recibos se generarán usando el método: ${data.metodo_division}.\n¿Estás seguro?`)) return;
     const token = localStorage.getItem('habioo_token');
     try {
       const res = await fetch('https://auth.habioo.cloud/cerrar-ciclo', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
@@ -83,12 +82,46 @@ export default function Cierres() {
     } catch (error) { alert("Error de conexión"); }
   };
 
+  // 💡 LÓGICA PARA CAMBIAR EL MÉTODO DE DIVISIÓN
+  const handleToggleMethod = async () => {
+    if (cambiandoMetodo) return;
+    const nuevoMetodo = data.metodo_division === 'Alicuota' ? 'Partes Iguales' : 'Alicuota';
+    
+    setCambiandoMetodo(true);
+    // Actualizamos la UI instantáneamente para que se sienta rápido
+    setData(prev => ({ ...prev, metodo_division: nuevoMetodo }));
+
+    const token = localStorage.getItem('habioo_token');
+    try {
+      const res = await fetch('https://auth.habioo.cloud/metodo-division', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ metodo: nuevoMetodo })
+      });
+      const result = await res.json();
+      if (result.status !== 'success') {
+        // Si falla, revertimos el cambio en pantalla
+        setData(prev => ({ ...prev, metodo_division: data.metodo_division }));
+        alert("Error al guardar la preferencia.");
+      }
+    } catch (error) {
+      setData(prev => ({ ...prev, metodo_division: data.metodo_division }));
+      alert("Error de red al intentar cambiar el método.");
+    } finally {
+      setCambiandoMetodo(false);
+    }
+  };
+
   const calcularProyeccion = () => {
     const total = parseFloat(data.total_usd);
     if (data.metodo_division === 'Alicuota') {
       const alicuota = parseFloat(simulacionAlicuota) || 0;
       return (total * (alicuota / 100)).toFixed(2);
-    } else return "N/A";
+    } else {
+      // Si es partes iguales, divide el total entre el número de inmuebles registrados
+      const totalProps = propiedades.length || 1; 
+      return (total / totalProps).toFixed(2);
+    }
   };
 
   if (loading) return <p className="p-6 text-gray-500 dark:text-gray-400">Cargando datos contables...</p>;
@@ -106,6 +139,54 @@ export default function Cierres() {
         </div>
       )}
 
+      {/* 💡 NUEVO PANEL: REGLA DE DISTRIBUCIÓN (EL SUICHE) */}
+      <div className="bg-white dark:bg-donezo-card-dark px-8 py-10 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 my-6 flex flex-col items-center justify-center">
+        <h3 className="text-sm font-black text-gray-400 dark:text-gray-500 mb-8 uppercase tracking-widest text-center">
+          ⚖️ Método de Distribución de Gastos
+        </h3>
+
+        <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-12 w-full max-w-4xl">
+          
+          {/* Lado Alícuota */}
+          <div className={`flex-1 text-center md:text-right transition-all duration-500 ${data.metodo_division === 'Alicuota' ? 'opacity-100 scale-105' : 'opacity-40 grayscale scale-95'}`}>
+            <h4 className="font-black text-blue-600 dark:text-blue-400 text-2xl mb-2">Por Alícuota</h4>
+            <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed font-medium">
+              El total de los gastos se multiplica por el porcentaje (%) exacto de participación de cada inmueble. 
+              <br/><span className="text-blue-500 font-bold">Recomendado para edificios con distintos metrajes.</span>
+            </p>
+          </div>
+
+          {/* El Suiche Interactivo */}
+          <div className="flex items-center justify-center shrink-0">
+            <button
+              onClick={handleToggleMethod}
+              disabled={cambiandoMetodo}
+              className={`relative w-28 h-12 flex items-center rounded-full p-1.5 transition-colors duration-500 focus:outline-none shadow-inner disabled:opacity-50 ${
+                data.metodo_division === 'Alicuota' ? 'bg-blue-500' : 'bg-purple-500'
+              }`}
+            >
+              <div 
+                className={`bg-white w-9 h-9 rounded-full shadow-lg transform transition-transform duration-500 ease-spring flex items-center justify-center ${
+                  data.metodo_division === 'Alicuota' ? 'translate-x-0' : 'translate-x-16'
+                }`}
+              >
+                <span className="text-lg">{data.metodo_division === 'Alicuota' ? '📊' : '➗'}</span>
+              </div>
+            </button>
+          </div>
+
+          {/* Lado Partes Iguales */}
+          <div className={`flex-1 text-center md:text-left transition-all duration-500 ${data.metodo_division === 'Partes Iguales' ? 'opacity-100 scale-105' : 'opacity-40 grayscale scale-95'}`}>
+            <h4 className="font-black text-purple-600 dark:text-purple-400 text-2xl mb-2">Partes Iguales</h4>
+            <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed font-medium">
+              El total de los gastos se divide de manera lineal y exacta entre el número total de inmuebles activos. 
+              <br/><span className="text-purple-500 font-bold">Todos pagarán exactamente el mismo monto.</span>
+            </p>
+          </div>
+
+        </div>
+      </div>
+
       {/* SECCIÓN RESUMEN MES ACTUAL Y SIMULADOR INTELIGENTE */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
@@ -119,82 +200,55 @@ export default function Cierres() {
         </div>
 
         {/* WIDGET DEL SIMULADOR (COMBOBOX) */}
-        <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-2xl border border-blue-100 dark:border-blue-800 flex flex-col justify-center md:col-span-2">
-          <p className="text-blue-800 dark:text-blue-300 font-bold mb-4 text-sm uppercase">🔍 Simulador de Cuota ({data.mes_texto})</p>
+        <div className={`p-6 rounded-2xl border flex flex-col justify-center md:col-span-2 transition-colors ${data.metodo_division === 'Alicuota' ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800' : 'bg-purple-50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-800'}`}>
+          <p className={`font-bold mb-4 text-sm uppercase ${data.metodo_division === 'Alicuota' ? 'text-blue-800 dark:text-blue-300' : 'text-purple-800 dark:text-purple-300'}`}>
+            🔍 Simulador de Cuota ({data.mes_texto})
+          </p>
 
           <div className="flex flex-col sm:flex-row gap-4 items-center">
             {data.metodo_division === 'Alicuota' ? (
               <>
-                {/* 1. BUSCADOR (COMBOBOX) */}
+                {/* BUSCADOR ALICUOTA */}
                 <div className="relative w-full sm:w-1/2">
-                  <label className="text-xs text-blue-700 dark:text-blue-300 block mb-1 font-bold">Buscar por Apto / Cédula</label>
-                  <input
-                    type="text"
-                    value={searchProp}
-                    onChange={(e) => {
-                      setSearchProp(e.target.value);
-                      setShowDropdown(true);
-                    }}
-                    onFocus={() => setShowDropdown(true)}
-                    // El timeout permite que el clic en la lista se registre antes de cerrarse
-                    onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
-                    placeholder="Ej: Apto 12, V123..."
-                    className="p-2.5 rounded-xl border border-blue-200 bg-white dark:bg-gray-800 dark:border-blue-800 outline-none focus:ring-2 focus:ring-blue-400 w-full text-sm dark:text-white"
-                  />
-
-                  {/* LISTA DESPLEGABLE DEL COMBOBOX */}
+                  <label className="text-xs text-blue-700 dark:text-blue-300 block mb-1 font-bold">Buscar Inmueble</label>
+                  <input type="text" value={searchProp} onChange={(e) => { setSearchProp(e.target.value); setShowDropdown(true); }} onFocus={() => setShowDropdown(true)} onBlur={() => setTimeout(() => setShowDropdown(false), 200)} placeholder="Ej: Apto 12..." className="p-2.5 rounded-xl border border-blue-200 bg-white dark:bg-gray-800 dark:border-blue-800 outline-none focus:ring-2 focus:ring-blue-400 w-full text-sm dark:text-white" />
                   {showDropdown && searchProp && (
                     <ul className="absolute z-50 w-full bg-white dark:bg-gray-800 border border-blue-100 dark:border-blue-700 rounded-xl shadow-2xl max-h-48 overflow-y-auto mt-2 custom-scrollbar">
-                      {propiedades
-                        .filter(p => p.identificador.toLowerCase().includes(searchProp.toLowerCase()) || (p.prop_cedula && p.prop_cedula.toLowerCase().includes(searchProp.toLowerCase())))
-                        .map(p => (
-                          <li
-                            key={p.id}
-                            className="p-3 hover:bg-blue-50 dark:hover:bg-blue-900/30 cursor-pointer border-b border-gray-50 dark:border-gray-700/50 last:border-0 transition-colors"
-                            onClick={() => {
-                              setSearchProp(`${p.identificador} (${p.prop_nombre || 'Sin Propietario'})`);
-                              setSimulacionAlicuota(p.alicuota);
-                              setShowDropdown(false);
-                            }}
-                          >
-                            <div className="flex justify-between items-center">
-                              <strong className="text-gray-800 dark:text-white text-sm">{p.identificador}</strong>
-                              <span className="text-xs font-bold text-donezo-primary">{p.alicuota}%</span>
-                            </div>
-                            <p className="text-xs text-gray-500 mt-0.5 dark:text-gray-400">{p.prop_cedula || 'Sin ID'} - {p.prop_nombre || 'Desconocido'}</p>
+                      {propiedades.filter(p => p.identificador.toLowerCase().includes(searchProp.toLowerCase()) || (p.prop_cedula && p.prop_cedula.toLowerCase().includes(searchProp.toLowerCase()))).map(p => (
+                          <li key={p.id} className="p-3 hover:bg-blue-50 dark:hover:bg-blue-900/30 cursor-pointer border-b border-gray-50 dark:border-gray-700/50 transition-colors" onClick={() => { setSearchProp(`${p.identificador}`); setSimulacionAlicuota(p.alicuota); setShowDropdown(false); }}>
+                            <div className="flex justify-between items-center"><strong className="text-gray-800 dark:text-white text-sm">{p.identificador}</strong><span className="text-xs font-bold text-donezo-primary">{p.alicuota}%</span></div>
                           </li>
                         ))}
-                      {propiedades.filter(p => p.identificador.toLowerCase().includes(searchProp.toLowerCase()) || (p.prop_cedula && p.prop_cedula.toLowerCase().includes(searchProp.toLowerCase()))).length === 0 && (
-                        <li className="p-3 text-sm text-gray-500 text-center dark:text-gray-400">No se encontraron resultados.</li>
-                      )}
                     </ul>
                   )}
                 </div>
-
-                {/* 2. SELECTOR MANUAL DE ALÍCUOTA */}
+                {/* SELECTOR MANUAL */}
                 <div className="w-full sm:w-1/4">
-                  <label className="text-xs text-blue-700 dark:text-blue-300 block mb-1 font-bold">Alícuota Manual</label>
-                  <select
-                    value={simulacionAlicuota}
-                    onChange={(e) => {
-                      setSimulacionAlicuota(e.target.value);
-                      setSearchProp(''); // Si usa el manual, limpiamos el buscador
-                    }}
-                    className="p-2.5 rounded-xl border border-blue-200 bg-white dark:bg-gray-800 dark:border-blue-800 outline-none w-full text-sm font-bold dark:text-white"
-                  >
+                  <label className="text-xs text-blue-700 dark:text-blue-300 block mb-1 font-bold">Alícuota (%)</label>
+                  <select value={simulacionAlicuota} onChange={(e) => { setSimulacionAlicuota(e.target.value); setSearchProp(''); }} className="p-2.5 rounded-xl border border-blue-200 bg-white dark:bg-gray-800 dark:border-blue-800 outline-none w-full text-sm font-bold dark:text-white">
                     {data.alicuotas_disponibles.map((a, i) => <option key={i} value={a}>{a}%</option>)}
                   </select>
                 </div>
-
-                {/* 3. RESULTADO DE LA PROYECCIÓN */}
+                {/* RESULTADO ALICUOTA */}
                 <div className="w-full sm:w-1/4 sm:text-right flex flex-col justify-end h-full">
-                  <p className="text-xs text-blue-700 dark:text-blue-300 font-bold mb-1">Estimado a Pagar</p>
-                  <p className="text-3xl font-black text-blue-600 dark:text-blue-400 leading-none">
-                    {calcularProyeccion() === 'N/A' ? 'N/A' : `$${formatMoney(calcularProyeccion())}`}
-                  </p>
+                  <p className="text-xs text-blue-700 dark:text-blue-300 font-bold mb-1">Pagaría</p>
+                  <p className="text-3xl font-black text-blue-600 dark:text-blue-400 leading-none">${formatMoney(calcularProyeccion())}</p>
                 </div>
               </>
-            ) : <p className="text-gray-600 dark:text-gray-300 italic">División en partes iguales.</p>}
+            ) : (
+              // 💡 DISEÑO PARA PARTES IGUALES
+              <div className="flex w-full justify-between items-center bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-purple-100 dark:border-purple-800/50">
+                 <div>
+                   <p className="text-xs text-purple-600 dark:text-purple-400 font-bold uppercase tracking-wider mb-1">Inmuebles Activos</p>
+                   <p className="text-2xl font-black text-gray-800 dark:text-white">{propiedades.length} <span className="text-sm font-medium text-gray-500">unidades</span></p>
+                 </div>
+                 <div className="text-2xl font-light text-gray-300 dark:text-gray-600">➗</div>
+                 <div className="text-right">
+                   <p className="text-xs text-purple-600 dark:text-purple-400 font-bold uppercase tracking-wider mb-1">Cuota por Inmueble</p>
+                   <p className="text-3xl font-black text-purple-600 dark:text-purple-400 leading-none">${formatMoney(calcularProyeccion())}</p>
+                 </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -203,12 +257,7 @@ export default function Cierres() {
       <div className="bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-bold text-gray-800 dark:text-white">Borrador: {data.mes_texto}</h3>
-          {/* BOTÓN ORIGINAL (Comentado para pruebas) 
-          <button onClick={handleCerrarCiclo} disabled={!canCloseMonth || gastosMesActual.length === 0} className="bg-donezo-primary hover:bg-green-700 text-white font-bold py-2 px-6 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg">
-            🔒 Aprobar y Cerrar {data.mes_texto}
-          </button>
-          */}
-
+          
           {/* BOTÓN DE PRUEBA (Siempre habilitado) */}
           <button onClick={handleCerrarCiclo} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-xl transition-all shadow-lg">
             🚨 FORZAR CIERRE {data.mes_texto}
@@ -241,12 +290,9 @@ export default function Cierres() {
         )}
       </div>
 
-      {/* MÓDULO DE PROYECCIONES FUTURAS (AHORA CON ALÍCUOTA DINÁMICA) */}
       {mesesFuturos.length > 0 && (
         <div className="mt-10">
-          <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
-            🚀 Proyecciones de Meses Siguientes
-          </h3>
+          <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">🚀 Proyecciones de Meses Siguientes</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             {mesesFuturos.map(mes => (
               <div key={mes} className="bg-gray-50 dark:bg-gray-800/50 p-5 rounded-2xl border border-gray-200 dark:border-gray-700 opacity-80 hover:opacity-100 transition-opacity">
@@ -263,47 +309,12 @@ export default function Cierres() {
                     </div>
                   ))}
                 </div>
-
-                {/* SUBTOTAL Y ESTIMACIÓN DEL FUTURO */}
-                <div className="pt-3 border-t border-gray-200 dark:border-gray-700 flex flex-col gap-2">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-gray-500 font-bold uppercase dark:text-gray-400">Total del Mes:</span>
-                    <span className="font-black text-gray-800 dark:text-white text-sm">${formatMoney(proyecciones[mes].total)}</span>
-                  </div>
-
-                  {/* AQUÍ SE REFLEJA Y PERMITE EDITAR LA ALÍCUOTA SELECCIONADA */}
-                  {data.metodo_division === 'Alicuota' && simulacionAlicuota && (
-                    <div className="flex flex-col gap-1.5 bg-blue-50 dark:bg-blue-900/30 p-2 rounded-lg border border-blue-100 dark:border-blue-800">
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs font-bold text-blue-700 dark:text-blue-300">Alícuota:</span>
-                        <select
-                          value={simulacionAlicuota}
-                          onChange={(e) => {
-                            setSimulacionAlicuota(e.target.value);
-                            setSearchProp('');
-                          }}
-                          className="px-1 py-0.5 rounded border border-blue-200 bg-white dark:bg-gray-800 dark:border-blue-700 outline-none text-xs font-bold text-blue-700 dark:text-blue-300"
-                        >
-                          {data.alicuotas_disponibles.map((a, i) => <option key={i} value={a}>{a}%</option>)}
-                        </select>
-                      </div>
-                      <div className="flex justify-between items-center mt-0.5 border-t border-blue-200/50 dark:border-blue-800/50 pt-1">
-                        <span className="text-xs font-bold text-blue-700 dark:text-blue-300">Tu Estimado:</span>
-                        <span className="text-sm font-black text-blue-600 dark:text-blue-400">
-                          ${formatMoney(proyecciones[mes].total * (parseFloat(simulacionAlicuota) / 100))}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* MODAL DETALLES */}
       {selectedGasto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 relative">

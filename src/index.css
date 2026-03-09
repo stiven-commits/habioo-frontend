@@ -23,4 +23,23 @@
   .dark body {
     @apply bg-donezo-dark-bg text-white;
   }
+
+  /* Cursores globales para elementos interactivos */
+  button,
+  [role="button"],
+  a[href],
+  summary,
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"] {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [role="button"][aria-disabled="true"],
+  input[type="button"]:disabled,
+  input[type="submit"]:disabled,
+  input[type="reset"]:disabled {
+    cursor: not-allowed;
+  }
 }

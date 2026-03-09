@@ -218,35 +218,42 @@ Impacto:
    - Corrección de guardado completo en crear/editar (propietario + inquilino).
    - `alicuota` con coma decimal en UI y límite operativo de 3 decimales.
    - Ajuste manual de saldo por inmueble y estado de cuenta con cargos/abonos.
+   - En el registro de inmueble se agregó captura de `Saldo Inicial (Bs)`, `Tasa BCV` y cálculo automático a `Saldo Inicial (USD)` con botón de consulta BCV.
    - Carga masiva desde Excel con validaciones (apto, nombre, cédula, alícuota y duplicados de correo).
    - Paginación de la tabla principal ajustada a 13 inmuebles por página.
    - Modales desacopladas en `src/components/propiedades/PropiedadesModals.jsx`.
    - La acción `Estado de Cuenta` fue retirada del dropdown de `Inmuebles`.
-2. Gastos:
+   - Alta de usuarios desde inmueble: si no se define contraseña explícita, la clave inicial se establece igual a la cédula.
+2. Inquilinos:
+   - Se agregó toggle en la modal: `Permitir acceso del inquilino al portal`.
+   - Persistencia en BD: `usuarios_propiedades.acceso_portal` (default `true`).
+   - Login bloquea usuarios residentes/inquilinos cuando todas sus relaciones están con `acceso_portal=false`.
+   - Endpoints de residente (`/mis-propiedades`, `/mis-finanzas`) solo devuelven relaciones con `acceso_portal=true`.
+3. Gastos:
    - Migración de ciclos numéricos a meses calendario (`mes_actual`, `mes_asignado`).
    - Doble fecha de gasto (`fecha_gasto` y `created_at`).
    - Soportes de imagen: `factura_img` + `imagenes[]`.
-3. Bancos y fondos:
+4. Bancos y fondos:
    - Cuenta predeterminada (`PUT /bancos/:id/predeterminada`) activa.
    - Fondos virtuales anclados a cuentas bancarias con trazabilidad.
-4. Pagos:
+5. Pagos:
    - Flujo consolidado en `POST /pagos-admin` con registro por `propiedad_id`.
    - Validación manual disponible en `POST /pagos/:id/validar`.
    - Cascada FIFO: el abono se aplica del recibo más antiguo al más reciente.
    - Actualización automática de `propiedades.saldo_actual` y de `recibos.monto_pagado_usd`/`estado` (`Pagado` o `Parcial`).
-5. Historial de avisos:
+6. Historial de avisos:
    - Filtros activos por texto, estado y rango de fechas.
    - Pestañas de estados alineadas visualmente con el patrón de `Gastos`.
    - Se retiró la acción de pagar desde esta vista.
-6. Cobranza (ajuste de flujo):
+7. Cobranza (ajuste de flujo):
    - Se centraliza la gestión operativa por inmueble con deuda.
    - Incluye acciones `Estado de Cuenta` y `Registrar Pago` por fila.
    - Mantiene paginación de 13 registros por página.
-7. Desarrollo local:
+8. Desarrollo local:
    - Se incorporó `src/config/api.js` con `API_BASE_URL` dinámico.
    - En local (`localhost/127.0.0.1`) usa `http://localhost:3000` por defecto.
    - `main.jsx` reescribe automáticamente llamadas legacy a `https://auth.habioo.cloud` hacia la base local para evitar romper pruebas.
-8. Proveedores (nuevo alcance por junta):
+9. Proveedores (nuevo alcance por junta):
    - Listado aislado por `condominio_id` (cada junta ve solo sus propios proveedores).
    - Se agregó `rubro` al proveedor.
    - Se habilitó borrado lógico con `activo` (eliminar oculta, no destruye).
