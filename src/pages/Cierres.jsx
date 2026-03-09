@@ -203,8 +203,15 @@ export default function Cierres() {
       <div className="bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-bold text-gray-800 dark:text-white">Borrador: {data.mes_texto}</h3>
+          {/* BOTÓN ORIGINAL (Comentado para pruebas) 
           <button onClick={handleCerrarCiclo} disabled={!canCloseMonth || gastosMesActual.length === 0} className="bg-donezo-primary hover:bg-green-700 text-white font-bold py-2 px-6 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg">
             🔒 Aprobar y Cerrar {data.mes_texto}
+          </button>
+          */}
+
+          {/* BOTÓN DE PRUEBA (Siempre habilitado) */}
+          <button onClick={handleCerrarCiclo} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-xl transition-all shadow-lg">
+            🚨 FORZAR CIERRE {data.mes_texto}
           </button>
         </div>
 
