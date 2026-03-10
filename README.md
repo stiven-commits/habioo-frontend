@@ -78,6 +78,7 @@ Impacto:
 9. Propiedades: listar, crear, editar, ajustar saldo manual y carga masiva por Excel.
 10. Dashboard residente: propiedades y resumen financiero.
 11. Cuentas por cobrar (admin): tabla paginada de deuda, registrar pago y ver estado de cuenta por inmueble.
+12. Libro Mayor / Estado de Cuentas Bancarias (admin): selector de cuenta, movimientos con saldo acumulado, pago a proveedores y transferencias entre fondos.
 
 ### 3.2 Funcionalidades inactivas/parciales
 
@@ -98,6 +99,7 @@ Impacto:
 - `/inmuebles` -> Propiedades
 - `/cuentas-cobrar` -> CuentasPorCobrar
 - `/bancos` -> Bancos
+- `/estado-cuentas` -> EstadoCuentasBancarias (Libro Mayor)
 - `/zonas` -> Zonas
 - `/avisos-cobro` -> HistorialAvisos
 
@@ -144,6 +146,10 @@ Impacto:
 - `GET https://auth.habioo.cloud/fondos` -> listar fondos.
 - `POST https://auth.habioo.cloud/fondos` -> crear fondo.
 - `DELETE https://auth.habioo.cloud/fondos/:id` -> eliminar fondo sin movimientos.
+- `GET https://auth.habioo.cloud/bancos-admin/:id/estado-cuenta` -> libro mayor de la cuenta (movimientos y saldos).
+- `GET https://auth.habioo.cloud/gastos-pendientes-pago` -> gastos/facturas pendientes para pago a proveedor.
+- `POST https://auth.habioo.cloud/pagos-proveedores` -> registrar pago parcial o total de gasto desde un fondo.
+- `POST https://auth.habioo.cloud/transferencias` -> transferir entre fondos/cuentas (con o sin conversión).
 
 ### Zonas
 - `GET https://auth.habioo.cloud/zonas` -> listar.
@@ -209,6 +215,12 @@ Impacto:
   - Incluye `monto_pagado_usd` para control de abonos parciales y liquidación total por cascada.
 - `gastos_pagos_fondos`:
   - Relación de pagos de gastos con fondos (estructura disponible para expansión).
+- `pagos_proveedores`:
+  - Pagos aplicados a gastos (parciales/totales) desde fondos; soporta referencia, fecha y nota.
+- `transferencias`:
+  - Movimientos entre fondos/cuentas con soporte de tasa de cambio y montos origen/destino.
+- `gastos.monto_pagado_usd`:
+  - Acumulado pagado por gasto para control de deuda pendiente.
 
 ---
 
@@ -236,6 +248,9 @@ Impacto:
 4. Bancos y fondos:
    - Cuenta predeterminada (`PUT /bancos/:id/predeterminada`) activa.
    - Fondos virtuales anclados a cuentas bancarias con trazabilidad.
+   - Nueva vista `Libro Mayor` (`/estado-cuentas`) con estado de cuenta por banco/cuenta.
+   - Modales operativas para `Pagar Proveedor` y `Transferencia` entre fondos.
+   - Integración con endpoints `GET /bancos-admin/:id/estado-cuenta`, `POST /pagos-proveedores`, `POST /transferencias`, `GET /gastos-pendientes-pago`.
 5. Pagos:
    - Flujo consolidado en `POST /pagos-admin` con registro por `propiedad_id`.
    - Validación manual disponible en `POST /pagos/:id/validar`.

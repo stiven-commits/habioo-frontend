@@ -97,6 +97,7 @@ export default function Layout() {
               <Link to="/cierres" className={navClass('/cierres')}>🔒 Cierres Preliminares</Link>
               <Link to="/avisos-cobro" className={navClass('/avisos-cobro')}>🗂️ Avisos y Recibos</Link>
               <Link to="/cuentas-cobrar" className={navClass('/cuentas-cobrar')}>💰 Cobranza</Link>
+              <Link to="/estado-cuentas" className={navClass('/estado-cuentas')}>📊 Libro Mayor</Link>
             </>
           )}
         </nav>

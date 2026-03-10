@@ -10,6 +10,7 @@ import CuentasPorCobrar from './pages/CuentasPorCobrar';
 import Bancos from './pages/Bancos';
 import Zonas from './pages/Zonas';
 import HistorialAvisos from './pages/HistorialAvisos';
+import EstadoCuentasBancarias from './pages/EstadoCuentasBancarias';
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/inmuebles" element={<Propiedades />} />
           <Route path="/cuentas-cobrar" element={<CuentasPorCobrar />} />
           <Route path="/bancos" element={<Bancos />} />
+          <Route path="/estado-cuentas" element={<EstadoCuentasBancarias />} />
           <Route path="/zonas" element={<Zonas />} />
           <Route path="/avisos-cobro" element={<HistorialAvisos />} />
         </Route>
