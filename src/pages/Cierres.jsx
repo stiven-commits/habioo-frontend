@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { formatMoney } from '../utils/currency';
 import { useDialog } from '../components/ui/DialogProvider';
+import { API_BASE_URL } from '../config/api';
 
 export default function Cierres() {
   const { userRole } = useOutletContext();
@@ -24,13 +25,15 @@ export default function Cierres() {
   const [selectedGasto, setSelectedGasto] = useState(null);
   const [simulacionAlicuota, setSimulacionAlicuota] = useState('');
   const [cambiandoMetodo, setCambiandoMetodo] = useState(false);
+  // 💡 NUEVO ESTADO: Bloquea la pantalla durante el cierre
+  const [isClosing, setIsClosing] = useState(false);
 
   const fetchPreliminar = async () => {
     const token = localStorage.getItem('habioo_token');
     try {
       const [resPreliminar, resProps] = await Promise.all([
-        fetch('https://auth.habioo.cloud/preliminar', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('https://auth.habioo.cloud/propiedades-admin', { headers: { 'Authorization': `Bearer ${token}` } })
+        fetch(`${API_BASE_URL}/preliminar`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`${API_BASE_URL}/propiedades-admin`, { headers: { 'Authorization': `Bearer ${token}` } })
       ]);
 
       const result = await resPreliminar.json();
@@ -76,25 +79,47 @@ export default function Cierres() {
   const handleCerrarCiclo = async () => {
     const ok = await showConfirm({
       title: 'Confirmar cierre de mes',
-      message: `Ests a punto de cerrar el mes ${data.mes_texto.toUpperCase()}.\n\nTodos los recibos se generarn usando el mtodo: ${data.metodo_division}.`,
+      message: `Estás a punto de cerrar el mes ${data.mes_texto.toUpperCase()}.\n\nTodos los recibos se generarán usando el método: ${data.metodo_division}.`,
       confirmText: 'Cerrar mes',
       cancelText: 'Cancelar',
       variant: 'warning',
     });
     if (!ok) return;
+    
+    setIsClosing(true); // Activamos el overlay de carga
     const token = localStorage.getItem('habioo_token');
+    
     try {
-      const res = await fetch('https://auth.habioo.cloud/cerrar-ciclo', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+      const res = await fetch(`${API_BASE_URL}/cerrar-ciclo`, { 
+        method: 'POST', 
+        headers: { 'Authorization': `Bearer ${token}` } 
+      });
       const result = await res.json();
-      alert(result.message);
+      
+      await showConfirm({
+        title: result.status === 'success' ? '✅ Éxito' : '⚠️ Atención',
+        message: result.message || 'El mes ha sido cerrado.',
+        confirmText: 'Entendido',
+        variant: result.status === 'success' ? 'success' : 'warning',
+      });
+
       if (result.status === 'success') fetchPreliminar();
-    } catch (error) { alert("Error de conexion"); }
+    } catch (error) { 
+      await showConfirm({
+        title: 'Error de red',
+        message: 'Hubo un problema conectando con el servidor.',
+        confirmText: 'Entendido',
+        variant: 'danger',
+      });
+    } finally {
+      setIsClosing(false); // Apagamos el overlay al terminar
+    }
   };
 // 🧪 FUNCION DE PRUEBAS PARA POBLAR LA BASE DE DATOS
   const handleSeeder = async () => {
     const ok = await showConfirm({
       title: 'Inyectar datos de prueba',
-      message: 'Se borrarn las pruebas anteriores y se crearn 12 gastos nuevos. Deseas continuar?',
+      message: 'Se borrarán las pruebas anteriores y se crearán 12 gastos nuevos. ¿Deseas continuar?',
       confirmText: 'Inyectar',
       cancelText: 'Cancelar',
       variant: 'warning',
@@ -104,15 +129,20 @@ export default function Cierres() {
     setLoading(true);
     const token = localStorage.getItem('habioo_token');
     try {
-      const res = await fetch('https://auth.habioo.cloud/dashboard-admin/seed-prueba', { 
+      const res = await fetch(`${API_BASE_URL}/dashboard-admin/seed-prueba`, { 
         method: 'POST', 
         headers: { 'Authorization': `Bearer ${token}` } 
       });
       const result = await res.json();
-      alert(result.message || result.error);
-      fetchPreliminar(); // Refrescar la pantalla
+      await showConfirm({
+        title: 'Seeder',
+        message: result.message || result.error,
+        confirmText: 'Entendido',
+        variant: 'success',
+      });
+      fetchPreliminar();
     } catch (error) { 
-      alert("Error de conexion con el seeder"); 
+      await showConfirm({ title: 'Error', message: 'Error de conexión con el seeder', confirmText: 'Ok', variant: 'danger' });
       setLoading(false);
     }
   };
@@ -122,25 +152,23 @@ export default function Cierres() {
     const nuevoMetodo = data.metodo_division === 'Alicuota' ? 'Partes Iguales' : 'Alicuota';
     
     setCambiandoMetodo(true);
-    // Actualizamos la UI instantaneamente para que se sienta rapido
     setData(prev => ({ ...prev, metodo_division: nuevoMetodo }));
 
     const token = localStorage.getItem('habioo_token');
     try {
-      const res = await fetch('https://auth.habioo.cloud/metodo-division', {
+      const res = await fetch(`${API_BASE_URL}/metodo-division`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ metodo: nuevoMetodo })
       });
       const result = await res.json();
       if (result.status !== 'success') {
-        // Si falla, revertimos el cambio en pantalla
         setData(prev => ({ ...prev, metodo_division: data.metodo_division }));
-        alert("Error al guardar la preferencia.");
+        await showConfirm({ title: 'Error', message: 'Error al guardar la preferencia.', confirmText: 'Ok', variant: 'danger' });
       }
     } catch (error) {
       setData(prev => ({ ...prev, metodo_division: data.metodo_division }));
-      alert("Error de red al intentar cambiar el metodo.");
+      await showConfirm({ title: 'Error de red', message: 'No se pudo cambiar el método.', confirmText: 'Ok', variant: 'danger' });
     } finally {
       setCambiandoMetodo(false);
     }
@@ -370,6 +398,32 @@ export default function Cierres() {
               </div>
             </div>
             <button onClick={() => setSelectedGasto(null)} className="mt-6 w-full px-6 py-3 rounded-xl font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all dark:text-gray-300">Cerrar</button>
+          </div>
+        </div>
+      )}
+      {/* ⏳ OVERLAY DE CARGA: PROCESANDO CIERRE DE MES */}
+      {isClosing && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-fadeIn">
+          <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-8 w-full max-w-sm shadow-2xl border border-gray-100 dark:border-gray-800 flex flex-col items-center text-center">
+            
+            {/* SPINNER ANIMADO */}
+            <div className="relative w-20 h-20 mb-6">
+              <div className="absolute inset-0 rounded-full border-4 border-gray-100 dark:border-gray-700"></div>
+              <div className="absolute inset-0 rounded-full border-4 border-donezo-primary border-t-transparent animate-spin"></div>
+              <div className="absolute inset-0 flex items-center justify-center text-2xl">⚙️</div>
+            </div>
+            
+            <h3 className="text-xl font-black text-gray-800 dark:text-white mb-2">Procesando Cierre...</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+              El sistema está generando los recibos individuales, distribuyendo los gastos y preparando el nuevo mes.
+            </p>
+            
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl border border-blue-100 dark:border-blue-800/50 w-full">
+              <p className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider animate-pulse">
+                ⚠️ Por favor no recargues la página
+              </p>
+            </div>
+
           </div>
         </div>
       )}

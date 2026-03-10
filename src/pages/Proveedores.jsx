@@ -38,7 +38,7 @@ export default function Proveedores() {
   const fileInputRef = useRef(null);
 
   const initialForm = {
-    identificador: '', nombre: '', rubro: '', telefono1: '', telefono2: '', direccion: '', estado_venezuela: ''
+    identificador: '', nombre: '', email: '', rubro: '', telefono1: '', telefono2: '', direccion: '', estado_venezuela: ''
   };
   const [formProv, setFormProv] = useState(initialForm);
 
@@ -82,7 +82,7 @@ export default function Proveedores() {
     setOpenDropdownId(null);
     setEditingId(prov.id);
     setFormProv({
-      identificador: prov.identificador, nombre: prov.nombre, rubro: prov.rubro || '',
+      identificador: prov.identificador, nombre: prov.nombre, email: prov.email || '', rubro: prov.rubro || '',
       telefono1: prov.telefono1 || '', telefono2: prov.telefono2 || '', direccion: prov.direccion || '', estado_venezuela: prov.estado_venezuela || ''
     });
     setIsModalOpen(true);
@@ -125,17 +125,18 @@ export default function Proveedores() {
   // ==========================================
   const handleDownloadTemplate = () => {
     const data = [
-      { RIF: 'J123456789', Nombre: 'Ferretería El Clavo', Rubro: 'Ferretería', Telefono1: '04141234567', Telefono2: '', Estado: 'Distrito Capital', Direccion: 'Av. Principal, Edificio Torre 1' },
-      { RIF: 'V87654321', Nombre: 'Juan Pérez Plomería', Rubro: 'Plomería', Telefono1: '04129876543', Telefono2: '04161234567', Estado: 'Miranda', Direccion: 'Calle 4, Local 2' }
+      { RIF: 'J123456789', Nombre: 'Ferretería El Clavo', Email: 'contacto@elclavo.com', Rubro: 'Ferretería', Telefono1: '04141234567', Telefono2: '', Estado: 'Distrito Capital', Direccion: 'Av. Principal, Edificio Torre 1' },
+      { RIF: 'V87654321', Nombre: 'Juan Pérez Plomería', Email: 'jp.plomeria@gmail.com', Rubro: 'Plomería', Telefono1: '04129876543', Telefono2: '04161234567', Estado: 'Miranda', Direccion: 'Calle 4, Local 2' }
     ];
     const ws = XLSX.utils.json_to_sheet(data);
 
     if (ws['A1']) ws['A1'].c = [{ a: 'Sistema', t: 'Obligatorio. Letra mayúscula inicial.' }];
-    if (ws['C1']) ws['C1'].c = [{ a: 'Sistema', t: 'Opcional. Trate de escribir un rubro conocido (ej: Electricistas, Seguridad).' }];
-    if (ws['D1']) ws['D1'].c = [{ a: 'Sistema', t: 'Obligatorio.' }];
-    if (ws['F1']) ws['F1'].c = [{ a: 'Sistema', t: 'Obligatorio. Debe estar escrito igual a la lista oficial (Ej: Distrito Capital, Zulia, Miranda).' }];
+    if (ws['C1']) ws['C1'].c = [{ a: 'Sistema', t: 'Obligatorio. Debe ser un correo válido.' }];
+    if (ws['D1']) ws['D1'].c = [{ a: 'Sistema', t: 'Opcional. Trate de escribir un rubro conocido (ej: Electricistas, Seguridad).' }];
+    if (ws['E1']) ws['E1'].c = [{ a: 'Sistema', t: 'Obligatorio.' }];
+    if (ws['G1']) ws['G1'].c = [{ a: 'Sistema', t: 'Obligatorio. Debe estar escrito igual a la lista oficial (Ej: Distrito Capital, Zulia, Miranda).' }];
 
-    ws['!cols'] = [ {wch: 15}, {wch: 30}, {wch: 20}, {wch: 15}, {wch: 15}, {wch: 20}, {wch: 40} ];
+    ws['!cols'] = [ {wch: 15}, {wch: 30}, {wch: 30}, {wch: 20}, {wch: 15}, {wch: 15}, {wch: 20}, {wch: 40} ];
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Proveedores");
@@ -159,6 +160,7 @@ export default function Proveedores() {
       const parsedData = rawData.map((row, index) => {
         const rifRaw = row['RIF'] || row['Identificador'] || '';
         const nombre = row['Nombre'] || row['Razón Social'] || row['Razon Social'] || '';
+        const email = row['Email'] || row['Correo'] || row['Correo Electrónico'] || row['Correo Electronico'] || '';
         const rubro = row['Rubro'] || row['Especialidad'] || '';
         const tel1 = row['Telefono1'] || row['Teléfono1'] || row['Teléfono Principal'] || row['Telefono Principal'] || row['Telefono'] || '';
         const tel2 = row['Telefono2'] || row['Teléfono2'] || row['Teléfono Secundario'] || '';
@@ -167,9 +169,13 @@ export default function Proveedores() {
 
         const rifFmt = formatRIF(String(rifRaw));
 
+        const emailFmt = String(email).trim().toLowerCase();
+        const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailFmt);
+
         let errorMsg = [];
         if (!rifFmt) errorMsg.push("RIF inválido");
         if (!nombre) errorMsg.push("Nombre vacío");
+        if (!emailFmt || !emailOk) errorMsg.push("Correo inválido");
         if (!tel1) errorMsg.push("Teléfono principal requerido");
         if (!estado || !ESTADOS_VENEZUELA.includes(estado)) errorMsg.push("Estado inválido");
         if (!direccion) errorMsg.push("Dirección vacía");
@@ -185,6 +191,7 @@ export default function Proveedores() {
           rowNum: index + 2,
           identificador: rifFmt,
           nombre: String(nombre).trim(),
+          email: emailFmt,
           rubro: String(rubro).trim(),
           telefono1: String(tel1).trim(),
           telefono2: String(tel2).trim(),
@@ -249,6 +256,7 @@ export default function Proveedores() {
   const filteredProveedores = proveedores.filter(p => 
     p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
     p.identificador.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (p.email && p.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (p.rubro && p.rubro.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
@@ -270,7 +278,7 @@ export default function Proveedores() {
         
         <div className="flex-1 w-full relative">
           <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">🔍</span>
-          <input type="text" placeholder="Buscar por nombre, RIF o Rubro..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 p-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white transition-all"/>
+          <input type="text" placeholder="Buscar por nombre, RIF, correo o rubro..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 p-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white transition-all"/>
         </div>
 
         <div className="flex gap-3 w-full xl:w-auto">
@@ -303,6 +311,7 @@ export default function Proveedores() {
                       <td className="py-3 pr-3 font-mono font-medium text-gray-600 dark:text-gray-400">{p.identificador}</td>
                       <td className="py-3 px-3">
                         <div className="font-bold text-gray-800 dark:text-white text-base">{p.nombre}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{p.email || 'Sin correo'}</div>
                         {p.rubro && <span className="inline-block mt-1 px-2 py-0.5 rounded bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 text-[10px] font-bold tracking-wider uppercase">{p.rubro}</span>}
                       </td>
                       <td className="py-3 px-3 text-gray-600 dark:text-gray-400 text-sm">

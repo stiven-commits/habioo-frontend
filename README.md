@@ -118,9 +118,10 @@ Impacto:
 
 ### Proveedores
 - `GET https://auth.habioo.cloud/proveedores` -> listar proveedores activos del condominio del admin autenticado.
-- `POST https://auth.habioo.cloud/proveedores` -> crear proveedor en el condominio del admin (reactiva si existía inactivo con mismo RIF).
-- `PUT https://auth.habioo.cloud/proveedores/:id` -> editar datos de contacto/rubro del proveedor.
+- `POST https://auth.habioo.cloud/proveedores` -> crear proveedor en el condominio del admin (reactiva si existía inactivo con mismo RIF). Incluye validación de `email`.
+- `PUT https://auth.habioo.cloud/proveedores/:id` -> editar datos de contacto/rubro del proveedor. Incluye validación de `email`.
 - `DELETE https://auth.habioo.cloud/proveedores/:id` -> borrado lógico (`activo = false`).
+- `POST https://auth.habioo.cloud/proveedores/lote` -> carga masiva de proveedores (Excel) con validación de `email` por fila.
 
 ### Gastos
 - `GET https://auth.habioo.cloud/gastos` -> listar gastos/cuotas.
@@ -196,7 +197,7 @@ Notas de desarrollo local:
 - `proveedores`.
   - Alcance por junta: cada registro se asocia a `condominio_id` y no se comparte entre condominios.
   - Borrado lógico: columna `activo` para ocultar sin perder trazabilidad histórica.
-  - Nuevos campos relevantes: `rubro`, `condominio_id`, `activo`.
+  - Nuevos campos relevantes: `rubro`, `email`, `condominio_id`, `activo`.
 - `cuentas_bancarias`:
   - Campos clave actuales: `numero_cuenta`, `nombre_banco`, `apodo`, `tipo`, `es_predeterminada`, `nombre_titular`, `cedula_rif`, `telefono`.
 
@@ -283,6 +284,21 @@ Notas de desarrollo local:
    - `App.jsx` quedó envuelto con `DialogProvider` para habilitar modales centradas en toda la app.
    - Se unificaron mensajes de acciones en gestión bancaria (crear/eliminar cuenta, predeterminada, crear/eliminar fondo, pagar proveedor, transferir).
    - Se mejoró contraste en selects/botones de modales de transferencia y pago para dark/light.
+11. Seeder de pruebas (dashboard-admin):
+   - `POST /dashboard-admin/seed-prueba` ahora limpia completamente los datos operativos del condominio (pruebas viejas/manuales) antes de poblar.
+   - Escenario sembrado actualizado:
+     - 20 inmuebles de prueba con saldos mixtos (deuda, a favor y cero).
+     - 20 propietarios vinculados (clave inicial = cédula).
+     - 8 proveedores de prueba con correo (`email`) y datos de contacto.
+     - 2 cuentas bancarias y 3 fondos (1 fondo en la primera cuenta, 2 fondos en la segunda).
+     - 14 gastos con sus cuotas para pruebas de cierre/cobranza.
+12. Proveedores (front + back + BD):
+   - BD: se agregó columna `proveedores.email`.
+   - Backend: `POST/PUT /proveedores` y `POST /proveedores/lote` validan y persisten `email`.
+   - Frontend:
+     - Formulario individual de proveedor incluye `email` obligatorio.
+     - Vista detalle muestra `email`.
+     - Carga masiva Excel agrega columna `Email` y valida formato antes de enviar.
 
 ---
 
