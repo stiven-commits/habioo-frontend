@@ -81,7 +81,25 @@ export default function Cierres() {
       if (result.status === 'success') fetchPreliminar();
     } catch (error) { alert("Error de conexión"); }
   };
-
+// 💡 FUNCIÓN DE PRUEBAS PARA POBLAR LA BASE DE DATOS
+  const handleSeeder = async () => {
+    if (!window.confirm(`🧪 ¿Quieres inyectar datos falsos? Se borrarán las pruebas anteriores y se crearán 12 gastos nuevos.`)) return;
+    
+    setLoading(true);
+    const token = localStorage.getItem('habioo_token');
+    try {
+      const res = await fetch('https://auth.habioo.cloud/dashboard-admin/seed-prueba', { 
+        method: 'POST', 
+        headers: { 'Authorization': `Bearer ${token}` } 
+      });
+      const result = await res.json();
+      alert(result.message || result.error);
+      fetchPreliminar(); // Refrescar la pantalla
+    } catch (error) { 
+      alert("Error de conexión con el seeder"); 
+      setLoading(false);
+    }
+  };
   // 💡 LÓGICA PARA CAMBIAR EL MÉTODO DE DIVISIÓN
   const handleToggleMethod = async () => {
     if (cambiandoMetodo) return;
@@ -258,10 +276,17 @@ export default function Cierres() {
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-bold text-gray-800 dark:text-white">Borrador: {data.mes_texto}</h3>
           
-          {/* BOTÓN DE PRUEBA (Siempre habilitado) */}
-          <button onClick={handleCerrarCiclo} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-xl transition-all shadow-lg">
-            🚨 FORZAR CIERRE {data.mes_texto}
-          </button>
+          <div className="flex gap-3">
+             {/* 💡 BOTÓN NUEVO DE DESARROLLADOR */}
+             <button onClick={handleSeeder} className="bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 font-bold py-2 px-4 rounded-xl transition-all shadow-sm text-sm border border-purple-200 dark:border-purple-800">
+               🧪 Inyectar Datos
+             </button>
+
+             {/* BOTÓN DE PRUEBA (Siempre habilitado) */}
+             <button onClick={handleCerrarCiclo} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-xl transition-all shadow-lg text-sm">
+               🚨 FORZAR CIERRE {data.mes_texto}
+             </button>
+          </div>
         </div>
 
         {gastosMesActual.length === 0 ? <p className="text-gray-500 py-4 text-center border border-dashed border-gray-300 rounded-xl dark:text-gray-400">No hay gastos asignados a este mes.</p> : (
