@@ -4,9 +4,11 @@ import { formatMoney } from '../utils/currency';
 import { API_BASE_URL } from '../config/api';
 import * as XLSX from 'xlsx';
 import { ModalAjusteSaldo, ModalEstadoCuenta, ModalPropiedadForm, ModalCargaMasiva } from '../components/propiedades/PropiedadesModals';
+import { useDialog } from '../components/ui/DialogProvider';
 
 export default function Propiedades() {
   const { userRole } = useOutletContext();
+  const { showConfirm } = useDialog();
   const [propiedades, setPropiedades] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -145,7 +147,14 @@ export default function Propiedades() {
 
   const handleSubmitAjuste = async (e) => {
     e.preventDefault();
-    if (!confirm(`¿Registrar ajuste para ${selectedPropAjuste.identificador}?`)) return;
+    const ok = await showConfirm({
+      title: 'Registrar ajuste',
+      message: `¿Registrar ajuste para ${selectedPropAjuste.identificador}?`,
+      confirmText: 'Registrar',
+      cancelText: 'Cancelar',
+      variant: 'warning',
+    });
+    if (!ok) return;
     const token = localStorage.getItem('habioo_token');
     const res = await fetch(`${API_BASE_URL}/propiedades-admin/${selectedPropAjuste.id}/ajustar-saldo`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(formAjuste)
@@ -250,7 +259,14 @@ export default function Propiedades() {
   // 💡 LÓGICA DE GUARDADO MEJORADA CON PROGRESO
   const handleSaveLote = async () => {
     if (loteErrors > 0) return alert("Por favor corrija los errores en el Excel antes de continuar.");
-    if (!confirm(`¿Está seguro de guardar ${loteData.length} inmuebles de golpe?`)) return;
+    const ok = await showConfirm({
+      title: 'Guardar carga masiva',
+      message: `¿Está seguro de guardar ${loteData.length} inmuebles de golpe?`,
+      confirmText: 'Guardar',
+      cancelText: 'Cancelar',
+      variant: 'warning',
+    });
+    if (!ok) return;
 
     setIsUploadingLote(true);
     setUploadProgress(0);

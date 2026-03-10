@@ -1,60 +1,65 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import ModalFondos from '../components/ModalFondos';
+import { ModalEliminarFondo } from '../components/BancosModals';
+import { API_BASE_URL } from '../config/api';
 import { formatMoney } from '../utils/currency';
+import { useDialog } from '../components/ui/DialogProvider';
 
 export default function Bancos() {
   const { userRole } = useOutletContext();
+  const { showAlert, showConfirm } = useDialog();
+
   const [bancos, setBancos] = useState([]);
   const [fondos, setFondos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedBancoForFondos, setSelectedBancoForFondos] = useState(null);
+  const [fondoAEliminar, setFondoAEliminar] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  
+
   const [form, setForm] = useState({
-    tipo: 'Transferencia', 
-    nombre_banco: '', 
-    apodo: '', 
-    nombre_titular: '', 
-    cedula_rif: '', 
-    numero_cuenta: '', 
-    telefono: ''
+    tipo: 'Transferencia',
+    nombre_banco: '',
+    apodo: '',
+    nombre_titular: '',
+    cedula_rif: '',
+    numero_cuenta: '',
+    telefono: '',
   });
 
-  // Lista oficial de Bancos de Venezuela
   const bancosVenezuela = [
-    "0102 - Banco de Venezuela",
-    "0104 - Banco Venezolano de Crédito",
-    "0105 - Banco Mercantil",
-    "0108 - Banco Provincial",
-    "0114 - Banco del Caribe",
-    "0115 - Banco Exterior",
-    "0128 - Banco Caroní",
-    "0134 - Banesco",
-    "0137 - Banco Sofitasa",
-    "0138 - Banco Plaza",
-    "0146 - Banco de la Gente Emprendedora (Bangente)",
-    "0151 - BFC Banco Fondo Común",
-    "0156 - 100% Banco",
-    "0157 - DelSur Banco Universal",
-    "0163 - Banco del Tesoro",
-    "0166 - Banco Agrícola de Venezuela",
-    "0168 - Bancrecer",
-    "0169 - Mi Banco",
-    "0171 - Banco Activo",
-    "0172 - Bancamiga",
-    "0174 - Banplus",
-    "0175 - Banco Bicentenario",
-    "0177 - Banco de la Fuerza Armada Nacional Bolivariana",
-    "0191 - Banco Nacional de Crédito (BNC)"
+    '0102 - Banco de Venezuela',
+    '0104 - Banco Venezolano de Credito',
+    '0105 - Banco Mercantil',
+    '0108 - Banco Provincial',
+    '0114 - Banco del Caribe',
+    '0115 - Banco Exterior',
+    '0128 - Banco Caroni',
+    '0134 - Banesco',
+    '0137 - Banco Sofitasa',
+    '0138 - Banco Plaza',
+    '0146 - Banco de la Gente Emprendedora (Bangente)',
+    '0151 - BFC Banco Fondo Comun',
+    '0156 - 100% Banco',
+    '0157 - DelSur Banco Universal',
+    '0163 - Banco del Tesoro',
+    '0166 - Banco Agricola de Venezuela',
+    '0168 - Bancrecer',
+    '0169 - Mi Banco',
+    '0171 - Banco Activo',
+    '0172 - Bancamiga',
+    '0174 - Banplus',
+    '0175 - Banco Bicentenario',
+    '0177 - Banco de la Fuerza Armada Nacional Bolivariana',
+    '0191 - Banco Nacional de Credito (BNC)',
   ];
 
   const fetchData = async () => {
     const token = localStorage.getItem('habioo_token');
     try {
       const [resBancos, resFondos] = await Promise.all([
-        fetch('https://auth.habioo.cloud/bancos', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('https://auth.habioo.cloud/fondos', { headers: { 'Authorization': `Bearer ${token}` } })
+        fetch(`${API_BASE_URL}/bancos`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_BASE_URL}/fondos`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
       const dataBancos = await resBancos.json();
       const dataFondos = await resFondos.json();
@@ -63,15 +68,18 @@ export default function Bancos() {
       if (dataFondos.status === 'success') setFondos(dataFondos.fondos);
     } catch (error) {
       console.error(error);
-    } finally { setLoading(false); }
+      await showAlert({ title: 'Error de conexion', message: 'No se pudieron cargar bancos y fondos.', variant: 'danger' });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { if (userRole === 'Administrador') fetchData(); }, [userRole]);
+  useEffect(() => {
+    if (userRole === 'Administrador') fetchData();
+  }, [userRole]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    
-    // Si cambia el tipo, limpiamos el nombre del banco para evitar inconsistencias
     if (name === 'tipo') {
       setForm({ ...form, tipo: value, nombre_banco: '' });
     } else {
@@ -91,45 +99,88 @@ export default function Bancos() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem('habioo_token');
+
     try {
-      const res = await fetch('https://auth.habioo.cloud/bancos', {
+      const res = await fetch(`${API_BASE_URL}/bancos`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(form)
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(form),
       });
+
       if (res.ok) {
-        setForm({ tipo: 'Transferencia', nombre_banco: '', apodo: '', nombre_titular: '', cedula_rif: '', numero_cuenta: '', telefono: '' });
+        setForm({
+          tipo: 'Transferencia',
+          nombre_banco: '',
+          apodo: '',
+          nombre_titular: '',
+          cedula_rif: '',
+          numero_cuenta: '',
+          telefono: '',
+        });
         setShowForm(false);
         fetchData();
       } else {
         const err = await res.json();
-        alert(err.message || 'Error al guardar la cuenta');
+        await showAlert({ title: 'Error', message: err.message || 'Error al guardar la cuenta', variant: 'danger' });
       }
-    } catch (error) { alert('Error de conexión al guardar el banco'); }
+    } catch (error) {
+      await showAlert({ title: 'Error de conexion', message: 'No se pudo guardar la cuenta.', variant: 'danger' });
+    }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('⚠️ ¿Estás seguro de eliminar esta cuenta bancaria? Solo se podrá si sus fondos no tienen movimientos.')) return;
+    const ok = await showConfirm({
+      title: 'Eliminar cuenta bancaria',
+      message: 'Solo se podra eliminar si sus fondos no tienen movimientos. �Deseas continuar?',
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      variant: 'warning',
+    });
+    if (!ok) return;
+
     const token = localStorage.getItem('habioo_token');
     try {
-      const res = await fetch(`https://auth.habioo.cloud/bancos/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+      const res = await fetch(`${API_BASE_URL}/bancos/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const data = await res.json();
+
       if (res.ok && data.status === 'success') fetchData();
-      else alert(`Error: ${data.message || 'No se pudo eliminar la cuenta'}`);
-    } catch (error) { alert('Error de conexión al eliminar'); }
+      else await showAlert({ title: 'Error', message: data.message || 'No se pudo eliminar la cuenta', variant: 'danger' });
+    } catch (error) {
+      await showAlert({ title: 'Error de conexion', message: 'No se pudo eliminar la cuenta.', variant: 'danger' });
+    }
   };
 
   const handleSetPredeterminada = async (id) => {
     const token = localStorage.getItem('habioo_token');
     try {
-      const res = await fetch(`https://auth.habioo.cloud/bancos/${id}/predeterminada`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}` } });
-      if (res.ok) fetchData();
-    } catch (error) { console.error('Error al actualizar cuenta principal:', error); }
+      const res = await fetch(`${API_BASE_URL}/bancos/${id}/predeterminada`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const result = await res.json();
+      if (res.ok && result.status === 'success') {
+        fetchData();
+      } else {
+        await showAlert({ title: 'Error', message: result.message || 'Error al actualizar la cuenta principal.', variant: 'danger' });
+      }
+    } catch (error) {
+      console.error('Error al actualizar cuenta principal:', error);
+      await showAlert({ title: 'Error de red', message: 'No se pudo actualizar la cuenta principal.', variant: 'danger' });
+    }
+  };
+
+  const handleDeleteFondo = (fondo) => {
+    setFondoAEliminar(fondo);
   };
 
   const renderSaldosCuenta = (cuentaId) => {
-    const fondosCuenta = fondos.filter(f => f.cuenta_bancaria_id === cuentaId);
+    const fondosCuenta = fondos.filter((f) => f.cuenta_bancaria_id === cuentaId);
     if (fondosCuenta.length === 0) return <p className="text-sm text-gray-400 italic text-center">Sin fondos registrados</p>;
+
     const saldos = fondosCuenta.reduce((acc, f) => {
       acc[f.moneda] = (acc[f.moneda] || 0) + parseFloat(f.saldo_actual || 0);
       return acc;
@@ -149,7 +200,7 @@ export default function Bancos() {
     );
   };
 
-  if (userRole !== 'Administrador') return <p className="p-6 text-gray-500">No tienes permisos para ver esta sección.</p>;
+  if (userRole !== 'Administrador') return <p className="p-6 text-gray-500">No tienes permisos para ver esta seccion.</p>;
   if (loading) return <p className="p-6 text-gray-500">Cargando cuentas...</p>;
 
   return (
@@ -157,82 +208,73 @@ export default function Bancos() {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Cuentas Bancarias</h2>
         <button onClick={() => setShowForm(!showForm)} className="bg-gray-800 hover:bg-gray-900 text-white dark:bg-donezo-primary dark:hover:bg-blue-600 font-bold py-2 px-5 rounded-xl transition-all shadow-md text-sm flex items-center gap-2">
-          {showForm ? '✕ Cancelar' : '+ Agregar Cuenta'}
+          {showForm ? 'Cancelar' : '+ Agregar Cuenta'}
         </button>
       </div>
 
-      {/* FORMULARIO DINÁMICO */}
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 mb-6">
           <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4">Nueva Cuenta Bancaria</h3>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-             {/* 1. TIPO DE CUENTA */}
-             <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Cuenta *</label>
-                <select name="tipo" value={form.tipo} onChange={handleChange} required className="w-full p-3 bg-blue-50 dark:bg-gray-800 text-blue-800 dark:text-white border border-blue-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold">
-                  <option value="Transferencia" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Transferencia (Bs)</option>
-                  <option value="Pago Movil" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Pago Móvil (Bs)</option>
-                  <option value="Zelle" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Zelle (USD)</option>
-                  <option value="Efectivo" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Efectivo / Caja Fuerte</option>
-                </select>
-             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Cuenta *</label>
+              <select name="tipo" value={form.tipo} onChange={handleChange} required className="w-full p-3 bg-blue-50 dark:bg-gray-800 text-blue-800 dark:text-white border border-blue-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold">
+                <option value="Transferencia" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Transferencia (Bs)</option>
+                <option value="Pago Movil" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Pago Movil (Bs)</option>
+                <option value="Zelle" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Zelle (USD)</option>
+                <option value="Efectivo" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Efectivo / Caja Fuerte</option>
+              </select>
+            </div>
 
-             {/* 2. SELECTOR DE BANCO O INPUT SEGÚN EL TIPO */}
-             {['Transferencia', 'Pago Movil'].includes(form.tipo) && (
-               <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Institución Bancaria *</label>
-                  <select name="nombre_banco" value={form.nombre_banco} onChange={handleChange} required className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white">
-                    <option value="" disabled className="text-gray-400">Seleccione el banco...</option>
-                    {bancosVenezuela.map(banco => (
-                      <option key={banco} value={banco} className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">{banco}</option>
-                    ))}
-                  </select>
-               </div>
-             )}
-
-             {form.tipo === 'Zelle' && (
-               <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre del Banco (EEUU) *</label>
-                  <input type="text" name="nombre_banco" value={form.nombre_banco} onChange={handleChange} required placeholder="Ej: Wells Fargo, BofA..." className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" />
-               </div>
-             )}
-             
-             {/* Para Efectivo no mostramos el banco */}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Apodo (Referencia) *</label><input type="text" name="apodo" value={form.apodo} onChange={handleChange} required placeholder={form.tipo === 'Efectivo' ? 'Ej: Caja Chica Conserjería' : 'Ej: Principal / Pagos Bs'} className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" /></div>
-            <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{form.tipo === 'Efectivo' ? 'Custodio / Responsable *' : 'Nombre del Titular *'}</label><input type="text" name="nombre_titular" value={form.nombre_titular} onChange={handleChange} required placeholder="Ej: Junta de Condominio" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" /></div>
-
-            {/* Cédula RIF solo para transacciones nacionales */}
             {['Transferencia', 'Pago Movil'].includes(form.tipo) && (
-              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cédula / RIF *</label><input type="text" name="cedula_rif" value={form.cedula_rif} onChange={handleCedulaChange} required placeholder="Ej: J-123456789" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono" /></div>
-            )}
-
-            {/* Campos condicionales específicos */}
-            {form.tipo === 'Transferencia' && (
-              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Número de Cuenta *</label><input type="text" name="numero_cuenta" value={form.numero_cuenta} onChange={handleChange} required placeholder="20 dígitos" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono" /></div>
-            )}
-
-            {form.tipo === 'Pago Movil' && (
-              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teléfono *</label><input type="text" name="telefono" value={form.telefono} onChange={handleChange} required placeholder="Ej: 0414-1234567" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono" /></div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Institucion Bancaria *</label>
+                <select name="nombre_banco" value={form.nombre_banco} onChange={handleChange} required className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white">
+                  <option value="" disabled className="text-gray-400">Seleccione el banco...</option>
+                  {bancosVenezuela.map((banco) => (
+                    <option key={banco} value={banco} className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">{banco}</option>
+                  ))}
+                </select>
+              </div>
             )}
 
             {form.tipo === 'Zelle' && (
-              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Correo Electrónico *</label><input type="email" name="numero_cuenta" value={form.numero_cuenta} onChange={handleChange} required placeholder="correo@zelle.com" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" /></div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre del Banco (EEUU) *</label>
+                <input type="text" name="nombre_banco" value={form.nombre_banco} onChange={handleChange} required placeholder="Ej: Wells Fargo, BofA..." className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" />
+              </div>
             )}
           </div>
-          <button type="submit" className="w-full md:w-auto bg-donezo-primary hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-lg">Guardar Configuración</button>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Apodo (Referencia) *</label><input type="text" name="apodo" value={form.apodo} onChange={handleChange} required placeholder={form.tipo === 'Efectivo' ? 'Ej: Caja Chica Conserjeria' : 'Ej: Principal / Pagos Bs'} className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" /></div>
+            <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{form.tipo === 'Efectivo' ? 'Custodio / Responsable *' : 'Nombre del Titular *'}</label><input type="text" name="nombre_titular" value={form.nombre_titular} onChange={handleChange} required placeholder="Ej: Junta de Condominio" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" /></div>
+
+            {['Transferencia', 'Pago Movil'].includes(form.tipo) && (
+              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cedula / RIF *</label><input type="text" name="cedula_rif" value={form.cedula_rif} onChange={handleCedulaChange} required placeholder="Ej: J-123456789" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono" /></div>
+            )}
+
+            {form.tipo === 'Transferencia' && (
+              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Numero de Cuenta *</label><input type="text" name="numero_cuenta" value={form.numero_cuenta} onChange={handleChange} required placeholder="20 digitos" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono" /></div>
+            )}
+
+            {form.tipo === 'Pago Movil' && (
+              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Telefono *</label><input type="text" name="telefono" value={form.telefono} onChange={handleChange} required placeholder="Ej: 0414-1234567" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono" /></div>
+            )}
+
+            {form.tipo === 'Zelle' && (
+              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Correo Electronico *</label><input type="email" name="numero_cuenta" value={form.numero_cuenta} onChange={handleChange} required placeholder="correo@zelle.com" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" /></div>
+            )}
+          </div>
+          <button type="submit" className="w-full md:w-auto bg-donezo-primary hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-lg">Guardar Configuracion</button>
         </form>
       )}
 
-      {/* TARJETAS DE BANCOS */}
       {bancos.length === 0 ? <p className="text-gray-500 text-center py-10 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">No hay cuentas registradas.</p> : (
         <div className="flex flex-col gap-5">
-          {bancos.map(b => (
+          {bancos.map((b) => (
             <div key={b.id} className={`bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border flex flex-col xl:flex-row gap-6 justify-between xl:items-center transition-all ${b.es_predeterminada ? 'border-green-400 dark:border-green-600 bg-green-50/10' : 'border-gray-200 dark:border-gray-700'}`}>
-              
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-3">
                   <h3 className="text-xl font-black text-gray-800 dark:text-white uppercase tracking-tight">{b.nombre_banco || 'Efectivo'}</h3>
@@ -242,15 +284,15 @@ export default function Bancos() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm text-gray-600 dark:text-gray-400">
                   <p><strong className="text-gray-800 dark:text-gray-300 font-medium">Titular/Custodio:</strong> {b.nombre_titular}</p>
                   {b.cedula_rif && <p><strong className="text-gray-800 dark:text-gray-300 font-medium">CI/RIF:</strong> {b.cedula_rif}</p>}
-                  {b.numero_cuenta && <p><strong className="text-gray-800 dark:text-gray-300 font-medium">{b.tipo === 'Zelle' ? 'Correo:' : 'N° Cuenta:'}</strong> {b.numero_cuenta}</p>}
-                  {b.telefono && <p><strong className="text-gray-800 dark:text-gray-300 font-medium">Teléfono:</strong> {b.telefono}</p>}
+                  {b.numero_cuenta && <p><strong className="text-gray-800 dark:text-gray-300 font-medium">{b.tipo === 'Zelle' ? 'Correo:' : 'N Cuenta:'}</strong> {b.numero_cuenta}</p>}
+                  {b.telefono && <p><strong className="text-gray-800 dark:text-gray-300 font-medium">Telefono:</strong> {b.telefono}</p>}
                 </div>
               </div>
 
               <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 min-w-[240px] border border-gray-100 dark:border-gray-700/50">
                 <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest mb-3 flex items-center justify-center gap-1.5">
-                   <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-donezo-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
-                   Saldos Virtuales
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-donezo-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                  Saldos Virtuales
                 </p>
                 {renderSaldosCuenta(b.id)}
               </div>
@@ -270,7 +312,7 @@ export default function Bancos() {
                   ) : (
                     <button onClick={() => handleSetPredeterminada(b.id)} className="flex-1 text-[11px] text-gray-600 hover:text-gray-800 font-bold bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 px-3 py-2.5 transition-colors border-r border-gray-200 dark:border-gray-700">Hacer Principal</button>
                   )}
-                  <button onClick={() => handleDelete(b.id)} className="flex items-center justify-center px-4 py-2 bg-gray-50 hover:bg-red-50 dark:bg-gray-800 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 text-sm transition-colors" title="Eliminar cuenta">🗑️</button>
+                  <button onClick={() => handleDelete(b.id)} className="flex items-center justify-center px-4 py-2 bg-gray-50 hover:bg-red-50 dark:bg-gray-800 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 text-sm transition-colors" title="Eliminar cuenta">Eliminar</button>
                 </div>
               </div>
             </div>
@@ -278,7 +320,28 @@ export default function Bancos() {
         </div>
       )}
 
-      {selectedBancoForFondos && <ModalFondos cuenta={selectedBancoForFondos} onClose={() => { setSelectedBancoForFondos(null); fetchData(); }} />}
+      {selectedBancoForFondos && (
+        <ModalFondos
+          cuenta={selectedBancoForFondos}
+          onDeleteFondo={handleDeleteFondo}
+          onClose={() => {
+            setSelectedBancoForFondos(null);
+            fetchData();
+          }}
+        />
+      )}
+
+      {fondoAEliminar && (
+        <ModalEliminarFondo
+          fondo={fondoAEliminar}
+          fondosDisponibles={fondos}
+          onClose={() => setFondoAEliminar(null)}
+          onSuccess={() => {
+            setFondoAEliminar(null);
+            fetchData();
+          }}
+        />
+      )}
     </div>
   );
 }

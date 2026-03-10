@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import ModalAgregarGasto from '../components/ModalAgregarGasto';
 import ModalDetallesGasto from '../components/ModalDetallesGasto';
 import { formatMoney } from '../utils/currency';
+import { useDialog } from '../components/ui/DialogProvider';
 
 const formatMonthText = (yyyy_mm) => {
     if (!yyyy_mm) return '';
@@ -13,6 +14,7 @@ const formatMonthText = (yyyy_mm) => {
 
 export default function Gastos() {
   const { userRole } = useOutletContext();
+  const { showConfirm } = useDialog();
   const [gastosAgrupados, setGastosAgrupados] = useState([]);
   const [proveedores, setProveedores] = useState([]);
   const [zonas, setZonas] = useState([]);
@@ -20,7 +22,7 @@ export default function Gastos() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Pestañas de Navegación actualizadas
+  // Pestanas de Navegacion actualizadas
   const [activeTab, setActiveTab] = useState('Todos'); // 'Todos', 'Comun', 'Zona', 'Individual'
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 15;
@@ -100,7 +102,14 @@ export default function Gastos() {
 
   const handleDelete = async (gasto_id, e) => {
     e.stopPropagation();
-    if (!window.confirm('⚠️ ¿Eliminar este gasto y todas sus cuotas?')) return;
+    const ok = await showConfirm({
+      title: 'Eliminar gasto',
+      message: 'Eliminar este gasto y todas sus cuotas?',
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      variant: 'warning',
+    });
+    if (!ok) return;
     const token = localStorage.getItem('habioo_token');
     const res = await fetch(`https://auth.habioo.cloud/gastos/${gasto_id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
     if (res.ok) fetchData(); else alert('No se pudo eliminar');
@@ -162,7 +171,7 @@ export default function Gastos() {
                             <div className="text-gray-600 dark:text-gray-400 truncate max-w-[200px] text-sm" title={g.concepto}>{g.concepto}</div>
                             {/* BADGES INTELIGENTES */}
                             {(g.tipo === 'Zona' || g.tipo === 'No Comun') && (
-                              <span className="inline-block mt-1 bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Zona: {g.zona_nombre || 'Específica'}</span>
+                              <span className="inline-block mt-1 bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Zona: {g.zona_nombre || 'Especifica'}</span>
                             )}
                             {g.tipo === 'Individual' && (
                               <span className="inline-block mt-1 bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Apto/Casa: {g.propiedad_identificador}</span>
@@ -176,8 +185,8 @@ export default function Gastos() {
                         {expandedRows[g.gasto_id] && g.cuotas.map((c) => (
                           <tr key={c.cuota_id} className="bg-gray-50/50 dark:bg-gray-800/30 border-b border-gray-50 dark:border-gray-800/50">
                             <td className="p-3 border-l-2 border-donezo-primary"></td>
-                            <td className="p-3 text-gray-500 text-xs dark:text-gray-400" colSpan="2">↳ Cobro en: <strong>{formatMonthText(c.mes_asignado)}</strong></td>
-                            <td className="p-3 text-gray-500 text-xs dark:text-gray-400">Fracción {c.numero_cuota}/{g.total_cuotas}</td>
+                            <td className="p-3 text-gray-500 text-xs dark:text-gray-400" colSpan="2">  Cobro en: <strong>{formatMonthText(c.mes_asignado)}</strong></td>
+                            <td className="p-3 text-gray-500 text-xs dark:text-gray-400">Fraccion {c.numero_cuota}/{g.total_cuotas}</td>
                             <td className="p-3 text-center"><span className="text-[10px] font-bold bg-white dark:bg-gray-700 px-2 py-1 rounded border border-gray-200 dark:border-gray-600">{c.estado}</span></td>
                             <td className="p-3 text-right text-gray-600 dark:text-gray-400 font-medium text-sm">${formatMoney(c.monto_cuota_usd)}</td>
                             <td className="p-3 text-right text-gray-400 text-xs">Restan: ${formatMoney(c.saldo_pendiente)}</td>
@@ -191,7 +200,7 @@ export default function Gastos() {
               </div>
               {totalPages > 1 && (
                 <div className="flex justify-between items-center mt-6 border-t border-gray-100 dark:border-gray-800 pt-4">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Página {currentPage} de {totalPages}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Pagina {currentPage} de {totalPages}</p>
                   <div className="flex gap-2">
                     <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 disabled:opacity-50 text-sm font-bold">Anterior</button>
                     <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 disabled:opacity-50 text-sm font-bold">Siguiente</button>
@@ -222,3 +231,4 @@ export default function Gastos() {
     </div>
   );
 }
+

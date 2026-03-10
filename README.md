@@ -3,7 +3,7 @@
 Documento de referencia funcional y técnica del estado actual de la app.
 Este README fusiona la base conceptual original con el inventario actualizado de módulos, endpoints y modelo de datos.
 
-- Última actualización: 2026-03-09
+- Última actualización: 2026-03-10
 - Stack: React + Vite + Tailwind (frontend), Node/Express + PostgreSQL (backend)
 
 ---
@@ -79,6 +79,7 @@ Impacto:
 10. Dashboard residente: propiedades y resumen financiero.
 11. Cuentas por cobrar (admin): tabla paginada de deuda, registrar pago y ver estado de cuenta por inmueble.
 12. Libro Mayor / Estado de Cuentas Bancarias (admin): selector de cuenta, movimientos con saldo acumulado, pago a proveedores y transferencias entre fondos.
+13. Sistema de avisos/confirmaciones UI: alertas del navegador migradas a modal centrada reutilizable en frontend (dark/light con contraste mejorado).
 
 ### 3.2 Funcionalidades inactivas/parciales
 
@@ -150,6 +151,10 @@ Impacto:
 - `GET https://auth.habioo.cloud/gastos-pendientes-pago` -> gastos/facturas pendientes para pago a proveedor.
 - `POST https://auth.habioo.cloud/pagos-proveedores` -> registrar pago parcial o total de gasto desde un fondo.
 - `POST https://auth.habioo.cloud/transferencias` -> transferir entre fondos/cuentas (con o sin conversión).
+
+Notas de desarrollo local:
+- En código frontend, Bancos/Fondos usan `API_BASE_URL` (`src/config/api.js`) en lugar de URLs hardcodeadas a producción.
+- Archivos actualizados para local-first: `src/pages/Bancos.jsx`, `src/components/ModalFondos.jsx`, `src/components/BancosModals.jsx`.
 
 ### Zonas
 - `GET https://auth.habioo.cloud/zonas` -> listar.
@@ -273,6 +278,11 @@ Impacto:
    - Se agregó `rubro` al proveedor.
    - Se habilitó borrado lógico con `activo` (eliminar oculta, no destruye).
    - Alta inteligente: si un proveedor del mismo condominio existe inactivo con el mismo RIF, se reactiva y actualiza.
+10. UX de notificaciones (nuevo):
+   - Se agregó proveedor global de diálogos: `src/components/ui/DialogProvider.jsx`.
+   - `App.jsx` quedó envuelto con `DialogProvider` para habilitar modales centradas en toda la app.
+   - Se unificaron mensajes de acciones en gestión bancaria (crear/eliminar cuenta, predeterminada, crear/eliminar fondo, pagar proveedor, transferir).
+   - Se mejoró contraste en selects/botones de modales de transferencia y pago para dark/light.
 
 ---
 

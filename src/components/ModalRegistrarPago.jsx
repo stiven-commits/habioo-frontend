@@ -1,9 +1,11 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { formatMoney } from '../utils/currency';
+import { API_BASE_URL } from '../config/api';
+import { useDialog } from './ui/DialogProvider';
 
-// 💡 Recibe la propiedad en lugar del recibo
 export default function ModalRegistrarPago({ propiedadPreseleccionada, onClose, onSuccess }) {
-  const [bancos, setBancos] = useState([]); // 💡 Estado para guardar los bancos
+  const { showConfirm } = useDialog();
+  const [bancos, setBancos] = useState([]);
   const [loadingBancos, setLoadingBancos] = useState(true);
 
   const [formPago, setFormPago] = useState({
@@ -12,27 +14,29 @@ export default function ModalRegistrarPago({ propiedadPreseleccionada, onClose, 
   });
 
   const BANCOS_VENEZUELA = [
-    "Banco de Venezuela (BDV)", "Banesco Banco Universal", "Banco Mercantil", "BBVA Provincial",
-    "Banco Nacional de Crédito (BNC)", "Bancamiga Banco Universal", "Banplus Banco Universal",
-    "Banco del Tesoro", "Banco del Caribe (Bancaribe)", "Banco Fondo Común (BFC)", "Banco Caroní",
-    "Banco Activo", "Banco Venezolano de Crédito (BVC)", "Banco Sofitasa", "100% Banco",
-    "Delsur Banco Universal", "Banco Agrícola de Venezuela", "Banco Bicentenario", "Banco Plaza",
-    "Banco Exterior", "Banco de la Fuerza Armada Nacional Bolivariana (Banfanb)",
-    "Banco Digital de los Trabajadores (BDT)", "N58 Banco Digital", "Bancrecer", "Bangente", "R4 Banco Microfinanciero"
+    'Banco de Venezuela (BDV)', 'Banesco Banco Universal', 'Banco Mercantil', 'BBVA Provincial',
+    'Banco Nacional de Crédito (BNC)', 'Bancamiga Banco Universal', 'Banplus Banco Universal',
+    'Banco del Tesoro', 'Banco del Caribe (Bancaribe)', 'Banco Fondo Común (BFC)', 'Banco Caroní',
+    'Banco Activo', 'Banco Venezolano de Crédito (BVC)', 'Banco Sofitasa', '100% Banco',
+    'Delsur Banco Universal', 'Banco Agrícola de Venezuela', 'Banco Bicentenario', 'Banco Plaza',
+    'Banco Exterior', 'Banco de la Fuerza Armada Nacional Bolivariana (Banfanb)',
+    'Banco Digital de los Trabajadores (BDT)', 'N58 Banco Digital', 'Bancrecer', 'Bangente', 'R4 Banco Microfinanciero'
   ];
 
   const [conversionUSD, setConversionUSD] = useState('0.00');
 
-  // 💡 Buscar los bancos al abrir la modal
   useEffect(() => {
     const fetchBancos = async () => {
       try {
         const token = localStorage.getItem('habioo_token');
-        const res = await fetch('https://auth.habioo.cloud/bancos', { headers: { 'Authorization': `Bearer ${token}` } });
+        const res = await fetch(`${API_BASE_URL}/bancos`, { headers: { Authorization: `Bearer ${token}` } });
         const data = await res.json();
         if (data.status === 'success') setBancos(data.bancos);
-      } catch (error) { console.error("Error al cargar bancos", error); }
-      finally { setLoadingBancos(false); }
+      } catch (error) {
+        console.error('Error al cargar bancos', error);
+      } finally {
+        setLoadingBancos(false);
+      }
     };
     fetchBancos();
   }, []);
@@ -40,9 +44,9 @@ export default function ModalRegistrarPago({ propiedadPreseleccionada, onClose, 
   const formatCurrencyInput = (value) => {
     let rawValue = value.replace(/[^0-9,]/g, '');
     const parts = rawValue.split(',');
-    if (parts.length > 2) rawValue = parts[0] + ',' + parts.slice(1).join('');
+    if (parts.length > 2) rawValue = `${parts[0]},${parts.slice(1).join('')}`;
     let [integerPart, decimalPart] = rawValue.split(',');
-    if (integerPart) integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    if (integerPart) integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     if (decimalPart !== undefined) {
       decimalPart = decimalPart.slice(0, 2);
       return `${integerPart},${decimalPart}`;
@@ -60,7 +64,7 @@ export default function ModalRegistrarPago({ propiedadPreseleccionada, onClose, 
     setFormPago(updatedForm);
 
     if (updatedForm.monto_origen && updatedForm.cuenta_id) {
-      const banco = bancos.find(b => b.id.toString() === updatedForm.cuenta_id);
+      const banco = bancos.find((b) => b.id.toString() === updatedForm.cuenta_id);
       const monto = parseFloat(updatedForm.monto_origen.replace(/\./g, '').replace(',', '.')) || 0;
       const isForeign = banco && ['Zelle', 'Efectivo'].includes(banco.tipo);
       const tasaRaw = parseFloat(updatedForm.tasa_cambio.replace(/\./g, '').replace(',', '.'));
@@ -83,33 +87,42 @@ export default function ModalRegistrarPago({ propiedadPreseleccionada, onClose, 
         const usdRate = json.promedio.toString().replace('.', ',');
         handlePagoChange({ target: { name: 'tasa_cambio', value: formatCurrencyInput(usdRate) } });
       } else alert('No se pudo encontrar la tasa del BCV actual.');
-    } catch { alert('Error de conexión o API. No se pudo obtener la tasa BCV.'); } 
-    finally { setIsFetchingBCV(false); }
+    } catch {
+      alert('Error de conexión o API. No se pudo obtener la tasa BCV.');
+    } finally {
+      setIsFetchingBCV(false);
+    }
   };
 
-  const selectedBank = bancos.find(b => b.id.toString() === formPago.cuenta_id);
+  const selectedBank = bancos.find((b) => b.id.toString() === formPago.cuenta_id);
   const requiresTasa = selectedBank && ['Transferencia', 'Pago Movil'].includes(selectedBank.tipo);
 
   const handleSubmitPago = async (e) => {
     e.preventDefault();
-    if (!confirm(`¿Confirmar abono por $${formatMoney(conversionUSD)} a la cuenta de ${propiedadPreseleccionada.identificador}?`)) return;
+    const ok = await showConfirm({
+      title: 'Confirmar abono',
+      message: `¿Confirmar abono por $${formatMoney(conversionUSD)} a la cuenta de ${propiedadPreseleccionada.identificador}?`,
+      confirmText: 'Procesar',
+      cancelText: 'Cancelar',
+      variant: 'warning',
+    });
+    if (!ok) return;
 
     const monedaReal = requiresTasa ? 'BS' : 'USD';
     const token = localStorage.getItem('habioo_token');
-    
-    // 💡 Enviamos propiedad_id para que el backend haga la cascada
-    const payload = { 
-      ...formPago, 
-      propiedad_id: propiedadPreseleccionada.id, 
-      moneda: monedaReal 
+
+    const payload = {
+      ...formPago,
+      propiedad_id: propiedadPreseleccionada.id,
+      moneda: monedaReal,
     };
 
-    const res = await fetch('https://auth.habioo.cloud/pagos-admin', {
+    const res = await fetch(`${API_BASE_URL}/pagos-admin`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify(payload)
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload),
     });
-    
+
     const result = await res.json();
     if (result.status === 'success') {
       alert(result.message);
@@ -127,10 +140,9 @@ export default function ModalRegistrarPago({ propiedadPreseleccionada, onClose, 
           <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-xl font-bold transition-colors">✕</button>
         </div>
 
-        {/* 💡 Panel que muestra el saldo global del apartamento */}
         <div className={`p-4 rounded-xl mb-4 text-center border ${propiedadPreseleccionada.saldo_actual > 0 ? 'bg-red-50 border-red-100 dark:bg-red-900/20 dark:border-red-800/50' : 'bg-green-50 border-green-100 dark:bg-green-900/20 dark:border-green-800/50'}`}>
           <p className={`text-xs font-bold mb-1 uppercase tracking-wider ${propiedadPreseleccionada.saldo_actual > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-             {propiedadPreseleccionada.saldo_actual > 0 ? 'Deuda Pendiente' : 'Saldo a Favor'}
+            {propiedadPreseleccionada.saldo_actual > 0 ? 'Deuda Pendiente' : 'Saldo a Favor'}
           </p>
           <p className={`text-3xl font-black font-mono ${propiedadPreseleccionada.saldo_actual > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
             ${formatMoney(Math.abs(propiedadPreseleccionada.saldo_actual || 0))}
@@ -145,7 +157,7 @@ export default function ModalRegistrarPago({ propiedadPreseleccionada, onClose, 
             <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Cuenta Destino</label>
             <select name="cuenta_id" value={formPago.cuenta_id} onChange={handlePagoChange} className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required disabled={loadingBancos}>
               <option value="">{loadingBancos ? 'Cargando bancos...' : 'Seleccione Banco...'}</option>
-              {bancos.map(b => <option key={b.id} value={b.id}>{b.nombre_banco || b.tipo} ({b.apodo})</option>)}
+              {bancos.map((b) => <option key={b.id} value={b.id}>{b.nombre_banco || b.tipo} ({b.apodo})</option>)}
             </select>
           </div>
 
@@ -178,7 +190,7 @@ export default function ModalRegistrarPago({ propiedadPreseleccionada, onClose, 
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Banco de Origen</label>
                 <select name="banco_origen" value={formPago.banco_origen} onChange={handlePagoChange} className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required>
                   <option value="">Seleccione...</option>
-                  {BANCOS_VENEZUELA.map(b => <option key={b} value={b}>{b}</option>)}
+                  {BANCOS_VENEZUELA.map((b) => <option key={b} value={b}>{b}</option>)}
                 </select>
               </div>
               <div>

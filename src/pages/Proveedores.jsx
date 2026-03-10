@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import { API_BASE_URL } from '../config/api';
 import * as XLSX from 'xlsx';
 import { ModalProveedorForm, ModalProveedorDetails, ModalCargaMasivaProveedores } from '../components/proveedores/ProveedoresModals'; 
+import { useDialog } from '../components/ui/DialogProvider';
 
 const ESTADOS_VENEZUELA = [
   "Amazonas", "Anzoátegui", "Apure", "Aragua", "Barinas", "Bolívar", "Carabobo",
@@ -13,6 +14,7 @@ const ESTADOS_VENEZUELA = [
 
 export default function Proveedores() {
   const { user, userRole } = useOutletContext();
+  const { showConfirm } = useDialog();
   const [proveedores, setProveedores] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -88,7 +90,14 @@ export default function Proveedores() {
 
   const handleDelete = async (id, nombre) => {
     setOpenDropdownId(null);
-    if (!confirm(`¿Está seguro de que desea eliminar a "${nombre}" del directorio? Sus facturas pasadas se mantendrán intactas.`)) return;
+    const ok = await showConfirm({
+      title: 'Eliminar proveedor',
+      message: `¿Está seguro de que desea eliminar a "${nombre}" del directorio? Sus facturas pasadas se mantendrán intactas.`,
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      variant: 'warning',
+    });
+    if (!ok) return;
 
     try {
       const token = localStorage.getItem('habioo_token');
@@ -195,7 +204,14 @@ export default function Proveedores() {
 
   const handleSaveLote = async () => {
     if (loteErrors > 0) return alert("Por favor corrija los errores en el Excel antes de continuar.");
-    if (!confirm(`¿Está seguro de importar ${loteData.length} proveedores?`)) return;
+    const ok = await showConfirm({
+      title: 'Importar proveedores',
+      message: `¿Está seguro de importar ${loteData.length} proveedores?`,
+      confirmText: 'Importar',
+      cancelText: 'Cancelar',
+      variant: 'warning',
+    });
+    if (!ok) return;
 
     setIsUploadingLote(true);
     setUploadProgress(0);

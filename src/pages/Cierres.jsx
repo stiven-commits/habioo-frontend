@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { formatMoney } from '../utils/currency';
+import { useDialog } from '../components/ui/DialogProvider';
 
 export default function Cierres() {
   const { userRole } = useOutletContext();
+  const { showConfirm } = useDialog();
   const [data, setData] = useState({
     mes_actual: '',
     mes_texto: '',
@@ -48,7 +50,7 @@ export default function Cierres() {
 
   useEffect(() => { if (userRole === 'Administrador') fetchPreliminar(); }, [userRole]);
 
-  // LÓGICA DE TIEMPO
+  // LGICA DE TIEMPO
   const today = new Date();
   const realCurrentYM = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}`;
   const canCloseMonth = data.mes_actual && data.mes_actual < realCurrentYM;
@@ -72,18 +74,32 @@ export default function Cierres() {
   };
 
   const handleCerrarCiclo = async () => {
-    if (!window.confirm(`⚠️ ESTÁS A PUNTO DE CERRAR EL MES DE ${data.mes_texto.toUpperCase()}.\n\nTodos los recibos se generarán usando el método: ${data.metodo_division}.\n¿Estás seguro?`)) return;
+    const ok = await showConfirm({
+      title: 'Confirmar cierre de mes',
+      message: `Ests a punto de cerrar el mes ${data.mes_texto.toUpperCase()}.\n\nTodos los recibos se generarn usando el mtodo: ${data.metodo_division}.`,
+      confirmText: 'Cerrar mes',
+      cancelText: 'Cancelar',
+      variant: 'warning',
+    });
+    if (!ok) return;
     const token = localStorage.getItem('habioo_token');
     try {
       const res = await fetch('https://auth.habioo.cloud/cerrar-ciclo', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
       const result = await res.json();
       alert(result.message);
       if (result.status === 'success') fetchPreliminar();
-    } catch (error) { alert("Error de conexión"); }
+    } catch (error) { alert("Error de conexion"); }
   };
-// 💡 FUNCIÓN DE PRUEBAS PARA POBLAR LA BASE DE DATOS
+// 🧪 FUNCION DE PRUEBAS PARA POBLAR LA BASE DE DATOS
   const handleSeeder = async () => {
-    if (!window.confirm(`🧪 ¿Quieres inyectar datos falsos? Se borrarán las pruebas anteriores y se crearán 12 gastos nuevos.`)) return;
+    const ok = await showConfirm({
+      title: 'Inyectar datos de prueba',
+      message: 'Se borrarn las pruebas anteriores y se crearn 12 gastos nuevos. Deseas continuar?',
+      confirmText: 'Inyectar',
+      cancelText: 'Cancelar',
+      variant: 'warning',
+    });
+    if (!ok) return;
     
     setLoading(true);
     const token = localStorage.getItem('habioo_token');
@@ -96,17 +112,17 @@ export default function Cierres() {
       alert(result.message || result.error);
       fetchPreliminar(); // Refrescar la pantalla
     } catch (error) { 
-      alert("Error de conexión con el seeder"); 
+      alert("Error de conexion con el seeder"); 
       setLoading(false);
     }
   };
-  // 💡 LÓGICA PARA CAMBIAR EL MÉTODO DE DIVISIÓN
+  // ⚙️ LOGICA PARA CAMBIAR EL METODO DE DIVISION
   const handleToggleMethod = async () => {
     if (cambiandoMetodo) return;
     const nuevoMetodo = data.metodo_division === 'Alicuota' ? 'Partes Iguales' : 'Alicuota';
     
     setCambiandoMetodo(true);
-    // Actualizamos la UI instantáneamente para que se sienta rápido
+    // Actualizamos la UI instantaneamente para que se sienta rapido
     setData(prev => ({ ...prev, metodo_division: nuevoMetodo }));
 
     const token = localStorage.getItem('habioo_token');
@@ -124,7 +140,7 @@ export default function Cierres() {
       }
     } catch (error) {
       setData(prev => ({ ...prev, metodo_division: data.metodo_division }));
-      alert("Error de red al intentar cambiar el método.");
+      alert("Error de red al intentar cambiar el metodo.");
     } finally {
       setCambiandoMetodo(false);
     }
@@ -136,7 +152,7 @@ export default function Cierres() {
       const alicuota = parseFloat(simulacionAlicuota) || 0;
       return (total * (alicuota / 100)).toFixed(2);
     } else {
-      // Si es partes iguales, divide el total entre el número de inmuebles registrados
+      // Si es partes iguales, divide el total entre el numero de inmuebles registrados
       const totalProps = propiedades.length || 1; 
       return (total / totalProps).toFixed(2);
     }
@@ -152,24 +168,24 @@ export default function Cierres() {
           <span className="text-2xl">🔒</span>
           <div>
             <h4 className="text-red-800 dark:text-red-300 font-bold">Cierre Bloqueado</h4>
-            <p className="text-red-700 dark:text-red-400 text-sm mt-1">Aún nos encontramos dentro de <strong>{data.mes_texto}</strong>. No puedes generar los recibos hasta que el mes finalice.</p>
+            <p className="text-red-700 dark:text-red-400 text-sm mt-1">Aun nos encontramos dentro de <strong>{data.mes_texto}</strong>. No puedes generar los recibos hasta que el mes finalice.</p>
           </div>
         </div>
       )}
 
-      {/* 💡 NUEVO PANEL: REGLA DE DISTRIBUCIÓN (EL SUICHE) */}
+      {/* ⚖️ NUEVO PANEL: REGLA DE DISTRIBUCION (EL SUICHE) */}
       <div className="bg-white dark:bg-donezo-card-dark px-8 py-10 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 my-6 flex flex-col items-center justify-center">
         <h3 className="text-sm font-black text-gray-400 dark:text-gray-500 mb-8 uppercase tracking-widest text-center">
-          ⚖️ Método de Distribución de Gastos
+          ⚖️ Metodo de Distribucion de Gastos
         </h3>
 
         <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-12 w-full max-w-4xl">
           
-          {/* Lado Alícuota */}
+          {/* Lado Alicuota */}
           <div className={`flex-1 text-center md:text-right transition-all duration-500 ${data.metodo_division === 'Alicuota' ? 'opacity-100 scale-105' : 'opacity-40 grayscale scale-95'}`}>
-            <h4 className="font-black text-blue-600 dark:text-blue-400 text-2xl mb-2">Por Alícuota</h4>
+            <h4 className="font-black text-blue-600 dark:text-blue-400 text-2xl mb-2">Por Alicuota</h4>
             <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed font-medium">
-              El total de los gastos se multiplica por el porcentaje (%) exacto de participación de cada inmueble. 
+              El total de los gastos se multiplica por el porcentaje (%) exacto de participacion de cada inmueble. 
               <br/><span className="text-blue-500 font-bold">Recomendado para edificios con distintos metrajes.</span>
             </p>
           </div>
@@ -197,15 +213,15 @@ export default function Cierres() {
           <div className={`flex-1 text-center md:text-left transition-all duration-500 ${data.metodo_division === 'Partes Iguales' ? 'opacity-100 scale-105' : 'opacity-40 grayscale scale-95'}`}>
             <h4 className="font-black text-purple-600 dark:text-purple-400 text-2xl mb-2">Partes Iguales</h4>
             <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed font-medium">
-              El total de los gastos se divide de manera lineal y exacta entre el número total de inmuebles activos. 
-              <br/><span className="text-purple-500 font-bold">Todos pagarán exactamente el mismo monto.</span>
+              El total de los gastos se divide de manera lineal y exacta entre el numero total de inmuebles activos. 
+              <br/><span className="text-purple-500 font-bold">Todos pagaran exactamente el mismo monto.</span>
             </p>
           </div>
 
         </div>
       </div>
 
-      {/* SECCIÓN RESUMEN MES ACTUAL Y SIMULADOR INTELIGENTE */}
+      {/* SECCIN RESUMEN MES ACTUAL Y SIMULADOR INTELIGENTE */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
         {/* TARJETA TOTAL */}
@@ -242,19 +258,19 @@ export default function Cierres() {
                 </div>
                 {/* SELECTOR MANUAL */}
                 <div className="w-full sm:w-1/4">
-                  <label className="text-xs text-blue-700 dark:text-blue-300 block mb-1 font-bold">Alícuota (%)</label>
+                  <label className="text-xs text-blue-700 dark:text-blue-300 block mb-1 font-bold">Alicuota (%)</label>
                   <select value={simulacionAlicuota} onChange={(e) => { setSimulacionAlicuota(e.target.value); setSearchProp(''); }} className="p-2.5 rounded-xl border border-blue-200 bg-white dark:bg-gray-800 dark:border-blue-800 outline-none w-full text-sm font-bold dark:text-white">
                     {data.alicuotas_disponibles.map((a, i) => <option key={i} value={a}>{a}%</option>)}
                   </select>
                 </div>
                 {/* RESULTADO ALICUOTA */}
                 <div className="w-full sm:w-1/4 sm:text-right flex flex-col justify-end h-full">
-                  <p className="text-xs text-blue-700 dark:text-blue-300 font-bold mb-1">Pagaría</p>
+                  <p className="text-xs text-blue-700 dark:text-blue-300 font-bold mb-1">Pagaria</p>
                   <p className="text-3xl font-black text-blue-600 dark:text-blue-400 leading-none">${formatMoney(calcularProyeccion())}</p>
                 </div>
               </>
             ) : (
-              // 💡 DISEÑO PARA PARTES IGUALES
+              // ➗ DISENO PARA PARTES IGUALES
               <div className="flex w-full justify-between items-center bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-purple-100 dark:border-purple-800/50">
                  <div>
                    <p className="text-xs text-purple-600 dark:text-purple-400 font-bold uppercase tracking-wider mb-1">Inmuebles Activos</p>
@@ -277,12 +293,12 @@ export default function Cierres() {
           <h3 className="text-xl font-bold text-gray-800 dark:text-white">Borrador: {data.mes_texto}</h3>
           
           <div className="flex gap-3">
-             {/* 💡 BOTÓN NUEVO DE DESARROLLADOR */}
+             {/* 🧪 BOTON NUEVO DE DESARROLLADOR */}
              <button onClick={handleSeeder} className="bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 font-bold py-2 px-4 rounded-xl transition-all shadow-sm text-sm border border-purple-200 dark:border-purple-800">
                🧪 Inyectar Datos
              </button>
 
-             {/* BOTÓN DE PRUEBA (Siempre habilitado) */}
+             {/* BOTON DE PRUEBA (Siempre habilitado) */}
              <button onClick={handleCerrarCiclo} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-xl transition-all shadow-lg text-sm">
                🚨 FORZAR CIERRE {data.mes_texto}
              </button>
@@ -344,13 +360,13 @@ export default function Cierres() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 relative">
             <button onClick={() => setSelectedGasto(null)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl">✕</button>
-            <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Inspección de Gasto</h3>
+            <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Inspeccion de Gasto</h3>
             <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
               <p><strong className="text-gray-800 dark:text-white">Proveedor:</strong> {selectedGasto.proveedor}</p>
               <p><strong className="text-gray-800 dark:text-white">Concepto:</strong> {selectedGasto.concepto}</p>
               <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-xl my-2 border border-gray-200 dark:border-gray-700">
                 <p><strong>Monto Total de Factura:</strong> ${formatMoney(selectedGasto.monto_total_usd)}</p>
-                <p><strong>Fracción a cobrar este mes:</strong> ${formatMoney(selectedGasto.monto_cuota_usd)}</p>
+                <p><strong>Fraccion a cobrar este mes:</strong> ${formatMoney(selectedGasto.monto_cuota_usd)}</p>
               </div>
             </div>
             <button onClick={() => setSelectedGasto(null)} className="mt-6 w-full px-6 py-3 rounded-xl font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all dark:text-gray-300">Cerrar</button>
@@ -360,3 +376,4 @@ export default function Cierres() {
     </div>
   );
 }
+
