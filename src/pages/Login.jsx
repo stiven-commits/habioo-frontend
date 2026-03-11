@@ -1,5 +1,7 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../config/api';
+import { sanitizeCedulaRif, isValidCedulaRif } from '../utils/validators';
 
 export default function Login() {
   const [cedula, setCedula] = useState('');
@@ -7,19 +9,21 @@ export default function Login() {
   const [message, setMessage] = useState('');
   const navigate = useNavigate();
 
-  // Función Limpia: Solo permite letras y números (Sin guiones)
+  // FunciÃ³n Limpia: Solo permite letras y nÃºmeros (Sin guiones)
   const handleCedulaChange = (e) => {
-    const raw = e.target.value;
-    const clean = raw.toUpperCase().replace(/[^A-Z0-9]/g, ''); 
-    setCedula(clean);
+    setCedula(sanitizeCedulaRif(e.target.value));
   };
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (!isValidCedulaRif(cedula)) {
+      setMessage('Error: el identificador debe iniciar con V, E, J o G y contener solo números.');
+      return;
+    }
     setMessage('Conectando...');
 
     try {
-      const response = await fetch('https://auth.habioo.cloud/login', {
+      const response = await fetch(API_BASE_URL + '/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cedula, password })
@@ -36,7 +40,7 @@ export default function Login() {
         setMessage('Error: ' + data.message);
       }
     } catch (error) {
-      setMessage('Error de conexión con el servidor.');
+      setMessage('Error de conexiÃ³n con el servidor.');
     }
   };
 
@@ -46,7 +50,7 @@ export default function Login() {
         <div className="flex flex-col items-center mb-8">
           <div className="w-16 h-16 bg-gradient-to-br from-donezo-primary to-donezo-green rounded-2xl shadow-lg mb-4 transform rotate-3"></div>
           <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Portal Habioo</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-2 text-center">Gestión de Condominios</p>
+          <p className="text-gray-500 dark:text-gray-400 mt-2 text-center">GestiÃ³n de Condominios</p>
         </div>
 
         <form onSubmit={handleLogin} className="flex flex-col gap-5">
@@ -57,16 +61,17 @@ export default function Login() {
               placeholder="Ej: V12345678 (Sin guiones)"
               value={cedula}
               onChange={handleCedulaChange}
+              pattern="^[VEJG][0-9]{5,9}$"
               required
               className="w-full p-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-donezo-green outline-none transition-all dark:text-white font-bold tracking-wider"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Contraseña</label>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">ContraseÃ±a</label>
             <input
               type="password"
-              placeholder="••••••••"
+              placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required

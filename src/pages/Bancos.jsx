@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import ModalFondos from '../components/ModalFondos';
 import { ModalEliminarFondo } from '../components/BancosModals';
 import { API_BASE_URL } from '../config/api';
 import { formatMoney } from '../utils/currency';
+import { sanitizeCedulaRif, sanitizePhone, sanitizeEmail, isValidEmail, isValidPhone, isValidCedulaRif } from '../utils/validators';
 import { useDialog } from '../components/ui/DialogProvider';
 
 export default function Bancos() {
@@ -82,23 +83,38 @@ export default function Bancos() {
     const { name, value } = e.target;
     if (name === 'tipo') {
       setForm({ ...form, tipo: value, nombre_banco: '' });
-    } else {
-      setForm({ ...form, [name]: value });
+      return;
     }
+    if (name === 'telefono') {
+      setForm({ ...form, telefono: sanitizePhone(value) });
+      return;
+    }
+    if (name === 'numero_cuenta' && form.tipo === 'Zelle') {
+      setForm({ ...form, numero_cuenta: sanitizeEmail(value) });
+      return;
+    }
+    setForm({ ...form, [name]: value });
   };
 
   const handleCedulaChange = (e) => {
-    let val = e.target.value.toUpperCase();
-    val = val.replace(/[^JVEG0-9-]/g, '');
-    if (val.length > 0 && !/^[JVEG]/.test(val[0])) val = '';
-    if (val.length === 1 && /^[JVEG]$/.test(val)) val += '-';
-    else if (val.length > 1 && val[1] !== '-') val = val[0] + '-' + val.slice(1).replace(/-/g, '');
-    setForm({ ...form, cedula_rif: val });
+    setForm({ ...form, cedula_rif: sanitizeCedulaRif(e.target.value, { withDash: true }) });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem('habioo_token');
+    if (['Transferencia', 'Pago Movil'].includes(form.tipo) && !isValidCedulaRif(form.cedula_rif)) {
+      await showAlert({ title: 'Dato invalido', message: 'La cédula/RIF debe iniciar con V, E, J o G y contener solo números.', variant: 'warning' });
+      return;
+    }
+    if (form.tipo === 'Pago Movil' && !isValidPhone(form.telefono)) {
+      await showAlert({ title: 'Dato invalido', message: 'El teléfono debe contener solo números.', variant: 'warning' });
+      return;
+    }
+    if (form.tipo === 'Zelle' && !isValidEmail(form.numero_cuenta)) {
+      await showAlert({ title: 'Dato invalido', message: 'El correo de Zelle no tiene un formato válido.', variant: 'warning' });
+      return;
+    }
 
     try {
       const res = await fetch(`${API_BASE_URL}/bancos`, {
@@ -131,7 +147,7 @@ export default function Bancos() {
   const handleDelete = async (id) => {
     const ok = await showConfirm({
       title: 'Eliminar cuenta bancaria',
-      message: 'Solo se podra eliminar si sus fondos no tienen movimientos. �Deseas continuar?',
+      message: 'Solo se podra eliminar si sus fondos no tienen movimientos. ¿Deseas continuar?',
       confirmText: 'Eliminar',
       cancelText: 'Cancelar',
       variant: 'warning',
@@ -252,7 +268,7 @@ export default function Bancos() {
             <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{form.tipo === 'Efectivo' ? 'Custodio / Responsable *' : 'Nombre del Titular *'}</label><input type="text" name="nombre_titular" value={form.nombre_titular} onChange={handleChange} required placeholder="Ej: Junta de Condominio" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" /></div>
 
             {['Transferencia', 'Pago Movil'].includes(form.tipo) && (
-              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cedula / RIF *</label><input type="text" name="cedula_rif" value={form.cedula_rif} onChange={handleCedulaChange} required placeholder="Ej: J-123456789" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono" /></div>
+              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cedula / RIF *</label><input type="text" name="cedula_rif" value={form.cedula_rif} onChange={handleCedulaChange} pattern="^[VEJG]-?[0-9]{5,9}$" required placeholder="Ej: J-123456789" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono" /></div>
             )}
 
             {form.tipo === 'Transferencia' && (
@@ -260,7 +276,7 @@ export default function Bancos() {
             )}
 
             {form.tipo === 'Pago Movil' && (
-              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Telefono *</label><input type="text" name="telefono" value={form.telefono} onChange={handleChange} required placeholder="Ej: 0414-1234567" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono" /></div>
+              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Telefono *</label><input type="text" name="telefono" value={form.telefono} onChange={handleChange} inputMode="numeric" pattern="^[0-9]{7,15}$" required placeholder="Ej: 04141234567" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono" /></div>
             )}
 
             {form.tipo === 'Zelle' && (
@@ -345,3 +361,4 @@ export default function Bancos() {
     </div>
   );
 }
+

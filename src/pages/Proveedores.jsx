@@ -4,6 +4,7 @@ import { API_BASE_URL } from '../config/api';
 import * as XLSX from 'xlsx';
 import { ModalProveedorForm, ModalProveedorDetails, ModalCargaMasivaProveedores } from '../components/proveedores/ProveedoresModals'; 
 import { useDialog } from '../components/ui/DialogProvider';
+import { sanitizeCedulaRif, sanitizePhone, sanitizeEmail, isValidEmail, isValidPhone, isValidCedulaRif } from '../utils/validators';
 
 const ESTADOS_VENEZUELA = [
   "Amazonas", "Anzoátegui", "Apure", "Aragua", "Barinas", "Bolívar", "Carabobo",
@@ -57,22 +58,21 @@ export default function Proveedores() {
   // Si el usuario busca algo, lo devolvemos a la página 1
   useEffect(() => { setCurrentPage(1); }, [searchTerm]);
 
-  const formatRIF = (val) => {
-    let raw = val.toUpperCase().replace(/[^VEJPG0-9]/g, '');
-    if (!raw) return '';
-    const letra = raw.charAt(0);
-    if (!['V', 'E', 'J', 'P', 'G'].includes(letra)) return ''; 
-    const numeros = raw.slice(1).replace(/[^0-9]/g, '').slice(0, 9);
-    return `${letra}${numeros}`;
-  };
-
   const handleProvChange = (e) => {
     const { name, value } = e.target;
     if (name === 'identificador') {
-      setFormProv({ ...formProv, [name]: formatRIF(value) });
-    } else {
-      setFormProv({ ...formProv, [name]: value });
+      setFormProv({ ...formProv, [name]: sanitizeCedulaRif(value) });
+      return;
     }
+    if (name === 'telefono1' || name === 'telefono2') {
+      setFormProv({ ...formProv, [name]: sanitizePhone(value) });
+      return;
+    }
+    if (name === 'email') {
+      setFormProv({ ...formProv, [name]: sanitizeEmail(value) });
+      return;
+    }
+    setFormProv({ ...formProv, [name]: value });
   };
 
   const handleCreateNew = () => { setOpenDropdownId(null); setEditingId(null); setFormProv(initialForm); setIsModalOpen(true); };
@@ -110,6 +110,10 @@ export default function Proveedores() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!isValidCedulaRif(formProv.identificador)) return alert('Error: el RIF/Cédula debe iniciar con V, E, J o G y contener solo números.');
+    if (!isValidEmail(formProv.email)) return alert('Error: el correo del proveedor no tiene un formato válido.');
+    if (!isValidPhone(formProv.telefono1)) return alert('Error: el teléfono principal debe tener solo números.');
+    if (formProv.telefono2 && !isValidPhone(formProv.telefono2)) return alert('Error: el teléfono secundario debe tener solo números.');
     try {
       const token = localStorage.getItem('habioo_token');
       const url = editingId ? `${API_BASE_URL}/proveedores/${editingId}` : `${API_BASE_URL}/proveedores`;
@@ -167,16 +171,19 @@ export default function Proveedores() {
         const estado = row['Estado'] || '';
         const direccion = row['Direccion'] || row['Dirección'] || '';
 
-        const rifFmt = formatRIF(String(rifRaw));
-
-        const emailFmt = String(email).trim().toLowerCase();
-        const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailFmt);
+        const rifFmt = sanitizeCedulaRif(String(rifRaw));
+        const emailFmt = sanitizeEmail(email);
+        const emailOk = isValidEmail(emailFmt);
+        const tel1Fmt = sanitizePhone(tel1);
+        const tel2Fmt = sanitizePhone(tel2);
 
         let errorMsg = [];
         if (!rifFmt) errorMsg.push("RIF inválido");
         if (!nombre) errorMsg.push("Nombre vacío");
         if (!emailFmt || !emailOk) errorMsg.push("Correo inválido");
-        if (!tel1) errorMsg.push("Teléfono principal requerido");
+        if (!tel1Fmt) errorMsg.push("Teléfono principal requerido");
+        if (tel1Fmt && !isValidPhone(tel1Fmt)) errorMsg.push("Teléfono principal inválido");
+        if (tel2Fmt && !isValidPhone(tel2Fmt)) errorMsg.push("Teléfono secundario inválido");
         if (!estado || !ESTADOS_VENEZUELA.includes(estado)) errorMsg.push("Estado inválido");
         if (!direccion) errorMsg.push("Dirección vacía");
         
@@ -193,8 +200,8 @@ export default function Proveedores() {
           nombre: String(nombre).trim(),
           email: emailFmt,
           rubro: String(rubro).trim(),
-          telefono1: String(tel1).trim(),
-          telefono2: String(tel2).trim(),
+          telefono1: tel1Fmt,
+          telefono2: tel2Fmt,
           estado_venezuela: String(estado).trim(),
           direccion: String(direccion).trim(),
           isValid: errorMsg.length === 0,

@@ -51,8 +51,8 @@ export default function HistorialAvisos() {
   }, [userRole]);
 
   const mapEstadoTab = (estado) => {
-    if (['Pagado', 'Solvente', 'Validado'].includes(estado)) return 'Pagado';
-    if (estado === 'Abonado Parcial') return 'Abonado Parcial';
+    if (['Pagado', 'Solvente', 'Validado'].includes(estado)) return 'Recibos';
+    if (['Abonado', 'Abonado Parcial', 'Parcial'].includes(estado)) return 'Abonado';
     return 'Pendiente';
   };
 
@@ -150,7 +150,7 @@ export default function HistorialAvisos() {
 
       <div className="bg-white dark:bg-donezo-card-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
         <div className="flex border-b border-gray-100 dark:border-gray-800 px-6 pt-4 gap-6 overflow-x-auto">
-          {['Todos', 'Pagado', 'Abonado Parcial', 'Pendiente'].map((estado) => (
+          {['Todos', 'Recibos', 'Abonado', 'Pendiente'].map((estado) => (
             <button
               key={estado}
               onClick={() => setFiltroEstado(estado)}
@@ -158,7 +158,7 @@ export default function HistorialAvisos() {
                 filtroEstado === estado ? 'text-donezo-primary' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
               }`}
             >
-              {estado === 'Abonado Parcial' ? 'Abonados' : estado}
+              {estado === 'Abonado' ? 'Abonados' : estado}
               {filtroEstado === estado && <span className="absolute bottom-0 left-0 w-full h-1 bg-donezo-primary rounded-t-full"></span>}
             </button>
           ))}
@@ -196,11 +196,11 @@ export default function HistorialAvisos() {
                       </td>
                       <td className="p-3 text-gray-600 dark:text-gray-300">{r.propietario || 'Sin asignar'}</td>
                       <td className="p-3 text-center">
-                        {mapEstadoTab(r.estado) === 'Pagado' ? (
+                        {mapEstadoTab(r.estado) === 'Recibos' ? (
                           <span className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px] font-black px-2.5 py-1.5 rounded-lg uppercase tracking-wider shadow-sm border border-green-200 dark:border-green-800/50">
-                            Pagado
+                            Recibo
                           </span>
-                        ) : mapEstadoTab(r.estado) === 'Abonado Parcial' ? (
+                        ) : mapEstadoTab(r.estado) === 'Abonado' ? (
                           <span className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 text-[10px] font-black px-2.5 py-1.5 rounded-lg uppercase tracking-wider shadow-sm border border-yellow-200 dark:border-yellow-800/50">
                             Abonado
                           </span>
@@ -210,7 +210,9 @@ export default function HistorialAvisos() {
                           </span>
                         )}
                       </td>
-                      <td className="p-3 text-right font-bold text-gray-800 dark:text-white">${formatMoney(r.monto_usd)}</td>
+                      <td className="p-3 text-right font-bold text-gray-800 dark:text-white">
+                        ${formatMoney(r.deuda_pendiente ?? r.monto_usd)}
+                      </td>
                       <td className="p-3 flex justify-center gap-2">
                         <button onClick={() => setShowPrintModal(r)} className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-lg" title="Ver / Imprimir">🖨️</button>
                       </td>

@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { formatMoney } from '../../utils/currency';
 
 export function ModalPropiedadForm({
@@ -140,10 +140,10 @@ export function ModalPropiedadForm({
           <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
             <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-3 text-sm uppercase tracking-wider">2. Datos del Propietario (Login)</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div><label className="block text-xs font-bold text-gray-500 mb-1">Cédula (Usuario) *</label><input type="text" name="prop_cedula" value={form.prop_cedula} onChange={handleChange} className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white uppercase" required /></div>
+              <div><label className="block text-xs font-bold text-gray-500 mb-1">Cédula (Usuario) *</label><input type="text" name="prop_cedula" value={form.prop_cedula} onChange={handleChange} pattern="^[VEJG][0-9]{5,9}$" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white uppercase" required /></div>
               <div><label className="block text-xs font-bold text-gray-500 mb-1">Nombre Completo *</label><input type="text" name="prop_nombre" value={form.prop_nombre} onChange={handleChange} className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" required /></div>
               <div><label className="block text-xs font-bold text-gray-500 mb-1">Email</label><input type="email" name="prop_email" value={form.prop_email} onChange={handleChange} className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" /></div>
-              <div><label className="block text-xs font-bold text-gray-500 mb-1">Teléfono</label><input type="text" name="prop_telefono" value={form.prop_telefono} onChange={handleChange} className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" /></div>
+              <div><label className="block text-xs font-bold text-gray-500 mb-1">Teléfono</label><input type="text" name="prop_telefono" value={form.prop_telefono} onChange={handleChange} inputMode="numeric" pattern="^[0-9]{7,15}$" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" /></div>
               {editingId && (<div className="md:col-span-2 mt-2 bg-yellow-50 dark:bg-yellow-900/10 p-3 rounded-xl border border-yellow-200 dark:border-yellow-800"><label className="block text-xs font-bold text-yellow-800 dark:text-yellow-500 mb-1">🔑 Restablecer Contraseña</label><input type="password" name="prop_password" value={form.prop_password} onChange={handleChange} placeholder="Nueva clave..." className="w-full p-2.5 rounded-xl border border-yellow-300 dark:bg-gray-800 outline-none dark:text-white" /></div>)}
             </div>
           </div>
@@ -153,10 +153,10 @@ export function ModalPropiedadForm({
             {form.tiene_inquilino && (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                  <input type="text" name="inq_cedula" value={form.inq_cedula} onChange={handleChange} placeholder="Cédula *" className="p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white uppercase" required />
+                  <input type="text" name="inq_cedula" value={form.inq_cedula} onChange={handleChange} pattern="^[VEJG][0-9]{5,9}$" placeholder="Cédula *" className="p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white uppercase" required />
                   <input type="text" name="inq_nombre" value={form.inq_nombre} onChange={handleChange} placeholder="Nombre *" className="p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white" required />
                   <input type="email" name="inq_email" value={form.inq_email} onChange={handleChange} placeholder="Email" className="p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-                  <input type="text" name="inq_telefono" value={form.inq_telefono} onChange={handleChange} placeholder="Teléfono" className="p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                  <input type="text" name="inq_telefono" value={form.inq_telefono} onChange={handleChange} inputMode="numeric" pattern="^[0-9]{7,15}$" placeholder="Teléfono" className="p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                 </div>
                 <label className="mt-4 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                   <input
@@ -190,15 +190,24 @@ export function ModalEstadoCuenta({
   handleOpenAjuste,
   loadingCuenta,
   estadoCuentaFiltrado,
-  totalCargo,
-  totalAbono,
   showAjuste = true
 }) {
   if (!isOpen || !selectedPropCuenta) return null;
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 12;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [isOpen, fechaDesde, fechaHasta, estadoCuentaFiltrado.length]);
+
+  const totalPages = Math.ceil(estadoCuentaFiltrado.length / ITEMS_PER_PAGE);
+  const movimientosPagina = estadoCuentaFiltrado.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  const saldoFinal = estadoCuentaFiltrado.length > 0 ? estadoCuentaFiltrado[estadoCuentaFiltrado.length - 1].saldoFila : 0;
+
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
-      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl w-full max-w-5xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl w-full max-w-[96vw] xl:max-w-7xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-start bg-gray-50 dark:bg-gray-900/50">
           <div>
             <h3 className="text-2xl font-black text-gray-800 dark:text-white flex items-center gap-2">
@@ -221,6 +230,13 @@ export function ModalEstadoCuenta({
               <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Hasta</label>
               <input type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm bg-gray-50 dark:bg-gray-800 outline-none dark:text-white" />
             </div>
+            <button
+              type="button"
+              onClick={() => { setFechaDesde(''); setFechaHasta(''); }}
+              className="px-3 py-2 rounded-lg text-xs font-bold bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 mt-5"
+            >
+              Limpiar
+            </button>
           </div>
           {showAjuste && (
             <button onClick={() => handleOpenAjuste(selectedPropCuenta)} className="bg-yellow-50 text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800/50 px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-all flex items-center gap-2">
@@ -231,45 +247,82 @@ export function ModalEstadoCuenta({
 
         <div className="flex-1 overflow-y-auto p-6 bg-white dark:bg-donezo-card-dark custom-scrollbar">
           {loadingCuenta ? <p className="text-center text-gray-400 py-10">Cargando movimientos...</p> : estadoCuentaFiltrado.length === 0 ? <p className="text-center text-gray-400 py-10">No hay movimientos en este rango de fechas.</p> : (
-            <table className="w-full text-left border-collapse text-sm">
+            <table className="w-full text-left border-collapse text-sm min-w-[1100px]">
               <thead className="sticky top-0 bg-white dark:bg-donezo-card-dark shadow-sm">
                 <tr className="border-b border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400">
                   <th className="p-3 font-bold uppercase text-[11px]">Fecha Op.</th>
-                  <th className="p-3 font-bold uppercase text-[11px]">Fecha Sistema</th>
+                  <th className="p-3 font-bold uppercase text-[11px]">Ingreso al Sistema</th>
                   <th className="p-3 font-bold uppercase text-[11px]">Concepto</th>
+                  <th className="p-3 font-bold uppercase text-[11px] text-right">Monto Bs</th>
+                  <th className="p-3 font-bold uppercase text-[11px] text-right">Tasa</th>
                   <th className="p-3 font-bold uppercase text-[11px] text-right">Cargos (Deuda)</th>
                   <th className="p-3 font-bold uppercase text-[11px] text-right">Abonos (Pago)</th>
-                  <th className="p-3 font-bold uppercase text-[11px] text-right text-donezo-primary">Saldo Fila</th>
+                  <th className="p-3 font-bold uppercase text-[11px] text-right text-donezo-primary">Saldo Final</th>
+                  <th className="p-3 font-bold uppercase text-[11px] text-center">Ver</th>
                 </tr>
               </thead>
               <tbody>
-                {estadoCuentaFiltrado.map((m, idx) => (
+                {movimientosPagina.map((m, idx) => (
                   <tr key={idx} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                     <td className="p-3 text-gray-600 dark:text-gray-300 font-mono text-xs">{new Date(m.fecha_operacion).toLocaleDateString()}</td>
                     <td className="p-3 text-gray-400 font-mono text-[10px]">{new Date(m.fecha_registro).toLocaleString()}</td>
-                    <td className="p-3 font-medium text-gray-800 dark:text-gray-200">{m.tipo === 'RECIBO' ? 'RECIBO ' : m.tipo === 'PAGO' ? 'PAGO ' : 'AJUSTE '} {m.concepto}</td>
+                    <td className="p-3 font-medium text-gray-800 dark:text-gray-200">
+                      {m.tipo === 'RECIBO' ? m.concepto : `${m.tipo === 'PAGO' ? 'PAGO' : 'AJUSTE'} ${m.concepto}`}
+                    </td>
+                    <td className="p-3 text-right font-mono text-gray-700 dark:text-gray-300">{m.monto_bs ? `Bs ${formatMoney(m.monto_bs)}` : '-'}</td>
+                    <td className="p-3 text-right font-mono text-gray-700 dark:text-gray-300">{m.tasa_cambio ? formatMoney(m.tasa_cambio) : '-'}</td>
                     <td className="p-3 text-right text-red-500 font-mono font-medium">{m.cargo > 0 ? `$${formatMoney(m.cargo)}` : '-'}</td>
                     <td className="p-3 text-right text-green-500 font-mono font-medium">{m.abono > 0 ? `$${formatMoney(m.abono)}` : '-'}</td>
                     <td className="p-3 text-right font-mono font-black text-gray-800 dark:text-white">${formatMoney(m.saldoFila)}</td>
+                    <td className="p-3 text-center">
+                      {m.tipo === 'RECIBO' ? (
+                        <button
+                          type="button"
+                          title="Ver detalle del aviso (proximamente)"
+                          className="px-2 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm"
+                        >
+                          🔍
+                        </button>
+                      ) : (
+                        <span className="text-gray-300">-</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr className="bg-gray-50 dark:bg-gray-900 border-t-2 border-gray-200 dark:border-gray-700">
-                  <td colSpan="3" className="p-4 text-right font-black uppercase text-xs text-gray-600 dark:text-gray-300 tracking-wider">TOTALES MOSTRADOS:</td>
-                  <td className="p-4 text-right font-black text-red-600 font-mono">${formatMoney(totalCargo)}</td>
-                  <td className="p-4 text-right font-black text-green-600 font-mono">${formatMoney(totalAbono)}</td>
+                  <td colSpan="7" className="p-4 text-right font-black uppercase text-xs text-gray-600 dark:text-gray-300 tracking-wider">Saldo Final:</td>
+                  <td className="p-4 text-right font-black text-donezo-primary font-mono">${formatMoney(saldoFinal)}</td>
                   <td className="p-4"></td>
                 </tr>
               </tfoot>
             </table>
           )}
         </div>
+        {!loadingCuenta && estadoCuentaFiltrado.length > 0 && totalPages > 1 && (
+          <div className="flex justify-between items-center px-6 py-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-800">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-5 py-2 rounded-xl text-sm font-bold bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 transition-all shadow-sm"
+            >
+              ← Anterior
+            </button>
+            <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Página {currentPage} de {totalPages}</span>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-5 py-2 rounded-xl text-sm font-bold bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 transition-all shadow-sm"
+            >
+              Siguiente →
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
 }
-
 export function ModalAjusteSaldo({
   isOpen,
   selectedPropAjuste,
@@ -458,6 +511,8 @@ export function ModalCargaMasiva({
     </div>
   );
 }
+
+
 
 
 

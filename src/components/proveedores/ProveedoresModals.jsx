@@ -51,6 +51,7 @@ export function ModalProveedorForm({
                 name="identificador"
                 value={formProv.identificador}
                 onChange={handleProvChange}
+                pattern="^[VEJG][0-9]{5,9}$"
                 placeholder="Ej: J123456789"
                 disabled={editingId !== null}
                 className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-green dark:text-white font-mono uppercase disabled:opacity-50 disabled:cursor-not-allowed"
@@ -124,8 +125,8 @@ export function ModalProveedorForm({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Telefono Principal <span className="text-red-500">*</span></label><input type="text" name="telefono1" value={formProv.telefono1} onChange={handleProvChange} className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-green dark:text-white" required /></div>
-            <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Telefono Secundario</label><input type="text" name="telefono2" value={formProv.telefono2} onChange={handleProvChange} className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-green dark:text-white" /></div>
+            <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Telefono Principal <span className="text-red-500">*</span></label><input type="text" name="telefono1" value={formProv.telefono1} onChange={handleProvChange} inputMode="numeric" pattern="^[0-9]{7,15}$" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-green dark:text-white" required /></div>
+            <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Telefono Secundario</label><input type="text" name="telefono2" value={formProv.telefono2} onChange={handleProvChange} inputMode="numeric" pattern="^[0-9]{7,15}$" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-green dark:text-white" /></div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">

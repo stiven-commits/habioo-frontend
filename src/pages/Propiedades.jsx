@@ -1,6 +1,7 @@
 ﻿import { useState, useEffect, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { formatMoney } from '../utils/currency';
+import { sanitizeCedulaRif, sanitizePhone, sanitizeEmail, isValidEmail, isValidPhone, isValidCedulaRif } from '../utils/validators';
 import { API_BASE_URL } from '../config/api';
 import * as XLSX from 'xlsx';
 import { ModalAjusteSaldo, ModalEstadoCuenta, ModalPropiedadForm, ModalCargaMasiva } from '../components/propiedades/PropiedadesModals';
@@ -81,14 +82,6 @@ export default function Propiedades() {
     setSelectedPropAjuste(prop); setFormAjuste({ monto: '', tipo_ajuste: 'CARGAR_DEUDA', nota: '' }); setAjusteModalOpen(true);
   };
 
-  const formatCedula = (val) => {
-    const raw = val.toUpperCase().replace(/[^VEJPG0-9]/g, '');
-    if (!raw) return '';
-    const letra = raw.charAt(0);
-    if (!['V', 'E', 'J', 'P', 'G'].includes(letra)) return '';
-    return `${letra}${raw.slice(1).replace(/[^0-9]/g, '').slice(0, 9)}`;
-  };
-
   const formatAlicuotaDisplay = (value) => {
     if (!value) return '';
     const raw = String(value).replace(',', '.');
@@ -100,7 +93,9 @@ export default function Propiedades() {
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     if (type === 'checkbox') return setForm({ ...form, [name]: checked });
-    if (name === 'prop_cedula' || name === 'inq_cedula') return setForm({ ...form, [name]: formatCedula(value) });
+    if (name === 'prop_cedula' || name === 'inq_cedula') return setForm({ ...form, [name]: sanitizeCedulaRif(value) });
+    if (name === 'prop_telefono' || name === 'inq_telefono') return setForm({ ...form, [name]: sanitizePhone(value) });
+    if (name === 'prop_email' || name === 'inq_email') return setForm({ ...form, [name]: sanitizeEmail(value) });
     if (name === 'alicuota' || name === 'monto_saldo_inicial') {
       const allowNegative = name === 'monto_saldo_inicial' && String(value).trim().startsWith('-');
       let rawVal = value.replace(/\./g, ',').replace(/[^0-9,]/g, '');
@@ -135,6 +130,14 @@ export default function Propiedades() {
     e.preventDefault();
     const alicuotaNum = parseFloat(form.alicuota.toString().replace(',', '.'));
     if (isNaN(alicuotaNum) || alicuotaNum <= 0 || alicuotaNum > 100) return alert('⚠️ Error: La alícuota debe ser un porcentaje mayor a 0 y máximo 100.');
+    if (!isValidCedulaRif(form.prop_cedula)) return alert('Error: la cédula del propietario debe iniciar con V, E, J o G y contener solo números.');
+    if (form.prop_email && !isValidEmail(form.prop_email)) return alert('Error: el correo del propietario no tiene un formato válido.');
+    if (form.prop_telefono && !isValidPhone(form.prop_telefono)) return alert('Error: el teléfono del propietario debe tener solo números.');
+    if (form.tiene_inquilino) {
+      if (!isValidCedulaRif(form.inq_cedula)) return alert('Error: la cédula del inquilino debe iniciar con V, E, J o G y contener solo números.');
+      if (form.inq_email && !isValidEmail(form.inq_email)) return alert('Error: el correo del inquilino no tiene un formato válido.');
+      if (form.inq_telefono && !isValidPhone(form.inq_telefono)) return alert('Error: el teléfono del inquilino debe tener solo números.');
+    }
 
     const token = localStorage.getItem('habioo_token');
     const url = editingId ? `${API_BASE_URL}/propiedades-admin/${editingId}` : `${API_BASE_URL}/propiedades-admin`;
@@ -211,7 +214,9 @@ export default function Propiedades() {
         const correo = String(row['Correo'] || row['Email'] || '').trim().toLowerCase(); 
         const telefono = row['Telefono'] || row['Teléfono'] || '';
 
-        const cedulaFmt = formatCedula(String(cedulaRaw));
+        const cedulaFmt = sanitizeCedulaRif(String(cedulaRaw));
+        const telefonoFmt = sanitizePhone(String(telefono));
+        const emailFmt = sanitizeEmail(correo);
         let aliNum = parseFloat(String(alicuota).replace(',', '.'));
         const isAliValid = !isNaN(aliNum) && aliNum > 0 && aliNum <= 100;
 
@@ -222,14 +227,16 @@ export default function Propiedades() {
         let errorMsg = [];
         if (!apto) errorMsg.push("Apto vacío");
         if (!nombre) errorMsg.push("Nombre vacío");
-        if (!cedulaFmt) errorMsg.push("Cédula inválida (Use V/E)");
+        if (!cedulaFmt) errorMsg.push("Cédula inválida (Use V/E/J/G)");
         if (!isAliValid) errorMsg.push("Alícuota inválida");
+        if (emailFmt && !isValidEmail(emailFmt)) errorMsg.push("Correo inválido");
+        if (telefonoFmt && !isValidPhone(telefonoFmt)) errorMsg.push("Teléfono inválido");
         
-        if (correo) {
-           if (seenEmails.has(correo)) {
+        if (emailFmt) {
+           if (seenEmails.has(emailFmt)) {
               errorMsg.push("Correo duplicado");
            } else {
-              seenEmails.add(correo);
+              seenEmails.add(emailFmt);
            }
         }
 
@@ -242,8 +249,8 @@ export default function Propiedades() {
           cedula: cedulaFmt,
           alicuota: isAliValid ? aliNum : alicuota,
           saldo_inicial: String(saldo).replace(',', '.'),
-          correo: correo, 
-          telefono: String(telefono).trim(),
+          correo: emailFmt,
+          telefono: telefonoFmt,
           isValid: errorMsg.length === 0,
           errors: errorMsg.join(' | ')
         };

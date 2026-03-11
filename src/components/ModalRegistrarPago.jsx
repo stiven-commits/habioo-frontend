@@ -1,6 +1,7 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { formatMoney } from '../utils/currency';
 import { API_BASE_URL } from '../config/api';
+import { sanitizeCedulaRif, isValidCedulaRif } from '../utils/validators';
 import { useDialog } from './ui/DialogProvider';
 
 export default function ModalRegistrarPago({ propiedadPreseleccionada, onClose, onSuccess }) {
@@ -59,6 +60,7 @@ export default function ModalRegistrarPago({ propiedadPreseleccionada, onClose, 
     let newVal = value;
 
     if (name === 'monto_origen' || name === 'tasa_cambio') newVal = formatCurrencyInput(value);
+    if (name === 'cedula_origen') newVal = sanitizeCedulaRif(value);
 
     const updatedForm = { ...formPago, [name]: newVal };
     setFormPago(updatedForm);
@@ -99,6 +101,10 @@ export default function ModalRegistrarPago({ propiedadPreseleccionada, onClose, 
 
   const handleSubmitPago = async (e) => {
     e.preventDefault();
+    if (requiresTasa && !isValidCedulaRif(formPago.cedula_origen)) {
+      alert('Error: la cédula de origen debe iniciar con V, E, J o G y contener solo números.');
+      return;
+    }
     const ok = await showConfirm({
       title: 'Confirmar abono',
       message: `¿Confirmar abono por $${formatMoney(conversionUSD)} a la cuenta de ${propiedadPreseleccionada.identificador}?`,
@@ -195,7 +201,7 @@ export default function ModalRegistrarPago({ propiedadPreseleccionada, onClose, 
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Cédula Origen</label>
-                <input type="text" name="cedula_origen" value={formPago.cedula_origen} onChange={handlePagoChange} placeholder="V12345678" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
+                <input type="text" name="cedula_origen" value={formPago.cedula_origen} onChange={handlePagoChange} pattern="^[VEJG][0-9]{5,9}$" placeholder="V12345678" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
               </div>
             </div>
           )}
