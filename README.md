@@ -3,7 +3,7 @@
 Documento de referencia funcional y técnica del estado actual de la app.
 Este README fusiona la base conceptual original con el inventario actualizado de módulos, endpoints y modelo de datos.
 
-- Última actualización: 2026-03-10
+- Última actualización: 2026-03-12
 - Stack: React + Vite + Tailwind (frontend), Node/Express + PostgreSQL (backend)
 
 ---
@@ -43,10 +43,11 @@ Impacto:
    - El administrador (`users`) está vinculado a `condominios.admin_user_id`.
    - Los datos operativos se filtran por `condominio_id`.
 
-2. Arquitectura de gastos (3 niveles):
+2. Arquitectura de gastos (4 niveles):
    - `Comun`: impacta a todo el condominio.
    - `Zona` / `No Comun`: impacta solo propiedades asociadas a la zona.
    - `Individual`: impacta 1 inmueble específico.
+   - `Extra`: gasto común extraordinario (se distribuye como `Comun`).
 
 3. Diferimiento por cuotas:
    - Un gasto se divide en `total_cuotas`.
@@ -69,7 +70,7 @@ Impacto:
 
 1. Login y sesión JWT (`/login` + validación `/me` en `Layout`).
 2. Proveedores: listar/crear/editar/eliminar (borrado lógico) por junta (aislados por condominio).
-3. Gastos: crear con factura/soportes, listar, eliminar (si cuotas pendientes).
+3. Gastos: crear con factura/soportes, listar (con filtros por tipo/fecha), eliminar (si cuotas pendientes).
 4. Cierres: vista preliminar y cierre de ciclo.
 5. Historial de avisos: filtros por texto/estado/fecha.
 6. Bancos: listar, crear, eliminar, marcar predeterminada.
@@ -125,7 +126,7 @@ Impacto:
 
 ### Gastos
 - `GET https://auth.habioo.cloud/gastos` -> listar gastos/cuotas.
-- `POST https://auth.habioo.cloud/gastos` -> crear gasto (multipart: `factura_img`, `soportes`).
+- `POST https://auth.habioo.cloud/gastos` -> crear gasto (multipart: `factura_img`, `soportes`) para tipos `Comun`, `Zona`, `Individual`, `Extra`.
 - `DELETE https://auth.habioo.cloud/gastos/:id` -> eliminar gasto.
 
 ### Cierres y recibos
@@ -204,6 +205,7 @@ Notas de desarrollo local:
 ### Gastos y facturación
 - `gastos`:
   - Base del gasto: `monto_bs`, `tasa_cambio`, `monto_usd`, `tipo`, `zona_id`, `propiedad_id`, `fecha_gasto`, `created_at`.
+  - `tipo` soportado actualmente: `Comun`, `No Comun`, `Zona`, `Individual`, `Extra`.
   - Soportes: `factura_img` (principal), `imagenes` (array de soportes).
 - `gastos_cuotas`:
   - Fracciones mensuales: `numero_cuota`, `monto_cuota_usd`, `mes_asignado`, `estado`.
@@ -251,6 +253,18 @@ Notas de desarrollo local:
    - Migración de ciclos numéricos a meses calendario (`mes_actual`, `mes_asignado`).
    - Doble fecha de gasto (`fecha_gasto` y `created_at`).
    - Soportes de imagen: `factura_img` + `imagenes[]`.
+   - En UI, `Distribución (asignación)` pasó a llamarse `Tipo de gasto`.
+   - Nuevo tipo de gasto `Extra` agregado en frontend/backend/BD.
+   - Vista `/gastos`:
+     - título actualizado a `Gastos` (no solo comunes),
+     - tarjetas de resumen por tipo (Comun, Zona, Individual, Extra),
+     - filtro por rango de fecha + botón `Limpiar`,
+     - filtros por tipo con mejor contraste en tema oscuro,
+     - tabla paginada a 13 filas,
+     - orden de columnas ajustado (`Monto Total` antes de `Cuotas`).
+   - Modal de detalle de gasto:
+     - etiqueta `Cargado el` (antes `sistema`),
+     - muestra `Notas` y fallback `Sin notas` si no existe.
 4. Bancos y fondos:
    - Cuenta predeterminada (`PUT /bancos/:id/predeterminada`) activa.
    - Fondos virtuales anclados a cuentas bancarias con trazabilidad.
@@ -291,7 +305,7 @@ Notas de desarrollo local:
      - 20 propietarios vinculados (clave inicial = cédula).
      - 8 proveedores de prueba con correo (`email`) y datos de contacto.
      - 2 cuentas bancarias y 3 fondos (1 fondo en la primera cuenta, 2 fondos en la segunda).
-     - 14 gastos con sus cuotas para pruebas de cierre/cobranza.
+     - 14 gastos con mezcla de tipos (incluye `Extra`) y varios en 4 cuotas para pruebas de cierre/cobranza.
 12. Proveedores (front + back + BD):
    - BD: se agregó columna `proveedores.email`.
    - Backend: `POST/PUT /proveedores` y `POST /proveedores/lote` validan y persisten `email`.
