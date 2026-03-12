@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { formatMoney } from '../utils/currency';
 import { API_BASE_URL } from '../config/api';
 import { useDialog } from './ui/DialogProvider';
@@ -97,7 +97,7 @@ export default function ModalFondos({ cuenta, onClose, onDeleteFondo }) {
   const handleDeleteFondoLocal = async (id) => {
     const ok = await showConfirm({
       title: 'Eliminar fondo',
-      message: 'Esta accion desactiva el fondo si cumple las condiciones. �Deseas continuar?',
+      message: 'Esta accion desactiva el fondo si cumple las condiciones. ¿Deseas continuar?',
       variant: 'warning',
       confirmText: 'Eliminar',
     });
@@ -123,8 +123,8 @@ export default function ModalFondos({ cuenta, onClose, onDeleteFondo }) {
   const tieneOperativo = fondos.some((f) => f.es_operativo);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-2xl shadow-2xl border border-gray-100 dark:border-gray-800 relative my-8">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
+      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-2xl shadow-2xl border border-gray-100 dark:border-gray-800 relative my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-red-500 font-bold text-xl">X</button>
 
         <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-1">Configuracion de Fondos</h3>
@@ -239,3 +239,4 @@ export default function ModalFondos({ cuenta, onClose, onDeleteFondo }) {
     </div>
   );
 }
+

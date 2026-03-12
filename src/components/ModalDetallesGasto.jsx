@@ -1,12 +1,12 @@
-import React from 'react';
+﻿import React from 'react';
 import { formatMoney } from '../utils/currency';
 
 export default function ModalDetallesGasto({ gasto, onClose }) {
   if (!gasto) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 relative my-8">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
+      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 relative my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl">✕</button>
         <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Inspección de Gasto</h3>
         
@@ -17,10 +17,14 @@ export default function ModalDetallesGasto({ gasto, onClose }) {
             </div>
             <div className="text-right">
               <span className="block text-xs text-gray-500 dark:text-gray-400">Factura: <strong className="text-gray-800 dark:text-gray-300">{gasto.fecha_factura}</strong></span>
-              <span className="block text-[10px] text-gray-400">Sistema: {gasto.fecha_registro}</span>
+              <span className="block text-[10px] text-gray-400">Cargado el: {gasto.fecha_registro}</span>
             </div>
           </div>
           <p><strong className="text-gray-800 dark:text-white">Concepto:</strong> {gasto.concepto}</p>
+          <p>
+            <strong className="text-gray-800 dark:text-white">Notas:</strong>{' '}
+            {gasto.nota && String(gasto.nota).trim() ? gasto.nota : 'Sin notas'}
+          </p>
           
           <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl my-2 border border-gray-200 dark:border-gray-700">
             <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 pb-2 mb-2 text-xs">
@@ -58,8 +62,9 @@ export default function ModalDetallesGasto({ gasto, onClose }) {
           )}
         </div>
 
-        <button onClick={onClose} className="mt-6 w-full px-6 py-3 rounded-xl font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all dark:text-gray-300">Cerrar</button>
+        <button onClick={onClose} className="mt-6 w-full px-6 py-3 rounded-xl font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600">Cerrar</button>
       </div>
     </div>
   );
 }
+

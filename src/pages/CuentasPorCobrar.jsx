@@ -27,6 +27,15 @@ export default function CuentasPorCobrar() {
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
 
+  const toLocalYmd = (dateLike) => {
+    const d = new Date(dateLike);
+    if (Number.isNaN(d.getTime())) return '';
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
   const fetchData = async () => {
     const token = localStorage.getItem('habioo_token');
     try {
@@ -101,9 +110,10 @@ export default function CuentasPorCobrar() {
 
   const estadoCuentaFiltrado = dataConSaldo.filter((m) => {
     if (!fechaDesde && !fechaHasta) return true;
-    const f = new Date(m.fecha_registro);
-    if (fechaDesde && f < new Date(fechaDesde)) return false;
-    if (fechaHasta && f > new Date(fechaHasta)) return false;
+    const movYmd = toLocalYmd(m.fecha_registro || m.fecha_operacion);
+    if (!movYmd) return false;
+    if (fechaDesde && movYmd < fechaDesde) return false;
+    if (fechaHasta && movYmd > fechaHasta) return false;
     return true;
   });
 

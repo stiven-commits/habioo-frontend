@@ -33,8 +33,8 @@ export function ModalProveedorForm({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
-      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-8 w-full max-w-3xl shadow-2xl relative my-8">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
+      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-8 w-full max-w-3xl shadow-2xl relative my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
         <button onClick={() => setIsModalOpen(false)} className="absolute top-6 right-6 text-gray-400 hover:text-red-500 font-bold text-2xl transition-colors">X</button>
 
         <div className="mb-6 border-b border-gray-100 dark:border-gray-800 pb-4">
@@ -157,8 +157,8 @@ export function ModalProveedorDetails({ isOpen, setIsOpen, prov }) {
   if (!isOpen || !prov) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
-      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-8 w-full max-w-3xl shadow-2xl relative my-8">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
+      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-8 w-full max-w-3xl shadow-2xl relative my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
         <button onClick={() => setIsOpen(false)} className="absolute top-6 right-6 text-gray-400 hover:text-red-500 font-bold text-2xl transition-colors">X</button>
 
         <div className="mb-6 border-b border-gray-100 dark:border-gray-800 pb-4">
@@ -239,7 +239,7 @@ export function ModalCargaMasivaProveedores({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
       <div className="bg-white dark:bg-donezo-card-dark rounded-3xl w-full max-w-6xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
           <div>
@@ -328,3 +328,4 @@ export function ModalCargaMasivaProveedores({
     </div>
   );
 }
+

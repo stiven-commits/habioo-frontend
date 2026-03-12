@@ -249,8 +249,8 @@ export default function HistorialAvisos() {
       </div>
 
       {showPrintModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-8 w-full max-w-lg shadow-2xl text-center">
+        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-8 w-full max-w-lg shadow-2xl text-center my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
             <h3 className="font-bold text-gray-800 dark:text-white mb-4">Vista Previa</h3>
             <p className="text-gray-500 mb-6 dark:text-gray-400">Recibo #{showPrintModal.id}</p>
             <button onClick={() => setShowPrintModal(null)} className="px-6 py-2 bg-gray-200 rounded-xl font-bold">Cerrar</button>
@@ -260,3 +260,4 @@ export default function HistorialAvisos() {
     </div>
   );
 }
+

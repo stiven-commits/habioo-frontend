@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+﻿import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 const DialogContext = createContext(null);
 
@@ -104,9 +104,9 @@ export function DialogProvider({ children }) {
       {children}
 
       {dialog && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4 backdrop-blur-[2px]">
+        <div className="fixed inset-0 z-[120] flex items-start sm:items-center justify-center bg-black/60 p-4 overflow-y-auto backdrop-blur-[2px]">
           <div
-            className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-700 dark:bg-gray-900"
+            className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-700 dark:bg-gray-900 my-8 max-h-[90vh] overflow-y-auto custom-scrollbar"
             role="dialog"
             aria-modal="true"
           >
@@ -151,3 +151,4 @@ export function useDialog() {
   }
   return context;
 }
+

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import { formatMoney } from '../utils/currency';
 import { API_BASE_URL } from '../config/api';
 import { useDialog } from './ui/DialogProvider';
@@ -116,8 +116,8 @@ export function ModalPagoProveedor({ onClose, onSuccess }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
-      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
+      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-bold text-gray-800 dark:text-white">Pagar a Proveedor</h3>
           <button onClick={onClose} className="text-gray-500 hover:text-red-500 font-bold text-xl">X</button>
@@ -319,7 +319,7 @@ export function ModalTransferencia({ onClose, onSuccess }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
       <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 custom-scrollbar max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-bold text-gray-800 dark:text-white">Transferir Dinero</h3>
@@ -453,8 +453,8 @@ export function ModalEliminarFondo({ fondo, fondosDisponibles, onClose, onSucces
   if (!fondo) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
-      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
+      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-bold text-red-600 dark:text-red-400">Eliminar Fondo</h3>
           <button onClick={onClose} className="text-gray-500 hover:text-red-500 font-bold text-xl">X</button>
@@ -493,3 +493,4 @@ export function ModalEliminarFondo({ fondo, fondosDisponibles, onClose, onSucces
     </div>
   );
 }
+

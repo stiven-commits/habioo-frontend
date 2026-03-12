@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
+import { API_BASE_URL } from '../config/api';
 
 export default function ModalAgregarGasto({ onClose, onSuccess, proveedores, zonas, propiedades }) {
   const todayString = new Date().toISOString().split('T')[0];
@@ -13,7 +14,7 @@ export default function ModalAgregarGasto({ onClose, onSuccess, proveedores, zon
   const [facturaFile, setFacturaFile] = useState(null);
   const [soportesFiles, setSoportesFiles] = useState([]);
   
-  // 💡 NUEVO: Estado para el loading de la tasa BCV
+  // NUEVO: Estado para el loading de la tasa BCV
   const [loadingBCV, setLoadingBCV] = useState(false);
 
   const montoBsNum = parseFloat(form.monto_bs.replace(/\./g, '').replace(',', '.')) || 0;
@@ -42,7 +43,7 @@ export default function ModalAgregarGasto({ onClose, onSuccess, proveedores, zon
     if (next >= 1 && next <= 24) setForm({ ...form, total_cuotas: next.toString() });
   };
 
-  // 💡 NUEVA FUNCIÓN: Obtener Tasa del BCV Automáticamente
+  // NUEVA FUNCION: Obtener Tasa del BCV Automaticamente
   const handleFetchBCV = async () => {
     setLoadingBCV(true);
     try {
@@ -76,7 +77,7 @@ export default function ModalAgregarGasto({ onClose, onSuccess, proveedores, zon
     if (facturaFile) formData.append('factura_img', facturaFile);
     soportesFiles.forEach(file => formData.append('soportes', file));
 
-    const res = await fetch('https://auth.habioo.cloud/gastos', { 
+    const res = await fetch(`${API_BASE_URL}/gastos`, {
         method: 'POST', 
         headers: { 'Authorization': `Bearer ${token}` }, 
         body: formData 
@@ -91,8 +92,8 @@ export default function ModalAgregarGasto({ onClose, onSuccess, proveedores, zon
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
-      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-2xl shadow-2xl border border-gray-100 dark:border-gray-800 relative my-8">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
+      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-2xl shadow-2xl border border-gray-100 dark:border-gray-800 relative my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl">✕</button>
         <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">Registrar Gasto</h3>
         
@@ -122,7 +123,7 @@ export default function ModalAgregarGasto({ onClose, onSuccess, proveedores, zon
               <input type="text" name="monto_bs" value={form.monto_bs} onChange={handleMonedaChange} placeholder="0,00" required className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono text-lg" />
             </div>
             
-            {/* 💡 SECCIÓN ACTUALIZADA CON EL BOTÓN BCV */}
+            {/* SECCION ACTUALIZADA CON EL BOTON BCV */}
             <div>
               <div className="flex justify-between items-end mb-1">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tasa BCV <span className="text-red-500">*</span></label>
@@ -144,7 +145,7 @@ export default function ModalAgregarGasto({ onClose, onSuccess, proveedores, zon
                 </button>
               </div>
             </div>
-            {/* FIN SECCIÓN BCV */}
+            {/* FIN SECCION BCV */}
 
             <div className="md:col-span-2 flex justify-end -mt-3 mb-2">
                 <span className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 px-4 py-1.5 rounded-lg text-sm font-bold shadow-sm border border-green-200 dark:border-green-800/50">
@@ -164,12 +165,13 @@ export default function ModalAgregarGasto({ onClose, onSuccess, proveedores, zon
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Distribución (Asignación)</label>
+              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Tipo de gasto</label>
               
               <div className="flex gap-1 mb-3 bg-gray-200 dark:bg-gray-900 p-1 rounded-xl w-full">
                   <button type="button" onClick={() => setForm({...form, asignacion_tipo: 'Comun', zona_id: '', propiedad_id: ''})} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${form.asignacion_tipo === 'Comun' ? 'bg-white dark:bg-gray-700 shadow text-donezo-primary dark:text-blue-400' : 'text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-800'}`}>Común</button>
                   <button type="button" onClick={() => setForm({...form, asignacion_tipo: 'Zona', propiedad_id: ''})} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${form.asignacion_tipo === 'Zona' ? 'bg-white dark:bg-gray-700 shadow text-purple-600 dark:text-purple-400' : 'text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-800'}`}>Por Zona</button>
                   <button type="button" onClick={() => setForm({...form, asignacion_tipo: 'Individual', zona_id: ''})} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${form.asignacion_tipo === 'Individual' ? 'bg-white dark:bg-gray-700 shadow text-orange-600 dark:text-orange-400' : 'text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-800'}`}>Individual</button>
+                  <button type="button" onClick={() => setForm({...form, asignacion_tipo: 'Extra', zona_id: '', propiedad_id: ''})} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${form.asignacion_tipo === 'Extra' ? 'bg-white dark:bg-gray-700 shadow text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-800'}`}>Extra</button>
               </div>
 
               {form.asignacion_tipo === 'Zona' && (
@@ -222,3 +224,4 @@ function formatMoneyDisplay(value) {
   parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   return parts.join(",");
 }
+

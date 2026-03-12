@@ -67,8 +67,8 @@ export function ModalPropiedadForm({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-3xl shadow-2xl border border-gray-100 dark:border-gray-800 relative my-8">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
+      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-3xl shadow-2xl border border-gray-100 dark:border-gray-800 relative my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
         <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl">✕</button>
         <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">{editingId ? '✏️ Editar Inmueble' : '🏠 Nuevo Inmueble'}</h3>
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -196,6 +196,8 @@ export function ModalEstadoCuenta({
 
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 12;
+  const now = new Date();
+  const todayYmd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
   useEffect(() => {
     setCurrentPage(1);
@@ -206,7 +208,7 @@ export function ModalEstadoCuenta({
   const saldoFinal = estadoCuentaFiltrado.length > 0 ? estadoCuentaFiltrado[estadoCuentaFiltrado.length - 1].saldoFila : 0;
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
+    <div className="fixed inset-0 z-40 flex items-start sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
       <div className="bg-white dark:bg-donezo-card-dark rounded-3xl w-full max-w-[96vw] xl:max-w-7xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-start bg-gray-50 dark:bg-gray-900/50">
           <div>
@@ -224,11 +226,25 @@ export function ModalEstadoCuenta({
           <div className="flex gap-3 items-center">
             <div>
               <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Desde</label>
-              <input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm bg-gray-50 dark:bg-gray-800 outline-none dark:text-white" />
+              <input
+                type="date"
+                lang="es-ES"
+                value={fechaDesde}
+                onChange={e => setFechaDesde(e.target.value)}
+                max={todayYmd}
+                className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm bg-gray-50 dark:bg-gray-800 outline-none dark:text-white"
+              />
             </div>
             <div>
               <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Hasta</label>
-              <input type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm bg-gray-50 dark:bg-gray-800 outline-none dark:text-white" />
+              <input
+                type="date"
+                lang="es-ES"
+                value={fechaHasta}
+                onChange={e => setFechaHasta(e.target.value)}
+                max={todayYmd}
+                className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm bg-gray-50 dark:bg-gray-800 outline-none dark:text-white"
+              />
             </div>
             <button
               type="button"
@@ -264,8 +280,8 @@ export function ModalEstadoCuenta({
               <tbody>
                 {movimientosPagina.map((m, idx) => (
                   <tr key={idx} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                    <td className="p-3 text-gray-600 dark:text-gray-300 font-mono text-xs">{new Date(m.fecha_operacion).toLocaleDateString()}</td>
-                    <td className="p-3 text-gray-400 font-mono text-[10px]">{new Date(m.fecha_registro).toLocaleString()}</td>
+                    <td className="p-3 text-gray-600 dark:text-gray-300 font-mono text-xs">{new Date(m.fecha_operacion).toLocaleDateString('es-VE')}</td>
+                    <td className="p-3 text-gray-400 font-mono text-[10px]">{new Date(m.fecha_registro).toLocaleString('es-VE')}</td>
                     <td className="p-3 font-medium text-gray-800 dark:text-gray-200">
                       {m.tipo === 'RECIBO' ? m.concepto : `${m.tipo === 'PAGO' ? 'PAGO' : 'AJUSTE'} ${m.concepto}`}
                     </td>
@@ -334,8 +350,8 @@ export function ModalAjusteSaldo({
   if (!isOpen || !selectedPropAjuste) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
-      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl relative">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
+      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl relative my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
         <button onClick={() => setAjusteModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl">✕</button>
         <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2 flex items-center gap-2">⚖️ Ajustar Saldo</h3>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Inmueble: <strong className="text-donezo-primary">{selectedPropAjuste.identificador}</strong></p>
@@ -380,7 +396,7 @@ export function ModalCargaMasiva({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
       <div className="bg-white dark:bg-donezo-card-dark rounded-3xl w-full max-w-5xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* CABECERA */}
@@ -511,6 +527,7 @@ export function ModalCargaMasiva({
     </div>
   );
 }
+
 
 
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useDialog } from '../components/ui/DialogProvider';
 
@@ -201,8 +201,8 @@ export default function Zonas() {
 
       {/* MODAL (CREAR / EDITAR) */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-2xl shadow-2xl h-[85vh] flex flex-col border border-gray-100 dark:border-gray-700">
+        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-2xl shadow-2xl h-[85vh] max-h-[90vh] flex flex-col border border-gray-100 dark:border-gray-700 my-8">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-2xl font-bold text-gray-800 dark:text-white">
                 {editingId ? '✏️ Editar Area / Sector' : '🏢 Nueva Area / Sector'}
@@ -270,4 +270,5 @@ export default function Zonas() {
     </div>
   );
 }
+
 

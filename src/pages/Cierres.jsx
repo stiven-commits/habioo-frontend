@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { formatMoney } from '../utils/currency';
 import { useDialog } from '../components/ui/DialogProvider';
@@ -25,7 +25,7 @@ export default function Cierres() {
   const [selectedGasto, setSelectedGasto] = useState(null);
   const [simulacionAlicuota, setSimulacionAlicuota] = useState('');
   const [cambiandoMetodo, setCambiandoMetodo] = useState(false);
-  // 💡 NUEVO ESTADO: Bloquea la pantalla durante el cierre
+  // NUEVO ESTADO: Bloquea la pantalla durante el cierre
   const [isClosing, setIsClosing] = useState(false);
 
   const fetchPreliminar = async () => {
@@ -115,7 +115,7 @@ export default function Cierres() {
       setIsClosing(false); // Apagamos el overlay al terminar
     }
   };
-// 🧪 FUNCION DE PRUEBAS PARA POBLAR LA BASE DE DATOS
+// FUNCION DE PRUEBAS PARA POBLAR LA BASE DE DATOS
   const handleSeeder = async () => {
     const ok = await showConfirm({
       title: 'Inyectar datos de prueba',
@@ -146,7 +146,7 @@ export default function Cierres() {
       setLoading(false);
     }
   };
-  // ⚙️ LOGICA PARA CAMBIAR EL METODO DE DIVISION
+  // LOGICA PARA CAMBIAR EL METODO DE DIVISION
   const handleToggleMethod = async () => {
     if (cambiandoMetodo) return;
     const nuevoMetodo = data.metodo_division === 'Alicuota' ? 'Partes Iguales' : 'Alicuota';
@@ -201,7 +201,7 @@ export default function Cierres() {
         </div>
       )}
 
-      {/* ⚖️ NUEVO PANEL: REGLA DE DISTRIBUCION (EL SUICHE) */}
+      {/* NUEVO PANEL: REGLA DE DISTRIBUCION (EL SUICHE) */}
       <div className="bg-white dark:bg-donezo-card-dark px-8 py-10 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 my-6 flex flex-col items-center justify-center">
         <h3 className="text-sm font-black text-gray-400 dark:text-gray-500 mb-8 uppercase tracking-widest text-center">
           ⚖️ Metodo de Distribucion de Gastos
@@ -298,7 +298,7 @@ export default function Cierres() {
                 </div>
               </>
             ) : (
-              // ➗ DISENO PARA PARTES IGUALES
+              // DISENO PARA PARTES IGUALES
               <div className="flex w-full justify-between items-center bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-purple-100 dark:border-purple-800/50">
                  <div>
                    <p className="text-xs text-purple-600 dark:text-purple-400 font-bold uppercase tracking-wider mb-1">Inmuebles Activos</p>
@@ -321,7 +321,7 @@ export default function Cierres() {
           <h3 className="text-xl font-bold text-gray-800 dark:text-white">Borrador: {data.mes_texto}</h3>
           
           <div className="flex gap-3">
-             {/* 🧪 BOTON NUEVO DE DESARROLLADOR */}
+             {/* BOTON NUEVO DE DESARROLLADOR */}
              <button onClick={handleSeeder} className="bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 font-bold py-2 px-4 rounded-xl transition-all shadow-sm text-sm border border-purple-200 dark:border-purple-800">
                🧪 Inyectar Datos
              </button>
@@ -385,8 +385,8 @@ export default function Cierres() {
       )}
 
       {selectedGasto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 relative">
+        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 relative my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
             <button onClick={() => setSelectedGasto(null)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl">✕</button>
             <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Inspeccion de Gasto</h3>
             <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
@@ -403,8 +403,8 @@ export default function Cierres() {
       )}
       {/* ⏳ OVERLAY DE CARGA: PROCESANDO CIERRE DE MES */}
       {isClosing && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-fadeIn">
-          <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-8 w-full max-w-sm shadow-2xl border border-gray-100 dark:border-gray-800 flex flex-col items-center text-center">
+        <div className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center bg-black/60 backdrop-blur-md p-4 overflow-y-auto animate-fadeIn">
+          <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-8 w-full max-w-sm shadow-2xl border border-gray-100 dark:border-gray-800 flex flex-col items-center text-center my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
             
             {/* SPINNER ANIMADO */}
             <div className="relative w-20 h-20 mb-6">
@@ -430,4 +430,5 @@ export default function Cierres() {
     </div>
   );
 }
+
 

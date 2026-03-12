@@ -127,13 +127,31 @@ export default function EstadoCuentasBancarias() {
   });
 
   const activeFondoId = activeTab.startsWith('fondo-') ? parseInt(activeTab.replace('fondo-', ''), 10) : null;
+  const fondoActivo = activeFondoId
+    ? fondosCuenta.find((f) => parseInt(f.id, 10) === activeFondoId)
+    : null;
+  const cuentaTieneUnSoloFondo = fondosCuenta.length === 1;
+  const porcentajeNoOperativo = fondosCuenta
+    .filter((f) => !f.es_operativo)
+    .reduce((acc, f) => acc + parseFloat(f.porcentaje_asignacion || 0), 0);
+  const porcentajeOperativo = Math.max(0, 100 - porcentajeNoOperativo);
   const movimientosPorVista = activeTab === 'cuenta'
     ? movimientosFiltrados
     : movimientosFiltrados.filter((mov) => {
         const origen = parseInt(mov.fondo_origen_id || 0, 10);
         const destino = parseInt(mov.fondo_destino_id || 0, 10);
         const fondo = parseInt(mov.fondo_id || 0, 10);
-        return origen === activeFondoId || destino === activeFondoId || fondo === activeFondoId;
+        const movimientoAmarradoAFondo = origen === activeFondoId || destino === activeFondoId || fondo === activeFondoId;
+        if (movimientoAmarradoAFondo) return true;
+
+        // Para ingresos/egresos que no vienen con fondo_id explícito:
+        // si la cuenta tiene un solo fondo (o el fondo activo absorbe 100%), se reflejan en ese fondo.
+        const movimientoSinFondo = origen === 0 && destino === 0 && fondo === 0;
+        if (!movimientoSinFondo) return false;
+
+        if (cuentaTieneUnSoloFondo) return true;
+        if (fondoActivo?.es_operativo) return porcentajeOperativo > 0;
+        return parseFloat(fondoActivo?.porcentaje_asignacion || 0) > 0;
       });
 
   const movimientosOrdenados = [...movimientosPorVista].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
@@ -145,6 +163,17 @@ export default function EstadoCuentasBancarias() {
     if ((!montoUsd || Number.isNaN(montoUsd)) && montoBs > 0 && tasa > 0) {
       montoUsd = montoBs / tasa;
     }
+
+    let factorFondo = 1;
+    if (activeFondoId && !mov.fondo_id && !mov.fondo_origen_id && !mov.fondo_destino_id && fondosCuenta.length > 1) {
+      if (fondoActivo?.es_operativo) {
+        factorFondo = porcentajeOperativo / 100;
+      } else {
+        factorFondo = parseFloat(fondoActivo?.porcentaje_asignacion || 0) / 100;
+      }
+    }
+    const montoBsVista = montoBs * factorFondo;
+    const montoUsdVista = montoUsd * factorFondo;
 
     const tipo = String(mov.tipo || '').toUpperCase();
     let isEntrada = tipo === 'ENTRADA' || tipo === 'TRANSFERENCIA_IN' || tipo === 'ABONO';
@@ -158,11 +187,11 @@ export default function EstadoCuentasBancarias() {
     }
 
     if (isEntrada) {
-      saldoAcumuladoBs += montoBs;
-      saldoAcumuladoUSD += montoUsd;
+      saldoAcumuladoBs += montoBsVista;
+      saldoAcumuladoUSD += montoUsdVista;
     } else if (isSalida) {
-      saldoAcumuladoBs -= montoBs;
-      saldoAcumuladoUSD -= montoUsd;
+      saldoAcumuladoBs -= montoBsVista;
+      saldoAcumuladoUSD -= montoUsdVista;
     }
 
     return {
@@ -170,7 +199,8 @@ export default function EstadoCuentasBancarias() {
       isEntrada,
       isSalida,
       isInterna,
-      montoUsdCalculado: montoUsd,
+      montoBsVista,
+      montoUsdCalculado: montoUsdVista,
       saldoFilaBs: saldoAcumuladoBs,
       saldoFilaUsd: saldoAcumuladoUSD
     };
@@ -310,31 +340,49 @@ export default function EstadoCuentasBancarias() {
                   <th className="p-4 font-bold">Concepto</th>
                   <th className="p-4 font-bold text-right">Cargo (-)</th>
                   <th className="p-4 font-bold text-right">Abono (+)</th>
+                  <th className="p-4 font-bold text-right">Tasa</th>
                   <th className="p-4 font-bold text-right border-l border-gray-100 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-800/80">Saldo USD</th>
                 </tr>
               </thead>
               <tbody>
                 {movimientosPagina.map((m, i) => (
                     <tr key={i} className={`border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors ${m.isInterna ? 'bg-gray-50/50 dark:bg-gray-800/20' : ''}`}>
+                      {(() => {
+                        const montoBsNum = parseFloat(m.montoBsVista || 0);
+                        const tasaNum = parseFloat(m.tasa_cambio || 0);
+                        const montoBsCalculado = (!montoBsNum && tasaNum > 0 && parseFloat(m.monto_usd || 0) > 0)
+                          ? parseFloat(m.monto_usd) * tasaNum
+                          : montoBsNum;
+                        const mostrarTasa = tasaNum > 0;
+                        return (
+                          <>
                       <td className="p-4 font-mono text-gray-600 dark:text-gray-400 text-xs">{new Date(m.fecha).toLocaleDateString('es-ES')}</td>
                       <td className="p-4 font-mono text-xs text-gray-500">{m.referencia || 'N/A'}</td>
                       <td className="p-4 font-medium text-gray-800 dark:text-gray-200">
                         {m.concepto}
-                        {m.tasa_cambio && <span className="block text-[10px] text-gray-400 font-normal mt-0.5">Tasa: {m.tasa_cambio}</span>}
                       </td>
                       
                       {/* COLUMNA CARGO (-) */}
                       <td className="p-4 text-right font-black font-mono">
                         {m.isSalida 
-                           ? <span className="text-red-500">-Bs {formatMoney(m.monto_bs || 0)}</span> 
+                           ? <span className="text-red-500">-Bs {formatMoney(montoBsCalculado || 0)}</span> 
                            : m.isInterna ? <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">Mismo Banco</span> : ''}
                       </td>
 
                       {/* COLUMNA ABONO (+) */}
                       <td className="p-4 text-right font-black font-mono">
                         {m.isEntrada 
-                           ? <span className="text-green-500">+Bs {formatMoney(m.monto_bs || 0)}</span> 
-                           : m.isInterna ? <span className="text-gray-400 text-xs italic">Bs {formatMoney(m.monto_bs || 0)}</span> : ''}
+                           ? <span className="text-green-500">+Bs {formatMoney(montoBsCalculado || 0)}</span> 
+                           : m.isInterna ? <span className="text-gray-400 text-xs italic">Bs {formatMoney(montoBsCalculado || 0)}</span> : ''}
+                      </td>
+
+                      {/* COLUMNA TASA */}
+                      <td className="p-4 text-right font-mono text-xs">
+                        {mostrarTasa ? (
+                          <span className="text-blue-600 dark:text-blue-400">{formatMoney(tasaNum)}</span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
                       </td>
 
                       {/* COLUMNA SALDO USD (equivalente del movimiento) */}
@@ -345,6 +393,9 @@ export default function EstadoCuentasBancarias() {
                             ? <span className="text-green-500">+${formatMoney(m.montoUsdCalculado || 0)}</span>
                             : <span>${formatMoney(m.montoUsdCalculado || 0)}</span>}
                       </td>
+                          </>
+                        );
+                      })()}
                     </tr>
                 ))}
               </tbody>

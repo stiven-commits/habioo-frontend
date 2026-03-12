@@ -6,8 +6,9 @@ import { useDialog } from './ui/DialogProvider';
 
 export default function ModalRegistrarPago({ propiedadPreseleccionada, onClose, onSuccess }) {
   const { showConfirm } = useDialog();
-  const [bancos, setBancos] = useState([]);
-  const [loadingBancos, setLoadingBancos] = useState(true);
+  const [cuentasBancarias, setCuentasBancarias] = useState([]);
+  const [cuentasConFondos, setCuentasConFondos] = useState([]);
+  const [loadingCuentas, setLoadingCuentas] = useState(true);
 
   const [formPago, setFormPago] = useState({
     cuenta_id: '', monto_origen: '', tasa_cambio: '', referencia: '',
@@ -27,19 +28,30 @@ export default function ModalRegistrarPago({ propiedadPreseleccionada, onClose, 
   const [conversionUSD, setConversionUSD] = useState('0.00');
 
   useEffect(() => {
-    const fetchBancos = async () => {
+    const fetchCuentasBancarias = async () => {
       try {
         const token = localStorage.getItem('habioo_token');
-        const res = await fetch(`${API_BASE_URL}/bancos`, { headers: { Authorization: `Bearer ${token}` } });
-        const data = await res.json();
-        if (data.status === 'success') setBancos(data.bancos);
+        const [resCuentas, resFondos] = await Promise.all([
+          fetch(`${API_BASE_URL}/bancos`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${API_BASE_URL}/fondos`, { headers: { Authorization: `Bearer ${token}` } }),
+        ]);
+        const dataCuentas = await resCuentas.json();
+        const dataFondos = await resFondos.json();
+        const cuentas = dataCuentas.status === 'success' ? (dataCuentas.bancos || []) : [];
+        const fondos = dataFondos.status === 'success' ? (dataFondos.fondos || []) : [];
+
+        const idsConFondos = new Set(fondos.map((f) => String(f.cuenta_bancaria_id)));
+        const cuentasFiltradas = cuentas.filter((c) => idsConFondos.has(String(c.id)));
+
+        setCuentasBancarias(cuentas);
+        setCuentasConFondos(cuentasFiltradas);
       } catch (error) {
-        console.error('Error al cargar bancos', error);
+        console.error('Error al cargar cuentas bancarias', error);
       } finally {
-        setLoadingBancos(false);
+        setLoadingCuentas(false);
       }
     };
-    fetchBancos();
+    fetchCuentasBancarias();
   }, []);
 
   const formatCurrencyInput = (value) => {
@@ -66,7 +78,7 @@ export default function ModalRegistrarPago({ propiedadPreseleccionada, onClose, 
     setFormPago(updatedForm);
 
     if (updatedForm.monto_origen && updatedForm.cuenta_id) {
-      const banco = bancos.find((b) => b.id.toString() === updatedForm.cuenta_id);
+      const banco = cuentasConFondos.find((b) => b.id.toString() === updatedForm.cuenta_id);
       const monto = parseFloat(updatedForm.monto_origen.replace(/\./g, '').replace(',', '.')) || 0;
       const isForeign = banco && ['Zelle', 'Efectivo'].includes(banco.tipo);
       const tasaRaw = parseFloat(updatedForm.tasa_cambio.replace(/\./g, '').replace(',', '.'));
@@ -96,11 +108,15 @@ export default function ModalRegistrarPago({ propiedadPreseleccionada, onClose, 
     }
   };
 
-  const selectedBank = bancos.find((b) => b.id.toString() === formPago.cuenta_id);
+  const selectedBank = cuentasConFondos.find((b) => b.id.toString() === formPago.cuenta_id);
   const requiresTasa = selectedBank && ['Transferencia', 'Pago Movil'].includes(selectedBank.tipo);
 
   const handleSubmitPago = async (e) => {
     e.preventDefault();
+    if (!cuentasConFondos.some((c) => c.id.toString() === formPago.cuenta_id)) {
+      alert('Error: seleccione una cuenta bancaria que tenga al menos un fondo activo.');
+      return;
+    }
     if (requiresTasa && !isValidCedulaRif(formPago.cedula_origen)) {
       alert('Error: la cédula de origen debe iniciar con V, E, J o G y contener solo números.');
       return;
@@ -139,8 +155,8 @@ export default function ModalRegistrarPago({ propiedadPreseleccionada, onClose, 
   if (!propiedadPreseleccionada) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
-      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 relative">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
+      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 relative my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-bold text-gray-800 dark:text-white">Registrar Pago</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-xl font-bold transition-colors">✕</button>
@@ -160,11 +176,16 @@ export default function ModalRegistrarPago({ propiedadPreseleccionada, onClose, 
 
         <form onSubmit={handleSubmitPago} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Cuenta Destino</label>
-            <select name="cuenta_id" value={formPago.cuenta_id} onChange={handlePagoChange} className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required disabled={loadingBancos}>
-              <option value="">{loadingBancos ? 'Cargando bancos...' : 'Seleccione Banco...'}</option>
-              {bancos.map((b) => <option key={b.id} value={b.id}>{b.nombre_banco || b.tipo} ({b.apodo})</option>)}
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Cuenta Bancaria Destino</label>
+            <select name="cuenta_id" value={formPago.cuenta_id} onChange={handlePagoChange} className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required disabled={loadingCuentas}>
+              <option value="">{loadingCuentas ? 'Cargando cuentas bancarias...' : (cuentasConFondos.length ? 'Seleccione cuenta bancaria...' : 'No hay cuentas con fondos activos')}</option>
+              {cuentasConFondos.map((b) => <option key={b.id} value={b.id}>{b.nombre_banco || 'Cuenta'} ({b.apodo || b.tipo || 'Sin alias'})</option>)}
             </select>
+            {!loadingCuentas && cuentasBancarias.length > 0 && cuentasConFondos.length === 0 && (
+              <p className="text-[11px] text-amber-600 dark:text-amber-400 font-bold mt-1">
+                Debe crear al menos un fondo en una cuenta bancaria para registrar pagos.
+              </p>
+            )}
           </div>
 
           {requiresTasa ? (
@@ -232,3 +253,4 @@ export default function ModalRegistrarPago({ propiedadPreseleccionada, onClose, 
     </div>
   );
 }
+
