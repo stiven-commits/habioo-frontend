@@ -1,4 +1,5 @@
-﻿import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import type { FC, ChangeEvent, FormEvent } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { formatMoney } from '../utils/currency';
 import { sanitizeCedulaRif, sanitizePhone, sanitizeEmail, isValidEmail, isValidPhone, isValidCedulaRif } from '../utils/validators';
@@ -7,82 +8,195 @@ import * as XLSX from 'xlsx';
 import { ModalAjusteSaldo, ModalEstadoCuenta, ModalPropiedadForm, ModalCargaMasiva } from '../components/propiedades/PropiedadesModals';
 import { useDialog } from '../components/ui/DialogProvider';
 
-export default function Propiedades() {
-  const { userRole } = useOutletContext();
-  const { showConfirm } = useDialog();
-  const [propiedades, setPropiedades] = useState([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
+interface PropiedadesProps {}
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
+interface OutletContextType {
+  userRole?: string;
+}
+
+interface Propiedad {
+  id: number;
+  identificador: string;
+  alicuota: string | number;
+  saldo_actual: string | number;
+  prop_nombre: string;
+  prop_cedula: string;
+  prop_email?: string;
+  prop_telefono?: string;
+  inq_nombre?: string;
+  inq_cedula?: string;
+  inq_email?: string;
+  inq_telefono?: string;
+  inq_acceso_portal?: boolean;
+}
+
+interface EstadoCuentaMovimiento {
+  fecha_operacion: string;
+  fecha_registro: string;
+  tipo: string;
+  concepto: string;
+  monto_bs: string | number;
+  tasa_cambio: string | number;
+  cargo: string | number;
+  abono: string | number;
+}
+
+interface EstadoCuentaMovimientoConSaldo extends EstadoCuentaMovimiento {
+  saldoFila: number;
+}
+
+interface FormState {
+  identificador: string;
+  alicuota: string;
+  prop_nombre: string;
+  prop_cedula: string;
+  prop_email: string;
+  prop_telefono: string;
+  prop_password: string;
+  tiene_inquilino: boolean;
+  inq_nombre: string;
+  inq_cedula: string;
+  inq_email: string;
+  inq_telefono: string;
+  inq_password: string;
+  inq_permitir_acceso: boolean;
+  monto_saldo_inicial: string;
+  tipo_saldo_inicial: 'CERO';
+  saldo_inicial_bs: string;
+  tasa_bcv: string;
+}
+
+interface FormAjusteState {
+  monto: string;
+  tipo_ajuste: 'CARGAR_DEUDA' | 'AGREGAR_FAVOR';
+  nota: string;
+}
+
+interface LoteDataRow {
+  rowNum: number;
+  identificador: string;
+  nombre: string;
+  cedula: string;
+  alicuota: number | string;
+  saldo_inicial: string;
+  correo: string;
+  telefono: string;
+  isValid: boolean;
+  errors: string;
+}
+
+interface ConfirmOptions {
+  title: string;
+  message: string;
+  confirmText: string;
+  cancelText: string;
+  variant: 'warning';
+}
+
+interface DialogContextType {
+  showConfirm: (options: ConfirmOptions) => Promise<boolean>;
+}
+
+interface ApiPropiedadesResponse {
+  status: string;
+  propiedades: Propiedad[];
+  error?: string;
+  message?: string;
+}
+
+interface ApiEstadoCuentaResponse {
+  status: string;
+  movimientos: EstadoCuentaMovimiento[];
+  error?: string;
+  message?: string;
+}
+
+interface ApiActionResponse {
+  status: string;
+  error?: string;
+  message?: string;
+}
+
+const toNumber = (value: string | number | undefined | null): number => parseFloat(String(value ?? 0)) || 0;
+
+const Propiedades: FC<PropiedadesProps> = () => {
+  const { userRole } = useOutletContext<OutletContextType>();
+  const { showConfirm } = useDialog() as DialogContextType;
+  const [propiedades, setPropiedades] = useState<Propiedad[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState<number>(1);
   const itemsPerPage = 13;
 
-  const [editingId, setEditingId] = useState(null);
-  const [openDropdownId, setOpenDropdownId] = useState(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
 
-  const [ajusteModalOpen, setAjusteModalOpen] = useState(false);
-  const [selectedPropAjuste, setSelectedPropAjuste] = useState(null);
-  const [formAjuste, setFormAjuste] = useState({ monto: '', tipo_ajuste: 'CARGAR_DEUDA', nota: '' });
+  const [ajusteModalOpen, setAjusteModalOpen] = useState<boolean>(false);
+  const [selectedPropAjuste, setSelectedPropAjuste] = useState<Propiedad | null>(null);
+  const [formAjuste, setFormAjuste] = useState<FormAjusteState>({ monto: '', tipo_ajuste: 'CARGAR_DEUDA', nota: '' });
 
-  const [estadoCuentaModalOpen, setEstadoCuentaModalOpen] = useState(false);
-  const [selectedPropCuenta, setSelectedPropCuenta] = useState(null);
-  const [estadoCuentaData, setEstadoCuentaData] = useState([]);
-  const [loadingCuenta, setLoadingCuenta] = useState(false);
-  const [fechaDesde, setFechaDesde] = useState('');
-  const [fechaHasta, setFechaHasta] = useState('');
+  const [estadoCuentaModalOpen, setEstadoCuentaModalOpen] = useState<boolean>(false);
+  const [selectedPropCuenta, setSelectedPropCuenta] = useState<Propiedad | null>(null);
+  const [estadoCuentaData, setEstadoCuentaData] = useState<EstadoCuentaMovimiento[]>([]);
+  const [loadingCuenta, setLoadingCuenta] = useState<boolean>(false);
+  const [fechaDesde, setFechaDesde] = useState<string>('');
+  const [fechaHasta, setFechaHasta] = useState<string>('');
 
   // 💡 ESTADOS PARA CARGA MASIVA Y BARRA DE PROGRESO
-  const [loteModalOpen, setLoteModalOpen] = useState(false);
-  const [loteData, setLoteData] = useState([]);
-  const [loteErrors, setLoteErrors] = useState(0);
-  const [isUploadingLote, setIsUploadingLote] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0); // Nuevo estado
-  const fileInputRef = useRef(null);
+  const [loteModalOpen, setLoteModalOpen] = useState<boolean>(false);
+  const [loteData, setLoteData] = useState<LoteDataRow[]>([]);
+  const [loteErrors, setLoteErrors] = useState<number>(0);
+  const [isUploadingLote, setIsUploadingLote] = useState<boolean>(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  void fileInputRef;
 
-  const initialForm = {
+  const initialForm: FormState = {
     identificador: '', alicuota: '', prop_nombre: '', prop_cedula: '', prop_email: '', prop_telefono: '', prop_password: '',
     tiene_inquilino: false, inq_nombre: '', inq_cedula: '', inq_email: '', inq_telefono: '', inq_password: '',
     inq_permitir_acceso: true,
     monto_saldo_inicial: '', tipo_saldo_inicial: 'CERO', saldo_inicial_bs: '', tasa_bcv: ''
   };
 
-  const [form, setForm] = useState(initialForm);
+  const [form, setForm] = useState<FormState>(initialForm);
 
-  const fetchPropiedades = async () => {
+  const fetchPropiedades = async (): Promise<void> => {
     try {
       const token = localStorage.getItem('habioo_token');
       const res = await fetch(`${API_BASE_URL}/propiedades-admin`, { headers: { Authorization: `Bearer ${token}` } });
-      const data = await res.json();
+      const data: ApiPropiedadesResponse = await res.json();
       if (data.status === 'success') setPropiedades(data.propiedades);
-    } catch (error) { console.error(error); } 
+    } catch (error) { console.error(error); }
     finally { setLoading(false); }
   };
 
   useEffect(() => { if (userRole === 'Administrador') fetchPropiedades(); }, [userRole]);
   useEffect(() => { setCurrentPage(1); }, [searchTerm]);
 
-  const fetchEstadoCuenta = async (propId) => {
+  const fetchEstadoCuenta = async (propId: number): Promise<void> => {
     setLoadingCuenta(true);
     try {
       const token = localStorage.getItem('habioo_token');
       const res = await fetch(`${API_BASE_URL}/propiedades-admin/${propId}/estado-cuenta`, { headers: { Authorization: `Bearer ${token}` } });
-      const data = await res.json();
+      const data: ApiEstadoCuentaResponse = await res.json();
       if (data.status === 'success') setEstadoCuentaData(data.movimientos);
-    } catch (error) { console.error(error); } 
+    } catch (error) { console.error(error); }
     finally { setLoadingCuenta(false); }
   };
 
-  const handleOpenEstadoCuenta = (prop) => {
+  const handleOpenEstadoCuenta = (prop: Propiedad): void => {
     setOpenDropdownId(null); setSelectedPropCuenta(prop); setFechaDesde(''); setFechaHasta('');
     fetchEstadoCuenta(prop.id); setEstadoCuentaModalOpen(true);
   };
+  void handleOpenEstadoCuenta;
 
-  const handleOpenAjuste = (prop) => {
+  const handleOpenAjuste = (prop: Propiedad): void => {
     setSelectedPropAjuste(prop); setFormAjuste({ monto: '', tipo_ajuste: 'CARGAR_DEUDA', nota: '' }); setAjusteModalOpen(true);
   };
 
-  const formatAlicuotaDisplay = (value) => {
+  const formatAlicuotaDisplay = (value: string | number): string => {
     if (!value) return '';
     const raw = String(value).replace(',', '.');
     const [entero = '', decimal = ''] = raw.split('.');
@@ -90,16 +204,36 @@ export default function Propiedades() {
     return `${entero},${decimal.slice(0, 3)}`;
   };
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    if (type === 'checkbox') return setForm({ ...form, [name]: checked });
-    if (name === 'prop_cedula' || name === 'inq_cedula') return setForm({ ...form, [name]: sanitizeCedulaRif(value) });
-    if (name === 'prop_telefono' || name === 'inq_telefono') return setForm({ ...form, [name]: sanitizePhone(value) });
-    if (name === 'prop_email' || name === 'inq_email') return setForm({ ...form, [name]: sanitizeEmail(value) });
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
+    const { name, value } = e.target;
+    if (e.target instanceof HTMLInputElement && e.target.type === 'checkbox') {
+      const key = name as keyof FormState;
+      setForm((prev) => ({ ...prev, [key]: e.target.checked as FormState[typeof key] }));
+      return;
+    }
+    if (name === 'prop_cedula' || name === 'inq_cedula') {
+      const key = name as 'prop_cedula' | 'inq_cedula';
+      setForm((prev) => ({ ...prev, [key]: sanitizeCedulaRif(value) }));
+      return;
+    }
+    if (name === 'prop_telefono' || name === 'inq_telefono') {
+      const key = name as 'prop_telefono' | 'inq_telefono';
+      setForm((prev) => ({ ...prev, [key]: sanitizePhone(value) }));
+      return;
+    }
+    if (name === 'prop_email' || name === 'inq_email') {
+      const key = name as 'prop_email' | 'inq_email';
+      setForm((prev) => ({ ...prev, [key]: sanitizeEmail(value) }));
+      return;
+    }
     if (name === 'alicuota' || name === 'monto_saldo_inicial') {
       const allowNegative = name === 'monto_saldo_inicial' && String(value).trim().startsWith('-');
       let rawVal = value.replace(/\./g, ',').replace(/[^0-9,]/g, '');
-      if (allowNegative && !rawVal) return setForm({ ...form, [name]: '-' });
+      if (allowNegative && !rawVal) {
+        const key = name as 'alicuota' | 'monto_saldo_inicial';
+        setForm((prev) => ({ ...prev, [key]: '-' }));
+        return;
+      }
       const parts = rawVal.split(',');
       if (parts.length > 2) rawVal = `${parts[0]},${parts.slice(1).join('')}`;
       if (name === 'alicuota') {
@@ -107,12 +241,15 @@ export default function Propiedades() {
         rawVal = rawVal.includes(',') ? `${entero},${decimal.slice(0, 3)}` : entero;
       }
       if (allowNegative && rawVal) rawVal = `-${rawVal}`;
-      return setForm({ ...form, [name]: rawVal });
+      const key = name as 'alicuota' | 'monto_saldo_inicial';
+      setForm((prev) => ({ ...prev, [key]: rawVal }));
+      return;
     }
-    setForm({ ...form, [name]: value });
+    const key = name as keyof FormState;
+    setForm((prev) => ({ ...prev, [key]: value as FormState[typeof key] }));
   };
 
-  const handleEdit = (prop) => {
+  const handleEdit = (prop: Propiedad): void => {
     setOpenDropdownId(null); setEditingId(prop.id);
     setForm({
       identificador: prop.identificador, alicuota: formatAlicuotaDisplay(prop.alicuota),
@@ -124,9 +261,9 @@ export default function Propiedades() {
     setIsModalOpen(true);
   };
 
-  const handleCreateNew = () => { setEditingId(null); setForm(initialForm); setIsModalOpen(true); };
+  const handleCreateNew = (): void => { setEditingId(null); setForm(initialForm); setIsModalOpen(true); };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     const alicuotaNum = parseFloat(form.alicuota.toString().replace(',', '.'));
     if (isNaN(alicuotaNum) || alicuotaNum <= 0 || alicuotaNum > 100) return alert('⚠️ Error: La alícuota debe ser un porcentaje mayor a 0 y máximo 100.');
@@ -143,13 +280,14 @@ export default function Propiedades() {
     const url = editingId ? `${API_BASE_URL}/propiedades-admin/${editingId}` : `${API_BASE_URL}/propiedades-admin`;
 
     const res = await fetch(url, { method: editingId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(form) });
-    const data = await res.json();
-    if (data.status === 'success') { setIsModalOpen(false); fetchPropiedades(); } 
+    const data: ApiActionResponse = await res.json();
+    if (data.status === 'success') { setIsModalOpen(false); fetchPropiedades(); }
     else { alert(data.error || data.message); }
   };
 
-  const handleSubmitAjuste = async (e) => {
+  const handleSubmitAjuste = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
+    if (!selectedPropAjuste) return;
     const ok = await showConfirm({
       title: 'Registrar ajuste',
       message: `¿Registrar ajuste para ${selectedPropAjuste.identificador}?`,
@@ -162,7 +300,7 @@ export default function Propiedades() {
     const res = await fetch(`${API_BASE_URL}/propiedades-admin/${selectedPropAjuste.id}/ajustar-saldo`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(formAjuste)
     });
-    const data = await res.json();
+    const data: ApiActionResponse = await res.json();
     if (data.status === 'success') {
       alert(data.message); setAjusteModalOpen(false); fetchPropiedades();
       if (selectedPropCuenta?.id === selectedPropAjuste.id) fetchEstadoCuenta(selectedPropCuenta.id);
@@ -172,7 +310,7 @@ export default function Propiedades() {
   // ==========================================
   // FUNCIONES DE LA CARGA MASIVA DE EXCEL
   // ==========================================
-  const handleDownloadTemplate = () => {
+  const handleDownloadTemplate = (): void => {
     const data = [
       { Apto: '1A', Nombre: 'Juan Perez', Cedula: 'V12345678', Alicuota: '2.555', SaldoInicial: '50.00', Correo: 'juan@gmail.com', Telefono: '04141234567' },
       { Apto: '1B', Nombre: 'Maria Lopez', Cedula: 'E87654321', Alicuota: '2.5', SaldoInicial: '-20.50', Correo: '', Telefono: '' }
@@ -183,36 +321,38 @@ export default function Propiedades() {
     if (ws['D1']) ws['D1'].c = [{ a: 'Sistema', t: 'El porcentaje debe tener máximo 3 decimales (Ejemplo: 2.555 o 2,555).' }];
     if (ws['E1']) ws['E1'].c = [{ a: 'Sistema', t: 'Si no tiene saldo deje en 0. Si le debe al condominio use números positivos (50). Si tiene a favor use número negativo (-50).' }];
 
-    ws['!cols'] = [ {wch: 10}, {wch: 25}, {wch: 15}, {wch: 12}, {wch: 15}, {wch: 25}, {wch: 15} ];
+    ws['!cols'] = [{ wch: 10 }, { wch: 25 }, { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 25 }, { wch: 15 }];
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Plantilla");
-    XLSX.writeFile(wb, "Plantilla_Habioo_Inmuebles.xlsx");
+    XLSX.utils.book_append_sheet(wb, ws, 'Plantilla');
+    XLSX.writeFile(wb, 'Plantilla_Habioo_Inmuebles.xlsx');
   };
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
+  const handleFileUpload = (e: ChangeEvent<HTMLInputElement>): void => {
+    const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
-      const bstr = event.target.result;
+    reader.onload = (event: ProgressEvent<FileReader>) => {
+      const bstr = event.target?.result;
+      if (typeof bstr !== 'string') return;
+
       const wb = XLSX.read(bstr, { type: 'binary' });
       const wsname = wb.SheetNames[0];
       const ws = wb.Sheets[wsname];
-      const rawData = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      const rawData = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' });
 
       let errCount = 0;
-      let seenEmails = new Set(); 
+      const seenEmails = new Set<string>();
 
-      const parsedData = rawData.map((row, index) => {
-        const apto = row['Apto'] || row['Identificador'] || row['Apartamento'] || row['Casa'] || '';
-        const nombre = row['Nombre'] || row['Propietario'] || '';
-        const cedulaRaw = row['Cedula'] || row['Cédula'] || '';
-        const alicuota = row['Alicuota'] || row['Alícuota'] || '';
-        const saldo = row['SaldoInicial'] || row['Saldo Inicial'] || row['Saldo'] || '0';
-        const correo = String(row['Correo'] || row['Email'] || '').trim().toLowerCase(); 
-        const telefono = row['Telefono'] || row['Teléfono'] || '';
+      const parsedData: LoteDataRow[] = rawData.map((row: Record<string, unknown>, index: number) => {
+        const apto = row.Apto || row.Identificador || row.Apartamento || row.Casa || '';
+        const nombre = row.Nombre || row.Propietario || '';
+        const cedulaRaw = row.Cedula || row.Cédula || '';
+        const alicuota = row.Alicuota || row.Alícuota || '';
+        const saldo = row.SaldoInicial || row['Saldo Inicial'] || row.Saldo || '0';
+        const correo = String(row.Correo || row.Email || '').trim().toLowerCase();
+        const telefono = row.Telefono || row.Teléfono || '';
 
         const cedulaFmt = sanitizeCedulaRif(String(cedulaRaw));
         const telefonoFmt = sanitizePhone(String(telefono));
@@ -221,23 +361,23 @@ export default function Propiedades() {
         const isAliValid = !isNaN(aliNum) && aliNum > 0 && aliNum <= 100;
 
         if (isAliValid) {
-           aliNum = parseFloat(aliNum.toFixed(3)); 
+          aliNum = parseFloat(aliNum.toFixed(3));
         }
 
-        let errorMsg = [];
-        if (!apto) errorMsg.push("Apto vacío");
-        if (!nombre) errorMsg.push("Nombre vacío");
-        if (!cedulaFmt) errorMsg.push("Cédula inválida (Use V/E/J/G)");
-        if (!isAliValid) errorMsg.push("Alícuota inválida");
-        if (emailFmt && !isValidEmail(emailFmt)) errorMsg.push("Correo inválido");
-        if (telefonoFmt && !isValidPhone(telefonoFmt)) errorMsg.push("Teléfono inválido");
-        
+        const errorMsg: string[] = [];
+        if (!apto) errorMsg.push('Apto vacío');
+        if (!nombre) errorMsg.push('Nombre vacío');
+        if (!cedulaFmt) errorMsg.push('Cédula inválida (Use V/E/J/G)');
+        if (!isAliValid) errorMsg.push('Alícuota inválida');
+        if (emailFmt && !isValidEmail(emailFmt)) errorMsg.push('Correo inválido');
+        if (telefonoFmt && !isValidPhone(telefonoFmt)) errorMsg.push('Teléfono inválido');
+
         if (emailFmt) {
-           if (seenEmails.has(emailFmt)) {
-              errorMsg.push("Correo duplicado");
-           } else {
-              seenEmails.add(emailFmt);
-           }
+          if (seenEmails.has(emailFmt)) {
+            errorMsg.push('Correo duplicado');
+          } else {
+            seenEmails.add(emailFmt);
+          }
         }
 
         if (errorMsg.length > 0) errCount++;
@@ -247,7 +387,7 @@ export default function Propiedades() {
           identificador: String(apto).trim(),
           nombre: String(nombre).trim(),
           cedula: cedulaFmt,
-          alicuota: isAliValid ? aliNum : alicuota,
+          alicuota: isAliValid ? aliNum : String(alicuota),
           saldo_inicial: String(saldo).replace(',', '.'),
           correo: emailFmt,
           telefono: telefonoFmt,
@@ -260,12 +400,12 @@ export default function Propiedades() {
       setLoteErrors(errCount);
     };
     reader.readAsBinaryString(file);
-    e.target.value = null; 
+    e.target.value = '';
   };
 
   // 💡 LÓGICA DE GUARDADO MEJORADA CON PROGRESO
-  const handleSaveLote = async () => {
-    if (loteErrors > 0) return alert("Por favor corrija los errores en el Excel antes de continuar.");
+  const handleSaveLote = async (): Promise<void> => {
+    if (loteErrors > 0) return alert('Por favor corrija los errores en el Excel antes de continuar.');
     const ok = await showConfirm({
       title: 'Guardar carga masiva',
       message: `¿Está seguro de guardar ${loteData.length} inmuebles de golpe?`,
@@ -279,8 +419,8 @@ export default function Propiedades() {
     setUploadProgress(0);
 
     // Animación de la barra de progreso
-    const progressInterval = setInterval(() => {
-      setUploadProgress((prev) => {
+    const progressInterval: ReturnType<typeof setInterval> = setInterval(() => {
+      setUploadProgress((prev: number) => {
         // La barra llega hasta el 90% esperando a que el servidor termine
         if (prev >= 90) return 90;
         // Calculamos un incremento variable para que se vea más natural
@@ -296,43 +436,52 @@ export default function Propiedades() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ inmuebles: loteData })
       });
-      
+
       clearInterval(progressInterval);
-      const data = await res.json();
-      
+      const data: ApiActionResponse = await res.json();
+
       if (data.status === 'success') {
-        setUploadProgress(100); 
-        
+        setUploadProgress(100);
+
         setTimeout(() => {
-          alert(data.message); 
-          setLoteModalOpen(false); 
-          setLoteData([]); 
+          alert(data.message);
+          setLoteModalOpen(false);
+          setLoteData([]);
           fetchPropiedades();
           setIsUploadingLote(false);
           setUploadProgress(0); // Reiniciamos para la próxima
         }, 500);
-        
-      } else { 
+
+      } else {
         setIsUploadingLote(false);
         setUploadProgress(0);
-        alert("Error del servidor: " + (data.error || data.message)); 
+        alert('Error del servidor: ' + (data.error || data.message));
       }
-    } catch (err) { 
+    } catch (err) {
       clearInterval(progressInterval);
       setIsUploadingLote(false);
       setUploadProgress(0);
-      alert("Error de conexión al cargar lote."); 
-    } 
+      alert('Error de conexión al cargar lote.');
+    }
   };
 
   // Cálculos y Paginación
   let saldoAcumulado = 0;
-  const dataConSaldo = estadoCuentaData.map((mov) => { saldoAcumulado += parseFloat(mov.cargo) - parseFloat(mov.abono); return { ...mov, saldoFila: saldoAcumulado }; });
-  const estadoCuentaFiltrado = dataConSaldo.filter((m) => { if (!fechaDesde && !fechaHasta) return true; const f = new Date(m.fecha_registro); if (fechaDesde && f < new Date(fechaDesde)) return false; if (fechaHasta && f > new Date(fechaHasta)) return false; return true; });
-  const totalCargo = estadoCuentaFiltrado.reduce((acc, m) => acc + parseFloat(m.cargo), 0);
-  const totalAbono = estadoCuentaFiltrado.reduce((acc, m) => acc + parseFloat(m.abono), 0);
+  const dataConSaldo: EstadoCuentaMovimientoConSaldo[] = estadoCuentaData.map((mov: EstadoCuentaMovimiento) => {
+    saldoAcumulado += toNumber(mov.cargo) - toNumber(mov.abono);
+    return { ...mov, saldoFila: saldoAcumulado };
+  });
+  const estadoCuentaFiltrado: EstadoCuentaMovimientoConSaldo[] = dataConSaldo.filter((m: EstadoCuentaMovimientoConSaldo) => {
+    if (!fechaDesde && !fechaHasta) return true;
+    const f = new Date(m.fecha_registro);
+    if (fechaDesde && f < new Date(fechaDesde)) return false;
+    if (fechaHasta && f > new Date(fechaHasta)) return false;
+    return true;
+  });
+  const totalCargo = estadoCuentaFiltrado.reduce((acc: number, m: EstadoCuentaMovimientoConSaldo) => acc + toNumber(m.cargo), 0);
+  const totalAbono = estadoCuentaFiltrado.reduce((acc: number, m: EstadoCuentaMovimientoConSaldo) => acc + toNumber(m.abono), 0);
 
-  const filteredProps = propiedades.filter((p) => p.identificador.toLowerCase().includes(searchTerm.toLowerCase()) || p.prop_nombre?.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredProps = propiedades.filter((p: Propiedad) => p.identificador.toLowerCase().includes(searchTerm.toLowerCase()) || p.prop_nombre?.toLowerCase().includes(searchTerm.toLowerCase()));
   const totalPages = Math.ceil(filteredProps.length / itemsPerPage);
   const currentProps = filteredProps.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
@@ -375,8 +524,8 @@ export default function Propiedades() {
                   </tr>
                 </thead>
                 <tbody>
-                  {currentProps.map((p) => {
-                    const saldo = parseFloat(p.saldo_actual || 0);
+                  {currentProps.map((p: Propiedad) => {
+                    const saldo = toNumber(p.saldo_actual);
                     const isDeuda = saldo > 0;
                     const isFavor = saldo < 0;
                     return (
@@ -414,9 +563,9 @@ export default function Propiedades() {
 
             {totalPages > 1 && (
               <div className="flex justify-between items-center px-6 py-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-800 rounded-b-2xl">
-                <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-5 py-2 rounded-xl text-sm font-bold bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 transition-all shadow-sm">← Anterior</button>
+                <button onClick={() => setCurrentPage((p: number) => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-5 py-2 rounded-xl text-sm font-bold bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 transition-all shadow-sm">← Anterior</button>
                 <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Página {currentPage} de {totalPages}</span>
-                <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-5 py-2 rounded-xl text-sm font-bold bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 transition-all shadow-sm">Siguiente →</button>
+                <button onClick={() => setCurrentPage((p: number) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-5 py-2 rounded-xl text-sm font-bold bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 transition-all shadow-sm">Siguiente →</button>
               </div>
             )}
           </>
@@ -473,4 +622,6 @@ export default function Propiedades() {
 
     </div>
   );
-}
+};
+
+export default Propiedades;

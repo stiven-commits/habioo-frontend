@@ -1,34 +1,76 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import type { FC, ChangeEvent } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { formatMoney } from '../utils/currency';
 import { API_BASE_URL } from '../config/api';
 import ModalRegistrarPago from '../components/ModalRegistrarPago';
 import { ModalEstadoCuenta } from '../components/propiedades/PropiedadesModals';
 
-export default function CuentasPorCobrar() {
-  const { userRole } = useOutletContext();
-  const [propiedades, setPropiedades] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+interface CuentasPorCobrarProps {}
+
+interface OutletContextType {
+  userRole?: string;
+}
+
+type ActiveTab = 'Deudores' | 'Todos';
+
+interface Propiedad {
+  id: number;
+  identificador?: string;
+  alicuota?: string | number;
+  prop_nombre?: string;
+  prop_cedula?: string;
+  saldo_actual?: string | number;
+}
+
+interface EstadoCuentaMovimiento {
+  fecha_registro?: string;
+  fecha_operacion?: string;
+  cargo: string | number;
+  abono: string | number;
+  [key: string]: unknown;
+}
+
+interface EstadoCuentaMovimientoConSaldo extends EstadoCuentaMovimiento {
+  saldoFila: number;
+}
+
+interface PropiedadesResponse {
+  status: string;
+  propiedades?: Propiedad[];
+}
+
+interface EstadoCuentaResponse {
+  status: string;
+  movimientos?: EstadoCuentaMovimiento[];
+}
+
+const toNumber = (value: string | number | undefined | null): number => parseFloat(String(value ?? 0)) || 0;
+
+const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
+  const { userRole } = useOutletContext<OutletContextType>();
+  const [propiedades, setPropiedades] = useState<Propiedad[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [searchTerm, setSearchTerm] = useState<string>('');
   
   // 💡 NUEVO ESTADO PARA LAS PESTAÑAS
-  const [activeTab, setActiveTab] = useState('Deudores'); 
+  const [activeTab, setActiveTab] = useState<ActiveTab>('Deudores');
 
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState<number>(1);
   const ITEMS_PER_PAGE = 13;
 
-  const [showPayModal, setShowPayModal] = useState(false);
-  const [selectedPropPago, setSelectedPropPago] = useState(null);
+  const [showPayModal, setShowPayModal] = useState<boolean>(false);
+  const [selectedPropPago, setSelectedPropPago] = useState<Propiedad | null>(null);
 
-  const [estadoCuentaModalOpen, setEstadoCuentaModalOpen] = useState(false);
-  const [selectedPropCuenta, setSelectedPropCuenta] = useState(null);
-  const [estadoCuentaData, setEstadoCuentaData] = useState([]);
-  const [loadingCuenta, setLoadingCuenta] = useState(false);
-  const [fechaDesde, setFechaDesde] = useState('');
-  const [fechaHasta, setFechaHasta] = useState('');
+  const [estadoCuentaModalOpen, setEstadoCuentaModalOpen] = useState<boolean>(false);
+  const [selectedPropCuenta, setSelectedPropCuenta] = useState<Propiedad | null>(null);
+  const [estadoCuentaData, setEstadoCuentaData] = useState<EstadoCuentaMovimiento[]>([]);
+  const [loadingCuenta, setLoadingCuenta] = useState<boolean>(false);
+  const [fechaDesde, setFechaDesde] = useState<string>('');
+  const [fechaHasta, setFechaHasta] = useState<string>('');
 
-  const toLocalYmd = (dateLike) => {
-    const d = new Date(dateLike);
+  const toLocalYmd = (dateLike: string | number | Date | undefined): string => {
+    const d = new Date(dateLike ?? '');
     if (Number.isNaN(d.getTime())) return '';
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -36,13 +78,13 @@ export default function CuentasPorCobrar() {
     return `${y}-${m}-${day}`;
   };
 
-  const fetchData = async () => {
+  const fetchData = async (): Promise<void> => {
     const token = localStorage.getItem('habioo_token');
     try {
       const res = await fetch(`${API_BASE_URL}/propiedades-admin`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
+      const data: PropiedadesResponse = await res.json();
       if (data.status === 'success') setPropiedades(data.propiedades || []);
     } catch (error) {
       console.error(error);
@@ -59,19 +101,19 @@ export default function CuentasPorCobrar() {
     setCurrentPage(1);
   }, [searchTerm, activeTab]); // 💡 Resetea la paginación si cambia el buscador o la pestaña
 
-  const handleOpenRegistrarPago = (prop) => {
+  const handleOpenRegistrarPago = (prop: Propiedad): void => {
     setSelectedPropPago(prop);
     setShowPayModal(true);
   };
 
-  const fetchEstadoCuenta = async (propId) => {
+  const fetchEstadoCuenta = async (propId: number): Promise<void> => {
     setLoadingCuenta(true);
     try {
       const token = localStorage.getItem('habioo_token');
       const res = await fetch(`${API_BASE_URL}/propiedades-admin/${propId}/estado-cuenta`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
+      const data: EstadoCuentaResponse = await res.json();
       if (data.status === 'success') setEstadoCuentaData(data.movimientos || []);
     } catch (error) {
       console.error(error);
@@ -80,7 +122,7 @@ export default function CuentasPorCobrar() {
     }
   };
 
-  const handleOpenEstadoCuenta = (prop) => {
+  const handleOpenEstadoCuenta = (prop: Propiedad): void => {
     setSelectedPropCuenta(prop);
     setFechaDesde('');
     setFechaHasta('');
@@ -89,12 +131,12 @@ export default function CuentasPorCobrar() {
   };
 
   // 💡 LÓGICA DE FILTRADO POR PESTAÑAS
-  const baseProperties = activeTab === 'Deudores' 
-    ? propiedades.filter((p) => parseFloat(p.saldo_actual || 0) > 0) 
+  const baseProperties = activeTab === 'Deudores'
+    ? propiedades.filter((p: Propiedad) => toNumber(p.saldo_actual) > 0)
     : propiedades;
 
   const filteredProperties = baseProperties.filter(
-    (p) =>
+    (p: Propiedad) =>
       p.identificador?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.prop_nombre?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -103,22 +145,22 @@ export default function CuentasPorCobrar() {
   const paginatedProperties = filteredProperties.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   let saldoAcumulado = 0;
-  const dataConSaldo = estadoCuentaData.map((mov) => {
-    saldoAcumulado += parseFloat(mov.cargo) - parseFloat(mov.abono);
+  const dataConSaldo: EstadoCuentaMovimientoConSaldo[] = estadoCuentaData.map((mov: EstadoCuentaMovimiento) => {
+    saldoAcumulado += toNumber(mov.cargo) - toNumber(mov.abono);
     return { ...mov, saldoFila: saldoAcumulado };
   });
 
-  const estadoCuentaFiltrado = dataConSaldo.filter((m) => {
+  const estadoCuentaFiltrado: EstadoCuentaMovimientoConSaldo[] = dataConSaldo.filter((m: EstadoCuentaMovimientoConSaldo) => {
     if (!fechaDesde && !fechaHasta) return true;
-    const movYmd = toLocalYmd(m.fecha_registro || m.fecha_operacion);
+    const movYmd = toLocalYmd((m.fecha_registro as string) || (m.fecha_operacion as string));
     if (!movYmd) return false;
     if (fechaDesde && movYmd < fechaDesde) return false;
     if (fechaHasta && movYmd > fechaHasta) return false;
     return true;
   });
 
-  const totalCargo = estadoCuentaFiltrado.reduce((acc, m) => acc + parseFloat(m.cargo), 0);
-  const totalAbono = estadoCuentaFiltrado.reduce((acc, m) => acc + parseFloat(m.abono), 0);
+  const totalCargo = estadoCuentaFiltrado.reduce((acc: number, m: EstadoCuentaMovimientoConSaldo) => acc + toNumber(m.cargo), 0);
+  const totalAbono = estadoCuentaFiltrado.reduce((acc: number, m: EstadoCuentaMovimientoConSaldo) => acc + toNumber(m.abono), 0);
 
   if (userRole !== 'Administrador') return <p className="p-6">No tienes permisos.</p>;
   if (loading) return <p className="text-gray-500 dark:text-gray-400">Cargando cuentas por cobrar...</p>;
@@ -135,7 +177,7 @@ export default function CuentasPorCobrar() {
               type="text"
               placeholder="Buscar inmueble o propietario..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
               className="w-full pl-10 p-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white transition-all"
             />
           </div>
@@ -184,8 +226,8 @@ export default function CuentasPorCobrar() {
                 </tr>
               </thead>
               <tbody>
-                {paginatedProperties.map((p) => {
-                  const saldo = parseFloat(p.saldo_actual || 0);
+                {paginatedProperties.map((p: Propiedad) => {
+                  const saldo = toNumber(p.saldo_actual);
                   
                   // 💡 LÓGICA DE COLORES DINÁMICOS PARA EL SALDO
                   const isDeuda = saldo > 0;
@@ -238,14 +280,14 @@ export default function CuentasPorCobrar() {
             <p className="text-sm text-gray-500 dark:text-gray-400">Página {currentPage} de {totalPages}</p>
             <div className="flex gap-2">
               <button
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                onClick={() => setCurrentPage((p: number) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
                 className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold transition-all"
               >
                 Anterior
               </button>
               <button
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() => setCurrentPage((p: number) => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
                 className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold transition-all"
               >
@@ -289,4 +331,6 @@ export default function CuentasPorCobrar() {
       />
     </div>
   );
-}
+};
+
+export default CuentasPorCobrar;

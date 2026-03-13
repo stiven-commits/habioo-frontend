@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
+import type { FC, MouseEvent, ChangeEvent } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import ModalAgregarGasto from '../components/ModalAgregarGasto';
 import ModalDetallesGasto from '../components/ModalDetallesGasto';
@@ -6,14 +7,134 @@ import { formatMoney } from '../utils/currency';
 import { API_BASE_URL } from '../config/api';
 import { useDialog } from '../components/ui/DialogProvider';
 
-const formatMonthText = (yyyyMm) => {
+interface GastosProps {}
+
+interface OutletContextType {
+  userRole?: string;
+}
+
+type ActiveTab = 'Todos' | 'Comun' | 'Zona' | 'Individual' | 'Extra';
+
+interface GastoCuota {
+  cuota_id: number | string;
+  gasto_id: number | string;
+  proveedor: string;
+  concepto: string;
+  fecha_factura?: string;
+  fecha_registro?: string;
+  factura_img?: string;
+  imagenes?: string[];
+  monto_bs?: string | number;
+  tasa_cambio?: string | number;
+  monto_total_usd?: string | number;
+  monto_pagado_usd?: string | number;
+  total_cuotas: number;
+  nota?: string;
+  tipo?: string;
+  zona_nombre?: string;
+  propiedad_identificador?: string;
+  estado: string;
+  mes_asignado?: string;
+  numero_cuota?: number;
+  saldo_pendiente?: string | number;
+  monto_cuota_usd?: string | number;
+}
+
+interface GastoAgrupado {
+  gasto_id: number | string;
+  proveedor: string;
+  concepto: string;
+  fecha_factura: string;
+  fecha_registro: string;
+  factura_img?: string;
+  imagenes: string[];
+  monto_bs?: string | number;
+  tasa_cambio?: string | number;
+  monto_total_usd?: string | number;
+  monto_pagado_usd: string | number;
+  total_cuotas: number;
+  nota?: string;
+  tipo: string;
+  zona_nombre?: string;
+  propiedad_identificador?: string;
+  cuotas: GastoCuota[];
+  canDelete: boolean;
+}
+
+interface Proveedor {
+  id: number | string;
+  nombre?: string;
+  [key: string]: unknown;
+}
+
+interface Zona {
+  id: number | string;
+  activa?: boolean;
+  nombre?: string;
+  [key: string]: unknown;
+}
+
+interface Propiedad {
+  id: number | string;
+  identificador?: string;
+  [key: string]: unknown;
+}
+
+interface BaseApiResponse {
+  status: string;
+  message?: string;
+  error?: string;
+}
+
+interface GastosApiResponse extends BaseApiResponse {
+  gastos: GastoCuota[];
+}
+
+interface ProveedoresApiResponse extends BaseApiResponse {
+  proveedores: Proveedor[];
+}
+
+interface ZonasApiResponse extends BaseApiResponse {
+  zonas: Zona[];
+}
+
+interface PropiedadesApiResponse extends BaseApiResponse {
+  propiedades: Propiedad[];
+}
+
+interface ConfirmOptions {
+  title: string;
+  message: string;
+  confirmText: string;
+  cancelText: string;
+  variant: 'warning';
+}
+
+interface DialogContextType {
+  showConfirm: (options: ConfirmOptions) => Promise<boolean>;
+}
+
+interface ExtraProgress {
+  pagado: number;
+  total: number;
+  pct: number;
+  isComplete: boolean;
+}
+
+interface ExpandedRows {
+  [key: string]: boolean;
+}
+
+const toNumber = (value: string | number | undefined | null): number => parseFloat(String(value ?? 0)) || 0;
+
+const formatMonthText = (yyyyMm: string | undefined): string => {
   if (!yyyyMm) return '';
   const [year, month] = yyyyMm.split('-');
   const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
   return `${meses[parseInt(month, 10) - 1]} ${year}`;
 };
 
-const parseDisplayDate = (ddmmyyyy) => {
+const parseDisplayDate = (ddmmyyyy: string | undefined): Date | null => {
   if (!ddmmyyyy || ddmmyyyy === 'N/A') return null;
   const [dd, mm, yyyy] = String(ddmmyyyy).split('/');
   if (!dd || !mm || !yyyy) return null;
@@ -21,28 +142,28 @@ const parseDisplayDate = (ddmmyyyy) => {
   return Number.isNaN(d.getTime()) ? null : d;
 };
 
-export default function Gastos() {
-  const { userRole } = useOutletContext();
-  const { showConfirm } = useDialog();
+const Gastos: FC<GastosProps> = () => {
+  const { userRole } = useOutletContext<OutletContextType>();
+  const { showConfirm } = useDialog() as DialogContextType;
 
-  const [gastosAgrupados, setGastosAgrupados] = useState([]);
-  const [proveedores, setProveedores] = useState([]);
-  const [zonas, setZonas] = useState([]);
-  const [propiedades, setPropiedades] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [gastosAgrupados, setGastosAgrupados] = useState<GastoAgrupado[]>([]);
+  const [proveedores, setProveedores] = useState<Proveedor[]>([]);
+  const [zonas, setZonas] = useState<Zona[]>([]);
+  const [propiedades, setPropiedades] = useState<Propiedad[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [fechaDesde, setFechaDesde] = useState('');
-  const [fechaHasta, setFechaHasta] = useState('');
-  const [activeTab, setActiveTab] = useState('Todos');
-  const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [fechaDesde, setFechaDesde] = useState<string>('');
+  const [fechaHasta, setFechaHasta] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('Todos');
+  const [currentPage, setCurrentPage] = useState<number>(1);
   const ITEMS_PER_PAGE = 13;
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedGasto, setSelectedGasto] = useState(null);
-  const [expandedRows, setExpandedRows] = useState({});
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [selectedGasto, setSelectedGasto] = useState<GastoAgrupado | null>(null);
+  const [expandedRows, setExpandedRows] = useState<ExpandedRows>({});
 
-  const fetchData = async () => {
+  const fetchData = async (): Promise<void> => {
     const token = localStorage.getItem('habioo_token');
     try {
       const [resGastos, resProv, resZonas, resProps] = await Promise.all([
@@ -52,15 +173,16 @@ export default function Gastos() {
         fetch(`${API_BASE_URL}/propiedades-admin`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
-      const dataGastos = await resGastos.json();
-      const dataProv = await resProv.json();
-      const dataZonas = await resZonas.json();
-      const dataProps = await resProps.json();
+      const dataGastos: GastosApiResponse = await resGastos.json();
+      const dataProv: ProveedoresApiResponse = await resProv.json();
+      const dataZonas: ZonasApiResponse = await resZonas.json();
+      const dataProps: PropiedadesApiResponse = await resProps.json();
 
       if (dataGastos.status === 'success') {
-        const agrupados = dataGastos.gastos.reduce((acc, curr) => {
-          if (!acc[curr.gasto_id]) {
-            acc[curr.gasto_id] = {
+        const agrupados = dataGastos.gastos.reduce<Record<string, GastoAgrupado>>((acc, curr) => {
+          const key = String(curr.gasto_id);
+          if (!acc[key]) {
+            acc[key] = {
               gasto_id: curr.gasto_id,
               proveedor: curr.proveedor,
               concepto: curr.concepto,
@@ -71,6 +193,7 @@ export default function Gastos() {
               monto_bs: curr.monto_bs,
               tasa_cambio: curr.tasa_cambio,
               monto_total_usd: curr.monto_total_usd,
+              monto_pagado_usd: curr.monto_pagado_usd || 0,
               total_cuotas: curr.total_cuotas,
               nota: curr.nota,
               tipo: curr.tipo || 'Comun',
@@ -80,15 +203,19 @@ export default function Gastos() {
               canDelete: true,
             };
           }
-          acc[curr.gasto_id].cuotas.push(curr);
-          if (curr.estado !== 'Pendiente') acc[curr.gasto_id].canDelete = false;
+          acc[key].monto_pagado_usd = Math.max(
+            toNumber(acc[key].monto_pagado_usd),
+            toNumber(curr.monto_pagado_usd)
+          );
+          acc[key].cuotas.push(curr);
+          if (curr.estado !== 'Pendiente') acc[key].canDelete = false;
           return acc;
         }, {});
         setGastosAgrupados(Object.values(agrupados));
       }
 
       if (dataProv.status === 'success') setProveedores(dataProv.proveedores);
-      if (dataZonas.status === 'success') setZonas((dataZonas.zonas || []).filter((z) => z.activa));
+      if (dataZonas.status === 'success') setZonas((dataZonas.zonas || []).filter((z: Zona) => z.activa));
       if (dataProps.status === 'success') setPropiedades(dataProps.propiedades || []);
     } catch (error) {
       console.error(error);
@@ -105,8 +232,8 @@ export default function Gastos() {
     setCurrentPage(1);
   }, [searchTerm, activeTab, fechaDesde, fechaHasta]);
 
-  const filteredBySearchAndDate = useMemo(() => {
-    return gastosAgrupados.filter((g) => {
+  const filteredBySearchAndDate = useMemo<GastoAgrupado[]>(() => {
+    return gastosAgrupados.filter((g: GastoAgrupado) => {
       const matchesSearch =
         g.concepto?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         g.proveedor?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -125,33 +252,44 @@ export default function Gastos() {
     });
   }, [gastosAgrupados, searchTerm, fechaDesde, fechaHasta]);
 
-  const filteredGastos = useMemo(() => {
-    return filteredBySearchAndDate.filter((g) => {
+  const filteredGastos = useMemo<GastoAgrupado[]>(() => {
+    return filteredBySearchAndDate.filter((g: GastoAgrupado) => {
       if (activeTab === 'Todos') return true;
       if (activeTab === 'Zona') return g.tipo === 'Zona' || g.tipo === 'No Comun';
       return g.tipo === activeTab;
     });
   }, [filteredBySearchAndDate, activeTab]);
 
-  const totalByType = useMemo(() => {
-    const sum = (arr) => arr.reduce((acc, g) => acc + parseFloat(g.monto_total_usd || 0), 0);
+  const totalByType = useMemo<{ Comun: number; Zona: number; Individual: number; Extra: number }>(() => {
+    const sum = (arr: GastoAgrupado[]): number => arr.reduce((acc: number, g: GastoAgrupado) => acc + toNumber(g.monto_total_usd), 0);
     return {
-      Comun: sum(filteredBySearchAndDate.filter((g) => g.tipo === 'Comun')),
-      Zona: sum(filteredBySearchAndDate.filter((g) => g.tipo === 'Zona' || g.tipo === 'No Comun')),
-      Individual: sum(filteredBySearchAndDate.filter((g) => g.tipo === 'Individual')),
-      Extra: sum(filteredBySearchAndDate.filter((g) => g.tipo === 'Extra')),
+      Comun: sum(filteredBySearchAndDate.filter((g: GastoAgrupado) => g.tipo === 'Comun')),
+      Zona: sum(filteredBySearchAndDate.filter((g: GastoAgrupado) => g.tipo === 'Zona' || g.tipo === 'No Comun')),
+      Individual: sum(filteredBySearchAndDate.filter((g: GastoAgrupado) => g.tipo === 'Individual')),
+      Extra: sum(filteredBySearchAndDate.filter((g: GastoAgrupado) => g.tipo === 'Extra')),
     };
   }, [filteredBySearchAndDate]);
 
   const totalPages = Math.ceil(filteredGastos.length / ITEMS_PER_PAGE);
   const paginatedGastos = filteredGastos.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
-  const toggleRow = (id, e) => {
+  const toggleRow = (id: number | string, e: MouseEvent<HTMLElement>): void => {
     e.stopPropagation();
-    setExpandedRows((prev) => ({ ...prev, [id]: !prev[id] }));
+    const key = String(id);
+    setExpandedRows((prev: ExpandedRows) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleDelete = async (gastoId, e) => {
+  const getExtraProgress = (gasto: GastoAgrupado): ExtraProgress => {
+    const total = toNumber(gasto?.monto_total_usd);
+    const pagado = toNumber(gasto?.monto_pagado_usd);
+    const safeTotal = Number.isFinite(total) && total > 0 ? total : 0;
+    const safePagado = Number.isFinite(pagado) ? Math.max(0, pagado) : 0;
+    if (safeTotal <= 0) return { pagado: safePagado, total: safeTotal, pct: 0, isComplete: false };
+    const pct = Math.min(100, Math.max(0, (safePagado / safeTotal) * 100));
+    return { pagado: safePagado, total: safeTotal, pct, isComplete: safePagado >= safeTotal };
+  };
+
+  const handleDelete = async (gastoId: number | string, e: MouseEvent<HTMLButtonElement>): Promise<void> => {
     e.stopPropagation();
     const ok = await showConfirm({
       title: 'Eliminar gasto',
@@ -183,7 +321,7 @@ export default function Gastos() {
             type="text"
             placeholder="Buscar concepto, proveedor..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
             className="w-full pl-10 p-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white transition-all"
           />
         </div>
@@ -193,7 +331,7 @@ export default function Gastos() {
             <input
               type="date"
               value={fechaDesde}
-              onChange={(e) => setFechaDesde(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setFechaDesde(e.target.value)}
               className="p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none dark:text-white text-xs [color-scheme:light] dark:[color-scheme:dark]"
             />
           </div>
@@ -202,7 +340,7 @@ export default function Gastos() {
             <input
               type="date"
               value={fechaHasta}
-              onChange={(e) => setFechaHasta(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setFechaHasta(e.target.value)}
               className="p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none dark:text-white text-xs [color-scheme:light] dark:[color-scheme:dark]"
             />
           </div>
@@ -246,7 +384,7 @@ export default function Gastos() {
 
       <div className="bg-white dark:bg-donezo-card-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
         <div className="flex border-b border-gray-100 dark:border-gray-800 px-6 pt-4 gap-6">
-          {['Todos', 'Comun', 'Zona', 'Individual', 'Extra'].map((tab) => (
+          {(['Todos', 'Comun', 'Zona', 'Individual', 'Extra'] as ActiveTab[]).map((tab: ActiveTab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -284,15 +422,17 @@ export default function Gastos() {
                     </tr>
                   </thead>
                   <tbody>
-                    {paginatedGastos.map((g) => (
+                    {paginatedGastos.map((g: GastoAgrupado) => {
+                      const extraProgress = g.tipo === 'Extra' ? getExtraProgress(g) : null;
+                      return (
                       <React.Fragment key={g.gasto_id}>
                         <tr
                           onDoubleClick={() => setSelectedGasto(g)}
                           className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors"
                         >
-                          <td className="p-3 text-center" onClick={(e) => toggleRow(g.gasto_id, e)}>
+                          <td className="p-3 text-center" onClick={(e: MouseEvent<HTMLElement>) => toggleRow(g.gasto_id, e)}>
                             <button className="text-gray-400 hover:text-donezo-primary transition-colors text-lg">
-                              {expandedRows[g.gasto_id] ? '▼' : '▶'}
+                              {expandedRows[String(g.gasto_id)] ? '▼' : '▶'}
                             </button>
                           </td>
                           <td className="p-3">
@@ -320,7 +460,26 @@ export default function Gastos() {
                               </span>
                             )}
                           </td>
-                          <td className="p-3 text-right font-bold text-gray-800 dark:text-white text-sm">${formatMoney(g.monto_total_usd)}</td>
+                          <td className="p-3 text-right font-bold text-gray-800 dark:text-white text-sm">
+                            {g.tipo === 'Extra' && extraProgress ? (
+                              <div className="min-w-[210px] ml-auto">
+                                <div className="text-right text-sm font-bold text-gray-800 dark:text-white">
+                                  ${formatMoney(g.monto_total_usd)}
+                                </div>
+                                <div className="mt-1 text-[11px] text-gray-500 dark:text-gray-300">
+                                  Recaudado: ${formatMoney(extraProgress.pagado)} / ${formatMoney(extraProgress.total)}
+                                </div>
+                                <div className="mt-1 h-1.5 w-full rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all ${extraProgress.isComplete ? 'bg-emerald-500' : 'bg-sky-500 dark:bg-orange-400'}`}
+                                    style={{ width: `${extraProgress.pct}%` }}
+                                  />
+                                </div>
+                              </div>
+                            ) : (
+                              <>${formatMoney(g.monto_total_usd)}</>
+                            )}
+                          </td>
                           <td className="p-3 text-center">
                             <span className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 py-1 px-3 rounded-full text-xs font-bold">
                               {g.total_cuotas} Mes{g.total_cuotas > 1 ? 'es' : ''}
@@ -331,7 +490,7 @@ export default function Gastos() {
                           </td>
                           <td className="p-3 text-center">
                             {g.canDelete ? (
-                              <button onClick={(e) => handleDelete(g.gasto_id, e)} className="text-red-400 hover:text-red-600 p-2">
+                              <button onClick={(e: MouseEvent<HTMLButtonElement>) => handleDelete(g.gasto_id, e)} className="text-red-400 hover:text-red-600 p-2">
                                 🗑️
                               </button>
                             ) : (
@@ -339,11 +498,11 @@ export default function Gastos() {
                             )}
                           </td>
                         </tr>
-                        {expandedRows[g.gasto_id] &&
-                          g.cuotas.map((c) => (
+                        {expandedRows[String(g.gasto_id)] &&
+                          g.cuotas.map((c: GastoCuota) => (
                             <tr key={c.cuota_id} className="bg-gray-50/50 dark:bg-gray-800/30 border-b border-gray-50 dark:border-gray-800/50">
                               <td className="p-3 border-l-2 border-donezo-primary"></td>
-                              <td className="p-3 text-gray-500 text-xs dark:text-gray-400" colSpan="2">
+                              <td className="p-3 text-gray-500 text-xs dark:text-gray-400" colSpan={2}>
                                 Cobro en: <strong>{formatMonthText(c.mes_asignado)}</strong>
                               </td>
                               <td className="p-3 text-gray-500 text-xs dark:text-gray-400">
@@ -362,7 +521,7 @@ export default function Gastos() {
                             </tr>
                           ))}
                       </React.Fragment>
-                    ))}
+                    );})}
                   </tbody>
                 </table>
               </div>
@@ -372,14 +531,14 @@ export default function Gastos() {
                   <p className="text-sm text-gray-500 dark:text-gray-400">Página {currentPage} de {totalPages}</p>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      onClick={() => setCurrentPage((p: number) => Math.max(1, p - 1))}
                       disabled={currentPage === 1}
                       className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 disabled:opacity-50 text-sm font-bold"
                     >
                       Anterior
                     </button>
                     <button
-                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      onClick={() => setCurrentPage((p: number) => Math.min(totalPages, p + 1))}
                       disabled={currentPage === totalPages}
                       className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 disabled:opacity-50 text-sm font-bold"
                     >
@@ -409,4 +568,6 @@ export default function Gastos() {
       {selectedGasto && <ModalDetallesGasto gasto={selectedGasto} onClose={() => setSelectedGasto(null)} />}
     </div>
   );
-}
+};
+
+export default Gastos;

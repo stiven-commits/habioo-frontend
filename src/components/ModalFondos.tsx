@@ -1,30 +1,90 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import type { FC, ChangeEvent, FormEvent } from 'react';
 import { formatMoney } from '../utils/currency';
 import { API_BASE_URL } from '../config/api';
 import { useDialog } from './ui/DialogProvider';
 
-export default function ModalFondos({ cuenta, onClose, onDeleteFondo }) {
-  const { showAlert, showConfirm } = useDialog();
+interface ModalFondosProps {
+  cuenta: CuentaBancaria;
+  onClose: () => void;
+  onDeleteFondo?: (fondo: Fondo) => void;
+}
 
-  const [fondos, setFondos] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({
-    nombre: '',
-    moneda: 'BS',
-    porcentaje: '',
-    saldo_inicial: '0',
-    es_operativo: false,
-  });
+interface CuentaBancaria {
+  id: number;
+  nombre_banco: string;
+  apodo: string;
+}
 
-  const fetchFondos = async () => {
+interface Fondo {
+  id: number;
+  cuenta_bancaria_id: number;
+  nombre: string;
+  es_operativo: boolean;
+  porcentaje_asignacion: string | number;
+  saldo_actual: string | number;
+  moneda: string;
+}
+
+interface FormState {
+  nombre: string;
+  moneda: string;
+  porcentaje: string;
+  saldo_inicial: string;
+  es_operativo: boolean;
+}
+
+interface FondosResponse {
+  status: string;
+  fondos: Fondo[];
+}
+
+interface ApiActionResponse {
+  status: string;
+  message?: string;
+}
+
+type DialogVariant = 'warning' | 'danger' | 'success';
+
+interface AlertOptions {
+  title: string;
+  message: string;
+  variant: DialogVariant;
+}
+
+interface ConfirmOptions extends AlertOptions {
+  confirmText: string;
+}
+
+interface DialogContextType {
+  showAlert: (options: AlertOptions) => Promise<void>;
+  showConfirm: (options: ConfirmOptions) => Promise<boolean>;
+}
+
+const initialForm: FormState = {
+  nombre: '',
+  moneda: 'BS',
+  porcentaje: '',
+  saldo_inicial: '0',
+  es_operativo: false,
+};
+
+const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo }) => {
+  const { showAlert, showConfirm } = useDialog() as DialogContextType;
+
+  const [fondos, setFondos] = useState<Fondo[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [form, setForm] = useState<FormState>(initialForm);
+
+  const fetchFondos = async (): Promise<void> => {
     const token = localStorage.getItem('habioo_token');
     try {
       const res = await fetch(`${API_BASE_URL}/fondos`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
+      const data: FondosResponse = await res.json();
       if (data.status === 'success') {
-        const fondosCuenta = data.fondos.filter((f) => f.cuenta_bancaria_id === cuenta.id);
+        const fondosCuenta = data.fondos.filter((f: Fondo) => f.cuenta_bancaria_id === cuenta.id);
         setFondos(fondosCuenta);
       }
     } catch (error) {
@@ -39,16 +99,20 @@ export default function ModalFondos({ cuenta, onClose, onDeleteFondo }) {
     fetchFondos();
   }, [cuenta.id]);
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
+    const { name, value } = e.target;
+    const type = e.target instanceof HTMLInputElement ? e.target.type : '';
+    const checked = e.target instanceof HTMLInputElement ? e.target.checked : false;
+
     if (name === 'es_operativo' && checked) {
-      setForm({ ...form, es_operativo: true, porcentaje: '' });
+      setForm((prev: FormState) => ({ ...prev, es_operativo: true, porcentaje: '' }));
       return;
     }
-    setForm({ ...form, [name]: type === 'checkbox' ? checked : value });
+    const field = name as keyof FormState;
+    setForm((prev: FormState) => ({ ...prev, [field]: type === 'checkbox' ? checked : value }));
   };
 
-  const formatCurrencyInput = (value) => {
+  const formatCurrencyInput = (value: string): string => {
     let rawValue = value.replace(/[^0-9,]/g, '');
     if (rawValue.startsWith('0') && rawValue.length > 1 && rawValue[1] !== ',') {
       rawValue = rawValue.replace(/^0+/, '');
@@ -64,11 +128,12 @@ export default function ModalFondos({ cuenta, onClose, onDeleteFondo }) {
     return integerPart;
   };
 
-  const handleMonedaChange = (e) => {
-    setForm({ ...form, [e.target.name]: formatCurrencyInput(e.target.value) });
+  const handleMonedaChange = (e: ChangeEvent<HTMLInputElement>): void => {
+    const field = e.target.name as keyof FormState;
+    setForm((prev: FormState) => ({ ...prev, [field]: formatCurrencyInput(e.target.value) }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     const token = localStorage.getItem('habioo_token');
 
@@ -83,10 +148,10 @@ export default function ModalFondos({ cuenta, onClose, onDeleteFondo }) {
       });
 
       if (res.ok) {
-        setForm({ nombre: '', moneda: 'BS', porcentaje: '', saldo_inicial: '0', es_operativo: false });
+        setForm(initialForm);
         fetchFondos();
       } else {
-        const errorData = await res.json();
+        const errorData: ApiActionResponse = await res.json();
         await showAlert({ title: 'Error', message: errorData.message || 'No se pudo crear el fondo', variant: 'danger' });
       }
     } catch (error) {
@@ -94,7 +159,7 @@ export default function ModalFondos({ cuenta, onClose, onDeleteFondo }) {
     }
   };
 
-  const handleDeleteFondoLocal = async (id) => {
+  const handleDeleteFondoLocal = async (id: number): Promise<void> => {
     const ok = await showConfirm({
       title: 'Eliminar fondo',
       message: 'Esta accion desactiva el fondo si cumple las condiciones. ¿Deseas continuar?',
@@ -109,7 +174,7 @@ export default function ModalFondos({ cuenta, onClose, onDeleteFondo }) {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
+      const data: ApiActionResponse = await res.json();
 
       if (res.ok && data.status === 'success') fetchFondos();
       else await showAlert({ title: 'Error', message: data.message || 'No se pudo eliminar el fondo', variant: 'danger' });
@@ -118,9 +183,9 @@ export default function ModalFondos({ cuenta, onClose, onDeleteFondo }) {
     }
   };
 
-  const porcentajeUsado = fondos.reduce((acc, curr) => acc + parseFloat(curr.porcentaje_asignacion || 0), 0);
+  const porcentajeUsado = fondos.reduce((acc: number, curr: Fondo) => acc + toNumber(curr.porcentaje_asignacion), 0);
   const porcentajeRestante = Math.max(0, 100 - porcentajeUsado).toFixed(2);
-  const tieneOperativo = fondos.some((f) => f.es_operativo);
+  const tieneOperativo = fondos.some((f: Fondo) => f.es_operativo);
 
   return (
     <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
@@ -138,14 +203,14 @@ export default function ModalFondos({ cuenta, onClose, onDeleteFondo }) {
               className={`text-xs font-bold px-3 py-1 rounded-full ${
                 fondos.length === 0
                   ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
-                  : porcentajeRestante > 0
+                  : Number(porcentajeRestante) > 0
                     ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
                     : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
               }`}
             >
               {fondos.length === 0
                 ? 'Asigne un fondo para activar la cuenta'
-                : porcentajeRestante > 0
+                : Number(porcentajeRestante) > 0
                   ? `${porcentajeRestante}% asignado al Fondo Principal`
                   : '100% distribuido'}
             </span>
@@ -157,7 +222,7 @@ export default function ModalFondos({ cuenta, onClose, onDeleteFondo }) {
             </div>
           ) : (
             <div className={`grid grid-cols-1 ${fondos.length > 1 ? 'md:grid-cols-2' : ''} gap-3 max-h-[22rem] overflow-y-auto custom-scrollbar pr-2`}>
-              {fondos.map((f) => (
+              {fondos.map((f: Fondo) => (
                 <div key={f.id} className={`p-4 rounded-xl border flex flex-col gap-3 shadow-sm transition-all ${f.es_operativo ? 'border-donezo-primary bg-blue-50/50 dark:bg-blue-900/10' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'}`}>
                   <div className="flex justify-between items-start">
                     <div>
@@ -238,5 +303,11 @@ export default function ModalFondos({ cuenta, onClose, onDeleteFondo }) {
       </div>
     </div>
   );
-}
+};
 
+const toNumber = (value: string | number | undefined | null): number => {
+  const n = parseFloat(String(value ?? 0));
+  return Number.isFinite(n) ? n : 0;
+};
+
+export default ModalFondos;

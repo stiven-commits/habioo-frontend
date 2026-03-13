@@ -1,7 +1,26 @@
-﻿import React from 'react';
+import React from 'react';
+import type { FC } from 'react';
 import { formatMoney } from '../utils/currency';
 
-export default function ModalDetallesGasto({ gasto, onClose }) {
+interface GastoDetalle {
+  proveedor: string;
+  fecha_factura: string;
+  fecha_registro: string;
+  concepto: string;
+  nota?: string;
+  monto_bs: string | number;
+  tasa_cambio: string | number;
+  monto_total_usd: string | number;
+  factura_img?: string;
+  imagenes?: string[];
+}
+
+interface ModalDetallesGastoProps {
+  gasto: GastoDetalle | null;
+  onClose: () => void;
+}
+
+const ModalDetallesGasto: FC<ModalDetallesGastoProps> = ({ gasto, onClose }) => {
   if (!gasto) return null;
 
   return (
@@ -52,7 +71,7 @@ export default function ModalDetallesGasto({ gasto, onClose }) {
             <div>
               <p className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider dark:text-gray-400">Soportes Adjuntos</p>
               <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-                {gasto.imagenes.map((img, idx) => (
+                {gasto.imagenes.map((img: string, idx: number) => (
                   <a key={idx} href={`https://auth.habioo.cloud${img}`} target="_blank" rel="noreferrer" className="flex-shrink-0">
                     <img src={`https://auth.habioo.cloud${img}`} alt={`Soporte`} className="w-20 h-20 object-cover rounded-lg border border-gray-200 shadow-sm"/>
                   </a>
@@ -66,5 +85,6 @@ export default function ModalDetallesGasto({ gasto, onClose }) {
       </div>
     </div>
   );
-}
+};
 
+export default ModalDetallesGasto;

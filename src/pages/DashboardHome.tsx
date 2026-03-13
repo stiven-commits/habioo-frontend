@@ -1,22 +1,58 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import type { FC } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { formatMoney } from '../utils/currency';
 
-export default function DashboardHome() {
-  const { user, userRole } = useOutletContext();
-  const [propiedades, setPropiedades] = useState([]);
-  const [finanzas, setFinanzas] = useState({ deuda_actual: 0, total_pagado: 0, recibos_pendientes: 0 });
+interface DashboardHomeProps {}
+
+type UserRole = 'Propietario' | 'Administrador' | string;
+
+interface DashboardUser {
+  nombre?: string;
+}
+
+interface OutletContextType {
+  user?: DashboardUser;
+  userRole?: UserRole;
+}
+
+interface PropiedadResumen {
+  rol: string;
+  identificador: string;
+  condominio_nombre: string;
+}
+
+interface FinanzasResumen {
+  deuda_actual: number;
+  total_pagado: number;
+  recibos_pendientes: number;
+}
+
+interface PropsApiResponse {
+  status: string;
+  propiedades: PropiedadResumen[];
+}
+
+interface FinanzasApiResponse {
+  status: string;
+  finanzas: FinanzasResumen;
+}
+
+const DashboardHome: FC<DashboardHomeProps> = () => {
+  const { user, userRole } = useOutletContext<OutletContextType>();
+  const [propiedades, setPropiedades] = useState<PropiedadResumen[]>([]);
+  const [finanzas, setFinanzas] = useState<FinanzasResumen>({ deuda_actual: 0, total_pagado: 0, recibos_pendientes: 0 });
 
   useEffect(() => {
     const token = localStorage.getItem('habioo_token');
     if (!token) return;
 
-    const fetchData = async () => {
+    const fetchData = async (): Promise<void> => {
       try {
         const resProps = await fetch('https://auth.habioo.cloud/mis-propiedades', {
           headers: { Authorization: `Bearer ${token}` }
         });
-        const dataProps = await resProps.json();
+        const dataProps: PropsApiResponse = await resProps.json();
         if (dataProps.status === 'success') {
           setPropiedades(dataProps.propiedades);
         }
@@ -24,7 +60,7 @@ export default function DashboardHome() {
         const resFinanzas = await fetch('https://auth.habioo.cloud/mis-finanzas', {
           headers: { Authorization: `Bearer ${token}` }
         });
-        const dataFinanzas = await resFinanzas.json();
+        const dataFinanzas: FinanzasApiResponse = await resFinanzas.json();
         if (dataFinanzas.status === 'success') {
           setFinanzas(dataFinanzas.finanzas);
         }
@@ -62,7 +98,7 @@ export default function DashboardHome() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-              {propiedades.map((prop, index) => (
+              {propiedades.map((prop: PropiedadResumen, index: number) => (
                 <div key={index} className="bg-gradient-to-br from-donezo-primary to-donezo-green p-6 rounded-3xl shadow-lg text-white transform hover:scale-105 transition-transform">
                   <div className="text-sm bg-white/20 inline-block px-3 py-1 rounded-full mb-3">{prop.rol}</div>
                   <h3 className="text-2xl font-bold">{prop.identificador}</h3>
@@ -81,5 +117,6 @@ export default function DashboardHome() {
       )}
     </div>
   );
-}
+};
 
+export default DashboardHome;

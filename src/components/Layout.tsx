@@ -1,15 +1,45 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 
-export default function Layout() {
-  const [user, setUser] = useState(null);
-  const [userRole, setUserRole] = useState(null);
-  const [theme, setTheme] = useState(localStorage.theme || 'light');
+interface LayoutProps {}
+
+interface User {
+  nombre: string;
+  cedula?: string;
+  [key: string]: unknown;
+}
+
+interface MeResponse {
+  user?: User;
+}
+
+type UserRole = 'Administrador' | 'Residente';
+type Theme = 'light' | 'dark';
+
+const parseStoredUser = (rawUser: string): User | null => {
+  try {
+    const parsed: unknown = JSON.parse(rawUser);
+    if (typeof parsed === 'object' && parsed !== null && 'nombre' in parsed) {
+      const candidate = parsed as Partial<User>;
+      if (typeof candidate.nombre === 'string') {
+        return candidate as User;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+const Layout: React.FC<LayoutProps> = () => {
+  const [user, setUser] = useState<User | null>(null);
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [theme, setTheme] = useState<Theme>(() => (localStorage.theme === 'dark' ? 'dark' : 'light'));
   const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
-    const validateSession = async () => {
+    const validateSession = async (): Promise<void> => {
       const token = localStorage.getItem('habioo_token');
       const userData = localStorage.getItem('habioo_user');
       if (!token || !userData) {
@@ -29,8 +59,15 @@ export default function Layout() {
           return;
         }
 
-        const data = await res.json();
-        const currentUser = data?.user || JSON.parse(userData);
+        const data: MeResponse = (await res.json()) as MeResponse;
+        const currentUser = data.user ?? parseStoredUser(userData);
+        if (!currentUser) {
+          localStorage.removeItem('habioo_token');
+          localStorage.removeItem('habioo_user');
+          navigate('/');
+          return;
+        }
+
         setUser(currentUser);
         const isAdmin = ['J', 'G'].includes((currentUser.cedula || '').charAt(0).toUpperCase());
         setUserRole(isAdmin ? 'Administrador' : 'Residente');
@@ -51,14 +88,16 @@ export default function Layout() {
     localStorage.theme = theme;
   }, [theme]);
 
-  const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark');
+  const toggleTheme: React.MouseEventHandler<HTMLButtonElement> = () => {
+    setTheme((previousTheme: Theme) => (previousTheme === 'dark' ? 'light' : 'dark'));
+  };
 
-  const handleLogout = () => {
+  const handleLogout: React.MouseEventHandler<HTMLButtonElement> = () => {
     localStorage.clear();
     navigate('/');
   };
 
-  const pageTitles = {
+  const pageTitles: Record<string, string> = {
     '/dashboard': 'Panel Principal',
     '/proveedores': 'Directorio de Proveedores',
     '/gastos': 'Gastos Comunes',
@@ -70,7 +109,7 @@ export default function Layout() {
     '/avisos-cobro': 'Avisos y Recibos'
   };
 
-  const navClass = (path) => `block py-3 px-4 rounded-xl transition-all duration-200 font-medium ${
+  const navClass = (path: string): string => `block py-3 px-4 rounded-xl transition-all duration-200 font-medium ${
       location.pathname === path 
         ? 'bg-donezo-primary text-white shadow-lg shadow-green-500/30' 
         : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'
@@ -125,4 +164,6 @@ export default function Layout() {
       </main>
     </div>
   );
-}
+};
+
+export default Layout;

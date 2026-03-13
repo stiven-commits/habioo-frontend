@@ -1,4 +1,5 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import type { FC, ChangeEvent, FormEvent } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import ModalFondos from '../components/ModalFondos';
 import { ModalEliminarFondo } from '../components/BancosModals';
@@ -7,28 +8,106 @@ import { formatMoney } from '../utils/currency';
 import { sanitizeCedulaRif, sanitizePhone, sanitizeEmail, isValidEmail, isValidPhone, isValidCedulaRif } from '../utils/validators';
 import { useDialog } from '../components/ui/DialogProvider';
 
-export default function Bancos() {
-  const { userRole } = useOutletContext();
-  const { showAlert, showConfirm } = useDialog();
+interface BancosProps {}
 
-  const [bancos, setBancos] = useState([]);
-  const [fondos, setFondos] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedBancoForFondos, setSelectedBancoForFondos] = useState(null);
-  const [fondoAEliminar, setFondoAEliminar] = useState(null);
-  const [showForm, setShowForm] = useState(false);
+interface OutletContextType {
+  userRole?: string;
+}
 
-  const [form, setForm] = useState({
-    tipo: 'Transferencia',
-    nombre_banco: '',
-    apodo: '',
-    nombre_titular: '',
-    cedula_rif: '',
-    numero_cuenta: '',
-    telefono: '',
-  });
+type TipoCuenta = 'Transferencia' | 'Pago Movil' | 'Zelle' | 'Efectivo';
+type DialogVariant = 'warning' | 'danger' | 'success';
 
-  const bancosVenezuela = [
+interface DialogAlertOptions {
+  title: string;
+  message: string;
+  variant: DialogVariant;
+}
+
+interface DialogConfirmOptions extends DialogAlertOptions {
+  confirmText: string;
+  cancelText: string;
+}
+
+interface DialogContextType {
+  showAlert: (options: DialogAlertOptions) => Promise<void>;
+  showConfirm: (options: DialogConfirmOptions) => Promise<boolean>;
+}
+
+interface Banco {
+  id: number;
+  es_predeterminada?: boolean;
+  nombre_banco: string;
+  apodo: string;
+  tipo: TipoCuenta | string;
+  nombre_titular: string;
+  cedula_rif?: string;
+  numero_cuenta?: string;
+  telefono?: string;
+  saldo_actual?: string | number;
+  saldo_total?: string | number;
+  saldo?: string | number;
+}
+
+interface Fondo {
+  id: number;
+  cuenta_bancaria_id: number;
+  moneda?: string;
+  saldo_actual?: string | number;
+}
+
+interface BancosResponse {
+  status: string;
+  bancos: Banco[];
+  message?: string;
+}
+
+interface FondosResponse {
+  status: string;
+  fondos: Fondo[];
+  message?: string;
+}
+
+interface ApiActionResponse {
+  status: string;
+  message?: string;
+}
+
+interface FormState {
+  tipo: TipoCuenta;
+  nombre_banco: string;
+  apodo: string;
+  nombre_titular: string;
+  cedula_rif: string;
+  numero_cuenta: string;
+  telefono: string;
+}
+
+type FormField = keyof FormState;
+
+const initialForm: FormState = {
+  tipo: 'Transferencia',
+  nombre_banco: '',
+  apodo: '',
+  nombre_titular: '',
+  cedula_rif: '',
+  numero_cuenta: '',
+  telefono: '',
+};
+
+const Bancos: FC<BancosProps> = () => {
+  const { userRole } = useOutletContext<OutletContextType>();
+  const { showAlert, showConfirm } = useDialog() as DialogContextType;
+
+  const [bancos, setBancos] = useState<Banco[]>([]);
+  const [fondos, setFondos] = useState<Fondo[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [selectedBancoForFondos, setSelectedBancoForFondos] = useState<Banco | null>(null);
+  const [fondoAEliminar, setFondoAEliminar] = useState<Fondo | null>(null);
+  const [showForm, setShowForm] = useState<boolean>(false);
+
+  const [form, setForm] = useState<FormState>(initialForm);
+
+  const bancosVenezuela: string[] = [
     '0102 - Banco de Venezuela',
     '0104 - Banco Venezolano de Credito',
     '0105 - Banco Mercantil',
@@ -55,15 +134,15 @@ export default function Bancos() {
     '0191 - Banco Nacional de Credito (BNC)',
   ];
 
-  const fetchData = async () => {
+  const fetchData = async (): Promise<void> => {
     const token = localStorage.getItem('habioo_token');
     try {
       const [resBancos, resFondos] = await Promise.all([
         fetch(`${API_BASE_URL}/bancos`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API_BASE_URL}/fondos`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
-      const dataBancos = await resBancos.json();
-      const dataFondos = await resFondos.json();
+      const dataBancos: BancosResponse = await resBancos.json();
+      const dataFondos: FondosResponse = await resFondos.json();
 
       if (dataBancos.status === 'success') setBancos(dataBancos.bancos);
       if (dataFondos.status === 'success') setFondos(dataFondos.fondos);
@@ -79,28 +158,29 @@ export default function Bancos() {
     if (userRole === 'Administrador') fetchData();
   }, [userRole]);
 
-  const handleChange = (e) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
     const { name, value } = e.target;
-    if (name === 'tipo') {
-      setForm({ ...form, tipo: value, nombre_banco: '' });
+    const field = name as FormField;
+    if (field === 'tipo') {
+      setForm((prev: FormState) => ({ ...prev, tipo: value as TipoCuenta, nombre_banco: '' }));
       return;
     }
-    if (name === 'telefono') {
-      setForm({ ...form, telefono: sanitizePhone(value) });
+    if (field === 'telefono') {
+      setForm((prev: FormState) => ({ ...prev, telefono: sanitizePhone(value) }));
       return;
     }
-    if (name === 'numero_cuenta' && form.tipo === 'Zelle') {
-      setForm({ ...form, numero_cuenta: sanitizeEmail(value) });
+    if (field === 'numero_cuenta' && form.tipo === 'Zelle') {
+      setForm((prev: FormState) => ({ ...prev, numero_cuenta: sanitizeEmail(value) }));
       return;
     }
-    setForm({ ...form, [name]: value });
+    setForm((prev: FormState) => ({ ...prev, [field]: value }));
   };
 
-  const handleCedulaChange = (e) => {
-    setForm({ ...form, cedula_rif: sanitizeCedulaRif(e.target.value, { withDash: true }) });
+  const handleCedulaChange = (e: ChangeEvent<HTMLInputElement>): void => {
+    setForm((prev: FormState) => ({ ...prev, cedula_rif: sanitizeCedulaRif(e.target.value, { withDash: true }) }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     const token = localStorage.getItem('habioo_token');
     if (['Transferencia', 'Pago Movil'].includes(form.tipo) && !isValidCedulaRif(form.cedula_rif)) {
@@ -124,19 +204,11 @@ export default function Bancos() {
       });
 
       if (res.ok) {
-        setForm({
-          tipo: 'Transferencia',
-          nombre_banco: '',
-          apodo: '',
-          nombre_titular: '',
-          cedula_rif: '',
-          numero_cuenta: '',
-          telefono: '',
-        });
+        setForm(initialForm);
         setShowForm(false);
         fetchData();
       } else {
-        const err = await res.json();
+        const err: ApiActionResponse = await res.json();
         await showAlert({ title: 'Error', message: err.message || 'Error al guardar la cuenta', variant: 'danger' });
       }
     } catch (error) {
@@ -144,7 +216,7 @@ export default function Bancos() {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: number): Promise<void> => {
     const ok = await showConfirm({
       title: 'Eliminar cuenta bancaria',
       message: 'Solo se podra eliminar si sus fondos no tienen movimientos. ¿Deseas continuar?',
@@ -160,7 +232,7 @@ export default function Bancos() {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
+      const data: ApiActionResponse = await res.json();
 
       if (res.ok && data.status === 'success') fetchData();
       else await showAlert({ title: 'Error', message: data.message || 'No se pudo eliminar la cuenta', variant: 'danger' });
@@ -169,7 +241,7 @@ export default function Bancos() {
     }
   };
 
-  const handleSetPredeterminada = async (id) => {
+  const handleSetPredeterminada = async (id: number): Promise<void> => {
     const token = localStorage.getItem('habioo_token');
     try {
       const res = await fetch(`${API_BASE_URL}/bancos/${id}/predeterminada`, {
@@ -177,7 +249,7 @@ export default function Bancos() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const result = await res.json();
+      const result: ApiActionResponse = await res.json();
       if (res.ok && result.status === 'success') {
         fetchData();
       } else {
@@ -189,29 +261,54 @@ export default function Bancos() {
     }
   };
 
-  const handleDeleteFondo = (fondo) => {
+  const handleDeleteFondo = (fondo: Fondo): void => {
     setFondoAEliminar(fondo);
   };
 
-  const renderSaldosCuenta = (cuentaId) => {
-    const fondosCuenta = fondos.filter((f) => f.cuenta_bancaria_id === cuentaId);
-    if (fondosCuenta.length === 0) return <p className="text-sm text-gray-400 italic text-center">Sin fondos registrados</p>;
+  const toNum = (val: string | number | undefined): number => {
+    const n = parseFloat(String(val ?? 0));
+    return Number.isFinite(n) ? n : 0;
+  };
 
-    const saldos = fondosCuenta.reduce((acc, f) => {
-      acc[f.moneda] = (acc[f.moneda] || 0) + parseFloat(f.saldo_actual || 0);
+  const renderSaldosCuenta = (cuenta: Banco): React.ReactNode => {
+    const cuentaId = cuenta?.id;
+    const fondosCuenta = fondos.filter((f: Fondo) => f?.cuenta_bancaria_id === cuentaId);
+
+    const saldos = fondosCuenta.reduce<Record<string, number>>((acc: Record<string, number>, f: Fondo) => {
+      const moneda = f?.moneda || 'N/A';
+      acc[moneda] = (acc[moneda] || 0) + toNum(f?.saldo_actual);
       return acc;
     }, {});
 
+    // Monto real de la cuenta bancaria menos suma de fondos virtuales.
+    // Este diferencial representa entradas no distribuibles en fondos (ej. gastos tipo Extra).
+    const saldoCuentaReal = toNum(cuenta?.saldo_actual ?? cuenta?.saldo_total ?? cuenta?.saldo);
+    const totalFondosCuenta = fondosCuenta.reduce((acc: number, f: Fondo) => acc + toNum(f?.saldo_actual), 0);
+    const fondosTransito = saldoCuentaReal - totalFondosCuenta;
+    const showFondosTransito = fondosTransito > 0;
+
     return (
       <div className="space-y-1.5">
-        {Object.entries(saldos).map(([moneda, monto]) => (
-          <div key={moneda} className="flex justify-between items-center gap-6 border-b border-gray-200 dark:border-gray-700/50 pb-1 last:border-0 last:pb-0">
-            <span className="text-xs font-bold text-gray-500">{moneda}</span>
-            <span className={`font-black tracking-tight ${moneda === 'USD' || moneda === 'EUR' ? 'text-green-600 dark:text-green-400' : 'text-gray-800 dark:text-white'}`}>
-              {formatMoney(monto)}
+        {Object.entries(saldos).length === 0 ? (
+          <p className="text-sm text-gray-400 italic text-center">Sin fondos registrados</p>
+        ) : (
+          Object.entries(saldos).map(([moneda, monto]: [string, number]) => (
+            <div key={moneda} className="flex justify-between items-center gap-6 border-b border-gray-200 dark:border-gray-700/50 pb-1 last:border-0 last:pb-0">
+              <span className="text-xs font-bold text-gray-500">{moneda}</span>
+              <span className={`font-black tracking-tight ${moneda === 'USD' || moneda === 'EUR' ? 'text-green-600 dark:text-green-400' : 'text-gray-800 dark:text-white'}`}>
+                {formatMoney(monto)}
+              </span>
+            </div>
+          ))
+        )}
+        {showFondosTransito && (
+          <div className="flex justify-between items-center gap-6 mt-2 px-2 py-2 rounded-lg border border-dashed border-yellow-500/50 bg-yellow-50/60 dark:bg-yellow-900/10">
+            <span className="text-xs font-bold text-yellow-700 dark:text-yellow-400">Fondos en Transito / Gastos Extra</span>
+            <span className="font-black tracking-tight text-yellow-700 dark:text-yellow-300">
+              {formatMoney(fondosTransito)}
             </span>
           </div>
-        ))}
+        )}
       </div>
     );
   };
@@ -248,7 +345,7 @@ export default function Bancos() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Institucion Bancaria *</label>
                 <select name="nombre_banco" value={form.nombre_banco} onChange={handleChange} required className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white">
                   <option value="" disabled className="text-gray-400">Seleccione el banco...</option>
-                  {bancosVenezuela.map((banco) => (
+                  {bancosVenezuela.map((banco: string) => (
                     <option key={banco} value={banco} className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">{banco}</option>
                   ))}
                 </select>
@@ -289,7 +386,7 @@ export default function Bancos() {
 
       {bancos.length === 0 ? <p className="text-gray-500 text-center py-10 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">No hay cuentas registradas.</p> : (
         <div className="flex flex-col gap-5">
-          {bancos.map((b) => (
+          {bancos.map((b: Banco) => (
             <div key={b.id} className={`bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border flex flex-col xl:flex-row gap-6 justify-between xl:items-center transition-all ${b.es_predeterminada ? 'border-green-400 dark:border-green-600 bg-green-50/10' : 'border-gray-200 dark:border-gray-700'}`}>
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-3">
@@ -310,7 +407,7 @@ export default function Bancos() {
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-donezo-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
                   Saldos Virtuales
                 </p>
-                {renderSaldosCuenta(b.id)}
+                {renderSaldosCuenta(b)}
               </div>
 
               <div className="flex flex-col gap-2 min-w-[220px]">
@@ -360,5 +457,6 @@ export default function Bancos() {
       )}
     </div>
   );
-}
+};
 
+export default Bancos;

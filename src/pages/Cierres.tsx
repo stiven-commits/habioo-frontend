@@ -1,13 +1,86 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import type { FC, ChangeEvent } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { formatMoney } from '../utils/currency';
 import { useDialog } from '../components/ui/DialogProvider';
 import { API_BASE_URL } from '../config/api';
 
-export default function Cierres() {
-  const { userRole } = useOutletContext();
-  const { showConfirm } = useDialog();
-  const [data, setData] = useState({
+interface CierresProps {}
+
+interface OutletContextType {
+  userRole?: string;
+}
+
+interface Propiedad {
+  id: number | string;
+  identificador: string;
+  prop_cedula?: string;
+  alicuota: string;
+}
+
+interface Gasto {
+  mes_asignado: string;
+  proveedor: string;
+  concepto: string;
+  numero_cuota: number | string;
+  total_cuotas: number | string;
+  monto_cuota_usd: string | number;
+  monto_total_usd: string | number;
+}
+
+interface PreliminarData {
+  mes_actual: string;
+  mes_texto: string;
+  total_usd: string;
+  gastos: Gasto[];
+  alicuotas_disponibles: string[];
+  metodo_division: 'Alicuota' | 'Partes Iguales';
+}
+
+interface PreliminarResponse extends PreliminarData {
+  status: string;
+  message?: string;
+  error?: string;
+}
+
+interface PropiedadesResponse {
+  status: string;
+  propiedades: Propiedad[];
+}
+
+interface ApiActionResponse {
+  status: string;
+  message?: string;
+  error?: string;
+}
+
+interface ProjectionMonth {
+  total: number;
+  items: Gasto[];
+}
+
+interface ProyeccionesMap {
+  [mes: string]: ProjectionMonth;
+}
+
+interface ConfirmOptions {
+  title: string;
+  message: string;
+  confirmText: string;
+  cancelText?: string;
+  variant: 'warning' | 'success' | 'danger';
+}
+
+interface DialogContextType {
+  showConfirm: (options: ConfirmOptions) => Promise<boolean>;
+}
+
+const toNumber = (value: string | number | undefined | null): number => parseFloat(String(value ?? 0)) || 0;
+
+const Cierres: FC<CierresProps> = () => {
+  const { userRole } = useOutletContext<OutletContextType>();
+  const { showConfirm } = useDialog() as DialogContextType;
+  const [data, setData] = useState<PreliminarData>({
     mes_actual: '',
     mes_texto: '',
     total_usd: '0.00',
@@ -17,30 +90,38 @@ export default function Cierres() {
   });
 
   // Estados para el Buscador Inteligente
-  const [propiedades, setPropiedades] = useState([]);
-  const [searchProp, setSearchProp] = useState('');
-  const [showDropdown, setShowDropdown] = useState(false);
+  const [propiedades, setPropiedades] = useState<Propiedad[]>([]);
+  const [searchProp, setSearchProp] = useState<string>('');
+  const [showDropdown, setShowDropdown] = useState<boolean>(false);
 
-  const [loading, setLoading] = useState(true);
-  const [selectedGasto, setSelectedGasto] = useState(null);
-  const [simulacionAlicuota, setSimulacionAlicuota] = useState('');
-  const [cambiandoMetodo, setCambiandoMetodo] = useState(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [selectedGasto, setSelectedGasto] = useState<Gasto | null>(null);
+  const [simulacionAlicuota, setSimulacionAlicuota] = useState<string>('');
+  const [cambiandoMetodo, setCambiandoMetodo] = useState<boolean>(false);
+  const [isDivisionExpanded, setIsDivisionExpanded] = useState<boolean>(false);
   // NUEVO ESTADO: Bloquea la pantalla durante el cierre
-  const [isClosing, setIsClosing] = useState(false);
+  const [isClosing, setIsClosing] = useState<boolean>(false);
 
-  const fetchPreliminar = async () => {
+  const fetchPreliminar = async (): Promise<void> => {
     const token = localStorage.getItem('habioo_token');
     try {
       const [resPreliminar, resProps] = await Promise.all([
-        fetch(`${API_BASE_URL}/preliminar`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(`${API_BASE_URL}/propiedades-admin`, { headers: { 'Authorization': `Bearer ${token}` } })
+        fetch(`${API_BASE_URL}/preliminar`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_BASE_URL}/propiedades-admin`, { headers: { Authorization: `Bearer ${token}` } })
       ]);
 
-      const result = await resPreliminar.json();
-      const dataProps = await resProps.json();
+      const result: PreliminarResponse = await resPreliminar.json();
+      const dataProps: PropiedadesResponse = await resProps.json();
 
       if (result.status === 'success') {
-        setData(result);
+        setData({
+          mes_actual: result.mes_actual,
+          mes_texto: result.mes_texto,
+          total_usd: result.total_usd,
+          gastos: result.gastos,
+          alicuotas_disponibles: result.alicuotas_disponibles,
+          metodo_division: result.metodo_division
+        });
         if (result.alicuotas_disponibles.length > 0) setSimulacionAlicuota(result.alicuotas_disponibles[0]);
       }
 
@@ -58,25 +139,25 @@ export default function Cierres() {
   const realCurrentYM = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}`;
   const canCloseMonth = data.mes_actual && data.mes_actual < realCurrentYM;
 
-  const gastosMesActual = data.gastos.filter(g => g.mes_asignado === data.mes_actual);
-  const gastosFuturos = data.gastos.filter(g => g.mes_asignado > data.mes_actual);
+  const gastosMesActual = data.gastos.filter((g: Gasto) => g.mes_asignado === data.mes_actual);
+  const gastosFuturos = data.gastos.filter((g: Gasto) => g.mes_asignado > data.mes_actual);
 
-  const proyecciones = gastosFuturos.reduce((acc, g) => {
+  const proyecciones = gastosFuturos.reduce<ProyeccionesMap>((acc: ProyeccionesMap, g: Gasto) => {
     if (!acc[g.mes_asignado]) acc[g.mes_asignado] = { total: 0, items: [] };
     acc[g.mes_asignado].items.push(g);
-    acc[g.mes_asignado].total += parseFloat(g.monto_cuota_usd);
+    acc[g.mes_asignado].total += toNumber(g.monto_cuota_usd);
     return acc;
   }, {});
 
   const mesesFuturos = Object.keys(proyecciones).sort().slice(0, 4);
 
-  const formatMonthText = (yyyy_mm) => {
+  const formatMonthText = (yyyy_mm: string): string => {
     const [year, month] = yyyy_mm.split('-');
-    const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-    return `${meses[parseInt(month) - 1]} ${year}`;
+    const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    return `${meses[parseInt(month, 10) - 1]} ${year}`;
   };
 
-  const handleCerrarCiclo = async () => {
+  const handleCerrarCiclo = async (): Promise<void> => {
     const ok = await showConfirm({
       title: 'Confirmar cierre de mes',
       message: `Estás a punto de cerrar el mes ${data.mes_texto.toUpperCase()}.\n\nTodos los recibos se generarán usando el método: ${data.metodo_division}.`,
@@ -90,11 +171,11 @@ export default function Cierres() {
     const token = localStorage.getItem('habioo_token');
     
     try {
-      const res = await fetch(`${API_BASE_URL}/cerrar-ciclo`, { 
-        method: 'POST', 
-        headers: { 'Authorization': `Bearer ${token}` } 
+      const res = await fetch(`${API_BASE_URL}/cerrar-ciclo`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
       });
-      const result = await res.json();
+      const result: ApiActionResponse = await res.json();
       
       await showConfirm({
         title: result.status === 'success' ? '✅ Éxito' : '⚠️ Atención',
@@ -104,7 +185,7 @@ export default function Cierres() {
       });
 
       if (result.status === 'success') fetchPreliminar();
-    } catch (error) { 
+    } catch (error) {
       await showConfirm({
         title: 'Error de red',
         message: 'Hubo un problema conectando con el servidor.',
@@ -116,7 +197,7 @@ export default function Cierres() {
     }
   };
 // FUNCION DE PRUEBAS PARA POBLAR LA BASE DE DATOS
-  const handleSeeder = async () => {
+  const handleSeeder = async (): Promise<void> => {
     const ok = await showConfirm({
       title: 'Inyectar datos de prueba',
       message: 'Se borrarán las pruebas anteriores y se crearán 12 gastos nuevos. ¿Deseas continuar?',
@@ -129,59 +210,59 @@ export default function Cierres() {
     setLoading(true);
     const token = localStorage.getItem('habioo_token');
     try {
-      const res = await fetch(`${API_BASE_URL}/dashboard-admin/seed-prueba`, { 
-        method: 'POST', 
-        headers: { 'Authorization': `Bearer ${token}` } 
+      const res = await fetch(`${API_BASE_URL}/dashboard-admin/seed-prueba`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
       });
-      const result = await res.json();
+      const result: ApiActionResponse = await res.json();
       await showConfirm({
         title: 'Seeder',
-        message: result.message || result.error,
+        message: result.message || result.error || '',
         confirmText: 'Entendido',
         variant: 'success',
       });
       fetchPreliminar();
-    } catch (error) { 
+    } catch (error) {
       await showConfirm({ title: 'Error', message: 'Error de conexión con el seeder', confirmText: 'Ok', variant: 'danger' });
       setLoading(false);
     }
   };
   // LOGICA PARA CAMBIAR EL METODO DE DIVISION
-  const handleToggleMethod = async () => {
+  const handleToggleMethod = async (): Promise<void> => {
     if (cambiandoMetodo) return;
-    const nuevoMetodo = data.metodo_division === 'Alicuota' ? 'Partes Iguales' : 'Alicuota';
+    const nuevoMetodo: PreliminarData['metodo_division'] = data.metodo_division === 'Alicuota' ? 'Partes Iguales' : 'Alicuota';
     
     setCambiandoMetodo(true);
-    setData(prev => ({ ...prev, metodo_division: nuevoMetodo }));
+    setData((prev: PreliminarData) => ({ ...prev, metodo_division: nuevoMetodo }));
 
     const token = localStorage.getItem('habioo_token');
     try {
       const res = await fetch(`${API_BASE_URL}/metodo-division`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ metodo: nuevoMetodo })
       });
-      const result = await res.json();
+      const result: ApiActionResponse = await res.json();
       if (result.status !== 'success') {
-        setData(prev => ({ ...prev, metodo_division: data.metodo_division }));
+        setData((prev: PreliminarData) => ({ ...prev, metodo_division: data.metodo_division }));
         await showConfirm({ title: 'Error', message: 'Error al guardar la preferencia.', confirmText: 'Ok', variant: 'danger' });
       }
     } catch (error) {
-      setData(prev => ({ ...prev, metodo_division: data.metodo_division }));
+      setData((prev: PreliminarData) => ({ ...prev, metodo_division: data.metodo_division }));
       await showConfirm({ title: 'Error de red', message: 'No se pudo cambiar el método.', confirmText: 'Ok', variant: 'danger' });
     } finally {
       setCambiandoMetodo(false);
     }
   };
 
-  const calcularProyeccion = () => {
-    const total = parseFloat(data.total_usd);
+  const calcularProyeccion = (): string => {
+    const total = toNumber(data.total_usd);
     if (data.metodo_division === 'Alicuota') {
-      const alicuota = parseFloat(simulacionAlicuota) || 0;
+      const alicuota = toNumber(simulacionAlicuota) || 0;
       return (total * (alicuota / 100)).toFixed(2);
     } else {
       // Si es partes iguales, divide el total entre el numero de inmuebles registrados
-      const totalProps = propiedades.length || 1; 
+      const totalProps = propiedades.length || 1;
       return (total / totalProps).toFixed(2);
     }
   };
@@ -201,51 +282,78 @@ export default function Cierres() {
         </div>
       )}
 
-      {/* NUEVO PANEL: REGLA DE DISTRIBUCION (EL SUICHE) */}
-      <div className="bg-white dark:bg-donezo-card-dark px-8 py-10 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 my-6 flex flex-col items-center justify-center">
-        <h3 className="text-sm font-black text-gray-400 dark:text-gray-500 mb-8 uppercase tracking-widest text-center">
-          ⚖️ Metodo de Distribucion de Gastos
-        </h3>
-
-        <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-12 w-full max-w-4xl">
-          
-          {/* Lado Alicuota */}
-          <div className={`flex-1 text-center md:text-right transition-all duration-500 ${data.metodo_division === 'Alicuota' ? 'opacity-100 scale-105' : 'opacity-40 grayscale scale-95'}`}>
-            <h4 className="font-black text-blue-600 dark:text-blue-400 text-2xl mb-2">Por Alicuota</h4>
-            <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed font-medium">
-              El total de los gastos se multiplica por el porcentaje (%) exacto de participacion de cada inmueble. 
-              <br/><span className="text-blue-500 font-bold">Recomendado para edificios con distintos metrajes.</span>
-            </p>
-          </div>
-
-          {/* El Suiche Interactivo */}
-          <div className="flex items-center justify-center shrink-0">
-            <button
-              onClick={handleToggleMethod}
-              disabled={cambiandoMetodo}
-              className={`relative w-28 h-12 flex items-center rounded-full p-1.5 transition-colors duration-500 focus:outline-none shadow-inner disabled:opacity-50 ${
-                data.metodo_division === 'Alicuota' ? 'bg-blue-500' : 'bg-purple-500'
-              }`}
+      {/* PANEL ACORDEON: METODO DE DIVISION */}
+      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 my-6 overflow-hidden transition-all duration-300">
+        <button
+          type="button"
+          onClick={() => setIsDivisionExpanded((prev: boolean) => !prev)}
+          className="w-full px-6 md:px-8 py-5 text-left cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
+        >
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-widest text-gray-400 dark:text-gray-500">Metodo de Distribucion de Gastos</p>
+              <p className="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                Metodo de Division Actual: <span className="text-donezo-primary dark:text-blue-300">{data.metodo_division}</span>
+              </p>
+            </div>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              className={`w-5 h-5 text-gray-500 dark:text-gray-300 transition-transform duration-300 ${isDivisionExpanded ? 'rotate-180' : ''}`}
             >
-              <div 
-                className={`bg-white w-9 h-9 rounded-full shadow-lg transform transition-transform duration-500 ease-spring flex items-center justify-center ${
-                  data.metodo_division === 'Alicuota' ? 'translate-x-0' : 'translate-x-16'
-                }`}
-              >
-                <span className="text-lg">{data.metodo_division === 'Alicuota' ? '📊' : '➗'}</span>
-              </div>
-            </button>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
+            </svg>
           </div>
+        </button>
 
-          {/* Lado Partes Iguales */}
-          <div className={`flex-1 text-center md:text-left transition-all duration-500 ${data.metodo_division === 'Partes Iguales' ? 'opacity-100 scale-105' : 'opacity-40 grayscale scale-95'}`}>
-            <h4 className="font-black text-purple-600 dark:text-purple-400 text-2xl mb-2">Partes Iguales</h4>
-            <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed font-medium">
-              El total de los gastos se divide de manera lineal y exacta entre el numero total de inmuebles activos. 
-              <br/><span className="text-purple-500 font-bold">Todos pagaran exactamente el mismo monto.</span>
+        <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isDivisionExpanded ? 'max-h-[900px] opacity-100' : 'max-h-0 opacity-0'}`}>
+          <div className="px-6 md:px-8 pb-8 pt-2">
+            <p className="text-sm text-gray-500 dark:text-slate-400 mb-6">
+              El metodo de division suele configurarse automaticamente segun las alicuotas de sus inmuebles. Cambie esta configuracion haciendo clic en el switch solo si esta seguro de que el prorrateo para este cierre debe ser diferente.
             </p>
-          </div>
 
+            <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-12 w-full max-w-4xl mx-auto">
+              {/* Lado Alicuota */}
+              <div className={`flex-1 text-center md:text-right transition-all duration-500 ${data.metodo_division === 'Alicuota' ? 'opacity-100 scale-105' : 'opacity-40 grayscale scale-95'}`}>
+                <h4 className="font-black text-blue-600 dark:text-blue-400 text-2xl mb-2">Por Alicuota</h4>
+                <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed font-medium">
+                  El total de los gastos se multiplica por el porcentaje (%) exacto de participacion de cada inmueble.
+                  <br /><span className="text-blue-500 font-bold">Recomendado para edificios con distintos metrajes.</span>
+                </p>
+              </div>
+
+              {/* Switch */}
+              <div className="flex items-center justify-center shrink-0">
+                <button
+                  onClick={handleToggleMethod}
+                  disabled={cambiandoMetodo}
+                  className={`relative w-28 h-12 flex items-center rounded-full p-1.5 transition-colors duration-500 focus:outline-none shadow-inner disabled:opacity-50 ${
+                    data.metodo_division === 'Alicuota' ? 'bg-blue-500' : 'bg-purple-500'
+                  }`}
+                >
+                  <div
+                    className={`bg-white w-9 h-9 rounded-full shadow-lg transform transition-transform duration-500 ease-spring flex items-center justify-center ${
+                      data.metodo_division === 'Alicuota' ? 'translate-x-0' : 'translate-x-16'
+                    }`}
+                  >
+                    <span className="text-lg">{data.metodo_division === 'Alicuota' ? '📊' : '➗'}</span>
+                  </div>
+                </button>
+              </div>
+
+              {/* Lado Partes Iguales */}
+              <div className={`flex-1 text-center md:text-left transition-all duration-500 ${data.metodo_division === 'Partes Iguales' ? 'opacity-100 scale-105' : 'opacity-40 grayscale scale-95'}`}>
+                <h4 className="font-black text-purple-600 dark:text-purple-400 text-2xl mb-2">Partes Iguales</h4>
+                <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed font-medium">
+                  El total de los gastos se divide de manera lineal y exacta entre el numero total de inmuebles activos.
+                  <br /><span className="text-purple-500 font-bold">Todos pagaran exactamente el mismo monto.</span>
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -273,10 +381,10 @@ export default function Cierres() {
                 {/* BUSCADOR ALICUOTA */}
                 <div className="relative w-full sm:w-1/2">
                   <label className="text-xs text-blue-700 dark:text-blue-300 block mb-1 font-bold">Buscar Inmueble</label>
-                  <input type="text" value={searchProp} onChange={(e) => { setSearchProp(e.target.value); setShowDropdown(true); }} onFocus={() => setShowDropdown(true)} onBlur={() => setTimeout(() => setShowDropdown(false), 200)} placeholder="Ej: Apto 12..." className="p-2.5 rounded-xl border border-blue-200 bg-white dark:bg-gray-800 dark:border-blue-800 outline-none focus:ring-2 focus:ring-blue-400 w-full text-sm dark:text-white" />
+                  <input type="text" value={searchProp} onChange={(e: ChangeEvent<HTMLInputElement>) => { setSearchProp(e.target.value); setShowDropdown(true); }} onFocus={() => setShowDropdown(true)} onBlur={() => setTimeout(() => setShowDropdown(false), 200)} placeholder="Ej: Apto 12..." className="p-2.5 rounded-xl border border-blue-200 bg-white dark:bg-gray-800 dark:border-blue-800 outline-none focus:ring-2 focus:ring-blue-400 w-full text-sm dark:text-white" />
                   {showDropdown && searchProp && (
                     <ul className="absolute z-50 w-full bg-white dark:bg-gray-800 border border-blue-100 dark:border-blue-700 rounded-xl shadow-2xl max-h-48 overflow-y-auto mt-2 custom-scrollbar">
-                      {propiedades.filter(p => p.identificador.toLowerCase().includes(searchProp.toLowerCase()) || (p.prop_cedula && p.prop_cedula.toLowerCase().includes(searchProp.toLowerCase()))).map(p => (
+                      {propiedades.filter((p: Propiedad) => p.identificador.toLowerCase().includes(searchProp.toLowerCase()) || (p.prop_cedula && p.prop_cedula.toLowerCase().includes(searchProp.toLowerCase()))).map((p: Propiedad) => (
                           <li key={p.id} className="p-3 hover:bg-blue-50 dark:hover:bg-blue-900/30 cursor-pointer border-b border-gray-50 dark:border-gray-700/50 transition-colors" onClick={() => { setSearchProp(`${p.identificador}`); setSimulacionAlicuota(p.alicuota); setShowDropdown(false); }}>
                             <div className="flex justify-between items-center"><strong className="text-gray-800 dark:text-white text-sm">{p.identificador}</strong><span className="text-xs font-bold text-donezo-primary">{p.alicuota}%</span></div>
                           </li>
@@ -287,8 +395,8 @@ export default function Cierres() {
                 {/* SELECTOR MANUAL */}
                 <div className="w-full sm:w-1/4">
                   <label className="text-xs text-blue-700 dark:text-blue-300 block mb-1 font-bold">Alicuota (%)</label>
-                  <select value={simulacionAlicuota} onChange={(e) => { setSimulacionAlicuota(e.target.value); setSearchProp(''); }} className="p-2.5 rounded-xl border border-blue-200 bg-white dark:bg-gray-800 dark:border-blue-800 outline-none w-full text-sm font-bold dark:text-white">
-                    {data.alicuotas_disponibles.map((a, i) => <option key={i} value={a}>{a}%</option>)}
+                  <select value={simulacionAlicuota} onChange={(e: ChangeEvent<HTMLSelectElement>) => { setSimulacionAlicuota(e.target.value); setSearchProp(''); }} className="p-2.5 rounded-xl border border-blue-200 bg-white dark:bg-gray-800 dark:border-blue-800 outline-none w-full text-sm font-bold dark:text-white">
+                    {data.alicuotas_disponibles.map((a: string, i: number) => <option key={i} value={a}>{a}%</option>)}
                   </select>
                 </div>
                 {/* RESULTADO ALICUOTA */}
@@ -345,7 +453,7 @@ export default function Cierres() {
                 </tr>
               </thead>
               <tbody>
-                {gastosMesActual.map((g, i) => (
+                {gastosMesActual.map((g: Gasto, i: number) => (
                   <tr key={i} onDoubleClick={() => setSelectedGasto(g)} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer">
                     <td className="p-3 text-gray-800 dark:text-gray-300 font-medium text-sm">{g.proveedor}</td>
                     <td className="p-3 text-gray-600 dark:text-gray-400 text-sm">{g.concepto}</td>
@@ -363,12 +471,12 @@ export default function Cierres() {
         <div className="mt-10">
           <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">🚀 Proyecciones de Meses Siguientes</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            {mesesFuturos.map(mes => (
+            {mesesFuturos.map((mes: string) => (
               <div key={mes} className="bg-gray-50 dark:bg-gray-800/50 p-5 rounded-2xl border border-gray-200 dark:border-gray-700 opacity-80 hover:opacity-100 transition-opacity">
                 <h4 className="font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider text-xs mb-3">{formatMonthText(mes)}</h4>
 
                 <div className="space-y-3 mb-4 h-32 overflow-y-auto pr-1 custom-scrollbar">
-                  {proyecciones[mes].items.map((item, idx) => (
+                  {proyecciones[mes].items.map((item: Gasto, idx: number) => (
                     <div key={idx} className="bg-white dark:bg-gray-800 p-2 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 text-xs">
                       <p className="font-bold text-gray-800 dark:text-gray-200 truncate">{item.concepto}</p>
                       <div className="flex justify-between items-center mt-1 text-gray-500 dark:text-gray-400">
@@ -429,6 +537,6 @@ export default function Cierres() {
       )}
     </div>
   );
-}
+};
 
-
+export default Cierres;

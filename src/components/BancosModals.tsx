@@ -1,30 +1,92 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { formatMoney } from '../utils/currency';
 import { API_BASE_URL } from '../config/api';
 import { useDialog } from './ui/DialogProvider';
 
-function parseNumber(val) {
+interface ModalBaseProps {
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+interface Fondo {
+  id: number | string;
+  nombre: string;
+  moneda: string;
+  saldo_actual: number | string;
+}
+
+interface GastoPendiente {
+  id: number | string;
+  proveedor: string;
+  concepto: string;
+  deuda_restante: number | string;
+}
+
+interface ApiResult {
+  status: 'success' | 'error' | string;
+  message?: string;
+  error?: string;
+}
+
+interface FondosResponse extends ApiResult {
+  fondos?: Fondo[];
+}
+
+interface GastosPendientesResponse extends ApiResult {
+  gastos?: GastoPendiente[];
+}
+
+interface PagoProveedorForm {
+  gasto_id: string;
+  fondo_id: string;
+  monto_origen: string;
+  tasa_cambio: string;
+  referencia: string;
+  fecha_pago: string;
+  nota: string;
+}
+
+interface TransferenciaForm {
+  fondo_origen_id: string;
+  fondo_destino_id: string;
+  monto_origen: string;
+  tasa_cambio: string;
+  referencia: string;
+  fecha: string;
+  nota: string;
+}
+
+interface BcvResponse {
+  promedio?: number | string;
+}
+
+interface ModalEliminarFondoProps extends ModalBaseProps {
+  fondo: Fondo | null;
+  fondosDisponibles: Fondo[];
+}
+
+function parseNumber(val: unknown): number {
   return parseFloat(String(val || '').replace(/\./g, '').replace(',', '.')) || 0;
 }
 
-function formatNumberInput(value, maxDecimals = 2) {
-  let cleaned = String(value || '').replace(/[^0-9,]/g, '');
-  const parts = cleaned.split(',');
+function formatNumberInput(value: unknown, maxDecimals = 2): string {
+  const cleanedRaw = String(value || '').replace(/[^0-9,]/g, '');
+  const parts = cleanedRaw.split(',');
   parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   const integerPart = parts[0];
   const decimalPart = (parts[1] || '').slice(0, maxDecimals);
   return decimalPart ? `${integerPart},${decimalPart}` : integerPart;
 }
 
-export function ModalPagoProveedor({ onClose, onSuccess }) {
+export const ModalPagoProveedor: React.FC<ModalBaseProps> = ({ onClose, onSuccess }) => {
   const { showAlert, showConfirm } = useDialog();
 
-  const [fondos, setFondos] = useState([]);
-  const [gastos, setGastos] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [isFetchingBCV, setIsFetchingBCV] = useState(false);
+  const [fondos, setFondos] = useState<Fondo[]>([]);
+  const [gastos, setGastos] = useState<GastoPendiente[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [isFetchingBCV, setIsFetchingBCV] = useState<boolean>(false);
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<PagoProveedorForm>({
     gasto_id: '',
     fondo_id: '',
     monto_origen: '',
@@ -35,7 +97,7 @@ export function ModalPagoProveedor({ onClose, onSuccess }) {
   });
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchData = async (): Promise<void> => {
       const token = localStorage.getItem('habioo_token');
       const headers = { Authorization: `Bearer ${token}` };
       try {
@@ -43,11 +105,11 @@ export function ModalPagoProveedor({ onClose, onSuccess }) {
           fetch(`${API_BASE_URL}/fondos`, { headers }),
           fetch(`${API_BASE_URL}/gastos-pendientes-pago`, { headers }),
         ]);
-        const dataFondos = await resFondos.json();
-        const dataGastos = await resGastos.json();
+        const dataFondos: FondosResponse = (await resFondos.json()) as FondosResponse;
+        const dataGastos: GastosPendientesResponse = (await resGastos.json()) as GastosPendientesResponse;
 
-        if (dataFondos.status === 'success') setFondos(dataFondos.fondos);
-        if (dataGastos.status === 'success') setGastos(dataGastos.gastos);
+        if (dataFondos.status === 'success' && Array.isArray(dataFondos.fondos)) setFondos(dataFondos.fondos);
+        if (dataGastos.status === 'success' && Array.isArray(dataGastos.gastos)) setGastos(dataGastos.gastos);
       } catch (error) {
         console.error(error);
         await showAlert({ title: 'Error', message: 'No se pudieron cargar fondos y gastos pendientes.', variant: 'danger' });
@@ -61,12 +123,12 @@ export function ModalPagoProveedor({ onClose, onSuccess }) {
   const selectedFondo = fondos.find((f) => f.id.toString() === form.fondo_id);
   const isBs = selectedFondo?.moneda === 'BS';
 
-  const fetchBCV = async () => {
+  const fetchBCV = async (): Promise<void> => {
     setIsFetchingBCV(true);
     try {
       const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
-      const json = await response.json();
-      if (json?.promedio) setForm((prev) => ({ ...prev, tasa_cambio: String(json.promedio) }));
+      const json: BcvResponse = (await response.json()) as BcvResponse;
+      if (json?.promedio) setForm((prev: PagoProveedorForm) => ({ ...prev, tasa_cambio: String(json.promedio) }));
     } catch {
       await showAlert({ title: 'BCV no disponible', message: 'No se pudo obtener la tasa BCV.', variant: 'warning' });
     } finally {
@@ -80,7 +142,7 @@ export function ModalPagoProveedor({ onClose, onSuccess }) {
     return isBs ? monto / tasa : monto;
   }, [form.monto_origen, form.tasa_cambio, isBs]);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
 
     const ok = await showConfirm({
@@ -103,7 +165,7 @@ export function ModalPagoProveedor({ onClose, onSuccess }) {
           monto_bs: isBs ? form.monto_origen : null,
         }),
       });
-      const result = await res.json();
+      const result: ApiResult = (await res.json()) as ApiResult;
       if (result.status === 'success') {
         await showAlert({ title: 'Pago registrado', message: result.message, variant: 'success' });
         onSuccess();
@@ -127,7 +189,7 @@ export function ModalPagoProveedor({ onClose, onSuccess }) {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Factura Pendiente *</label>
-              <select required value={form.gasto_id} onChange={(e) => setForm({ ...form, gasto_id: e.target.value })} className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary">
+              <select required value={form.gasto_id} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setForm({ ...form, gasto_id: e.target.value })} className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary">
                 <option value="">Seleccione una factura...</option>
                 {gastos.map((g) => (
                   <option key={g.id} value={g.id}>{g.proveedor} - {g.concepto} (Debe: ${g.deuda_restante})</option>
@@ -137,7 +199,7 @@ export function ModalPagoProveedor({ onClose, onSuccess }) {
 
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Fondo de Origen *</label>
-              <select required value={form.fondo_id} onChange={(e) => setForm({ ...form, fondo_id: e.target.value })} className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary">
+              <select required value={form.fondo_id} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setForm({ ...form, fondo_id: e.target.value })} className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary">
                 <option value="">Seleccione un fondo...</option>
                 {fondos.map((f) => (
                   <option key={f.id} value={f.id}>{f.nombre} ({f.moneda}) - Disp: {f.moneda === 'USD' ? '$' : 'Bs'}{formatMoney(f.saldo_actual)}</option>
@@ -148,14 +210,14 @@ export function ModalPagoProveedor({ onClose, onSuccess }) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Monto Pagado ({selectedFondo ? selectedFondo.moneda : '?'}) *</label>
-                <input required type="number" step="0.01" value={form.monto_origen} onChange={(e) => setForm({ ...form, monto_origen: e.target.value })} placeholder="0.00" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
+                <input required type="number" step="0.01" value={form.monto_origen} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, monto_origen: e.target.value })} placeholder="0.00" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
               </div>
 
               {isBs && (
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tasa BCV *</label>
                   <div className="flex gap-2">
-                    <input required type="number" step="0.01" value={form.tasa_cambio} onChange={(e) => setForm({ ...form, tasa_cambio: e.target.value })} placeholder="Ej: 36.50" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
+                    <input required type="number" step="0.01" value={form.tasa_cambio} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, tasa_cambio: e.target.value })} placeholder="Ej: 36.50" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
                     <button type="button" onClick={fetchBCV} disabled={isFetchingBCV} className="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200 px-3 rounded-xl font-bold border border-blue-300 dark:border-blue-700">
                       {isFetchingBCV ? '...' : 'BCV'}
                     </button>
@@ -174,11 +236,11 @@ export function ModalPagoProveedor({ onClose, onSuccess }) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Referencia *</label>
-                <input required type="text" value={form.referencia} onChange={(e) => setForm({ ...form, referencia: e.target.value })} className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
+                <input required type="text" value={form.referencia} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, referencia: e.target.value })} className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Fecha *</label>
-                <input required type="date" max={new Date().toISOString().split('T')[0]} value={form.fecha_pago} onChange={(e) => setForm({ ...form, fecha_pago: e.target.value })} className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
+                <input required type="date" max={new Date().toISOString().split('T')[0]} value={form.fecha_pago} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, fecha_pago: e.target.value })} className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
               </div>
             </div>
 
@@ -188,16 +250,16 @@ export function ModalPagoProveedor({ onClose, onSuccess }) {
       </div>
     </div>
   );
-}
+};
 
-export function ModalTransferencia({ onClose, onSuccess }) {
+export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSuccess }) => {
   const { showAlert, showConfirm } = useDialog();
 
-  const [fondos, setFondos] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [isFetchingBCV, setIsFetchingBCV] = useState(false);
+  const [fondos, setFondos] = useState<Fondo[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [isFetchingBCV, setIsFetchingBCV] = useState<boolean>(false);
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<TransferenciaForm>({
     fondo_origen_id: '',
     fondo_destino_id: '',
     monto_origen: '',
@@ -208,12 +270,12 @@ export function ModalTransferencia({ onClose, onSuccess }) {
   });
 
   useEffect(() => {
-    const fetchFondos = async () => {
+    const fetchFondos = async (): Promise<void> => {
       const token = localStorage.getItem('habioo_token');
       try {
         const res = await fetch(`${API_BASE_URL}/fondos`, { headers: { Authorization: `Bearer ${token}` } });
-        const data = await res.json();
-        if (data.status === 'success') setFondos(data.fondos);
+        const data: FondosResponse = (await res.json()) as FondosResponse;
+        if (data.status === 'success' && Array.isArray(data.fondos)) setFondos(data.fondos);
       } catch (error) {
         console.error(error);
         await showAlert({ title: 'Error', message: 'No se pudieron cargar los fondos.', variant: 'danger' });
@@ -228,11 +290,11 @@ export function ModalTransferencia({ onClose, onSuccess }) {
   const fondosDestino = fondos.filter((f) => f.id.toString() !== form.fondo_origen_id);
   const fondoDestino = fondos.find((f) => f.id.toString() === form.fondo_destino_id);
 
-  const isDifferentCurrency = fondoOrigen && fondoDestino && fondoOrigen.moneda !== fondoDestino.moneda;
-  const involvesBs = fondoOrigen && fondoDestino && (fondoOrigen.moneda === 'BS' || fondoDestino.moneda === 'BS');
+  const isDifferentCurrency = Boolean(fondoOrigen && fondoDestino && fondoOrigen.moneda !== fondoDestino.moneda);
+  const involvesBs = Boolean(fondoOrigen && fondoDestino && (fondoOrigen.moneda === 'BS' || fondoDestino.moneda === 'BS'));
 
   let montoDestinoFinal = parseNumber(form.monto_origen);
-  if (isDifferentCurrency && form.monto_origen && form.tasa_cambio) {
+  if (isDifferentCurrency && form.monto_origen && form.tasa_cambio && fondoOrigen && fondoDestino) {
     const monto = parseNumber(form.monto_origen);
     const tasa = parseNumber(form.tasa_cambio);
     if (fondoOrigen.moneda === 'BS' && fondoDestino.moneda === 'USD') montoDestinoFinal = Number((monto / tasa).toFixed(2));
@@ -254,13 +316,13 @@ export function ModalTransferencia({ onClose, onSuccess }) {
     (!involvesBs || tasaNum > 0)
   );
 
-  const fetchBCV = async () => {
+  const fetchBCV = async (): Promise<void> => {
     setIsFetchingBCV(true);
     try {
       const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
-      const json = await response.json();
+      const json: BcvResponse = (await response.json()) as BcvResponse;
       if (json?.promedio) {
-        setForm((prev) => ({ ...prev, tasa_cambio: formatNumberInput(String(json.promedio).replace('.', ','), 2) }));
+        setForm((prev: TransferenciaForm) => ({ ...prev, tasa_cambio: formatNumberInput(String(json.promedio).replace('.', ','), 2) }));
       }
     } catch {
       await showAlert({ title: 'BCV no disponible', message: 'No se pudo obtener la tasa BCV.', variant: 'warning' });
@@ -269,7 +331,7 @@ export function ModalTransferencia({ onClose, onSuccess }) {
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
 
     if (!form.fondo_origen_id || !form.fondo_destino_id) {
@@ -282,6 +344,10 @@ export function ModalTransferencia({ onClose, onSuccess }) {
     }
     if (involvesBs && tasaNum <= 0) {
       await showAlert({ title: 'Tasa requerida', message: 'Debe indicar una tasa BCV valida para calcular USD.', variant: 'warning' });
+      return;
+    }
+    if (!fondoOrigen || !fondoDestino) {
+      await showAlert({ title: 'Fondos invalidos', message: 'No se pudo identificar el fondo de origen o destino.', variant: 'warning' });
       return;
     }
 
@@ -306,7 +372,7 @@ export function ModalTransferencia({ onClose, onSuccess }) {
           monto_destino: montoDestinoFinal,
         }),
       });
-      const result = await res.json();
+      const result: ApiResult = (await res.json()) as ApiResult;
       if (result.status === 'success') {
         await showAlert({ title: 'Transferencia aplicada', message: result.message, variant: 'success' });
         onSuccess();
@@ -330,7 +396,7 @@ export function ModalTransferencia({ onClose, onSuccess }) {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-blue-700 dark:text-blue-300 uppercase mb-1">Sale de (Origen) *</label>
-              <select required value={form.fondo_origen_id} onChange={(e) => setForm({ ...form, fondo_origen_id: e.target.value, fondo_destino_id: '' })} className="w-full p-3 rounded-xl border border-blue-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-blue-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-400 font-semibold">
+              <select required value={form.fondo_origen_id} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setForm({ ...form, fondo_origen_id: e.target.value, fondo_destino_id: '' })} className="w-full p-3 rounded-xl border border-blue-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-blue-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-400 font-semibold">
                 <option value="">Seleccione fondo origen...</option>
                 {fondos.map((f) => <option key={f.id} value={f.id}>{f.nombre} ({f.moneda}) - Disp: {f.moneda === 'USD' ? '$' : 'Bs'}{formatMoney(f.saldo_actual)}</option>)}
               </select>
@@ -339,7 +405,7 @@ export function ModalTransferencia({ onClose, onSuccess }) {
             {fondoOrigen && (
               <div className="animate-fadeIn">
                 <label className="block text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase mb-1">Entra a (Destino) *</label>
-                <select required value={form.fondo_destino_id} onChange={(e) => setForm({ ...form, fondo_destino_id: e.target.value })} className="w-full p-3 rounded-xl border border-indigo-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-indigo-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-indigo-400 font-semibold">
+                <select required value={form.fondo_destino_id} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setForm({ ...form, fondo_destino_id: e.target.value })} className="w-full p-3 rounded-xl border border-indigo-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-indigo-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-indigo-400 font-semibold">
                   <option value="">Seleccione fondo destino...</option>
                   {fondosDestino.map((f) => <option key={f.id} value={f.id}>{f.nombre} ({f.moneda})</option>)}
                 </select>
@@ -351,14 +417,14 @@ export function ModalTransferencia({ onClose, onSuccess }) {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Monto a Enviar *</label>
-                    <input required type="text" value={form.monto_origen} onChange={(e) => setForm({ ...form, monto_origen: formatNumberInput(e.target.value, 2) })} placeholder="Ej: 1.500,00" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
+                    <input required type="text" value={form.monto_origen} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, monto_origen: formatNumberInput(e.target.value, 2) })} placeholder="Ej: 1.500,00" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
                   </div>
 
                   {involvesBs && (
                     <div>
                       <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tasa de Cambio (max 2 decimales) *</label>
                       <div className="flex gap-2">
-                        <input required type="text" value={form.tasa_cambio} onChange={(e) => setForm({ ...form, tasa_cambio: formatNumberInput(e.target.value, 2) })} placeholder="Ej: 36,50" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
+                        <input required type="text" value={form.tasa_cambio} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, tasa_cambio: formatNumberInput(e.target.value, 2) })} placeholder="Ej: 36,50" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
                         <button type="button" onClick={fetchBCV} disabled={isFetchingBCV} className="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200 px-3 rounded-xl font-bold border border-blue-300 dark:border-blue-700 transition-all hover:bg-blue-200 dark:hover:bg-blue-900/60">
                           {isFetchingBCV ? '...' : 'BCV'}
                         </button>
@@ -377,17 +443,17 @@ export function ModalTransferencia({ onClose, onSuccess }) {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Referencia *</label>
-                    <input required type="text" value={form.referencia} onChange={(e) => setForm({ ...form, referencia: e.target.value.replace(/\s/g, '') })} placeholder="Sin espacios" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
+                    <input required type="text" value={form.referencia} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, referencia: e.target.value.replace(/\s/g, '') })} placeholder="Sin espacios" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Fecha *</label>
-                    <input required type="date" max={new Date().toISOString().split('T')[0]} value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
+                    <input required type="date" max={new Date().toISOString().split('T')[0]} value={form.fecha} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, fecha: e.target.value })} className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nota (Opcional)</label>
-                  <textarea rows="2" value={form.nota} onChange={(e) => setForm({ ...form, nota: e.target.value })} placeholder="Motivo de la transferencia" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary resize-none" />
+                  <textarea rows="2" value={form.nota} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setForm({ ...form, nota: e.target.value })} placeholder="Motivo de la transferencia" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary resize-none" />
                 </div>
 
                 <button type="submit" disabled={!isTransferFormValid} className="w-full py-3 mt-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
@@ -400,19 +466,20 @@ export function ModalTransferencia({ onClose, onSuccess }) {
       </div>
     </div>
   );
-}
+};
 
-export function ModalEliminarFondo({ fondo, fondosDisponibles, onClose, onSuccess }) {
+export const ModalEliminarFondo: React.FC<ModalEliminarFondoProps> = ({ fondo, fondosDisponibles, onClose, onSuccess }) => {
   const { showAlert, showConfirm } = useDialog();
 
-  const [destinoId, setDestinoId] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [destinoId, setDestinoId] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
 
-  const saldo = parseFloat(fondo?.saldo_actual || 0);
-  const fondosDestino = fondosDisponibles.filter((f) => f.id !== fondo.id && f.moneda === fondo.moneda);
+  const saldo = parseFloat(String(fondo?.saldo_actual ?? 0));
+  const fondosDestino = fondo ? fondosDisponibles.filter((f) => f.id !== fondo.id && f.moneda === fondo.moneda) : [];
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
+    if (!fondo) return;
 
     if (saldo > 0 && !destinoId) {
       await showAlert({ title: 'Destino requerido', message: 'Debe seleccionar un fondo destino para resguardar el saldo.', variant: 'warning' });
@@ -436,7 +503,7 @@ export function ModalEliminarFondo({ fondo, fondosDisponibles, onClose, onSucces
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(saldo > 0 ? { destino_id: destinoId } : {}),
       });
-      const result = await res.json();
+      const result: ApiResult = (await res.json()) as ApiResult;
       if (result.status === 'success') {
         await showAlert({ title: 'Fondo eliminado', message: result.message, variant: 'success' });
         onSuccess();
@@ -471,7 +538,7 @@ export function ModalEliminarFondo({ fondo, fondosDisponibles, onClose, onSucces
                 Saldo restante: {fondo.moneda === 'USD' ? '$' : 'Bs'} {formatMoney(saldo)}
               </p>
               <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Fondo destino (obligatorio, misma moneda) *</label>
-              <select required value={destinoId} onChange={(e) => setDestinoId(e.target.value)} className="w-full p-3 rounded-xl border border-orange-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-orange-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-orange-400">
+              <select required value={destinoId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDestinoId(e.target.value)} className="w-full p-3 rounded-xl border border-orange-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-orange-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-orange-400">
                 <option value="">Seleccione fondo destino...</option>
                 {fondosDestino.map((f) => <option key={f.id} value={f.id}>{f.nombre} ({f.moneda})</option>)}
               </select>
@@ -492,5 +559,4 @@ export function ModalEliminarFondo({ fondo, fondosDisponibles, onClose, onSucces
       </div>
     </div>
   );
-}
-
+};

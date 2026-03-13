@@ -1,8 +1,59 @@
-﻿import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
-const DialogContext = createContext(null);
+type DialogVariant = 'info' | 'success' | 'warning' | 'danger';
 
-const VARIANT_STYLES = {
+interface DialogStyle {
+  icon: string;
+  iconClass: string;
+  confirmClass: string;
+}
+
+interface DialogBase {
+  title: string;
+  message: string;
+  variant: DialogVariant;
+}
+
+interface AlertDialog extends DialogBase {
+  type: 'alert';
+  confirmText: string;
+}
+
+interface ConfirmDialog extends DialogBase {
+  type: 'confirm';
+  confirmText: string;
+  cancelText: string;
+}
+
+type DialogConfig = AlertDialog | ConfirmDialog;
+type DialogResult = boolean | undefined;
+type DialogResolver = (value: DialogResult) => void;
+
+interface QueueItem {
+  config: DialogConfig;
+  resolve: DialogResolver;
+}
+
+interface DialogOptions {
+  title?: string;
+  message?: string;
+  confirmText?: string;
+  cancelText?: string;
+  variant?: DialogVariant;
+}
+
+interface DialogContextValue {
+  showAlert: (opts?: DialogOptions) => Promise<void>;
+  showConfirm: (opts?: DialogOptions) => Promise<boolean>;
+}
+
+interface DialogProviderProps {
+  children: React.ReactNode;
+}
+
+const DialogContext = createContext<DialogContextValue | null>(null);
+
+const VARIANT_STYLES: Record<DialogVariant, DialogStyle> = {
   info: {
     icon: 'i',
     iconClass: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
@@ -25,12 +76,12 @@ const VARIANT_STYLES = {
   },
 };
 
-export function DialogProvider({ children }) {
-  const [dialog, setDialog] = useState(null);
-  const [queue, setQueue] = useState([]);
-  const resolverRef = useRef(null);
+export const DialogProvider: React.FC<DialogProviderProps> = ({ children }) => {
+  const [dialog, setDialog] = useState<DialogConfig | null>(null);
+  const [queue, setQueue] = useState<QueueItem[]>([]);
+  const resolverRef = useRef<DialogResolver | null>(null);
 
-  const closeDialog = useCallback((result) => {
+  const closeDialog = useCallback((result: DialogResult): void => {
     if (resolverRef.current) {
       resolverRef.current(result);
       resolverRef.current = null;
@@ -43,16 +94,16 @@ export function DialogProvider({ children }) {
       const next = queue[0];
       resolverRef.current = next.resolve;
       setDialog(next.config);
-      setQueue((prev) => prev.slice(1));
+      setQueue((prev: QueueItem[]) => prev.slice(1));
     }
   }, [dialog, queue]);
 
-  const enqueueDialog = useCallback((config, resolve) => {
-    setQueue((prev) => [...prev, { config, resolve }]);
+  const enqueueDialog = useCallback((config: DialogConfig, resolve: DialogResolver): void => {
+    setQueue((prev: QueueItem[]) => [...prev, { config, resolve }]);
   }, []);
 
-  const showAlert = useCallback((opts) => {
-    return new Promise((resolve) => {
+  const showAlert = useCallback((opts?: DialogOptions): Promise<void> => {
+    return new Promise<void>((resolve) => {
       enqueueDialog({
         type: 'alert',
         title: opts?.title || 'Aviso',
@@ -63,8 +114,8 @@ export function DialogProvider({ children }) {
     });
   }, [enqueueDialog]);
 
-  const showConfirm = useCallback((opts) => {
-    return new Promise((resolve) => {
+  const showConfirm = useCallback((opts?: DialogOptions): Promise<boolean> => {
+    return new Promise<boolean>((resolve) => {
       enqueueDialog({
         type: 'confirm',
         title: opts?.title || 'Confirmar accion',
@@ -72,13 +123,13 @@ export function DialogProvider({ children }) {
         confirmText: opts?.confirmText || 'Confirmar',
         cancelText: opts?.cancelText || 'Cancelar',
         variant: opts?.variant || 'warning',
-      }, resolve);
+      }, (value: DialogResult) => resolve(Boolean(value)));
     });
   }, [enqueueDialog]);
 
   useEffect(() => {
     const nativeAlert = window.alert;
-    window.alert = (message) => {
+    window.alert = (message?: unknown): void => {
       showAlert({
         title: 'Aviso',
         message: String(message ?? ''),
@@ -91,13 +142,13 @@ export function DialogProvider({ children }) {
     };
   }, [showAlert]);
 
-  const contextValue = useMemo(
+  const contextValue: DialogContextValue = useMemo(
     () => ({ showAlert, showConfirm }),
     [showAlert, showConfirm],
   );
 
-  const variant = dialog?.variant || 'info';
-  const style = VARIANT_STYLES[variant] || VARIANT_STYLES.info;
+  const variant: DialogVariant = dialog?.variant || 'info';
+  const style: DialogStyle = VARIANT_STYLES[variant] || VARIANT_STYLES.info;
 
   return (
     <DialogContext.Provider value={contextValue}>
@@ -142,13 +193,12 @@ export function DialogProvider({ children }) {
       )}
     </DialogContext.Provider>
   );
-}
+};
 
-export function useDialog() {
+export const useDialog = (): DialogContextValue => {
   const context = useContext(DialogContext);
   if (!context) {
     throw new Error('useDialog debe usarse dentro de DialogProvider');
   }
   return context;
-}
-
+};

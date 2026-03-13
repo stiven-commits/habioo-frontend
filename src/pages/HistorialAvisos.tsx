@@ -1,25 +1,50 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import type { FC, ChangeEvent } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import { formatMoney } from '../utils/currency';
 
-export default function HistorialAvisos() {
-  const { userRole } = useOutletContext();
+interface HistorialAvisosProps {}
+
+interface OutletContextType {
+  userRole?: string;
+}
+
+type EstadoFiltro = 'Todos' | 'Recibos' | 'Abonado' | 'Pendiente';
+
+interface Recibo {
+  id: number | string;
+  apto?: string;
+  propietario?: string;
+  mes_cobro?: string;
+  estado: string;
+  fecha?: string;
+  deuda_pendiente?: number | string;
+  monto_usd?: number | string;
+}
+
+interface RecibosResponse {
+  status: string;
+  recibos?: Recibo[];
+}
+
+const HistorialAvisos: FC<HistorialAvisosProps> = () => {
+  const { userRole } = useOutletContext<OutletContextType>();
   const navigate = useNavigate();
 
-  const [recibos, setRecibos] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [recibos, setRecibos] = useState<Recibo[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
 
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState<number>(1);
   const ITEMS_PER_PAGE = 15;
 
-  const [showPrintModal, setShowPrintModal] = useState(null);
+  const [showPrintModal, setShowPrintModal] = useState<Recibo | null>(null);
 
-  const [filtroEstado, setFiltroEstado] = useState('Todos');
-  const [fechaDesde, setFechaDesde] = useState('');
-  const [fechaHasta, setFechaHasta] = useState('');
-  const [search, setSearch] = useState('');
+  const [filtroEstado, setFiltroEstado] = useState<EstadoFiltro>('Todos');
+  const [fechaDesde, setFechaDesde] = useState<string>('');
+  const [fechaHasta, setFechaHasta] = useState<string>('');
+  const [search, setSearch] = useState<string>('');
 
-  const fetchData = async () => {
+  const fetchData = async (): Promise<void> => {
     const token = localStorage.getItem('habioo_token');
     if (!token) {
       navigate('/');
@@ -36,7 +61,7 @@ export default function HistorialAvisos() {
         return;
       }
 
-      const dataR = await resRecibos.json();
+      const dataR: RecibosResponse = await resRecibos.json();
 
       if (dataR.status === 'success') setRecibos(dataR.recibos || []);
     } catch (error) {
@@ -50,13 +75,13 @@ export default function HistorialAvisos() {
     if (userRole === 'Administrador') fetchData();
   }, [userRole]);
 
-  const mapEstadoTab = (estado) => {
+  const mapEstadoTab = (estado: string): Exclude<EstadoFiltro, 'Todos'> => {
     if (['Pagado', 'Solvente', 'Validado'].includes(estado)) return 'Recibos';
     if (['Abonado', 'Abonado Parcial', 'Parcial'].includes(estado)) return 'Abonado';
     return 'Pendiente';
   };
 
-  const parseFechaRecibo = (r) => {
+  const parseFechaRecibo = (r: Recibo): Date | null => {
     if (r.fecha && r.fecha.includes('/')) {
       const [dd, mm, yyyy] = r.fecha.split('/');
       return new Date(`${yyyy}-${mm}-${dd}T00:00:00`);
@@ -64,7 +89,7 @@ export default function HistorialAvisos() {
     return null;
   };
 
-  const recibosFiltrados = recibos.filter((r) => {
+  const recibosFiltrados = recibos.filter((r: Recibo) => {
     const q = search.trim().toLowerCase();
     const coincideTexto =
       q === '' ||
@@ -106,7 +131,7 @@ export default function HistorialAvisos() {
                 type="text"
                 placeholder="Buscar por apartamento o casa..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
                 className="w-full pl-9 pr-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary text-sm font-medium dark:text-white transition-all"
               />
             </div>
@@ -118,7 +143,7 @@ export default function HistorialAvisos() {
               <input
                 type="date"
                 value={fechaDesde}
-                onChange={(e) => setFechaDesde(e.target.value)}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setFechaDesde(e.target.value)}
                 className="w-full p-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary text-sm dark:text-white cursor-pointer font-mono"
               />
             </div>
@@ -127,7 +152,7 @@ export default function HistorialAvisos() {
               <input
                 type="date"
                 value={fechaHasta}
-                onChange={(e) => setFechaHasta(e.target.value)}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setFechaHasta(e.target.value)}
                 className="w-full p-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary text-sm dark:text-white cursor-pointer font-mono"
               />
             </div>
@@ -150,7 +175,7 @@ export default function HistorialAvisos() {
 
       <div className="bg-white dark:bg-donezo-card-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
         <div className="flex border-b border-gray-100 dark:border-gray-800 px-6 pt-4 gap-6 overflow-x-auto">
-          {['Todos', 'Recibos', 'Abonado', 'Pendiente'].map((estado) => (
+          {(['Todos', 'Recibos', 'Abonado', 'Pendiente'] as EstadoFiltro[]).map((estado: EstadoFiltro) => (
             <button
               key={estado}
               onClick={() => setFiltroEstado(estado)}
@@ -184,7 +209,7 @@ export default function HistorialAvisos() {
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedData.map((r) => (
+                  {paginatedData.map((r: Recibo) => (
                     <tr key={r.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-sm">
                       <td className="p-3">
                         <span className="font-mono text-gray-400 block">#{r.id}</span>
@@ -227,14 +252,14 @@ export default function HistorialAvisos() {
                   <p className="text-sm text-gray-500">Página {currentPage} de {totalPages}</p>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      onClick={() => setCurrentPage((p: number) => Math.max(1, p - 1))}
                       disabled={currentPage === 1}
                       className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold transition-all"
                     >
                       Anterior
                     </button>
                     <button
-                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      onClick={() => setCurrentPage((p: number) => Math.min(totalPages, p + 1))}
                       disabled={currentPage === totalPages}
                       className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold transition-all"
                     >
@@ -259,5 +284,6 @@ export default function HistorialAvisos() {
       )}
     </div>
   );
-}
+};
 
+export default HistorialAvisos;

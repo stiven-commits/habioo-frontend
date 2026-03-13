@@ -1,4 +1,4 @@
-export const toNumber = (value) => {
+export const toNumber = (value: unknown): number => {
   if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
   if (value === null || value === undefined) return 0;
 
@@ -21,9 +21,8 @@ export const toNumber = (value) => {
   return Number.isFinite(n) ? n : 0;
 };
 
-export const formatMoney = (value, decimals = 2) =>
+export const formatMoney = (value: unknown, decimals = 2): string =>
   new Intl.NumberFormat('de-DE', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   }).format(toNumber(value));
-

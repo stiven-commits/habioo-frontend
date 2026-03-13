@@ -1,20 +1,34 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
+import type { FC, ChangeEvent, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config/api';
 import { sanitizeCedulaRif, isValidCedulaRif } from '../utils/validators';
 
-export default function Login() {
-  const [cedula, setCedula] = useState('');
-  const [password, setPassword] = useState('');
-  const [message, setMessage] = useState('');
+interface LoginProps {}
+
+interface LoginUser {
+  [key: string]: unknown;
+}
+
+interface LoginResponse {
+  status: string;
+  token?: string;
+  user?: LoginUser;
+  message?: string;
+}
+
+const Login: FC<LoginProps> = () => {
+  const [cedula, setCedula] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const [message, setMessage] = useState<string>('');
   const navigate = useNavigate();
 
   // FunciÃ³n Limpia: Solo permite letras y nÃºmeros (Sin guiones)
-  const handleCedulaChange = (e) => {
+  const handleCedulaChange = (e: ChangeEvent<HTMLInputElement>): void => {
     setCedula(sanitizeCedulaRif(e.target.value));
   };
 
-  const handleLogin = async (e) => {
+  const handleLogin = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     if (!isValidCedulaRif(cedula)) {
       setMessage('Error: el identificador debe iniciar con V, E, J o G y contener solo números.');
@@ -29,15 +43,15 @@ export default function Login() {
         body: JSON.stringify({ cedula, password })
       });
 
-      const data = await response.json();
+      const data: LoginResponse = await response.json();
 
       if (data.status === 'success') {
-        localStorage.setItem('habioo_token', data.token);
+        localStorage.setItem('habioo_token', data.token ?? '');
         // Guardamos datos del usuario para usarlos en el Dashboard
-        localStorage.setItem('habioo_user', JSON.stringify(data.user)); 
+        localStorage.setItem('habioo_user', JSON.stringify(data.user ?? {}));
         navigate('/dashboard');
       } else {
-        setMessage('Error: ' + data.message);
+        setMessage('Error: ' + (data.message ?? 'Credenciales inválidas.'));
       }
     } catch (error) {
       setMessage('Error de conexiÃ³n con el servidor.');
@@ -73,7 +87,7 @@ export default function Login() {
               type="password"
               placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
               required
               className="w-full p-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-donezo-green outline-none transition-all dark:text-white"
             />
@@ -91,4 +105,6 @@ export default function Login() {
       </div>
     </div>
   );
-}
+};
+
+export default Login;

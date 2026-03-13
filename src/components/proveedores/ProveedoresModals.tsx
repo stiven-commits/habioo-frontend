@@ -1,13 +1,68 @@
-﻿import { useState } from 'react';
+import React, { useState } from 'react';
 
-const ESTADOS_VENEZUELA = [
+interface ProveedorForm {
+  identificador: string;
+  nombre: string;
+  email: string;
+  rubro: string;
+  telefono1: string;
+  telefono2: string;
+  estado_venezuela: string;
+  direccion: string;
+}
+
+interface Proveedor extends ProveedorForm {
+  [key: string]: unknown;
+}
+
+interface LoteProveedorRow {
+  isValid: boolean;
+  identificador: string;
+  nombre: string;
+  email: string;
+  rubro: string;
+  telefono1: string;
+  estado_venezuela: string;
+  direccion: string;
+}
+
+interface ModalProveedorFormProps {
+  isOpen: boolean;
+  setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  editingId: string | number | null;
+  formProv: ProveedorForm;
+  setFormProv: React.Dispatch<React.SetStateAction<ProveedorForm>>;
+  handleProvChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
+  handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void | Promise<void>;
+}
+
+interface ModalProveedorDetailsProps {
+  isOpen: boolean;
+  setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  prov: Proveedor | null;
+}
+
+interface ModalCargaMasivaProveedoresProps {
+  isOpen: boolean;
+  setLoteModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  loteData: LoteProveedorRow[];
+  setLoteData: React.Dispatch<React.SetStateAction<LoteProveedorRow[]>>;
+  loteErrors: number;
+  isUploadingLote: boolean;
+  uploadProgress: number;
+  handleDownloadTemplate: () => void | Promise<void>;
+  handleSaveLote: () => void | Promise<void>;
+  handleFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void | Promise<void>;
+}
+
+const ESTADOS_VENEZUELA: string[] = [
   'Amazonas', 'Anzoategui', 'Apure', 'Aragua', 'Barinas', 'Bolivar', 'Carabobo',
   'Cojedes', 'Delta Amacuro', 'Distrito Capital', 'Falcon', 'Guarico', 'La Guaira',
   'Lara', 'Merida', 'Miranda', 'Monagas', 'Nueva Esparta', 'Portuguesa', 'Sucre',
   'Tachira', 'Trujillo', 'Yaracuy', 'Zulia'
 ];
 
-const CATEGORIAS_RUBROS = {
+const CATEGORIAS_RUBROS: Record<string, string[]> = {
   'Administracion y gestion': ['Administracion de condominios', 'Contabilidad para condominios', 'Asesoria legal para condominios'],
   'Mantenimiento general': ['Mantenimiento de edificios', 'Mantenimiento preventivo', 'Mantenimiento correctivo'],
   'Aseo y limpieza': ['Limpieza de edificios', 'Limpieza de estacionamientos', 'Desinfeccion y sanitizacion'],
@@ -19,7 +74,7 @@ const CATEGORIAS_RUBROS = {
   'Otros': ['Ferreteria', 'Recoleccion de basura', 'Mantenimiento de portones electricos']
 };
 
-export function ModalProveedorForm({
+export const ModalProveedorForm: React.FC<ModalProveedorFormProps> = ({
   isOpen,
   setIsModalOpen,
   editingId,
@@ -27,8 +82,8 @@ export function ModalProveedorForm({
   setFormProv,
   handleProvChange,
   handleSubmit
-}) {
-  const [isRubroOpen, setIsRubroOpen] = useState(false);
+}) => {
+  const [isRubroOpen, setIsRubroOpen] = useState<boolean>(false);
 
   if (!isOpen) return null;
 
@@ -83,7 +138,7 @@ export function ModalProveedorForm({
               type="text"
               name="rubro"
               value={formProv.rubro}
-              onChange={(e) => { handleProvChange(e); setIsRubroOpen(true); }}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => { handleProvChange(e); setIsRubroOpen(true); }}
               onFocus={() => setIsRubroOpen(true)}
               onBlur={() => setTimeout(() => setIsRubroOpen(false), 200)}
               placeholder="Ej: Plomeria, Ferreteria..."
@@ -107,7 +162,7 @@ export function ModalProveedorForm({
                       {displaySubs.map((sub) => (
                         <div
                           key={sub}
-                          onMouseDown={(e) => {
+                          onMouseDown={(e: React.MouseEvent<HTMLDivElement>) => {
                             e.preventDefault();
                             setFormProv({ ...formProv, rubro: sub });
                             setIsRubroOpen(false);
@@ -151,9 +206,9 @@ export function ModalProveedorForm({
       </div>
     </div>
   );
-}
+};
 
-export function ModalProveedorDetails({ isOpen, setIsOpen, prov }) {
+export const ModalProveedorDetails: React.FC<ModalProveedorDetailsProps> = ({ isOpen, setIsOpen, prov }) => {
   if (!isOpen || !prov) return null;
 
   return (
@@ -216,9 +271,9 @@ export function ModalProveedorDetails({ isOpen, setIsOpen, prov }) {
       </div>
     </div>
   );
-}
+};
 
-export function ModalCargaMasivaProveedores({
+export const ModalCargaMasivaProveedores: React.FC<ModalCargaMasivaProveedoresProps> = ({
   isOpen,
   setLoteModalOpen,
   loteData,
@@ -229,10 +284,10 @@ export function ModalCargaMasivaProveedores({
   handleDownloadTemplate,
   handleSaveLote,
   handleFileUpload
-}) {
+}) => {
   if (!isOpen) return null;
 
-  const handleClose = () => {
+  const handleClose = (): void => {
     if (isUploadingLote) return;
     setLoteData([]);
     setLoteModalOpen(false);
@@ -327,5 +382,4 @@ export function ModalCargaMasivaProveedores({
       </div>
     </div>
   );
-}
-
+};

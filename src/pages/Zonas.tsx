@@ -1,60 +1,115 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import type React from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useDialog } from '../components/ui/DialogProvider';
 
-export default function Zonas() {
-  const { userRole } = useOutletContext();
-  const { showConfirm } = useDialog();
-  const [zonas, setZonas] = useState([]);
-  const [allProps, setAllProps] = useState([]); 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
+interface ZonasProps {}
+
+interface OutletContext {
+  userRole: string;
+}
+
+interface Propiedad {
+  id: number;
+  identificador: string;
+}
+
+interface Zona {
+  id: number;
+  nombre: string;
+  activa: boolean;
+  tiene_gastos: boolean;
+  propiedades: Propiedad[];
+  propiedades_ids: number[];
+}
+
+interface ZonaForm {
+  nombre: string;
+  propiedades_ids: number[];
+  activa: boolean;
+}
+
+interface ZonasApiSuccessResponse {
+  status: 'success';
+  zonas: Zona[];
+  todas_propiedades: Propiedad[];
+}
+
+interface ApiActionResponse {
+  status: string;
+  message?: string;
+  error?: string;
+}
+
+type DialogVariant = 'info' | 'success' | 'warning' | 'danger';
+
+interface ConfirmDialogOptions {
+  title?: string;
+  message?: string;
+  confirmText?: string;
+  cancelText?: string;
+  variant?: DialogVariant;
+}
+
+interface DialogContextValue {
+  showConfirm: (opts: ConfirmDialogOptions) => Promise<boolean>;
+}
+
+const Zonas: React.FC<ZonasProps> = () => {
+  const { userRole } = useOutletContext<OutletContext>();
+  const { showConfirm } = useDialog() as DialogContextValue;
+  const [zonas, setZonas] = useState<Zona[]>([]);
+  const [allProps, setAllProps] = useState<Propiedad[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
 
   // Estado para Edicion
-  const [editingId, setEditingId] = useState(null); // Si es null, es modo CREAR
-  const [hasGastos, setHasGastos] = useState(false); // Para saber si bloqueamos estructura
+  const [editingId, setEditingId] = useState<number | null>(null); // Si es null, es modo CREAR
+  const [hasGastos, setHasGastos] = useState<boolean>(false); // Para saber si bloqueamos estructura
 
-  const [form, setForm] = useState({ nombre: '', propiedades_ids: [], activa: true });
+  const [form, setForm] = useState<ZonaForm>({ nombre: '', propiedades_ids: [], activa: true });
 
-  const fetchData = async () => {
+  const fetchData = async (): Promise<void> => {
     const token = localStorage.getItem('habioo_token');
     try {
-      const res = await fetch('https://auth.habioo.cloud/zonas', { headers: { 'Authorization': `Bearer ${token}` } });
-      const data = await res.json();
+      const res = await fetch('https://auth.habioo.cloud/zonas', { headers: { Authorization: `Bearer ${token}` } });
+      const data = (await res.json()) as ZonasApiSuccessResponse;
       if (data.status === 'success') {
         setZonas(data.zonas);
         setAllProps(data.todas_propiedades);
       }
-    } catch (error) { console.error(error); } 
+    } catch (error: unknown) {
+      console.error(error);
+    }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { if (userRole === 'Administrador') fetchData(); }, [userRole]);
+  useEffect((): void => { if (userRole === 'Administrador') { void fetchData(); } }, [userRole]);
 
   // Formateador de Texto (Mayuscula inicial)
-  const handleNameChange = (e) => {
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const val = e.target.value;
     // Convierte la primera letra de cada palabra o frase a mayuscula (simple)
     const capitalized = val.charAt(0).toUpperCase() + val.slice(1);
     setForm({ ...form, nombre: capitalized });
   };
 
-  const togglePropiedad = (id) => {
+  const togglePropiedad = (id: number): void => {
     if (hasGastos && editingId) return; // Bloqueo si estamos editando una zona con gastos
-    
-    setForm(prev => {
+
+    setForm((prev: ZonaForm) => {
       const exists = prev.propiedades_ids.includes(id);
       return {
         ...prev,
-        propiedades_ids: exists 
-          ? prev.propiedades_ids.filter(pid => pid !== id) 
-          : [...prev.propiedades_ids, id]
+        propiedades_ids: exists
+          ? prev.propiedades_ids.filter((pid: number) => pid !== id)
+          : [...prev.propiedades_ids, id],
       };
     });
   };
 
   // Abrir Modal para Crear
-  const handleCreate = () => {
+  const handleCreate = (): void => {
     setEditingId(null);
     setHasGastos(false);
     setForm({ nombre: '', propiedades_ids: [], activa: true });
@@ -62,45 +117,45 @@ export default function Zonas() {
   };
 
   // Abrir Modal para Editar
-  const handleEdit = (zona) => {
+  const handleEdit = (zona: Zona): void => {
     setEditingId(zona.id);
     setHasGastos(zona.tiene_gastos); // El backend nos dice si tiene historial
-    setForm({ 
-      nombre: zona.nombre, 
+    setForm({
+      nombre: zona.nombre,
       propiedades_ids: zona.propiedades_ids || [],
-      activa: zona.activa 
+      activa: zona.activa,
     });
     setIsModalOpen(true);
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
-    if (form.propiedades_ids.length === 0) return alert("Selecciona al menos una propiedad");
+    if (form.propiedades_ids.length === 0) return alert('Selecciona al menos una propiedad');
 
     const token = localStorage.getItem('habioo_token');
-    const url = editingId 
-      ? `https://auth.habioo.cloud/zonas/${editingId}` 
+    const url = editingId
+      ? `https://auth.habioo.cloud/zonas/${editingId}`
       : 'https://auth.habioo.cloud/zonas';
-    
+
     const method = editingId ? 'PUT' : 'POST';
 
     const res = await fetch(url, {
-      method: method,
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify(form)
+      method,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(form),
     });
-    const data = await res.json();
-    
+    const data = (await res.json()) as ApiActionResponse;
+
     if (data.status === 'success') {
       alert(data.message);
       setIsModalOpen(false);
-      fetchData();
+      void fetchData();
     } else {
       alert(data.error || 'Error al guardar');
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: number): Promise<void> => {
     const ok = await showConfirm({
       title: 'Eliminar area / sector',
       message: 'Estas seguro de eliminar esta area / sector permanentemente?',
@@ -110,16 +165,18 @@ export default function Zonas() {
     });
     if (!ok) return;
     const token = localStorage.getItem('habioo_token');
-    const res = await fetch(`https://auth.habioo.cloud/zonas/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
-    const data = await res.json();
-    if (data.status === 'success') fetchData();
+    const res = await fetch(`https://auth.habioo.cloud/zonas/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    const data = (await res.json()) as ApiActionResponse;
+    if (data.status === 'success') {
+      void fetchData();
+    }
     else alert(data.message); // Mostrara el mensaje de bloqueo si tiene gastos
   };
 
   // Funcion rapida para cambiar estado (Activar/Desactivar) desde la tarjeta
-  const toggleStatus = async (zona) => {
+  const toggleStatus = async (zona: Zona): Promise<void> => {
     const nuevoEstado = !zona.activa;
-    const accion = nuevoEstado ? "ACTIVAR" : "DESACTIVAR";
+    const accion = nuevoEstado ? 'ACTIVAR' : 'DESACTIVAR';
     const ok = await showConfirm({
       title: `Confirmar ${accion}`,
       message: `Deseas ${accion} el area / sector "${zona.nombre}" para futuros gastos?`,
@@ -133,14 +190,14 @@ export default function Zonas() {
     const token = localStorage.getItem('habioo_token');
     await fetch(`https://auth.habioo.cloud/zonas/${zona.id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({ 
-        nombre: zona.nombre, 
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        nombre: zona.nombre,
         propiedades_ids: zona.propiedades_ids, // Mantenemos los mismos
-        activa: nuevoEstado 
-      })
+        activa: nuevoEstado,
+      }),
     });
-    fetchData();
+    void fetchData();
   };
 
   if (userRole !== 'Administrador') return <p className="p-6">Acceso denegado.</p>;
@@ -153,25 +210,25 @@ export default function Zonas() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {zonas.map(z => (
+        {zonas.map((z: Zona) => (
           <div key={z.id} className={`p-6 rounded-2xl shadow-sm border transition-all ${z.activa ? 'bg-white dark:bg-donezo-card-dark border-gray-100 dark:border-gray-800' : 'bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-700 opacity-80'}`}>
-            
+
             <div className="flex justify-between items-start mb-3">
               <h4 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
                 {z.nombre}
                 {!z.activa && <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-md dark:text-gray-400">Inactiva</span>}
               </h4>
-              
+
               <div className="flex gap-1">
                 {/* BOTON EDITAR (Siempre visible) */}
                 <button onClick={() => handleEdit(z)} className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg" title="Editar detalles">✏️</button>
-                
+
                 {/* LOGICA: Si tiene gastos -> SWITCH ON/OFF. Si no -> BASURA */}
                 {z.tiene_gastos ? (
-                  <button 
-                    onClick={() => toggleStatus(z)} 
+                  <button
+                    onClick={() => toggleStatus(z)}
                     className={`p-2 rounded-lg font-bold text-xs ${z.activa ? 'text-orange-500 hover:bg-orange-50' : 'text-green-500 hover:bg-green-50'}`}
-                    title={z.activa ? "Desactivar para nuevos gastos" : "Reactivar area / sector"}
+                    title={z.activa ? 'Desactivar para nuevos gastos' : 'Reactivar area / sector'}
                   >
                     {z.activa ? '⛔' : '✅'}
                   </button>
@@ -184,14 +241,14 @@ export default function Zonas() {
             <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-xl h-32 overflow-y-auto custom-scrollbar">
               <p className="text-xs font-bold text-gray-400 mb-2 uppercase">Propiedades ({z.propiedades.length})</p>
               <div className="flex flex-wrap gap-2">
-                {z.propiedades.map(p => (
+                {z.propiedades.map((p: Propiedad) => (
                   <span key={p.id} className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 px-2 py-1 rounded-md text-xs font-medium dark:text-gray-300">
                     {p.identificador}
                   </span>
                 ))}
               </div>
             </div>
-            
+
             {z.tiene_gastos && (
               <p className="text-[10px] text-gray-400 mt-2 text-right">🔒 Estructura bloqueada por historial</p>
             )}
@@ -209,17 +266,17 @@ export default function Zonas() {
               </h3>
               <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-red-500 text-xl">✕</button>
             </div>
-            
+
             <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
               <div className="mb-4">
                 <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Nombre del Area / Sector</label>
-                <input 
-                  type="text" 
-                  value={form.nombre} 
-                  onChange={handleNameChange} 
-                  placeholder="Ej: Torre A, Locales Comerciales..." 
-                  className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-green dark:text-white transition-all" 
-                  required 
+                <input
+                  type="text"
+                  value={form.nombre}
+                  onChange={handleNameChange}
+                  placeholder="Ej: Torre A, Locales Comerciales..."
+                  className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-green dark:text-white transition-all"
+                  required
                 />
               </div>
 
@@ -237,15 +294,15 @@ export default function Zonas() {
                   <p className="text-sm font-bold text-gray-500 dark:text-gray-400">Inmuebles en esta area / sector:</p>
                   <span className="text-xs text-donezo-primary font-bold">{form.propiedades_ids.length} seleccionados</span>
                 </div>
-                
+
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {allProps.map(p => (
-                    <div 
-                      key={p.id} 
+                  {allProps.map((p: Propiedad) => (
+                    <div
+                      key={p.id}
                       onClick={() => togglePropiedad(p.id)}
                       className={`p-2 rounded-lg border text-sm font-medium cursor-pointer transition-all flex items-center gap-2 select-none
-                        ${form.propiedades_ids.includes(p.id) 
-                          ? 'bg-green-100 border-green-500 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
+                        ${form.propiedades_ids.includes(p.id)
+                          ? 'bg-green-100 border-green-500 text-green-800 dark:bg-green-900/30 dark:text-green-400'
                           : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-donezo-primary'}`}
                     >
                       <div className={`w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 ${form.propiedades_ids.includes(p.id) ? 'bg-donezo-primary border-transparent' : 'border-gray-400'}`}>
@@ -269,6 +326,6 @@ export default function Zonas() {
       )}
     </div>
   );
-}
+};
 
-
+export default Zonas;
