@@ -46,7 +46,7 @@ interface ApiErrorResponse {
 }
 
 const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({ onClose, onSuccess, proveedores, zonas, propiedades }) => {
-  const todayString = new Date().toISOString().split('T')[0];
+  const todayString = new Date().toISOString().split('T')[0] ?? '';
 
   const [form, setForm] = useState<FormState>({
     proveedor_id: '', concepto: '', monto_bs: '', tasa_cambio: '', total_cuotas: '1', nota: '',
@@ -69,10 +69,10 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({ onClose, onSuccess, pro
     let rawValue = value.replace(/[^0-9,]/g, '');
     const parts = rawValue.split(',');
     if (parts.length > 2) rawValue = parts[0] + ',' + parts.slice(1).join('');
-    let [integerPart, decimalPart] = rawValue.split(',');
+    let [integerPart = '', decimalPart] = rawValue.split(',');
     if (integerPart) integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     if (decimalPart !== undefined) return `${integerPart},${decimalPart.slice(0, 2)}`;
-    return integerPart;
+    return integerPart ?? '';
   };
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>): void => {
@@ -273,7 +273,7 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({ onClose, onSuccess, pro
 // Pequeña función de apoyo para el render de la etiqueta verde del equivalente a USD
 function formatMoneyDisplay(value: string | number): string {
   const parts = Number(value).toFixed(2).split('.');
-  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  parts[0] = (parts[0] ?? '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   return parts.join(',');
 }
 

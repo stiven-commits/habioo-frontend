@@ -48,9 +48,9 @@ interface GastoAgrupado {
   fecha_registro: string;
   factura_img?: string;
   imagenes: string[];
-  monto_bs?: string | number;
-  tasa_cambio?: string | number;
-  monto_total_usd?: string | number;
+  monto_bs: string | number;
+  tasa_cambio: string | number;
+  monto_total_usd: string | number;
   monto_pagado_usd: string | number;
   total_cuotas: number;
   nota?: string;
@@ -63,21 +63,19 @@ interface GastoAgrupado {
 
 interface Proveedor {
   id: number | string;
-  nombre?: string;
-  [key: string]: unknown;
+  nombre: string;
+  identificador: string;
 }
 
 interface Zona {
   id: number | string;
-  activa?: boolean;
-  nombre?: string;
-  [key: string]: unknown;
+  activa: boolean;
+  nombre: string;
 }
 
 interface Propiedad {
   id: number | string;
-  identificador?: string;
-  [key: string]: unknown;
+  identificador: string;
 }
 
 interface BaseApiResponse {
@@ -129,9 +127,10 @@ const toNumber = (value: string | number | undefined | null): number => parseFlo
 
 const formatMonthText = (yyyyMm: string | undefined): string => {
   if (!yyyyMm) return '';
-  const [year, month] = yyyyMm.split('-');
+  const [year = '', month = '01'] = yyyyMm.split('-');
   const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-  return `${meses[parseInt(month, 10) - 1]} ${year}`;
+  const monthLabel = meses[parseInt(month, 10) - 1] ?? '';
+  return `${monthLabel} ${year}`.trim();
 };
 
 const parseDisplayDate = (ddmmyyyy: string | undefined): Date | null => {
@@ -182,33 +181,36 @@ const Gastos: FC<GastosProps> = () => {
         const agrupados = dataGastos.gastos.reduce<Record<string, GastoAgrupado>>((acc, curr) => {
           const key = String(curr.gasto_id);
           if (!acc[key]) {
-            acc[key] = {
+            const nuevo: GastoAgrupado = {
               gasto_id: curr.gasto_id,
               proveedor: curr.proveedor,
               concepto: curr.concepto,
               fecha_factura: curr.fecha_factura || 'N/A',
               fecha_registro: curr.fecha_registro || 'N/A',
-              factura_img: curr.factura_img,
               imagenes: Array.isArray(curr.imagenes) ? curr.imagenes : [],
-              monto_bs: curr.monto_bs,
-              tasa_cambio: curr.tasa_cambio,
-              monto_total_usd: curr.monto_total_usd,
+              monto_bs: curr.monto_bs ?? 0,
+              tasa_cambio: curr.tasa_cambio ?? 0,
+              monto_total_usd: curr.monto_total_usd ?? 0,
               monto_pagado_usd: curr.monto_pagado_usd || 0,
               total_cuotas: curr.total_cuotas,
-              nota: curr.nota,
               tipo: curr.tipo || 'Comun',
-              zona_nombre: curr.zona_nombre,
-              propiedad_identificador: curr.propiedad_identificador,
               cuotas: [],
               canDelete: true,
             };
+            if (curr.factura_img) nuevo.factura_img = curr.factura_img;
+            if (curr.nota) nuevo.nota = curr.nota;
+            if (curr.zona_nombre) nuevo.zona_nombre = curr.zona_nombre;
+            if (curr.propiedad_identificador) nuevo.propiedad_identificador = curr.propiedad_identificador;
+            acc[key] = nuevo;
           }
-          acc[key].monto_pagado_usd = Math.max(
-            toNumber(acc[key].monto_pagado_usd),
+          const gastoActual = acc[key];
+          if (!gastoActual) return acc;
+          gastoActual.monto_pagado_usd = Math.max(
+            toNumber(gastoActual.monto_pagado_usd),
             toNumber(curr.monto_pagado_usd)
           );
-          acc[key].cuotas.push(curr);
-          if (curr.estado !== 'Pendiente') acc[key].canDelete = false;
+          gastoActual.cuotas.push(curr);
+          if (curr.estado !== 'Pendiente') gastoActual.canDelete = false;
           return acc;
         }, {});
         setGastosAgrupados(Object.values(agrupados));

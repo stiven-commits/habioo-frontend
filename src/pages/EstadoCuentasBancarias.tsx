@@ -77,9 +77,10 @@ const toNumber = (value: string | number | undefined | null): number => parseFlo
 
 const formatMonthText = (yyyyMm: string | undefined): string => {
   if (!yyyyMm) return '';
-  const [year, month] = yyyyMm.split('-');
+  const [year = '', month = '01'] = yyyyMm.split('-');
   const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-  return `${meses[parseInt(month, 10) - 1]} ${year}`;
+  const monthLabel = meses[parseInt(month, 10) - 1] ?? '';
+  return `${monthLabel} ${year}`.trim();
 };
 void formatMonthText;
 
@@ -119,8 +120,9 @@ const EstadoCuentasBancarias: FC<EstadoCuentasBancariasProps> = () => {
       if (data.status === 'success') {
         setCuentas(data.bancos);
         if (data.bancos.length > 0) {
-          const predeterminada = data.bancos.find((c: CuentaBancaria) => c.es_predeterminada) || data.bancos[0];
-          setSelectedCuenta(String(predeterminada.id));
+          const predeterminada = data.bancos.find((c: CuentaBancaria) => c.es_predeterminada);
+          const cuentaInicial = predeterminada ?? data.bancos[0];
+          if (cuentaInicial !== undefined) setSelectedCuenta(String(cuentaInicial.id));
         }
       }
     } catch (error) { console.error(error); }

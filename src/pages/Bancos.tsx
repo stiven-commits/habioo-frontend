@@ -49,10 +49,13 @@ interface Banco {
 }
 
 interface Fondo {
-  id: number;
-  cuenta_bancaria_id: number;
-  moneda?: string;
-  saldo_actual?: string | number;
+  id: number | string;
+  cuenta_bancaria_id: number | string;
+  nombre: string;
+  moneda: string;
+  saldo_actual: string | number;
+  es_operativo?: boolean;
+  porcentaje_asignacion?: string | number;
 }
 
 interface BancosResponse {

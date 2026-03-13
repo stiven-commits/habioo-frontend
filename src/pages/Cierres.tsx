@@ -122,7 +122,10 @@ const Cierres: FC<CierresProps> = () => {
           alicuotas_disponibles: result.alicuotas_disponibles,
           metodo_division: result.metodo_division
         });
-        if (result.alicuotas_disponibles.length > 0) setSimulacionAlicuota(result.alicuotas_disponibles[0]);
+        if (result.alicuotas_disponibles.length > 0) {
+          const primeraAlicuota = result.alicuotas_disponibles[0];
+          if (primeraAlicuota !== undefined) setSimulacionAlicuota(primeraAlicuota);
+        }
       }
 
       if (dataProps.status === 'success') {
@@ -143,18 +146,21 @@ const Cierres: FC<CierresProps> = () => {
   const gastosFuturos = data.gastos.filter((g: Gasto) => g.mes_asignado > data.mes_actual);
 
   const proyecciones = gastosFuturos.reduce<ProyeccionesMap>((acc: ProyeccionesMap, g: Gasto) => {
-    if (!acc[g.mes_asignado]) acc[g.mes_asignado] = { total: 0, items: [] };
-    acc[g.mes_asignado].items.push(g);
-    acc[g.mes_asignado].total += toNumber(g.monto_cuota_usd);
+    const mes = g.mes_asignado;
+    const proyeccionMes: ProjectionMonth = acc[mes] ?? { total: 0, items: [] };
+    proyeccionMes.items.push(g);
+    proyeccionMes.total += toNumber(g.monto_cuota_usd);
+    acc[mes] = proyeccionMes;
     return acc;
   }, {});
 
   const mesesFuturos = Object.keys(proyecciones).sort().slice(0, 4);
 
   const formatMonthText = (yyyy_mm: string): string => {
-    const [year, month] = yyyy_mm.split('-');
+    const [year = '', month = '01'] = yyyy_mm.split('-');
     const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-    return `${meses[parseInt(month, 10) - 1]} ${year}`;
+    const monthLabel = meses[parseInt(month, 10) - 1] ?? '';
+    return `${monthLabel} ${year}`.trim();
   };
 
   const handleCerrarCiclo = async (): Promise<void> => {
@@ -476,7 +482,7 @@ const Cierres: FC<CierresProps> = () => {
                 <h4 className="font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider text-xs mb-3">{formatMonthText(mes)}</h4>
 
                 <div className="space-y-3 mb-4 h-32 overflow-y-auto pr-1 custom-scrollbar">
-                  {proyecciones[mes].items.map((item: Gasto, idx: number) => (
+                  {(proyecciones[mes]?.items ?? []).map((item: Gasto, idx: number) => (
                     <div key={idx} className="bg-white dark:bg-gray-800 p-2 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 text-xs">
                       <p className="font-bold text-gray-800 dark:text-gray-200 truncate">{item.concepto}</p>
                       <div className="flex justify-between items-center mt-1 text-gray-500 dark:text-gray-400">

@@ -92,6 +92,7 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({ children }) => {
   useEffect(() => {
     if (!dialog && queue.length > 0) {
       const next = queue[0];
+      if (!next) return;
       resolverRef.current = next.resolve;
       setDialog(next.config);
       setQueue((prev: QueueItem[]) => prev.slice(1));
@@ -110,7 +111,7 @@ export const DialogProvider: React.FC<DialogProviderProps> = ({ children }) => {
         message: opts?.message || '',
         confirmText: opts?.confirmText || 'Aceptar',
         variant: opts?.variant || 'info',
-      }, resolve);
+      }, () => resolve());
     });
   }, [enqueueDialog]);
 

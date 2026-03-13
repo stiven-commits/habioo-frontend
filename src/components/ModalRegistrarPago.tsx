@@ -76,7 +76,7 @@ const initialFormPago = (): FormPagoState => ({
   monto_origen: '',
   tasa_cambio: '',
   referencia: '',
-  fecha_pago: new Date().toISOString().split('T')[0],
+  fecha_pago: new Date().toISOString().split('T')[0] ?? '',
   nota: '',
   cedula_origen: '',
   banco_origen: ''
@@ -133,13 +133,13 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({ propiedadPreseleccion
     let rawValue = value.replace(/[^0-9,]/g, '');
     const parts = rawValue.split(',');
     if (parts.length > 2) rawValue = `${parts[0]},${parts.slice(1).join('')}`;
-    let [integerPart, decimalPart] = rawValue.split(',');
+    let [integerPart = '', decimalPart] = rawValue.split(',');
     if (integerPart) integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     if (decimalPart !== undefined) {
       decimalPart = decimalPart.slice(0, 2);
       return `${integerPart},${decimalPart}`;
     }
-    return integerPart;
+    return integerPart ?? '';
   };
 
   const getConversionUSD = (updatedForm: FormPagoState): string => {

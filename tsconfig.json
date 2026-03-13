@@ -18,12 +18,12 @@
 
     // Environment Settings
     // See also https://aka.ms/tsconfig/module
-    "module": "nodenext",
+    "module": "ESNext",
     // Baseline moderna estable para Node y tooling actual
     "target": "ES2022",
     // Resolucion de modulos estilo Node.js
-    "moduleResolution": "NodeNext",
-    "types": [],
+    "moduleResolution": "Bundler",
+    "types": ["vite/client"],
     // For nodejs:
     // "lib": ["esnext"],
     // "types": ["node"],

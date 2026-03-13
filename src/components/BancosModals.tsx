@@ -72,8 +72,8 @@ function parseNumber(val: unknown): number {
 function formatNumberInput(value: unknown, maxDecimals = 2): string {
   const cleanedRaw = String(value || '').replace(/[^0-9,]/g, '');
   const parts = cleanedRaw.split(',');
-  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  const integerPart = parts[0];
+  parts[0] = (parts[0] ?? '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const integerPart = parts[0] ?? '';
   const decimalPart = (parts[1] || '').slice(0, maxDecimals);
   return decimalPart ? `${integerPart},${decimalPart}` : integerPart;
 }
@@ -92,7 +92,7 @@ export const ModalPagoProveedor: React.FC<ModalBaseProps> = ({ onClose, onSucces
     monto_origen: '',
     tasa_cambio: '',
     referencia: '',
-    fecha_pago: new Date().toISOString().split('T')[0],
+    fecha_pago: new Date().toISOString().split('T')[0] ?? '',
     nota: '',
   });
 
@@ -167,7 +167,7 @@ export const ModalPagoProveedor: React.FC<ModalBaseProps> = ({ onClose, onSucces
       });
       const result: ApiResult = (await res.json()) as ApiResult;
       if (result.status === 'success') {
-        await showAlert({ title: 'Pago registrado', message: result.message, variant: 'success' });
+        await showAlert({ title: 'Pago registrado', message: result.message || 'Pago registrado correctamente.', variant: 'success' });
         onSuccess();
       } else {
         await showAlert({ title: 'Error', message: result.error || 'No se pudo procesar el pago.', variant: 'danger' });
@@ -265,7 +265,7 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
     monto_origen: '',
     tasa_cambio: '',
     referencia: '',
-    fecha: new Date().toISOString().split('T')[0],
+    fecha: new Date().toISOString().split('T')[0] ?? '',
     nota: '',
   });
 
@@ -374,7 +374,7 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
       });
       const result: ApiResult = (await res.json()) as ApiResult;
       if (result.status === 'success') {
-        await showAlert({ title: 'Transferencia aplicada', message: result.message, variant: 'success' });
+        await showAlert({ title: 'Transferencia aplicada', message: result.message || 'Transferencia aplicada correctamente.', variant: 'success' });
         onSuccess();
       } else {
         await showAlert({ title: 'Error', message: result.error || 'No se pudo transferir.', variant: 'danger' });
@@ -453,7 +453,7 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
 
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nota (Opcional)</label>
-                  <textarea rows="2" value={form.nota} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setForm({ ...form, nota: e.target.value })} placeholder="Motivo de la transferencia" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary resize-none" />
+                  <textarea rows={2} value={form.nota} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setForm({ ...form, nota: e.target.value })} placeholder="Motivo de la transferencia" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary resize-none" />
                 </div>
 
                 <button type="submit" disabled={!isTransferFormValid} className="w-full py-3 mt-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
@@ -505,7 +505,7 @@ export const ModalEliminarFondo: React.FC<ModalEliminarFondoProps> = ({ fondo, f
       });
       const result: ApiResult = (await res.json()) as ApiResult;
       if (result.status === 'success') {
-        await showAlert({ title: 'Fondo eliminado', message: result.message, variant: 'success' });
+        await showAlert({ title: 'Fondo eliminado', message: result.message || 'Fondo eliminado correctamente.', variant: 'success' });
         onSuccess();
       } else {
         await showAlert({ title: 'Error', message: result.error || result.message || 'No se pudo eliminar.', variant: 'danger' });

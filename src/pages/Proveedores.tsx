@@ -58,6 +58,29 @@ interface LoteProveedorRow {
   errors: string;
 }
 
+interface ModalProveedorDetailsData {
+  identificador: string;
+  nombre: string;
+  email: string;
+  rubro: string;
+  telefono1: string;
+  telefono2: string;
+  estado_venezuela: string;
+  direccion: string;
+  [key: string]: unknown;
+}
+
+interface LoteProveedorModalRow {
+  isValid: boolean;
+  identificador: string;
+  nombre: string;
+  email: string;
+  rubro: string;
+  telefono1: string;
+  estado_venezuela: string;
+  direccion: string;
+}
+
 interface ApiListProveedoresResponse {
   status: string;
   proveedores: Proveedor[];
@@ -227,7 +250,10 @@ const Proveedores: React.FC<ProveedoresProps> = () => {
     reader.onload = (event: ProgressEvent<FileReader>) => {
       const bstr = event.target?.result as string;
       const wb = XLSX.read(bstr, { type: 'binary' });
-      const ws = wb.Sheets[wb.SheetNames[0]];
+      const sheetName = wb.SheetNames[0];
+      if (sheetName === undefined) return;
+      const ws = wb.Sheets[sheetName];
+      if (ws === undefined) return;
       const rawData = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' });
 
       let errCount = 0;
@@ -286,6 +312,29 @@ const Proveedores: React.FC<ProveedoresProps> = () => {
     };
     reader.readAsBinaryString(file);
     e.target.value = '';
+  };
+
+  const setLoteDataForModal: React.Dispatch<React.SetStateAction<LoteProveedorModalRow[]>> = (value) => {
+    setLoteData((prev: LoteProveedorRow[]) => {
+      const toModalRows = (rows: LoteProveedorRow[]): LoteProveedorModalRow[] =>
+        rows.map((row: LoteProveedorRow) => ({
+          isValid: row.isValid,
+          identificador: row.identificador,
+          nombre: row.nombre,
+          email: row.email,
+          rubro: row.rubro,
+          telefono1: row.telefono1,
+          estado_venezuela: row.estado_venezuela,
+          direccion: row.direccion,
+        }));
+      const nextRows = typeof value === 'function' ? value(toModalRows(prev)) : value;
+      return nextRows.map((row: LoteProveedorModalRow, index: number) => ({
+        rowNum: prev[index]?.rowNum ?? index + 1,
+        telefono2: prev[index]?.telefono2 ?? '',
+        errors: prev[index]?.errors ?? '',
+        ...row,
+      }));
+    });
   };
 
   const handleSaveLote = async (): Promise<void> => {
@@ -434,10 +483,22 @@ const Proveedores: React.FC<ProveedoresProps> = () => {
 
       {/* MODALES IMPORTADAS */}
       <ModalProveedorForm isOpen={isModalOpen} setIsModalOpen={setIsModalOpen} editingId={editingId} formProv={formProv} setFormProv={setFormProv} handleProvChange={handleProvChange} handleSubmit={handleSubmit} />
-      <ModalProveedorDetails isOpen={detailsModalOpen} setIsOpen={setDetailsModalOpen} prov={selectedProvDetails} />
+      <ModalProveedorDetails
+        isOpen={detailsModalOpen}
+        setIsOpen={setDetailsModalOpen}
+        prov={selectedProvDetails ? ({
+          ...selectedProvDetails,
+          email: selectedProvDetails.email ?? '',
+          rubro: selectedProvDetails.rubro ?? '',
+          telefono1: selectedProvDetails.telefono1 ?? '',
+          telefono2: selectedProvDetails.telefono2 ?? '',
+          estado_venezuela: selectedProvDetails.estado_venezuela ?? '',
+          direccion: selectedProvDetails.direccion ?? '',
+        } as ModalProveedorDetailsData) : null}
+      />
 
       <ModalCargaMasivaProveedores
-        isOpen={loteModalOpen} setLoteModalOpen={setLoteModalOpen} loteData={loteData} setLoteData={setLoteData} loteErrors={loteErrors}
+        isOpen={loteModalOpen} setLoteModalOpen={setLoteModalOpen} loteData={loteData} setLoteData={setLoteDataForModal} loteErrors={loteErrors}
         isUploadingLote={isUploadingLote} uploadProgress={uploadProgress} handleDownloadTemplate={handleDownloadTemplate} handleSaveLote={handleSaveLote} handleFileUpload={handleFileUpload}
       />
     </div>

@@ -327,7 +327,7 @@ export const ModalEstadoCuenta: FC<ModalEstadoCuentaProps> = ({
 
   const totalPages = Math.ceil(estadoCuentaFiltrado.length / ITEMS_PER_PAGE);
   const movimientosPagina = estadoCuentaFiltrado.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
-  const saldoFinal = estadoCuentaFiltrado.length > 0 ? estadoCuentaFiltrado[estadoCuentaFiltrado.length - 1].saldoFila : 0;
+  const saldoFinal = estadoCuentaFiltrado.length > 0 ? (estadoCuentaFiltrado[estadoCuentaFiltrado.length - 1]?.saldoFila ?? 0) : 0;
 
   return (
     <div className="fixed inset-0 z-40 flex items-start sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">

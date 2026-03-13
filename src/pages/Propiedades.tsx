@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import type { FC, ChangeEvent, FormEvent } from 'react';
+import type { FC, ChangeEvent, FormEvent, Dispatch, SetStateAction } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { formatMoney } from '../utils/currency';
 import { sanitizeCedulaRif, sanitizePhone, sanitizeEmail, isValidEmail, isValidPhone, isValidCedulaRif } from '../utils/validators';
@@ -28,9 +28,10 @@ interface Propiedad {
   inq_email?: string;
   inq_telefono?: string;
   inq_acceso_portal?: boolean;
+  [key: string]: unknown;
 }
 
-interface EstadoCuentaMovimiento {
+interface EstadoCuentaMovimientoRaw {
   fecha_operacion: string;
   fecha_registro: string;
   tipo: string;
@@ -41,7 +42,15 @@ interface EstadoCuentaMovimiento {
   abono: string | number;
 }
 
-interface EstadoCuentaMovimientoConSaldo extends EstadoCuentaMovimiento {
+interface EstadoCuentaMovimientoConSaldo {
+  fecha_operacion: string;
+  fecha_registro: string;
+  tipo: string;
+  concepto: string;
+  monto_bs: number;
+  tasa_cambio: number;
+  cargo: number;
+  abono: number;
   saldoFila: number;
 }
 
@@ -58,17 +67,17 @@ interface FormState {
   inq_cedula: string;
   inq_email: string;
   inq_telefono: string;
-  inq_password: string;
+  inq_password?: string;
   inq_permitir_acceso: boolean;
   monto_saldo_inicial: string;
-  tipo_saldo_inicial: 'CERO';
+  tipo_saldo_inicial?: 'CERO';
   saldo_inicial_bs: string;
   tasa_bcv: string;
 }
 
 interface FormAjusteState {
   monto: string;
-  tipo_ajuste: 'CARGAR_DEUDA' | 'AGREGAR_FAVOR';
+  tipo_ajuste: string;
   nota: string;
 }
 
@@ -83,6 +92,57 @@ interface LoteDataRow {
   telefono: string;
   isValid: boolean;
   errors: string;
+}
+
+interface EstadoCuentaPropiedad {
+  id?: number;
+  identificador: string;
+  prop_nombre: string;
+  inq_nombre?: string;
+  [key: string]: unknown;
+}
+
+interface PropiedadFormData {
+  identificador: string;
+  alicuota: string;
+  saldo_inicial_bs?: string;
+  tasa_bcv?: string;
+  monto_saldo_inicial: string;
+  prop_cedula: string;
+  prop_nombre: string;
+  prop_email: string;
+  prop_telefono: string;
+  prop_password: string;
+  tiene_inquilino: boolean;
+  inq_cedula: string;
+  inq_nombre: string;
+  inq_email: string;
+  inq_telefono: string;
+  inq_permitir_acceso?: boolean;
+}
+
+interface AjusteSaldoFormData {
+  tipo_ajuste: string;
+  monto: string;
+  nota: string;
+}
+
+interface PropiedadAjuste {
+  identificador: string;
+  id?: number;
+  [key: string]: unknown;
+}
+
+interface LotePropiedadRow {
+  isValid: boolean;
+  errors: string;
+  identificador: string;
+  nombre: string;
+  cedula: string;
+  correo: string;
+  telefono: string;
+  alicuota: number | string;
+  saldo_inicial: number | string;
 }
 
 interface ConfirmOptions {
@@ -106,7 +166,7 @@ interface ApiPropiedadesResponse {
 
 interface ApiEstadoCuentaResponse {
   status: string;
-  movimientos: EstadoCuentaMovimiento[];
+  movimientos: EstadoCuentaMovimientoRaw[];
   error?: string;
   message?: string;
 }
@@ -134,12 +194,12 @@ const Propiedades: FC<PropiedadesProps> = () => {
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
 
   const [ajusteModalOpen, setAjusteModalOpen] = useState<boolean>(false);
-  const [selectedPropAjuste, setSelectedPropAjuste] = useState<Propiedad | null>(null);
+  const [selectedPropAjuste, setSelectedPropAjuste] = useState<PropiedadAjuste | null>(null);
   const [formAjuste, setFormAjuste] = useState<FormAjusteState>({ monto: '', tipo_ajuste: 'CARGAR_DEUDA', nota: '' });
 
   const [estadoCuentaModalOpen, setEstadoCuentaModalOpen] = useState<boolean>(false);
-  const [selectedPropCuenta, setSelectedPropCuenta] = useState<Propiedad | null>(null);
-  const [estadoCuentaData, setEstadoCuentaData] = useState<EstadoCuentaMovimiento[]>([]);
+  const [selectedPropCuenta, setSelectedPropCuenta] = useState<EstadoCuentaPropiedad | null>(null);
+  const [estadoCuentaData, setEstadoCuentaData] = useState<EstadoCuentaMovimientoRaw[]>([]);
   const [loadingCuenta, setLoadingCuenta] = useState<boolean>(false);
   const [fechaDesde, setFechaDesde] = useState<string>('');
   const [fechaHasta, setFechaHasta] = useState<string>('');
@@ -207,8 +267,9 @@ const Propiedades: FC<PropiedadesProps> = () => {
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
     const { name, value } = e.target;
     if (e.target instanceof HTMLInputElement && e.target.type === 'checkbox') {
+      const checked = e.target.checked;
       const key = name as keyof FormState;
-      setForm((prev) => ({ ...prev, [key]: e.target.checked as FormState[typeof key] }));
+      setForm((prev) => ({ ...prev, [key]: checked as FormState[typeof key] }));
       return;
     }
     if (name === 'prop_cedula' || name === 'inq_cedula') {
@@ -287,7 +348,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
 
   const handleSubmitAjuste = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
-    if (!selectedPropAjuste) return;
+    if (!selectedPropAjuste?.id) return;
     const ok = await showConfirm({
       title: 'Registrar ajuste',
       message: `¿Registrar ajuste para ${selectedPropAjuste.identificador}?`,
@@ -339,7 +400,9 @@ const Propiedades: FC<PropiedadesProps> = () => {
 
       const wb = XLSX.read(bstr, { type: 'binary' });
       const wsname = wb.SheetNames[0];
+      if (wsname === undefined) return;
       const ws = wb.Sheets[wsname];
+      if (ws === undefined) return;
       const rawData = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' });
 
       let errCount = 0;
@@ -467,9 +530,21 @@ const Propiedades: FC<PropiedadesProps> = () => {
 
   // Cálculos y Paginación
   let saldoAcumulado = 0;
-  const dataConSaldo: EstadoCuentaMovimientoConSaldo[] = estadoCuentaData.map((mov: EstadoCuentaMovimiento) => {
-    saldoAcumulado += toNumber(mov.cargo) - toNumber(mov.abono);
-    return { ...mov, saldoFila: saldoAcumulado };
+  const dataConSaldo: EstadoCuentaMovimientoConSaldo[] = estadoCuentaData.map((mov: EstadoCuentaMovimientoRaw) => {
+    const cargo = toNumber(mov.cargo);
+    const abono = toNumber(mov.abono);
+    saldoAcumulado += cargo - abono;
+    return {
+      fecha_operacion: String(mov.fecha_operacion || ''),
+      fecha_registro: String(mov.fecha_registro || ''),
+      tipo: String(mov.tipo || ''),
+      concepto: String(mov.concepto || ''),
+      monto_bs: toNumber(mov.monto_bs),
+      tasa_cambio: toNumber(mov.tasa_cambio),
+      cargo,
+      abono,
+      saldoFila: saldoAcumulado,
+    };
   });
   const estadoCuentaFiltrado: EstadoCuentaMovimientoConSaldo[] = dataConSaldo.filter((m: EstadoCuentaMovimientoConSaldo) => {
     if (!fechaDesde && !fechaHasta) return true;
@@ -484,6 +559,61 @@ const Propiedades: FC<PropiedadesProps> = () => {
   const filteredProps = propiedades.filter((p: Propiedad) => p.identificador.toLowerCase().includes(searchTerm.toLowerCase()) || p.prop_nombre?.toLowerCase().includes(searchTerm.toLowerCase()));
   const totalPages = Math.ceil(filteredProps.length / itemsPerPage);
   const currentProps = filteredProps.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const setFormForModal: Dispatch<SetStateAction<PropiedadFormData>> = (value) => {
+    setForm((prev: FormState) => {
+      const modalPrev: PropiedadFormData = {
+        identificador: prev.identificador,
+        alicuota: prev.alicuota,
+        saldo_inicial_bs: prev.saldo_inicial_bs,
+        tasa_bcv: prev.tasa_bcv,
+        monto_saldo_inicial: prev.monto_saldo_inicial,
+        prop_cedula: prev.prop_cedula,
+        prop_nombre: prev.prop_nombre,
+        prop_email: prev.prop_email,
+        prop_telefono: prev.prop_telefono,
+        prop_password: prev.prop_password,
+        tiene_inquilino: prev.tiene_inquilino,
+        inq_cedula: prev.inq_cedula,
+        inq_nombre: prev.inq_nombre,
+        inq_email: prev.inq_email,
+        inq_telefono: prev.inq_telefono,
+        inq_permitir_acceso: prev.inq_permitir_acceso,
+      };
+      const next = typeof value === 'function' ? value(modalPrev) : value;
+      return { ...prev, ...next };
+    });
+  };
+
+  const setFormAjusteForModal: Dispatch<SetStateAction<AjusteSaldoFormData>> = (value) => {
+    setFormAjuste((prev: FormAjusteState) => {
+      const next = typeof value === 'function' ? value(prev) : value;
+      return { ...prev, ...next };
+    });
+  };
+
+  const setLoteDataForModal: Dispatch<SetStateAction<LotePropiedadRow[]>> = (value) => {
+    setLoteData((prev: LoteDataRow[]) => {
+      const toModalRows = (rows: LoteDataRow[]): LotePropiedadRow[] =>
+        rows.map((row: LoteDataRow) => ({
+          isValid: row.isValid,
+          errors: row.errors,
+          identificador: row.identificador,
+          nombre: row.nombre,
+          cedula: row.cedula,
+          correo: row.correo,
+          telefono: row.telefono,
+          alicuota: row.alicuota,
+          saldo_inicial: row.saldo_inicial,
+        }));
+      const nextRows = typeof value === 'function' ? value(toModalRows(prev)) : value;
+      return nextRows.map((row: LotePropiedadRow, index: number) => ({
+        rowNum: prev[index]?.rowNum ?? index + 1,
+        ...row,
+        saldo_inicial: String(row.saldo_inicial),
+      }));
+    });
+  };
 
   if (userRole !== 'Administrador') return <p className="p-6">No tienes permisos.</p>;
 
@@ -581,18 +711,16 @@ const Propiedades: FC<PropiedadesProps> = () => {
         setFechaDesde={setFechaDesde}
         fechaHasta={fechaHasta}
         setFechaHasta={setFechaHasta}
-        handleOpenAjuste={handleOpenAjuste}
+        handleOpenAjuste={(propiedad: EstadoCuentaPropiedad) => handleOpenAjuste(propiedad as Propiedad)}
         loadingCuenta={loadingCuenta}
         estadoCuentaFiltrado={estadoCuentaFiltrado}
-        totalCargo={totalCargo}
-        totalAbono={totalAbono}
       />
 
       <ModalPropiedadForm
         isOpen={isModalOpen}
         editingId={editingId}
         form={form}
-        setForm={setForm}
+        setForm={setFormForModal}
         handleChange={handleChange}
         handleSubmit={handleSubmit}
         setIsModalOpen={setIsModalOpen}
@@ -603,7 +731,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
         selectedPropAjuste={selectedPropAjuste}
         setAjusteModalOpen={setAjusteModalOpen}
         formAjuste={formAjuste}
-        setFormAjuste={setFormAjuste}
+        setFormAjuste={setFormAjusteForModal}
         handleSubmitAjuste={handleSubmitAjuste}
       />
 
@@ -611,7 +739,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
         isOpen={loteModalOpen}
         setLoteModalOpen={setLoteModalOpen}
         loteData={loteData}
-        setLoteData={setLoteData}
+        setLoteData={setLoteDataForModal}
         loteErrors={loteErrors}
         isUploadingLote={isUploadingLote}
         uploadProgress={uploadProgress} 

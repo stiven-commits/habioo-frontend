@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import type { FC, ChangeEvent } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { formatMoney } from '../utils/currency';
@@ -21,18 +21,45 @@ interface Propiedad {
   prop_nombre?: string;
   prop_cedula?: string;
   saldo_actual?: string | number;
+  inq_nombre?: string;
 }
 
-interface EstadoCuentaMovimiento {
+interface EstadoCuentaMovimientoRaw {
   fecha_registro?: string;
   fecha_operacion?: string;
-  cargo: string | number;
-  abono: string | number;
+  tipo?: string;
+  concepto?: string;
+  monto_bs?: string | number;
+  tasa_cambio?: string | number;
+  cargo?: string | number;
+  abono?: string | number;
   [key: string]: unknown;
 }
 
-interface EstadoCuentaMovimientoConSaldo extends EstadoCuentaMovimiento {
+interface EstadoCuentaMovimientoConSaldo {
+  fecha_operacion: string;
+  fecha_registro: string;
+  tipo: string;
+  concepto: string;
+  monto_bs: number;
+  tasa_cambio: number;
+  cargo: number;
+  abono: number;
   saldoFila: number;
+}
+
+interface EstadoCuentaPropCuenta {
+  id: number;
+  identificador: string;
+  prop_nombre: string;
+  inq_nombre?: string;
+  [key: string]: unknown;
+}
+
+interface PropiedadPreseleccionadaPago {
+  id: number;
+  identificador: string;
+  saldo_actual: string | number;
 }
 
 interface PropiedadesResponse {
@@ -42,7 +69,7 @@ interface PropiedadesResponse {
 
 interface EstadoCuentaResponse {
   status: string;
-  movimientos?: EstadoCuentaMovimiento[];
+  movimientos?: EstadoCuentaMovimientoRaw[];
 }
 
 const toNumber = (value: string | number | undefined | null): number => parseFloat(String(value ?? 0)) || 0;
@@ -53,18 +80,18 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
   
-  // 💡 NUEVO ESTADO PARA LAS PESTAÑAS
+  // Nuevo estado para las pestañas
   const [activeTab, setActiveTab] = useState<ActiveTab>('Deudores');
 
   const [currentPage, setCurrentPage] = useState<number>(1);
   const ITEMS_PER_PAGE = 13;
 
   const [showPayModal, setShowPayModal] = useState<boolean>(false);
-  const [selectedPropPago, setSelectedPropPago] = useState<Propiedad | null>(null);
+  const [selectedPropPago, setSelectedPropPago] = useState<PropiedadPreseleccionadaPago | null>(null);
 
   const [estadoCuentaModalOpen, setEstadoCuentaModalOpen] = useState<boolean>(false);
-  const [selectedPropCuenta, setSelectedPropCuenta] = useState<Propiedad | null>(null);
-  const [estadoCuentaData, setEstadoCuentaData] = useState<EstadoCuentaMovimiento[]>([]);
+  const [selectedPropCuenta, setSelectedPropCuenta] = useState<EstadoCuentaPropCuenta | null>(null);
+  const [estadoCuentaData, setEstadoCuentaData] = useState<EstadoCuentaMovimientoRaw[]>([]);
   const [loadingCuenta, setLoadingCuenta] = useState<boolean>(false);
   const [fechaDesde, setFechaDesde] = useState<string>('');
   const [fechaHasta, setFechaHasta] = useState<string>('');
@@ -99,10 +126,14 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, activeTab]); // 💡 Resetea la paginación si cambia el buscador o la pestaña
+  }, [searchTerm, activeTab]); // Resetea la paginación si cambia el buscador o la pestaña
 
   const handleOpenRegistrarPago = (prop: Propiedad): void => {
-    setSelectedPropPago(prop);
+    setSelectedPropPago({
+      id: prop.id,
+      identificador: prop.identificador || '',
+      saldo_actual: prop.saldo_actual ?? 0,
+    });
     setShowPayModal(true);
   };
 
@@ -123,14 +154,20 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
   };
 
   const handleOpenEstadoCuenta = (prop: Propiedad): void => {
-    setSelectedPropCuenta(prop);
+    const baseProp: EstadoCuentaPropCuenta = {
+      id: prop.id,
+      identificador: prop.identificador || '',
+      prop_nombre: prop.prop_nombre || 'Sin asignar',
+    };
+    if (prop.inq_nombre) baseProp.inq_nombre = prop.inq_nombre;
+    setSelectedPropCuenta(baseProp);
     setFechaDesde('');
     setFechaHasta('');
     fetchEstadoCuenta(prop.id);
     setEstadoCuentaModalOpen(true);
   };
 
-  // 💡 LÓGICA DE FILTRADO POR PESTAÑAS
+  // Lógica de filtrado por pestañas
   const baseProperties = activeTab === 'Deudores'
     ? propiedades.filter((p: Propiedad) => toNumber(p.saldo_actual) > 0)
     : propiedades;
@@ -145,9 +182,21 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
   const paginatedProperties = filteredProperties.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   let saldoAcumulado = 0;
-  const dataConSaldo: EstadoCuentaMovimientoConSaldo[] = estadoCuentaData.map((mov: EstadoCuentaMovimiento) => {
-    saldoAcumulado += toNumber(mov.cargo) - toNumber(mov.abono);
-    return { ...mov, saldoFila: saldoAcumulado };
+  const dataConSaldo: EstadoCuentaMovimientoConSaldo[] = estadoCuentaData.map((mov: EstadoCuentaMovimientoRaw) => {
+    const cargo = toNumber(mov.cargo as string | number | undefined);
+    const abono = toNumber(mov.abono as string | number | undefined);
+    saldoAcumulado += cargo - abono;
+    return {
+      fecha_operacion: String(mov.fecha_operacion || ''),
+      fecha_registro: String(mov.fecha_registro || ''),
+      tipo: String(mov.tipo || ''),
+      concepto: String(mov.concepto || ''),
+      monto_bs: toNumber(mov.monto_bs as string | number | undefined),
+      tasa_cambio: toNumber(mov.tasa_cambio as string | number | undefined),
+      cargo,
+      abono,
+      saldoFila: saldoAcumulado,
+    };
   });
 
   const estadoCuentaFiltrado: EstadoCuentaMovimientoConSaldo[] = dataConSaldo.filter((m: EstadoCuentaMovimientoConSaldo) => {
@@ -183,7 +232,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
           </div>
         </div>
 
-        {/* 💡 PESTAÑAS DE NAVEGACIÓN */}
+        {/* Pestañas de navegación */}
         <div className="flex gap-6 border-b border-gray-100 dark:border-gray-800 mb-6">
           <button
             onClick={() => setActiveTab('Deudores')}
@@ -229,7 +278,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                 {paginatedProperties.map((p: Propiedad) => {
                   const saldo = toNumber(p.saldo_actual);
                   
-                  // 💡 LÓGICA DE COLORES DINÁMICOS PARA EL SALDO
+                  // Lógica de colores dinámicos para el saldo
                   const isDeuda = saldo > 0;
                   const isFavor = saldo < 0;
                   const colorClass = isDeuda ? 'text-red-500' : isFavor ? 'text-green-500' : 'text-gray-500 dark:text-gray-400';
@@ -322,11 +371,9 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
         setFechaDesde={setFechaDesde}
         fechaHasta={fechaHasta}
         setFechaHasta={setFechaHasta}
-        handleOpenAjuste={() => {}}
+        handleOpenAjuste={(_prop) => {}}
         loadingCuenta={loadingCuenta}
         estadoCuentaFiltrado={estadoCuentaFiltrado}
-        totalCargo={totalCargo}
-        totalAbono={totalAbono}
         showAjuste={false}
       />
     </div>

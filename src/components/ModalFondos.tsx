@@ -122,10 +122,10 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo }) =
     const parts = rawValue.split(',');
     if (parts.length > 2) rawValue = `${parts[0]},${parts.slice(1).join('')}`;
 
-    let [integerPart, decimalPart] = rawValue.split(',');
+    let [integerPart = '', decimalPart] = rawValue.split(',');
     if (integerPart) integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     if (decimalPart !== undefined) return `${integerPart},${decimalPart.slice(0, 2)}`;
-    return integerPart;
+    return integerPart ?? '';
   };
 
   const handleMonedaChange = (e: ChangeEvent<HTMLInputElement>): void => {
