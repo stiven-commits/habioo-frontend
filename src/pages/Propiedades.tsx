@@ -378,11 +378,19 @@ const Propiedades: FC<PropiedadesProps> = () => {
     ];
     const ws = XLSX.utils.json_to_sheet(data);
 
-    if (ws['C1']) ws['C1'].c = [{ a: 'Sistema', t: '¡IMPORTANTE! La letra de la cédula (V, E, J, G, P) debe ser obligatoriamente en MAYÚSCULA.' }];
-    if (ws['D1']) ws['D1'].c = [{ a: 'Sistema', t: 'El porcentaje debe tener máximo 3 decimales (Ejemplo: 2.555 o 2,555).' }];
-    if (ws['E1']) ws['E1'].c = [{ a: 'Sistema', t: 'Si no tiene saldo deje en 0. Si le debe al condominio use números positivos (50). Si tiene a favor use número negativo (-50).' }];
+    XLSX.utils.sheet_add_aoa(
+      ws,
+      [
+        ['NOTAS DEL DEMO', ''],
+        ['Cedula:', 'La letra inicial (V, E, J, G, P) debe ir en MAYUSCULA.'],
+        ['Alicuota:', 'Use maximo 3 decimales (ej: 2.555 o 2,555).'],
+        ['Alicuota en 0:', 'Si todas quedan en 0, el sistema divide gastos por partes iguales entre todos los inmuebles.'],
+        ['SaldoInicial:', '0 = sin saldo, positivo = deuda, negativo = saldo a favor.'],
+      ],
+      { origin: 'I1' }
+    );
 
-    ws['!cols'] = [{ wch: 10 }, { wch: 25 }, { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 25 }, { wch: 15 }];
+    ws['!cols'] = [{ wch: 10 }, { wch: 25 }, { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 25 }, { wch: 15 }, { wch: 3 }, { wch: 16 }, { wch: 85 }];
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Plantilla');

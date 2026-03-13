@@ -3,7 +3,7 @@
 Documento de referencia funcional y técnica del estado actual de la app.
 Este README fusiona la base conceptual original con el inventario actualizado de módulos, endpoints y modelo de datos.
 
-- Última actualización: 2026-03-12
+- Última actualización: 2026-03-13
 - Stack: React + Vite + Tailwind (frontend), Node/Express + PostgreSQL (backend)
 
 ---
@@ -34,6 +34,69 @@ El backend fue refactorizado de un archivo monolítico a módulos por dominio, m
 Impacto:
 - Se conserva compatibilidad de URLs/métodos actuales.
 - Mejor mantenibilidad y menor riesgo al extender funcionalidades.
+
+---
+
+## 1.2) Memoria técnica de remanufacturación TS/TSX (frontend, marzo 2026)
+
+Se hizo una remanufacturación progresiva de pantallas y modales a TypeScript estricto, cuidando no alterar JSX visual, clases Tailwind ni flujos de hooks.
+
+### Alcance principal trabajado
+
+- Páginas: `CuentasPorCobrar.tsx`, `Cierres.tsx`, `EstadoCuentasBancarias.tsx`, `Gastos.tsx`, `Propiedades.tsx`, `Proveedores.tsx`, `Bancos.tsx`.
+- Componentes/modales: `ModalRegistrarPago.tsx`, `ModalFondos.tsx`, `ModalAgregarGasto.tsx`, `BancosModals.tsx`, `DialogProvider.tsx`, `PropiedadesModals.tsx`.
+- Utilidades/config ya migradas a `.ts` en el flujo previo de trabajo.
+
+### Reglas y decisiones de tipado que se aplicaron
+
+1. `exactOptionalPropertyTypes`:
+   - Evitar pasar `undefined` explícito en props opcionales.
+   - Cuando un campo es opcional, agregarlo solo si existe (en vez de `campo: undefined`).
+
+2. `noUncheckedIndexedAccess`:
+   - Proteger accesos por índice:
+     - `arr[0] ?? ''`
+     - `const [a = ''] = str.split('...')`
+     - `obj[key]?.prop ?? fallback`
+
+3. Contratos entre páginas y modales:
+   - Se alinearon tipos de props para evitar incompatibilidades entre interfaces con el mismo nombre pero distinta forma.
+   - Donde fue necesario, se usaron adaptadores de `setState` para respetar firmas esperadas por modales sin cambiar lógica funcional.
+
+4. Eventos y formularios:
+   - Handlers tipados explícitamente (`ChangeEvent`, `FormEvent`, etc.).
+   - Guardas para `checkbox` con `instanceof HTMLInputElement`.
+
+5. Respuestas API:
+   - Interfaces explícitas para payloads relevantes de frontend.
+   - Normalización numérica en cálculos contables para evitar unions ambiguas.
+
+### Problemas reales detectados y cómo evitarlos
+
+- Error de codificación (mojibake / `�`):
+  - Se presentó en varios archivos durante cambios sucesivos de encoding.
+  - Recomendación: mantener todos los `.ts/.tsx` en UTF-8.
+  - Evitar mezclar escrituras `Default/ANSI` y UTF-8 en el mismo archivo.
+
+- Error TS2719 (tipos “iguales” pero no relacionados):
+  - Ocurre por interfaces duplicadas con mismo nombre en distintos módulos.
+  - Recomendación: centralizar tipos compartidos en un módulo común (`src/types/...`) o alinear estructura exacta al pasar props.
+
+### Comandos útiles de verificación rápida
+
+- Validación global frontend:
+  - `npx tsc --noEmit`
+- Validar un archivo específico por nombre:
+  - `npx tsc --noEmit 2>&1 | Select-String -Pattern 'NombreArchivo.tsx'`
+- Build frontend:
+  - `npm run build`
+
+### Nota para continuidad (memoria IA)
+
+Si se retoma este proyecto con contexto nuevo:
+- Priorizar revisión de contratos de props entre páginas y modales antes de tocar lógica.
+- Revisar encoding UTF-8 de archivos que muestren símbolos raros.
+- Antes de cambios grandes, ejecutar `npx tsc --noEmit` y atacar errores por archivo con `Select-String`.
 
 ---
 
