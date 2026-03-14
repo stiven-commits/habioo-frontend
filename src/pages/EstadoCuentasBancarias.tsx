@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import type { FC, ChangeEvent } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { formatMoney } from '../utils/currency';
@@ -234,7 +234,7 @@ const EstadoCuentasBancarias: FC<EstadoCuentasBancariasProps> = () => {
         const movimientoAmarradoAFondo = origen === activeFondoId || destino === activeFondoId || fondo === activeFondoId;
         if (movimientoAmarradoAFondo) return true;
 
-        // Para ingresos/egresos que no vienen con fondo_id explÃ­cito:
+        // Para ingresos/egresos que no vienen con fondo_id explicito:
         // si la cuenta tiene un solo fondo (o el fondo activo absorbe 100%), se reflejan en ese fondo.
         const movimientoSinFondo = origen === 0 && destino === 0 && fondo === 0;
         if (!movimientoSinFondo) return false;
@@ -296,7 +296,7 @@ const EstadoCuentasBancarias: FC<EstadoCuentasBancariasProps> = () => {
     };
   });
 
-  // Invertir el array para mostrar los mÃ¡s recientes arriba
+  // Invertir el array para mostrar los mas recientes arriba
   const tablaInvertida = [...tablaConSaldos].reverse();
   const cuentaActual = cuentas.find((c: CuentaBancaria) => String(c.id) === selectedCuenta);
   const totalPages = Math.ceil(tablaInvertida.length / itemsPerPage);
@@ -308,7 +308,7 @@ const EstadoCuentasBancarias: FC<EstadoCuentasBancariasProps> = () => {
   return (
     <div className="space-y-6 animate-fadeIn">
       
-      {/* ðŸ’¡ PANEL SUPERIOR: SELECTOR Y BOTONES GLOBALES */}
+      {/* PANEL SUPERIOR: SELECTOR Y BOTONES GLOBALES */}
       <div className="bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col md:flex-row justify-between items-center gap-6">
         
         <div className="w-full md:w-1/3">
@@ -329,18 +329,18 @@ const EstadoCuentasBancarias: FC<EstadoCuentasBancariasProps> = () => {
             onClick={() => setShowTransfModal(true)} 
             className="flex-1 md:flex-none bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold py-3 px-5 rounded-xl transition-all text-sm border border-blue-200 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-400"
           >
-            ðŸ”„ Transferir
+            {"\u{1F501} Transferir"}
           </button>
           <button 
             onClick={() => setShowPagoModal(true)} 
             className="flex-1 md:flex-none bg-red-50 hover:bg-red-100 text-red-600 font-bold py-3 px-5 rounded-xl transition-all text-sm border border-red-200 dark:bg-red-900/30 dark:border-red-800 dark:text-red-400 shadow-sm"
           >
-            ðŸ’¸ Pagar Proveedor
+            {"\u{1F4B8} Pagar Proveedor"}
           </button>
         </div>
       </div>
 
-      {/* ðŸ’¡ RESUMEN DE SALDOS */}
+      {/* RESUMEN DE SALDOS */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-2xl border border-blue-100 dark:border-blue-800/50 flex flex-col justify-center items-center">
            <p className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-1">Saldo en Banco (Equivalente USD)</p>
@@ -365,7 +365,7 @@ const EstadoCuentasBancarias: FC<EstadoCuentasBancariasProps> = () => {
         </div>
       </div>
 
-      {/* ðŸ’¡ TABLA LIBRO MAYOR */}
+      {/* TABLA LIBRO MAYOR */}
       <div className="bg-white dark:bg-donezo-card-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
         <div className="p-5 border-b border-gray-100 dark:border-gray-800 space-y-3">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -499,7 +499,7 @@ const EstadoCuentasBancarias: FC<EstadoCuentasBancariasProps> = () => {
               disabled={currentPage === 1}
               className="px-5 py-2 rounded-xl text-sm font-bold bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 transition-all shadow-sm"
             >
-              â† Anterior
+              {"\u2190 Anterior"}
             </button>
             <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Pagina {currentPage} de {totalPages}</span>
             <button
@@ -507,7 +507,7 @@ const EstadoCuentasBancarias: FC<EstadoCuentasBancariasProps> = () => {
               disabled={currentPage === totalPages}
               className="px-5 py-2 rounded-xl text-sm font-bold bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 transition-all shadow-sm"
             >
-              Siguiente â†’
+              {"Siguiente \u2192"}
             </button>
           </div>
         )}

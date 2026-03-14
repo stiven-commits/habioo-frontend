@@ -22,6 +22,7 @@ interface BancoCuenta {
   nombre_banco?: string;
   apodo?: string;
   tipo?: string;
+  es_predeterminada?: boolean;
 }
 
 interface Fondo {
@@ -87,8 +88,24 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({ propiedadPreseleccion
   const [cuentasBancarias, setCuentasBancarias] = useState<BancoCuenta[]>([]);
   const [cuentasConFondos, setCuentasConFondos] = useState<BancoCuenta[]>([]);
   const [loadingCuentas, setLoadingCuentas] = useState<boolean>(true);
+  const isLoading: boolean = loadingCuentas;
 
   const [formPago, setFormPago] = useState<FormPagoState>(initialFormPago());
+  const isOpen = Boolean(propiedadPreseleccionada);
+
+  useEffect(() => {
+    // Solo auto-completamos si la modal está abierta, hay cuentas y el usuario NO ha seleccionado una manualmente
+    if (isOpen && cuentasConFondos && cuentasConFondos.length > 0 && !formPago.cuenta_id) {
+      const cuentaPorDefecto = cuentasConFondos.find((c: BancoCuenta) => c.es_predeterminada) ?? cuentasConFondos[0];
+      
+      if (cuentaPorDefecto) {
+        setFormPago((prev: FormPagoState) => ({
+          ...prev,
+          cuenta_id: String(cuentaPorDefecto.id)
+        }));
+      }
+    }
+  }, [isOpen, cuentasConFondos]); // Importante: No poner formPago en las dependencias para evitar ciclos infinitos
 
   const BANCOS_VENEZUELA: string[] = [
     'Banco de Venezuela (BDV)', 'Banesco Banco Universal', 'Banco Mercantil', 'BBVA Provincial',
@@ -263,93 +280,102 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({ propiedadPreseleccion
           <button disabled={isSubmitting} onClick={onClose} className="text-gray-400 hover:text-red-500 text-xl font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed">✕</button>
         </div>
 
-        <div className={`p-4 rounded-xl mb-4 text-center border ${toNumber(propiedadPreseleccionada.saldo_actual) > 0 ? 'bg-red-50 border-red-100 dark:bg-red-900/20 dark:border-red-800/50' : 'bg-green-50 border-green-100 dark:bg-green-900/20 dark:border-green-800/50'}`}>
-          <p className={`text-xs font-bold mb-1 uppercase tracking-wider ${toNumber(propiedadPreseleccionada.saldo_actual) > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-            {toNumber(propiedadPreseleccionada.saldo_actual) > 0 ? 'Deuda Pendiente' : 'Saldo a Favor'}
-          </p>
-          <p className={`text-3xl font-black font-mono ${toNumber(propiedadPreseleccionada.saldo_actual) > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-            ${formatMoney(Math.abs(toNumber(propiedadPreseleccionada.saldo_actual) || 0))}
-          </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 font-bold mt-2">
-            Inmueble: <span className="text-gray-800 dark:text-white">{propiedadPreseleccionada.identificador}</span>
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmitPago} className="space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Cuenta Bancaria Destino</label>
-            <select name="cuenta_id" value={formPago.cuenta_id} onChange={handlePagoChange} className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required disabled={loadingCuentas}>
-              <option value="">{loadingCuentas ? 'Cargando cuentas bancarias...' : (cuentasConFondos.length ? 'Seleccione cuenta bancaria...' : 'No hay cuentas con fondos activos')}</option>
-              {cuentasConFondos.map((b: BancoCuenta) => <option key={b.id} value={b.id}>{b.nombre_banco || 'Cuenta'} ({b.apodo || b.tipo || 'Sin alias'})</option>)}
-            </select>
-            {!loadingCuentas && cuentasBancarias.length > 0 && cuentasConFondos.length === 0 && (
-              <p className="text-[11px] text-amber-600 dark:text-amber-400 font-bold mt-1">
-                Debe crear al menos un fondo en una cuenta bancaria para registrar pagos.
-              </p>
-            )}
+        {isLoading ? (
+          <div className="flex justify-center items-center p-8">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 dark:border-indigo-400"></div>
+            <p className="ml-3 text-gray-500 dark:text-gray-400">Cargando información...</p>
           </div>
+        ) : (
+          <>
+            <div className={`p-4 rounded-xl mb-4 text-center border ${toNumber(propiedadPreseleccionada.saldo_actual) > 0 ? 'bg-red-50 border-red-100 dark:bg-red-900/20 dark:border-red-800/50' : 'bg-green-50 border-green-100 dark:bg-green-900/20 dark:border-green-800/50'}`}>
+              <p className={`text-xs font-bold mb-1 uppercase tracking-wider ${toNumber(propiedadPreseleccionada.saldo_actual) > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                {toNumber(propiedadPreseleccionada.saldo_actual) > 0 ? 'Deuda Pendiente' : 'Saldo a Favor'}
+              </p>
+              <p className={`text-3xl font-black font-mono ${toNumber(propiedadPreseleccionada.saldo_actual) > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                ${formatMoney(Math.abs(toNumber(propiedadPreseleccionada.saldo_actual) || 0))}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-bold mt-2">
+                Inmueble: <span className="text-gray-800 dark:text-white">{propiedadPreseleccionada.identificador}</span>
+              </p>
+            </div>
 
-          {requiresTasa ? (
-            <div className="grid grid-cols-2 gap-3 items-stretch">
-              <div className="space-y-3">
+            <form onSubmit={handleSubmitPago} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Cuenta Bancaria Destino</label>
+                <select name="cuenta_id" value={formPago.cuenta_id} onChange={handlePagoChange} className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required>
+                  <option value="">{cuentasConFondos.length ? 'Seleccione cuenta bancaria...' : 'No hay cuentas con fondos activos'}</option>
+                  {cuentasConFondos.map((b: BancoCuenta) => <option key={b.id} value={b.id}>{b.nombre_banco || 'Cuenta'} ({b.apodo || b.tipo || 'Sin alias'})</option>)}
+                </select>
+                {cuentasBancarias.length > 0 && cuentasConFondos.length === 0 && (
+                  <p className="text-[11px] text-amber-600 dark:text-amber-400 font-bold mt-1">
+                    Debe crear al menos un fondo en una cuenta bancaria para registrar pagos.
+                  </p>
+                )}
+              </div>
+
+              {requiresTasa ? (
+                <div className="grid grid-cols-2 gap-3 items-stretch">
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Monto Pagado</label>
+                      <input type="text" name="monto_origen" value={formPago.monto_origen} onChange={handlePagoChange} placeholder="0,00" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Tasa de Cambio <span className="text-red-500">*</span></label>
+                      <input type="text" name="tasa_cambio" value={formPago.tasa_cambio} onChange={handlePagoChange} placeholder="Ej: 36,50" required className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" />
+                    </div>
+                  </div>
+                  <button type="button" onClick={fetchBCV} disabled={isFetchingBCV} className="h-full min-h-[118px] w-full bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/40 dark:text-blue-400 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-donezo-primary disabled:opacity-60" title="Consultar tasa actual del BCV">
+                    {isFetchingBCV ? '⌛...' : '🔄 BCV'}
+                  </button>
+                </div>
+              ) : (
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Monto Pagado</label>
                   <input type="text" name="monto_origen" value={formPago.monto_origen} onChange={handlePagoChange} placeholder="0,00" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
                 </div>
+              )}
+
+              {requiresTasa && (
+                <div className="grid grid-cols-2 gap-3 mt-3 border-t border-gray-100 dark:border-gray-800 pt-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Banco de Origen</label>
+                    <select name="banco_origen" value={formPago.banco_origen} onChange={handlePagoChange} className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required>
+                      <option value="">Seleccione...</option>
+                      {BANCOS_VENEZUELA.map((b: string) => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Cédula Origen</label>
+                    <input type="text" name="cedula_origen" value={formPago.cedula_origen} onChange={handlePagoChange} pattern="^[VEJG][0-9]{5,9}$" placeholder="V12345678" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center px-2 py-1 mt-1 mb-2 bg-green-50 dark:bg-green-900/10 rounded-lg">
+                <span className="text-xs text-green-700 dark:text-green-500 font-bold uppercase tracking-wider">Abono Equivalente:</span>
+                <span className="font-black text-green-600 dark:text-green-400 text-lg">+ ${formatMoney(conversionUSD)}</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Tasa de Cambio <span className="text-red-500">*</span></label>
-                  <input type="text" name="tasa_cambio" value={formPago.tasa_cambio} onChange={handlePagoChange} placeholder="Ej: 36,50" required className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" />
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Referencia</label>
+                  <input type="text" name="referencia" value={formPago.referencia} onChange={handlePagoChange} placeholder="Ref / Comprobante" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Fecha Pago</label>
+                  <input type="date" name="fecha_pago" value={formPago.fecha_pago} onChange={handlePagoChange} max={new Date().toISOString().split('T')[0]} className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
                 </div>
               </div>
-              <button type="button" onClick={fetchBCV} disabled={isFetchingBCV} className="h-full min-h-[118px] w-full bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/40 dark:text-blue-400 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-donezo-primary disabled:opacity-60" title="Consultar tasa actual del BCV">
-                {isFetchingBCV ? '⌛...' : '🔄 BCV'}
-              </button>
-            </div>
-          ) : (
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Monto Pagado</label>
-              <input type="text" name="monto_origen" value={formPago.monto_origen} onChange={handlePagoChange} placeholder="0,00" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
-            </div>
-          )}
 
-          {requiresTasa && (
-            <div className="grid grid-cols-2 gap-3 mt-3 border-t border-gray-100 dark:border-gray-800 pt-3">
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Banco de Origen</label>
-                <select name="banco_origen" value={formPago.banco_origen} onChange={handlePagoChange} className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required>
-                  <option value="">Seleccione...</option>
-                  {BANCOS_VENEZUELA.map((b: string) => <option key={b} value={b}>{b}</option>)}
-                </select>
+              <div className="pt-2">
+                <button disabled={isSubmitting} type="submit" className="w-full py-3 bg-donezo-primary text-white font-bold rounded-xl hover:bg-green-700 shadow-lg shadow-green-500/30 transition-all disabled:opacity-60 disabled:cursor-not-allowed">
+                  Procesar Pago
+                </button>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Cédula Origen</label>
-                <input type="text" name="cedula_origen" value={formPago.cedula_origen} onChange={handlePagoChange} pattern="^[VEJG][0-9]{5,9}$" placeholder="V12345678" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
-              </div>
-            </div>
-          )}
-
-          <div className="flex justify-between items-center px-2 py-1 mt-1 mb-2 bg-green-50 dark:bg-green-900/10 rounded-lg">
-            <span className="text-xs text-green-700 dark:text-green-500 font-bold uppercase tracking-wider">Abono Equivalente:</span>
-            <span className="font-black text-green-600 dark:text-green-400 text-lg">+ ${formatMoney(conversionUSD)}</span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Referencia</label>
-              <input type="text" name="referencia" value={formPago.referencia} onChange={handlePagoChange} placeholder="Ref / Comprobante" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Fecha Pago</label>
-              <input type="date" name="fecha_pago" value={formPago.fecha_pago} onChange={handlePagoChange} max={new Date().toISOString().split('T')[0]} className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
-            </div>
-          </div>
-
-          <div className="pt-2">
-            <button disabled={isSubmitting} type="submit" className="w-full py-3 bg-donezo-primary text-white font-bold rounded-xl hover:bg-green-700 shadow-lg shadow-green-500/30 transition-all disabled:opacity-60 disabled:cursor-not-allowed">
-              Procesar Pago
-            </button>
-          </div>
-        </form>
+            </form>
+          </>
+        )}
       </div>
     </div>
   );

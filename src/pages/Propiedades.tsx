@@ -413,6 +413,26 @@ const Propiedades: FC<PropiedadesProps> = () => {
       if (ws === undefined) return;
       const rawData = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' });
 
+      const parseAlicuota = (value: unknown): number => {
+        const normalized = String(value ?? '').trim().replace(',', '.');
+        const parsed = parseFloat(normalized);
+        return Number.isNaN(parsed) ? 0 : parsed;
+      };
+
+      const alicuotas: number[] = rawData.map((row: Record<string, unknown>) =>
+        parseAlicuota(row.Alicuota ?? row.Alícuota ?? 0)
+      );
+      const tieneCeros: boolean = alicuotas.some((a: number) => a === 0);
+      const tieneMayoresACero: boolean = alicuotas.some((a: number) => a > 0);
+
+      if (tieneCeros && tieneMayoresACero) {
+        setLoteData([]);
+        setLoteErrors(0);
+        e.target.value = '';
+        alert('Error: El archivo tiene alícuotas mixtas. Ingrese todas en 0 (para dividir por partes iguales) o asigne un valor mayor a 0 a todas.');
+        return;
+      }
+
       let errCount = 0;
       const seenEmails = new Set<string>();
 
@@ -428,8 +448,8 @@ const Propiedades: FC<PropiedadesProps> = () => {
         const cedulaFmt = sanitizeCedulaRif(String(cedulaRaw));
         const telefonoFmt = sanitizePhone(String(telefono));
         const emailFmt = sanitizeEmail(correo);
-        let aliNum = parseFloat(String(alicuota).replace(',', '.'));
-        const isAliValid = !isNaN(aliNum) && aliNum > 0 && aliNum <= 100;
+        let aliNum = parseAlicuota(alicuota);
+        const isAliValid = !Number.isNaN(aliNum) && aliNum >= 0 && aliNum <= 100;
 
         if (isAliValid) {
           aliNum = parseFloat(aliNum.toFixed(3));
