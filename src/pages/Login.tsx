@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import type { FC, ChangeEvent, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config/api';
@@ -23,7 +23,7 @@ const Login: FC<LoginProps> = () => {
   const [message, setMessage] = useState<string>('');
   const navigate = useNavigate();
 
-  // FunciÃ³n Limpia: Solo permite letras y nÃºmeros (Sin guiones)
+  // Funcion limpia: solo permite letras y numeros (sin guiones)
   const handleCedulaChange = (e: ChangeEvent<HTMLInputElement>): void => {
     setCedula(sanitizeCedulaRif(e.target.value));
   };
@@ -54,7 +54,7 @@ const Login: FC<LoginProps> = () => {
         setMessage('Error: ' + (data.message ?? 'Credenciales inválidas.'));
       }
     } catch (error) {
-      setMessage('Error de conexiÃ³n con el servidor.');
+      setMessage('Error de conexión con el servidor.');
     }
   };
 
@@ -64,7 +64,7 @@ const Login: FC<LoginProps> = () => {
         <div className="flex flex-col items-center mb-8">
           <div className="w-16 h-16 bg-gradient-to-br from-donezo-primary to-donezo-green rounded-2xl shadow-lg mb-4 transform rotate-3"></div>
           <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Portal Habioo</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-2 text-center">GestiÃ³n de Condominios</p>
+          <p className="text-gray-500 dark:text-gray-400 mt-2 text-center">Gestión de Condominios</p>
         </div>
 
         <form onSubmit={handleLogin} className="flex flex-col gap-5">
@@ -82,10 +82,10 @@ const Login: FC<LoginProps> = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">ContraseÃ±a</label>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Contraseña</label>
             <input
               type="password"
-              placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+              placeholder="••••••••"
               value={password}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
               required
