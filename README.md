@@ -207,6 +207,8 @@ Si se retoma este proyecto con contexto nuevo:
 ### Bancos y fondos
 - `GET https://auth.habioo.cloud/bancos` -> listar cuentas.
 - `POST https://auth.habioo.cloud/bancos` -> crear cuenta.
+  - Tipos soportados en UI: `Transferencia (Bs)`, `Pago Móvil (Bs)`, `Zelle (USD)`, `Efectivo / Caja Fuerte (Bs)`, `Efectivo / Caja Fuerte (USD)`.
+  - La moneda base se autodefine por tipo cuando aplica (nacional -> `BS`, internacional -> `USD`) y solo se habilita manualmente en tipos genéricos.
 - `PUT https://auth.habioo.cloud/bancos/:id/predeterminada` -> marcar principal.
 - `DELETE https://auth.habioo.cloud/bancos/:id` -> eliminar cuenta.
 - `GET https://auth.habioo.cloud/fondos` -> listar fondos.
@@ -214,7 +216,7 @@ Si se retoma este proyecto con contexto nuevo:
 - `DELETE https://auth.habioo.cloud/fondos/:id` -> eliminar fondo sin movimientos.
 - `GET https://auth.habioo.cloud/bancos-admin/:id/estado-cuenta` -> libro mayor de la cuenta (movimientos y saldos).
 - `GET https://auth.habioo.cloud/gastos-pendientes-pago` -> gastos/facturas pendientes para pago a proveedor.
-- `POST https://auth.habioo.cloud/pagos-proveedores` -> registrar pago parcial o total de gasto desde un fondo.
+- `POST https://auth.habioo.cloud/pagos-proveedores` -> registrar pago parcial o total de gasto con imputación multiorigen (múltiples cuentas/fondos en una sola operación).
 - `POST https://auth.habioo.cloud/transferencias` -> transferir entre fondos/cuentas (con o sin conversión).
 
 Notas de desarrollo local:
@@ -264,6 +266,7 @@ Notas de desarrollo local:
   - Nuevos campos relevantes: `rubro`, `email`, `condominio_id`, `activo`.
 - `cuentas_bancarias`:
   - Campos clave actuales: `numero_cuenta`, `nombre_banco`, `apodo`, `tipo`, `es_predeterminada`, `nombre_titular`, `cedula_rif`, `telefono`.
+  - Convención vigente de tipos: `Transferencia`, `Pago Movil`, `Zelle`, `Efectivo BS`, `Efectivo USD`.
 
 ### Gastos y facturación
 - `gastos`:
@@ -287,7 +290,7 @@ Notas de desarrollo local:
 - `gastos_pagos_fondos`:
   - Relación de pagos de gastos con fondos (estructura disponible para expansión).
 - `pagos_proveedores`:
-  - Pagos aplicados a gastos (parciales/totales) desde fondos; soporta referencia, fecha y nota.
+  - Pagos aplicados a gastos (parciales/totales) con orígenes múltiples; soporta referencia por origen, fecha y nota global.
 - `transferencias`:
   - Movimientos entre fondos/cuentas con soporte de tasa de cambio y montos origen/destino.
 - `gastos.monto_pagado_usd`:
@@ -332,8 +335,13 @@ Notas de desarrollo local:
    - Cuenta predeterminada (`PUT /bancos/:id/predeterminada`) activa.
    - Fondos virtuales anclados a cuentas bancarias con trazabilidad.
    - Nueva vista `Libro Mayor` (`/estado-cuentas`) con estado de cuenta por banco/cuenta.
+   - Alta de cuenta actualizada con tipos explícitos de efectivo en dos monedas: `Efectivo / Caja Fuerte (Bs)` y `Efectivo / Caja Fuerte (USD)`.
    - Modales operativas para `Pagar Proveedor` y `Transferencia` entre fondos.
    - Integración con endpoints `GET /bancos-admin/:id/estado-cuenta`, `POST /pagos-proveedores`, `POST /transferencias`, `GET /gastos-pendientes-pago`.
+   - Pago a proveedor con carrito de orígenes:
+     - permite distribuir un mismo pago entre múltiples cuentas/fondos;
+     - soporta Bs y USD por fila con tasa BCV por origen en Bs;
+     - valida sobrepago al gasto y saldo insuficiente por fondo (incluyendo suma de múltiples filas sobre un mismo fondo).
 5. Pagos:
    - Flujo consolidado en `POST /pagos-admin` con registro por `propiedad_id`.
    - Validación manual disponible en `POST /pagos/:id/validar`.
@@ -367,7 +375,8 @@ Notas de desarrollo local:
      - 20 inmuebles de prueba con saldos mixtos (deuda, a favor y cero).
      - 20 propietarios vinculados (clave inicial = cédula).
      - 8 proveedores de prueba con correo (`email`) y datos de contacto.
-     - 2 cuentas bancarias y 3 fondos (1 fondo en la primera cuenta, 2 fondos en la segunda).
+     - 4 cuentas bancarias de prueba: 3 cuentas en `BS` y 1 cuenta en `USD`.
+     - 4 fondos de prueba alineados con las cuentas y su moneda (1 por cuenta).
      - 14 gastos con mezcla de tipos (incluye `Extra`) y varios en 4 cuotas para pruebas de cierre/cobranza.
 12. Proveedores (front + back + BD):
    - BD: se agregó columna `proveedores.email`.
