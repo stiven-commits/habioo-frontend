@@ -14,7 +14,7 @@ interface OutletContextType {
   userRole?: string;
 }
 
-type TipoCuenta = 'Transferencia' | 'Pago Movil' | 'Zelle' | 'Efectivo';
+type TipoCuenta = 'Transferencia' | 'Pago Movil' | 'Zelle' | 'Efectivo BS' | 'Efectivo USD' | 'Efectivo';
 type DialogVariant = 'warning' | 'danger' | 'success';
 
 interface DialogAlertOptions {
@@ -76,7 +76,8 @@ interface ApiActionResponse {
 }
 
 interface FormState {
-  tipo: TipoCuenta;
+  tipo: string;
+  moneda: 'BS' | 'USD';
   nombre_banco: string;
   apodo: string;
   nombre_titular: string;
@@ -89,12 +90,46 @@ type FormField = keyof FormState;
 
 const initialForm: FormState = {
   tipo: 'Transferencia',
+  moneda: 'BS',
   nombre_banco: '',
   apodo: '',
   nombre_titular: '',
   cedula_rif: '',
   numero_cuenta: '',
   telefono: '',
+};
+
+const normalizeTipo = (value: string): string => value
+  .toLowerCase()
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '');
+
+const resolveTipoMoneda = (tipo: string): { moneda: 'BS' | 'USD' | null; blocked: boolean } => {
+  const t = normalizeTipo(tipo);
+  const isInternational = t.includes('zelle')
+    || t.includes('panama')
+    || (t.includes('efectivo') && t.includes('usd'))
+    || t.includes('internacional')
+    || t.includes('usd');
+  if (isInternational) {
+    return { moneda: 'USD', blocked: true };
+  }
+
+  const isNational = t.includes('pago movil')
+    || t.includes('transferencia')
+    || t.includes('nacional')
+    || t.includes('ves')
+    || (t.includes('bs') && !t.includes('usd'));
+  if (isNational) {
+    return { moneda: 'BS', blocked: true };
+  }
+
+  const isGenericCash = t.trim() === 'efectivo';
+  if (isGenericCash) {
+    return { moneda: null, blocked: false };
+  }
+
+  return { moneda: null, blocked: false };
 };
 
 const Bancos: FC<BancosProps> = () => {
@@ -109,6 +144,8 @@ const Bancos: FC<BancosProps> = () => {
   const [showForm, setShowForm] = useState<boolean>(false);
 
   const [form, setForm] = useState<FormState>(initialForm);
+  const monedaRule = resolveTipoMoneda(form.tipo);
+  const monedaBloqueada = monedaRule.blocked;
 
   const bancosVenezuela: string[] = [
     '0102 - Banco de Venezuela',
@@ -161,11 +198,16 @@ const Bancos: FC<BancosProps> = () => {
     if (userRole === 'Administrador') fetchData();
   }, [userRole]);
 
+  useEffect(() => {
+    if (!monedaRule.moneda) return;
+    setForm((prev: FormState) => (prev.moneda === monedaRule.moneda ? prev : { ...prev, moneda: monedaRule.moneda }));
+  }, [form.tipo]);
+
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
     const { name, value } = e.target;
     const field = name as FormField;
     if (field === 'tipo') {
-      setForm((prev: FormState) => ({ ...prev, tipo: value as TipoCuenta, nombre_banco: '' }));
+      setForm((prev: FormState) => ({ ...prev, tipo: value, nombre_banco: '' }));
       return;
     }
     if (field === 'telefono') {
@@ -339,7 +381,23 @@ const Bancos: FC<BancosProps> = () => {
                 <option value="Transferencia" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Transferencia (Bs)</option>
                 <option value="Pago Movil" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Pago Movil (Bs)</option>
                 <option value="Zelle" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Zelle (USD)</option>
-                <option value="Efectivo" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Efectivo / Caja Fuerte</option>
+                <option value="Efectivo BS" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Efectivo / Caja Fuerte (Bs)</option>
+                <option value="Efectivo USD" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Efectivo / Caja Fuerte (USD)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Moneda Base *</label>
+              <select
+                name="moneda"
+                value={form.moneda}
+                onChange={handleChange}
+                required
+                disabled={monedaBloqueada}
+                className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                <option value="BS" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Bolivares (BS)</option>
+                <option value="USD" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Dolares (USD)</option>
               </select>
             </div>
 
@@ -364,8 +422,8 @@ const Bancos: FC<BancosProps> = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Apodo (Referencia) *</label><input type="text" name="apodo" value={form.apodo} onChange={handleChange} required placeholder={form.tipo === 'Efectivo' ? 'Ej: Caja Chica Conserjeria' : 'Ej: Principal / Pagos Bs'} className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" /></div>
-            <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{form.tipo === 'Efectivo' ? 'Custodio / Responsable *' : 'Nombre del Titular *'}</label><input type="text" name="nombre_titular" value={form.nombre_titular} onChange={handleChange} required placeholder="Ej: Junta de Condominio" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" /></div>
+            <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Apodo (Referencia) *</label><input type="text" name="apodo" value={form.apodo} onChange={handleChange} required placeholder={form.tipo.startsWith('Efectivo') ? 'Ej: Caja Chica Conserjeria' : 'Ej: Principal / Pagos Bs'} className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" /></div>
+            <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{form.tipo.startsWith('Efectivo') ? 'Custodio / Responsable *' : 'Nombre del Titular *'}</label><input type="text" name="nombre_titular" value={form.nombre_titular} onChange={handleChange} required placeholder="Ej: Junta de Condominio" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" /></div>
 
             {['Transferencia', 'Pago Movil'].includes(form.tipo) && (
               <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cedula / RIF *</label><input type="text" name="cedula_rif" value={form.cedula_rif} onChange={handleCedulaChange} pattern="^[VEJG]-?[0-9]{5,9}$" required placeholder="Ej: J-123456789" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono" /></div>

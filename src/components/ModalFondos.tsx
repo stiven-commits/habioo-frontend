@@ -14,6 +14,8 @@ interface CuentaBancaria {
   id: number;
   nombre_banco: string;
   apodo: string;
+  tipo?: string;
+  moneda?: string;
 }
 
 interface Fondo {
@@ -69,12 +71,46 @@ const initialForm: FormState = {
   es_operativo: false,
 };
 
+const normalizeTipo = (value: string): string => value
+  .toLowerCase()
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '');
+
+const resolveTipoMoneda = (tipo: string): { moneda: 'BS' | 'USD' | null; blocked: boolean } => {
+  const t = normalizeTipo(tipo);
+  const isInternational = t.includes('zelle')
+    || t.includes('panama')
+    || (t.includes('efectivo') && t.includes('usd'))
+    || t.includes('internacional')
+    || t.includes('usd');
+  if (isInternational) {
+    return { moneda: 'USD', blocked: true };
+  }
+
+  const isNational = t.includes('pago movil')
+    || t.includes('transferencia')
+    || t.includes('nacional')
+    || t.includes('ves')
+    || (t.includes('bs') && !t.includes('usd'));
+  if (isNational) {
+    return { moneda: 'BS', blocked: true };
+  }
+
+  const isGenericCash = t.trim() === 'efectivo';
+  if (isGenericCash) {
+    return { moneda: null, blocked: false };
+  }
+
+  return { moneda: null, blocked: false };
+};
+
 const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo }) => {
   const { showAlert, showConfirm } = useDialog() as DialogContextType;
 
   const [fondos, setFondos] = useState<Fondo[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [form, setForm] = useState<FormState>(initialForm);
+  const cuentaMonedaRule = resolveTipoMoneda(`${cuenta.tipo || ''} ${cuenta.nombre_banco || ''}`);
 
   const fetchFondos = async (): Promise<void> => {
     const token = localStorage.getItem('habioo_token');
@@ -98,6 +134,12 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo }) =
   useEffect(() => {
     fetchFondos();
   }, [cuenta.id]);
+
+  useEffect(() => {
+    const forcedMoneda = cuentaMonedaRule.moneda;
+    if (!forcedMoneda) return;
+    setForm((prev: FormState) => (prev.moneda === forcedMoneda ? prev : { ...prev, moneda: forcedMoneda }));
+  }, [cuenta.id, cuenta.tipo, cuenta.nombre_banco]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
     const { name, value } = e.target;
@@ -281,9 +323,15 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo }) =
 
             <div>
               <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">Moneda Base</label>
-              <select name="moneda" value={form.moneda} onChange={handleChange} className="w-full p-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm font-bold dark:text-white">
-                <option value="BS" className="bg-white dark:bg-gray-800">Bolivares (BS)</option>
-                <option value="USD" className="bg-white dark:bg-gray-800">Dolares (USD)</option>
+              <select
+                name="moneda"
+                value={form.moneda}
+                onChange={handleChange}
+                disabled={cuentaMonedaRule.blocked}
+                className="w-full p-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm font-bold dark:text-white disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                <option value="BS" className="bg-white dark:bg-gray-800">Bolívares (BS)</option>
+                <option value="USD" className="bg-white dark:bg-gray-800">Dólares (USD)</option>
                 <option value="EUR" className="bg-white dark:bg-gray-800">Euros (EUR)</option>
               </select>
             </div>

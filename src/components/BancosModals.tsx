@@ -10,9 +10,17 @@ interface ModalBaseProps {
 
 interface Fondo {
   id: number | string;
+  cuenta_bancaria_id?: number | string;
   nombre: string;
   moneda: string;
   saldo_actual: number | string;
+}
+
+interface CuentaBancaria {
+  id: number | string;
+  nombre_banco?: string;
+  apodo?: string;
+  tipo?: string;
 }
 
 interface GastoPendiente {
@@ -30,6 +38,10 @@ interface ApiResult {
 
 interface FondosResponse extends ApiResult {
   fondos?: Fondo[];
+}
+
+interface BancosResponse extends ApiResult {
+  bancos?: CuentaBancaria[];
 }
 
 interface GastosPendientesResponse extends ApiResult {
@@ -256,8 +268,10 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
   const { showAlert, showConfirm } = useDialog();
 
   const [fondos, setFondos] = useState<Fondo[]>([]);
+  const [cuentas, setCuentas] = useState<CuentaBancaria[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [isFetchingBCV, setIsFetchingBCV] = useState<boolean>(false);
+  const [cuentaDestinoId, setCuentaDestinoId] = useState<string>('');
 
   const [form, setForm] = useState<TransferenciaForm>({
     fondo_origen_id: '',
@@ -270,24 +284,36 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
   });
 
   useEffect(() => {
-    const fetchFondos = async (): Promise<void> => {
+    const fetchData = async (): Promise<void> => {
       const token = localStorage.getItem('habioo_token');
       try {
-        const res = await fetch(`${API_BASE_URL}/fondos`, { headers: { Authorization: `Bearer ${token}` } });
-        const data: FondosResponse = (await res.json()) as FondosResponse;
-        if (data.status === 'success' && Array.isArray(data.fondos)) setFondos(data.fondos);
+        const headers = { Authorization: `Bearer ${token}` };
+        const [resFondos, resBancos] = await Promise.all([
+          fetch(`${API_BASE_URL}/fondos`, { headers }),
+          fetch(`${API_BASE_URL}/bancos`, { headers }),
+        ]);
+
+        const dataFondos: FondosResponse = (await resFondos.json()) as FondosResponse;
+        const dataBancos: BancosResponse = (await resBancos.json()) as BancosResponse;
+
+        if (dataFondos.status === 'success' && Array.isArray(dataFondos.fondos)) setFondos(dataFondos.fondos);
+        if (dataBancos.status === 'success' && Array.isArray(dataBancos.bancos)) setCuentas(dataBancos.bancos);
       } catch (error) {
         console.error(error);
-        await showAlert({ title: 'Error', message: 'No se pudieron cargar los fondos.', variant: 'danger' });
+        await showAlert({ title: 'Error', message: 'No se pudieron cargar las cuentas y fondos.', variant: 'danger' });
       } finally {
         setLoading(false);
       }
     };
-    fetchFondos();
+    fetchData();
   }, []);
 
   const fondoOrigen = fondos.find((f) => f.id.toString() === form.fondo_origen_id);
-  const fondosDestino = fondos.filter((f) => f.id.toString() !== form.fondo_origen_id);
+  const cuentaOrigenId = fondoOrigen?.cuenta_bancaria_id?.toString() || '';
+  const cuentasDestinoDisponibles = cuentas.filter((c) => c.id.toString() !== cuentaOrigenId);
+  const fondosDestinoCuenta = fondos.filter((f) => f.cuenta_bancaria_id?.toString() === cuentaDestinoId);
+  const fondosDestino = fondosDestinoCuenta.filter((f) => f.id.toString() !== form.fondo_origen_id);
+  const cuentaDestinoSinFondos = Boolean(cuentaDestinoId) && fondosDestinoCuenta.length === 0;
   const fondoDestino = fondos.find((f) => f.id.toString() === form.fondo_destino_id);
 
   const isDifferentCurrency = Boolean(fondoOrigen && fondoDestino && fondoOrigen.moneda !== fondoDestino.moneda);
@@ -309,11 +335,13 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
 
   const isTransferFormValid = Boolean(
     form.fondo_origen_id &&
+    cuentaDestinoId &&
     form.fondo_destino_id &&
     montoOrigenNum > 0 &&
     form.referencia.trim() &&
     form.fecha &&
-    (!involvesBs || tasaNum > 0)
+    (!involvesBs || tasaNum > 0) &&
+    !cuentaDestinoSinFondos
   );
 
   const fetchBCV = async (): Promise<void> => {
@@ -334,8 +362,16 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
 
-    if (!form.fondo_origen_id || !form.fondo_destino_id) {
-      await showAlert({ title: 'Campos requeridos', message: 'Seleccione fondo de origen y destino.', variant: 'warning' });
+    if (!form.fondo_origen_id || !cuentaDestinoId || !form.fondo_destino_id) {
+      await showAlert({ title: 'Campos requeridos', message: 'Seleccione fondo de origen, cuenta destino y fondo destino.', variant: 'warning' });
+      return;
+    }
+    if (cuentaDestinoSinFondos) {
+      await showAlert({
+        title: 'Cuenta sin fondos',
+        message: 'La cuenta destino seleccionada no tiene fondos creados. Cree un fondo primero en la configuración.',
+        variant: 'warning',
+      });
       return;
     }
     if (montoOrigenNum <= 0) {
@@ -396,7 +432,15 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-blue-700 dark:text-blue-300 uppercase mb-1">Sale de (Origen) *</label>
-              <select required value={form.fondo_origen_id} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setForm({ ...form, fondo_origen_id: e.target.value, fondo_destino_id: '' })} className="w-full p-3 rounded-xl border border-blue-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-blue-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-400 font-semibold">
+              <select
+                required
+                value={form.fondo_origen_id}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                  setForm({ ...form, fondo_origen_id: e.target.value, fondo_destino_id: '' });
+                  setCuentaDestinoId('');
+                }}
+                className="w-full p-3 rounded-xl border border-blue-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-blue-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-400 font-semibold"
+              >
                 <option value="">Seleccione fondo origen...</option>
                 {fondos.map((f) => <option key={f.id} value={f.id}>{f.nombre} ({f.moneda}) - Disp: {f.moneda === 'USD' ? '$' : 'Bs'}{formatMoney(f.saldo_actual)}</option>)}
               </select>
@@ -404,8 +448,40 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
 
             {fondoOrigen && (
               <div className="animate-fadeIn">
-                <label className="block text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase mb-1">Entra a (Destino) *</label>
-                <select required value={form.fondo_destino_id} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setForm({ ...form, fondo_destino_id: e.target.value })} className="w-full p-3 rounded-xl border border-indigo-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-indigo-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-indigo-400 font-semibold">
+                <label className="block text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase mb-1">Cuenta Destino *</label>
+                <select
+                  required
+                  value={cuentaDestinoId}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                    setCuentaDestinoId(e.target.value);
+                    setForm((prev: TransferenciaForm) => ({ ...prev, fondo_destino_id: '' }));
+                  }}
+                  className="w-full p-3 rounded-xl border border-indigo-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-indigo-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-indigo-400 font-semibold"
+                >
+                  <option value="">Seleccione cuenta destino...</option>
+                  {cuentasDestinoDisponibles.map((cuenta: CuentaBancaria) => (
+                    <option key={cuenta.id} value={cuenta.id}>
+                      {(cuenta.nombre_banco || 'Cuenta')} - {(cuenta.tipo || cuenta.apodo || `ID ${cuenta.id}`)}
+                    </option>
+                  ))}
+                </select>
+                {cuentaDestinoSinFondos && (
+                  <p className="mt-2 text-sm text-red-500">
+                    Esta cuenta no tiene fondos creados. Debe crear un fondo primero en la configuración para poder recibir transferencias.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {fondoOrigen && cuentaDestinoId && !cuentaDestinoSinFondos && (
+              <div className="animate-fadeIn">
+                <label className="block text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase mb-1">Fondo Destino *</label>
+                <select
+                  required
+                  value={form.fondo_destino_id}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setForm({ ...form, fondo_destino_id: e.target.value })}
+                  className="w-full p-3 rounded-xl border border-indigo-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-indigo-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-indigo-400 font-semibold"
+                >
                   <option value="">Seleccione fondo destino...</option>
                   {fondosDestino.map((f) => <option key={f.id} value={f.id}>{f.nombre} ({f.moneda})</option>)}
                 </select>
