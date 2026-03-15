@@ -165,7 +165,7 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({ onClose, onSuccess, pro
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha Factura <span className="text-red-500">*</span></label>
-              <input type="date" name="fecha_gasto" value={form.fecha_gasto} onChange={handleChange} max={todayString} required className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" />
+              <input type="date" lang="es-ES" title="dd/mm/yyyy" name="fecha_gasto" value={form.fecha_gasto} onChange={handleChange} max={todayString} required className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" />
             </div>
           </div>
 

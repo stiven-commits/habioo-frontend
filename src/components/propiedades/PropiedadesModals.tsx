@@ -351,6 +351,7 @@ export const ModalEstadoCuenta: FC<ModalEstadoCuentaProps> = ({
               <input
                 type="date"
                 lang="es-ES"
+                title="dd/mm/yyyy"
                 value={fechaDesde}
                 onChange={(e: ChangeEvent<HTMLInputElement>) => setFechaDesde(e.target.value)}
                 max={todayYmd}
@@ -362,6 +363,7 @@ export const ModalEstadoCuenta: FC<ModalEstadoCuentaProps> = ({
               <input
                 type="date"
                 lang="es-ES"
+                title="dd/mm/yyyy"
                 value={fechaHasta}
                 onChange={(e: ChangeEvent<HTMLInputElement>) => setFechaHasta(e.target.value)}
                 max={todayYmd}

@@ -142,6 +142,8 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1.5">Desde</label>
               <input
                 type="date"
+                lang="es-ES"
+                title="dd/mm/yyyy"
                 value={fechaDesde}
                 onChange={(e: ChangeEvent<HTMLInputElement>) => setFechaDesde(e.target.value)}
                 className="w-full p-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary text-sm dark:text-white cursor-pointer font-mono"
@@ -151,6 +153,8 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
               <label className="block text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1.5">Hasta</label>
               <input
                 type="date"
+                lang="es-ES"
+                title="dd/mm/yyyy"
                 value={fechaHasta}
                 onChange={(e: ChangeEvent<HTMLInputElement>) => setFechaHasta(e.target.value)}
                 className="w-full p-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary text-sm dark:text-white cursor-pointer font-mono"

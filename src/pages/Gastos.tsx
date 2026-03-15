@@ -4,6 +4,7 @@ import { useOutletContext } from 'react-router-dom';
 import ModalAgregarGasto from '../components/ModalAgregarGasto';
 import ModalDetallesGasto from '../components/ModalDetallesGasto';
 import ModalPagarProveedor from '../components/gastos/ModalPagarProveedor';
+import ModalVerPagosGasto from '../components/gastos/ModalVerPagosGasto';
 import { formatMoney } from '../utils/currency';
 import { API_BASE_URL } from '../config/api';
 import { useDialog } from '../components/ui/DialogProvider';
@@ -189,6 +190,8 @@ const Gastos: FC<GastosProps> = () => {
   const [expandedRows, setExpandedRows] = useState<ExpandedRows>({});
   const [isModalPagarOpen, setIsModalPagarOpen] = useState<boolean>(false);
   const [gastoPagar, setGastoPagar] = useState<IGasto | null>(null);
+  const [isModalVerPagosOpen, setIsModalVerPagosOpen] = useState<boolean>(false);
+  const [gastoVerPagos, setGastoVerPagos] = useState<IGasto | null>(null);
 
   const fetchData = async (): Promise<void> => {
     const token = localStorage.getItem('habioo_token');
@@ -366,6 +369,8 @@ const Gastos: FC<GastosProps> = () => {
             <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Desde</label>
             <input
               type="date"
+              lang="es-ES"
+              title="dd/mm/yyyy"
               value={fechaDesde}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setFechaDesde(e.target.value)}
               className="p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none dark:text-white text-xs [color-scheme:light] dark:[color-scheme:dark]"
@@ -375,6 +380,8 @@ const Gastos: FC<GastosProps> = () => {
             <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Hasta</label>
             <input
               type="date"
+              lang="es-ES"
+              title="dd/mm/yyyy"
               value={fechaHasta}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setFechaHasta(e.target.value)}
               className="p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none dark:text-white text-xs [color-scheme:light] dark:[color-scheme:dark]"
@@ -549,25 +556,39 @@ const Gastos: FC<GastosProps> = () => {
                           </td>
                           <td className="p-3 text-center">
                             <div className="flex items-center justify-center gap-1">
-                              <button
-                                type="button"
-                                disabled={estadoPago === 'Pagado' || !incluidoEnAvisoCobro}
-                                onClick={(e: MouseEvent<HTMLButtonElement>) => {
-                                  e.stopPropagation();
-                                  setGastoPagar(g);
-                                  setIsModalPagarOpen(true);
-                                }}
-                                className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/50 dark:text-emerald-200 dark:hover:bg-emerald-800 dark:hover:text-emerald-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                                title={
-                                  estadoPago === 'Pagado'
-                                    ? 'Gasto pagado completamente'
-                                    : !incluidoEnAvisoCobro
-                                      ? 'Debe incluirse primero en un aviso de cobro'
-                                      : 'Registrar pago al proveedor'
-                                }
-                              >
-                                💳 Registrar Pago
-                              </button>
+                              <div className="inline-flex overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+                                <button
+                                  type="button"
+                                  onClick={(e: MouseEvent<HTMLButtonElement>) => {
+                                    e.stopPropagation();
+                                    setGastoVerPagos(g);
+                                    setIsModalVerPagosOpen(true);
+                                  }}
+                                  className="px-2.5 py-1.5 text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                                  title="Ver pagos registrados de este gasto"
+                                >
+                                  📄 Ver pagos
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={estadoPago === 'Pagado' || !incluidoEnAvisoCobro}
+                                  onClick={(e: MouseEvent<HTMLButtonElement>) => {
+                                    e.stopPropagation();
+                                    setGastoPagar(g);
+                                    setIsModalPagarOpen(true);
+                                  }}
+                                  className="border-l border-slate-200 px-2.5 py-1.5 text-xs font-bold bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:border-slate-700 dark:bg-emerald-900/50 dark:text-emerald-200 dark:hover:bg-emerald-800 dark:hover:text-emerald-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                                  title={
+                                    estadoPago === 'Pagado'
+                                      ? 'Gasto pagado completamente'
+                                      : !incluidoEnAvisoCobro
+                                        ? 'Debe incluirse primero en un aviso de cobro'
+                                        : 'Registrar pago al proveedor'
+                                  }
+                                >
+                                  💳 Registrar Pago
+                                </button>
+                              </div>
                               {g.canDelete ? (
                                 <button onClick={(e: MouseEvent<HTMLButtonElement>) => handleDelete(g.gasto_id, e)} className="text-red-400 hover:text-red-600 p-2">
                                   🗑️
@@ -664,6 +685,21 @@ const Gastos: FC<GastosProps> = () => {
           }}
           bancos={bancos}
           fondos={fondos}
+        />
+      )}
+
+      {isModalVerPagosOpen && gastoVerPagos && (
+        <ModalVerPagosGasto
+          isOpen={isModalVerPagosOpen}
+          onClose={() => {
+            setIsModalVerPagosOpen(false);
+            setGastoVerPagos(null);
+          }}
+          gasto={{
+            gasto_id: gastoVerPagos.gasto_id,
+            proveedor: gastoVerPagos.proveedor,
+            concepto: gastoVerPagos.concepto,
+          }}
         />
       )}
     </div>

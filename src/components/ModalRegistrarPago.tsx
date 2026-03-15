@@ -72,12 +72,20 @@ interface DialogContextType {
   showConfirm: (options: ConfirmOptions) => Promise<boolean>;
 }
 
+const getLocalYmd = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const initialFormPago = (): FormPagoState => ({
   cuenta_id: '',
   monto_origen: '',
   tasa_cambio: '',
   referencia: '',
-  fecha_pago: new Date().toISOString().split('T')[0] ?? '',
+  fecha_pago: getLocalYmd(),
   nota: '',
   cedula_origen: '',
   banco_origen: ''
@@ -370,7 +378,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({ propiedadPreseleccion
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Fecha Pago</label>
-                  <input type="date" name="fecha_pago" value={formPago.fecha_pago} onChange={handlePagoChange} max={new Date().toISOString().split('T')[0]} className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
+                  <input type="date" lang="es-ES" title="dd/mm/yyyy" name="fecha_pago" value={formPago.fecha_pago} onChange={handlePagoChange} max={getLocalYmd()} className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
                 </div>
               </div>
 

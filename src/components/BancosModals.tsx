@@ -252,7 +252,7 @@ export const ModalPagoProveedor: React.FC<ModalBaseProps> = ({ onClose, onSucces
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Fecha *</label>
-                <input required type="date" max={new Date().toISOString().split('T')[0]} value={form.fecha_pago} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, fecha_pago: e.target.value })} className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
+                <input required type="date" lang="es-ES" title="dd/mm/yyyy" max={new Date().toISOString().split('T')[0]} value={form.fecha_pago} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, fecha_pago: e.target.value })} className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
               </div>
             </div>
 
@@ -534,7 +534,7 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Fecha *</label>
-                    <input required type="date" max={new Date().toISOString().split('T')[0]} value={form.fecha} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, fecha: e.target.value })} className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
+                    <input required type="date" lang="es-ES" title="dd/mm/yyyy" max={new Date().toISOString().split('T')[0]} value={form.fecha} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, fecha: e.target.value })} className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
                   </div>
                 </div>
 

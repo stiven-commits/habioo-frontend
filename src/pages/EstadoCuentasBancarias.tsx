@@ -78,14 +78,27 @@ const formatFecha = (dateString?: string): string => {
   }
 };
 
-const parseDdMmYyyy = (value: string): Date | null => {
+const parseFilterDate = (value: string): Date | null => {
   const txt = value.trim();
   if (!txt) return null;
-  const [dd, mm, yyyy] = txt.split('/');
-  if (!dd || !mm || !yyyy) return null;
-  const day = parseInt(dd, 10);
-  const month = parseInt(mm, 10);
-  const year = parseInt(yyyy, 10);
+
+  const iso = txt.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) {
+    const [, y = '', m = '', d = ''] = iso;
+    const year = parseInt(y, 10);
+    const month = parseInt(m, 10);
+    const day = parseInt(d, 10);
+    if (!Number.isFinite(day) || !Number.isFinite(month) || !Number.isFinite(year)) return null;
+    const date = new Date(year, month - 1, day, 0, 0, 0);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  const dmy = txt.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!dmy) return null;
+  const [, d = '', m = '', y = ''] = dmy;
+  const day = parseInt(d, 10);
+  const month = parseInt(m, 10);
+  const year = parseInt(y, 10);
   if (!Number.isFinite(day) || !Number.isFinite(month) || !Number.isFinite(year)) return null;
   if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900) return null;
   const date = new Date(year, month - 1, day, 0, 0, 0);
@@ -246,8 +259,8 @@ const EstadoCuentasBancarias: FC<EstadoCuentasBancariasProps> = () => {
       movimientos.filter((movimiento) => {
         if (!fechaDesde && !fechaHasta) return true;
         const fechaMov = new Date(movimiento.fecha);
-        const desde = parseDdMmYyyy(fechaDesde);
-        const hasta = parseDdMmYyyy(fechaHasta);
+        const desde = parseFilterDate(fechaDesde);
+        const hasta = parseFilterDate(fechaHasta);
         if (desde && fechaMov < desde) return false;
         if (hasta) {
           const hastaFin = new Date(hasta);
@@ -361,23 +374,23 @@ const EstadoCuentasBancarias: FC<EstadoCuentasBancariasProps> = () => {
               <div>
                 <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Desde</label>
                 <input
-                  type="text"
+                  type="date"
+                  lang="es-ES"
+                  title="dd/mm/yyyy"
                   value={fechaDesde}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setFechaDesde(e.target.value)}
-                  placeholder="dd/mm/yyyy"
-                  inputMode="numeric"
-                  className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg text-xs bg-gray-50 dark:bg-gray-800 outline-none dark:text-white"
+                  className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg text-xs bg-gray-50 dark:bg-gray-800 outline-none dark:text-white [color-scheme:light] dark:[color-scheme:dark]"
                 />
               </div>
               <div>
                 <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Hasta</label>
                 <input
-                  type="text"
+                  type="date"
+                  lang="es-ES"
+                  title="dd/mm/yyyy"
                   value={fechaHasta}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setFechaHasta(e.target.value)}
-                  placeholder="dd/mm/yyyy"
-                  inputMode="numeric"
-                  className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg text-xs bg-gray-50 dark:bg-gray-800 outline-none dark:text-white"
+                  className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg text-xs bg-gray-50 dark:bg-gray-800 outline-none dark:text-white [color-scheme:light] dark:[color-scheme:dark]"
                 />
               </div>
               <button

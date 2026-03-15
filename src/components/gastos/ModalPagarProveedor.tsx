@@ -52,6 +52,13 @@ interface ApiResponse {
 }
 
 const toNumber = (value: number | string | undefined | null): number => parseFloat(String(value ?? 0)) || 0;
+const getLocalYmd = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 const createFila = (): FilaOrigen => {
   const hasUUID = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function';
@@ -72,6 +79,15 @@ const parseFormattedAmount = (input: string): number => {
   if (!input.trim()) return 0;
   const normalized = input.replace(/\./g, '').replace(',', '.');
   return parseFloat(normalized) || 0;
+};
+
+const formatRateForInput = (value: number | ''): string => {
+  if (value === '' || !Number.isFinite(value)) return '';
+  const fixed = value.toFixed(2);
+  const [intPart = '0', decPartRaw = ''] = fixed.split('.');
+  const intWithDots = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const decPart = decPartRaw.replace(/0+$/, '');
+  return decPart ? `${intWithDots},${decPart}` : intWithDots;
 };
 
 const formatCurrency = (value: string): string => {
@@ -111,7 +127,7 @@ const ModalPagarProveedor: React.FC<ModalPagarProveedorProps> = ({ isOpen, onClo
 
   useEffect(() => {
     if (!isOpen) return;
-    setFecha(new Date().toISOString().slice(0, 10));
+    setFecha(getLocalYmd());
     setNota('');
     setOrigenes([createFila()]);
     setBcvLoadingById({});
@@ -191,7 +207,8 @@ const ModalPagarProveedor: React.FC<ModalPagarProveedorProps> = ({ isOpen, onClo
   };
 
   const handleTasaChange = (filaId: string, value: string): void => {
-    const tasa = value ? parseFloat(value) : '';
+    const tasaNumber = parseFormattedAmount(value);
+    const tasa = tasaNumber > 0 ? parseFloat(tasaNumber.toFixed(2)) : '';
     setFila(filaId, (fila: FilaOrigen) => {
       const montoBs = parseFormattedAmount(fila.monto_input);
       const usd = Number(tasa) > 0 ? parseFloat((montoBs / Number(tasa)).toFixed(2)) : 0;
@@ -403,6 +420,8 @@ const ModalPagarProveedor: React.FC<ModalPagarProveedorProps> = ({ isOpen, onClo
               </label>
               <input
                 type="date"
+                lang="es-ES"
+                title="dd/mm/yyyy"
                 value={fecha}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFecha(e.target.value)}
                 disabled={saving}
@@ -503,10 +522,10 @@ const ModalPagarProveedor: React.FC<ModalPagarProveedorProps> = ({ isOpen, onClo
                           </label>
                           <div className="flex gap-2">
                             <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={fila.tasa_cambio}
+                              type="text"
+                              inputMode="decimal"
+                              placeholder="0,00"
+                              value={formatRateForInput(fila.tasa_cambio)}
                               onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleTasaChange(fila.id, e.target.value)}
                               disabled={saving}
                               className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-emerald-500 transition focus:ring-2 disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
