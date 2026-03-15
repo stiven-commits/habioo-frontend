@@ -11,6 +11,8 @@ interface OutletContextType {
   userRole?: string;
 }
 
+type ActiveTab = 'cuenta' | 'sin-fondo' | `fondo-${number | string}`;
+
 interface CuentaBancaria {
   id: number | string;
   nombre_banco: string;
@@ -22,12 +24,18 @@ interface CuentaBancaria {
 interface Fondo {
   id: number | string;
   cuenta_bancaria_id?: number | string;
+  nombre?: string;
   moneda?: 'USD' | 'BS' | string;
   saldo_actual?: string | number;
 }
 
 interface IMovimiento extends IMovimientoDetalle {
   saldo_acumulado?: string | number;
+  monto_origen_pago?: number;
+  fondo_id?: number | null;
+  fondo_origen_id?: number | null;
+  fondo_destino_id?: number | null;
+  fondo_nombre?: string;
 }
 
 interface BancosResponse {
@@ -52,6 +60,12 @@ interface BcvResponse {
 const toNumber = (value: string | number | undefined | null): number => {
   const n = parseFloat(String(value ?? 0));
   return Number.isFinite(n) ? n : 0;
+};
+
+const toNullableInt = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === '') return null;
+  const n = parseInt(String(value), 10);
+  return Number.isFinite(n) ? n : null;
 };
 
 const formatCurrency = (value: string | number | undefined | null): string => {
@@ -112,6 +126,7 @@ const EstadoCuentasBancarias: FC<EstadoCuentasBancariasProps> = () => {
   const [fondos, setFondos] = useState<Fondo[]>([]);
   const [selectedCuenta, setSelectedCuenta] = useState<string>('');
   const [movimientos, setMovimientos] = useState<IMovimiento[]>([]);
+  const [activeTab, setActiveTab] = useState<ActiveTab>('cuenta');
   const [loading, setLoading] = useState<boolean>(true);
   const [showTransfModal, setShowTransfModal] = useState<boolean>(false);
   const [fechaDesde, setFechaDesde] = useState<string>('');
@@ -173,6 +188,10 @@ const EstadoCuentasBancarias: FC<EstadoCuentasBancariasProps> = () => {
           const safeMov: Partial<IMovimiento> = mov ?? {};
           const tipoRaw = String(safeMov.tipo || '').toUpperCase();
           const tipo: 'INGRESO' | 'EGRESO' = tipoRaw === 'EGRESO' ? 'EGRESO' : 'INGRESO';
+          const montoOrigenRaw = (safeMov as { monto_origen_pago?: unknown }).monto_origen_pago;
+          const montoOrigenPago = (montoOrigenRaw === null || montoOrigenRaw === undefined || montoOrigenRaw === '')
+            ? null
+            : toNumber(String(montoOrigenRaw));
 
           return {
             id: safeMov.id ?? `mov-${index}`,
@@ -183,8 +202,13 @@ const EstadoCuentasBancarias: FC<EstadoCuentasBancariasProps> = () => {
             monto_bs: safeMov.monto_bs ?? 0,
             tasa_cambio: safeMov.tasa_cambio ?? 0,
             monto_usd: safeMov.monto_usd ?? 0,
+            ...(montoOrigenPago !== null ? { monto_origen_pago: montoOrigenPago } : {}),
             banco_origen: safeMov.banco_origen ? String(safeMov.banco_origen) : '',
             cedula_origen: safeMov.cedula_origen ? String(safeMov.cedula_origen) : '',
+            fondo_id: toNullableInt((safeMov as { fondo_id?: unknown }).fondo_id),
+            fondo_origen_id: toNullableInt((safeMov as { fondo_origen_id?: unknown }).fondo_origen_id),
+            fondo_destino_id: toNullableInt((safeMov as { fondo_destino_id?: unknown }).fondo_destino_id),
+            fondo_nombre: (safeMov as { fondo_nombre?: unknown }).fondo_nombre ? String((safeMov as { fondo_nombre?: unknown }).fondo_nombre) : '',
             ...(safeMov.saldo_acumulado !== undefined ? { saldo_acumulado: safeMov.saldo_acumulado } : {})
           };
         });
@@ -224,8 +248,12 @@ const EstadoCuentasBancarias: FC<EstadoCuentasBancariasProps> = () => {
   }, [selectedCuenta]);
 
   useEffect(() => {
+    setActiveTab('cuenta');
+  }, [selectedCuenta]);
+
+  useEffect(() => {
     setCurrentPage(1);
-  }, [fechaDesde, fechaHasta, selectedCuenta, movimientos.length]);
+  }, [fechaDesde, fechaHasta, selectedCuenta, movimientos.length, activeTab]);
 
   const fondosCuenta = useMemo(
     () => fondos.filter((f) => String(f.cuenta_bancaria_id) === selectedCuenta),
@@ -272,11 +300,115 @@ const EstadoCuentasBancarias: FC<EstadoCuentasBancariasProps> = () => {
     [movimientos, fechaDesde, fechaHasta]
   );
 
-  const totalPages = Math.max(1, Math.ceil(movimientosFiltrados.length / itemsPerPage));
-  const movimientosPagina = movimientosFiltrados.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const movimientosCuentaConsolidados = useMemo(() => {
+    const movimientosDirectos: IMovimiento[] = [];
+    const ingresosPorPago = new Map<string, IMovimiento[]>();
+
+    movimientosFiltrados.forEach((mov) => {
+      const pagoMatch = String(mov.concepto || '').match(/Pago de Recibo #(\d+)/i);
+
+      if (mov.tipo === 'INGRESO' && pagoMatch && pagoMatch[1]) {
+        const pagoId = pagoMatch[1];
+        const grupo = ingresosPorPago.get(pagoId) || [];
+        grupo.push(mov);
+        ingresosPorPago.set(pagoId, grupo);
+        return;
+      }
+
+      movimientosDirectos.push(mov);
+    });
+
+    const ingresosConsolidados: IMovimiento[] = Array.from(ingresosPorPago.entries()).map(([pagoId, grupo]) => {
+      const base = grupo[0];
+      const conceptoLimpio = String(base?.concepto || '').replace(/\s*-\s*Fondo:\s*.+$/i, '').trim();
+      const montoUsdTotal = grupo.reduce((acc, item) => acc + toNumber(item.monto_usd), 0);
+      const montoBsTotal = grupo.reduce((acc, item) => acc + toNumber(item.monto_bs), 0);
+      const montoBsOriginal = grupo
+        .map((item) => toNumber(item.monto_origen_pago))
+        .find((valor) => valor > 0) || 0;
+      const referencias = Array.from(
+        new Set(grupo.map((item) => String(item.referencia || '').trim()).filter(Boolean))
+      );
+      const tasa = toNumber(base?.tasa_cambio);
+
+      return {
+        id: `ING-CONS-${pagoId}`,
+        fecha: String(base?.fecha ?? ''),
+        referencia: referencias[0] || (base?.referencia || ''),
+        concepto: conceptoLimpio || `Pago de Recibo #${pagoId}`,
+        tipo: 'INGRESO',
+        monto_usd: Number(montoUsdTotal.toFixed(2)),
+        monto_bs: Number((montoBsOriginal > 0 ? montoBsOriginal : montoBsTotal).toFixed(2)),
+        tasa_cambio: tasa > 0 ? tasa : 0,
+        banco_origen: String(base?.banco_origen ?? ''),
+        cedula_origen: String(base?.cedula_origen ?? ''),
+        ...(toNumber(base?.monto_origen_pago) > 0 ? { monto_origen_pago: toNumber(base?.monto_origen_pago) } : {}),
+        fondo_id: null,
+        fondo_origen_id: null,
+        fondo_destino_id: null,
+        fondo_nombre: ''
+      };
+    });
+
+    return [...movimientosDirectos, ...ingresosConsolidados].sort((a, b) => {
+      const fechaA = new Date(a.fecha || '').getTime();
+      const fechaB = new Date(b.fecha || '').getTime();
+      if (fechaA !== fechaB) return fechaB - fechaA;
+      return String(b.id).localeCompare(String(a.id));
+    });
+  }, [movimientosFiltrados]);
+
+  const movimientosPorVista = useMemo(() => {
+    if (activeTab === 'cuenta') return movimientosCuentaConsolidados;
+    if (activeTab === 'sin-fondo') {
+      return movimientosFiltrados.filter((movimiento) => {
+        const hasFondoId = toNullableInt((movimiento as { fondo_id?: unknown }).fondo_id) !== null;
+        const hasFondoOrigen = toNullableInt((movimiento as { fondo_origen_id?: unknown }).fondo_origen_id) !== null;
+        const hasFondoDestino = toNullableInt((movimiento as { fondo_destino_id?: unknown }).fondo_destino_id) !== null;
+        return !hasFondoId && !hasFondoOrigen && !hasFondoDestino;
+      });
+    }
+
+    const fondoId = parseInt(activeTab.replace('fondo-', ''), 10);
+    if (!Number.isFinite(fondoId)) return [];
+    const fondoActivo = fondosCuenta.find((f) => parseInt(String(f.id), 10) === fondoId);
+    const fondoNombreNorm = String(fondoActivo?.nombre || '').trim().toLowerCase();
+    return movimientosFiltrados.filter((movimiento) => {
+      const movFondo = toNullableInt((movimiento as { fondo_id?: unknown }).fondo_id);
+      const movOrigen = toNullableInt((movimiento as { fondo_origen_id?: unknown }).fondo_origen_id);
+      const movDestino = toNullableInt((movimiento as { fondo_destino_id?: unknown }).fondo_destino_id);
+      if (movFondo === fondoId || movOrigen === fondoId || movDestino === fondoId) return true;
+
+      const movFondoNombre = String((movimiento as { fondo_nombre?: unknown }).fondo_nombre || '').trim().toLowerCase();
+      return Boolean(fondoNombreNorm) && Boolean(movFondoNombre) && movFondoNombre === fondoNombreNorm;
+    });
+  }, [movimientosFiltrados, activeTab, fondosCuenta, movimientosCuentaConsolidados]);
+
+  const totalPages = Math.max(1, Math.ceil(movimientosPorVista.length / itemsPerPage));
+  const movimientosPagina = movimientosPorVista.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   const cuentaActual = cuentas.find((c) => String(c.id) === selectedCuenta);
   const isCuentaUsd = String(cuentaActual?.moneda || '').toUpperCase() === 'USD';
   const saldoUsdEnBs = tasaBcvNum > 0 ? saldoCuentaUsdActual * tasaBcvNum : 0;
+
+  const resumenFondos = useMemo(
+    () =>
+      fondosCuenta.map((fondo) => {
+        const moneda = String(fondo.moneda || '').toUpperCase();
+        const saldo = toNumber(fondo.saldo_actual);
+        const equivalenteUsd = moneda === 'USD'
+          ? saldo
+          : (moneda === 'BS' && tasaBcvNum > 0 ? (saldo / tasaBcvNum) : 0);
+
+        return {
+          id: String(fondo.id),
+          nombre: fondo.nombre || `Fondo ${fondo.id}`,
+          moneda,
+          saldo,
+          equivalenteUsd
+        };
+      }),
+    [fondosCuenta, tasaBcvNum]
+  );
 
   const getMontoBsVista = (movimiento: IMovimiento): number => {
     const montoBs = toNumber(movimiento.monto_bs);
@@ -338,6 +470,11 @@ const EstadoCuentasBancarias: FC<EstadoCuentasBancariasProps> = () => {
         <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-2xl border border-blue-100 dark:border-blue-800/50 flex flex-col justify-center items-center">
           <p className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-1">Saldo en banco (equivalente USD)</p>
           <h2 className="text-4xl font-black text-blue-700 dark:text-blue-300">${formatCurrency(saldoCuentaUsdActual)}</h2>
+          {tasaBcvNum > 0 && (
+            <p className="text-xs text-blue-700 dark:text-blue-300 mt-2">
+              Equivalente del saldo USD a Bs: <span className="font-bold">Bs {formatCurrency(saldoUsdEnBs)}</span>
+            </p>
+          )}
         </div>
 
         <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 flex flex-col justify-center items-center opacity-80 gap-2">
@@ -354,14 +491,23 @@ const EstadoCuentasBancarias: FC<EstadoCuentasBancariasProps> = () => {
             </button>
             {tasaBcvNum > 0 && <span className="text-xs font-bold text-gray-500">Tasa: {formatCurrency(tasaBcvNum)}</span>}
           </div>
-          {tasaBcvNum > 0 && (
-            <p className="text-xs text-gray-500">
-              Equivalente del saldo USD a Bs: <span className="font-bold">Bs {formatCurrency(saldoUsdEnBs)}</span>
-            </p>
-          )}
           {cuentaActual?.moneda === 'USD' && <p className="text-xs text-red-400 font-bold mt-1">Cuenta en divisas</p>}
         </div>
       </div>
+
+      {resumenFondos.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          {resumenFondos.map((fondo) => (
+            <div key={fondo.id} className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
+              <p className="text-[11px] uppercase tracking-wide text-gray-500 font-bold">{fondo.nombre}</p>
+              <p className="text-lg font-black text-gray-800 dark:text-gray-100 mt-1">
+                {fondo.moneda === 'BS' ? 'Bs ' : '$'}{formatCurrency(fondo.saldo)}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">Equivalente USD: ${formatCurrency(fondo.equivalenteUsd)}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="bg-white dark:bg-donezo-card-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
         <div className="p-5 border-b border-gray-100 dark:border-gray-800 space-y-3">
@@ -405,6 +551,46 @@ const EstadoCuentasBancarias: FC<EstadoCuentasBancariasProps> = () => {
               </button>
             </div>
           </div>
+          <div className="border-b border-gray-200 dark:border-gray-700">
+            <div className="flex flex-wrap gap-1 -mb-px">
+              <button
+              type="button"
+              onClick={() => setActiveTab('cuenta')}
+                className={`px-3 py-2 text-sm font-bold border-b-2 transition-colors ${
+                activeTab === 'cuenta'
+                    ? 'text-gray-800 border-donezo-primary dark:text-white dark:border-white'
+                    : 'text-gray-500 border-transparent hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+              }`}
+            >
+              Cuenta bancaria
+              </button>
+              {fondosCuenta.map((fondo) => (
+                <button
+                key={String(fondo.id)}
+                type="button"
+                onClick={() => setActiveTab(`fondo-${fondo.id}`)}
+                  className={`px-3 py-2 text-sm font-bold border-b-2 transition-colors ${
+                  activeTab === `fondo-${fondo.id}`
+                      ? 'text-gray-800 border-donezo-primary dark:text-white dark:border-white'
+                      : 'text-gray-500 border-transparent hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                 }`}
+               >
+                 {fondo.nombre || `Fondo ${fondo.id}`}
+                </button>
+              ))}
+              <button
+              type="button"
+              onClick={() => setActiveTab('sin-fondo')}
+                className={`px-3 py-2 text-sm font-bold border-b-2 transition-colors ${
+                activeTab === 'sin-fondo'
+                    ? 'text-amber-300 border-amber-300'
+                    : 'text-gray-500 border-transparent hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+              }`}
+            >
+              Tránsito / Extra
+              </button>
+            </div>
+          </div>
           <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 rounded-lg px-3 py-2">
             Doble clic en un movimiento para ver el detalle completo.
           </p>
@@ -412,7 +598,7 @@ const EstadoCuentasBancarias: FC<EstadoCuentasBancariasProps> = () => {
 
         {loading ? (
           <p className="text-center text-gray-500 py-10">Generando estado de cuenta...</p>
-        ) : movimientosFiltrados.length === 0 ? (
+        ) : movimientosPorVista.length === 0 ? (
           <p className="text-center text-gray-400 py-10 font-medium">No hay movimientos registrados en esta cuenta.</p>
         ) : (
           <div className="overflow-x-auto">
@@ -474,7 +660,7 @@ const EstadoCuentasBancarias: FC<EstadoCuentasBancariasProps> = () => {
           </div>
         )}
 
-        {!loading && movimientosFiltrados.length > 0 && totalPages > 1 && (
+        {!loading && movimientosPorVista.length > 0 && totalPages > 1 && (
           <div className="flex justify-between items-center px-6 py-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-800">
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}

@@ -3,7 +3,7 @@
 Documento de referencia funcional y técnica del estado actual de la app.
 Este README fusiona la base conceptual original con el inventario actualizado de módulos, endpoints y modelo de datos.
 
-- Última actualización: 2026-03-13
+- Última actualización: 2026-03-16
 - Stack: React + Vite + Tailwind (frontend), Node/Express + PostgreSQL (backend)
 
 ---
@@ -123,6 +123,9 @@ Si se retoma este proyecto con contexto nuevo:
 5. Pagos y fondos virtuales:
    - Los pagos se registran en `pagos`.
    - Se distribuyen automáticamente a `fondos` según porcentaje.
+   - Para cuentas en `BS`, la distribución usa `monto_origen` (exactitud contable en bolívares).
+   - Para cuentas en `USD`, la distribución usa `monto_usd`.
+   - La porción imputada a gastos tipo `Extra` no genera movimiento en fondos (`Tránsito/Extra`).
    - Se auditan en `movimientos_fondos`.
 
 ---
@@ -200,7 +203,12 @@ Si se retoma este proyecto con contexto nuevo:
 
 ### Pagos
 - `POST https://auth.habioo.cloud/pagos-admin`
-  - Registra pago de administrador por `propiedad_id` (auto-validado), distribuye a fondos y aplica cascada FIFO sobre recibos.
+  - Registra pago de administrador por `propiedad_id` (auto-validado), aplica cascada FIFO sobre recibos e imputa a gastos.
+  - La parte `Extra` queda fuera de distribución de fondos.
+  - La parte distribuible se reparte por porcentajes en fondos:
+    - base `monto_origen` si la cuenta/pago es `BS`,
+    - base `monto_usd` si la cuenta/pago es `USD`.
+  - Cada movimiento de distribución guarda `referencia_id` (pago) y `tasa_cambio` en `movimientos_fondos`.
 - `POST https://auth.habioo.cloud/pagos/:id/validar`
   - Valida pagos pendientes y aplica cascada FIFO de imputación.
 
@@ -215,6 +223,8 @@ Si se retoma este proyecto con contexto nuevo:
 - `POST https://auth.habioo.cloud/fondos` -> crear fondo.
 - `DELETE https://auth.habioo.cloud/fondos/:id` -> eliminar fondo sin movimientos.
 - `GET https://auth.habioo.cloud/bancos-admin/:id/estado-cuenta` -> libro mayor de la cuenta (movimientos y saldos).
+  - Incluye ingresos distribuidos por fondo (`movimientos_fondos`) y remanente sin fondo (`Tránsito/Extra`).
+  - Expone `monto_origen_pago` en ingresos para permitir consolidación exacta en Bs en la vista de cuenta bancaria.
 - `GET https://auth.habioo.cloud/gastos-pendientes-pago` -> gastos/facturas pendientes para pago a proveedor.
 - `POST https://auth.habioo.cloud/pagos-proveedores` -> registrar pago parcial o total de gasto con imputación multiorigen (múltiples cuentas/fondos en una sola operación).
 - `POST https://auth.habioo.cloud/transferencias` -> transferir entre fondos/cuentas (con o sin conversión).
@@ -283,6 +293,7 @@ Notas de desarrollo local:
   - Fondo virtual anclado a cuenta bancaria (`cuenta_bancaria_id`), con porcentaje y saldo.
 - `movimientos_fondos`:
   - Auditoría de ingresos/egresos/ajustes.
+  - Para ingresos por pagos: almacena `referencia_id` del pago y `tasa_cambio` usada.
 - `pagos`:
   - Pagos por propiedad/recibo (`monto_origen`, `monto_usd`, `tasa_cambio`, `moneda`, `estado`, `propiedad_id`, `cuenta_bancaria_id`).
 - `recibos`:
@@ -337,7 +348,17 @@ Notas de desarrollo local:
    - Nueva vista `Libro Mayor` (`/estado-cuentas`) con estado de cuenta por banco/cuenta.
    - Alta de cuenta actualizada con tipos explícitos de efectivo en dos monedas: `Efectivo / Caja Fuerte (Bs)` y `Efectivo / Caja Fuerte (USD)`.
    - Modales operativas para `Pagar Proveedor` y `Transferencia` entre fondos.
-   - Integración con endpoints `GET /bancos-admin/:id/estado-cuenta`, `POST /pagos-proveedores`, `POST /transferencias`, `GET /gastos-pendientes-pago`.
+    - Integración con endpoints `GET /bancos-admin/:id/estado-cuenta`, `POST /pagos-proveedores`, `POST /transferencias`, `GET /gastos-pendientes-pago`.
+    - Estado de cuenta bancario:
+      - pestaña `Cuenta bancaria` consolidada por `Pago de Recibo #...` (una sola línea por pago),
+      - pestañas de fondos mantienen el desglose real de distribución,
+      - `Tránsito/Extra` muestra ingresos/egresos sin fondo y porción `Extra`.
+    - Tarjetas superiores en libro mayor:
+      - saldo equivalente USD de la cuenta,
+      - saldo Bs,
+      - tarjetas por fondo con saldo y equivalente USD.
+    - Consulta BCV:
+      - la equivalencia en Bs del saldo USD se muestra debajo de la tarjeta de saldo USD.
    - Pago a proveedor con carrito de orígenes:
      - permite distribuir un mismo pago entre múltiples cuentas/fondos;
      - soporta Bs y USD por fila con tasa BCV por origen en Bs;
@@ -345,8 +366,12 @@ Notas de desarrollo local:
 5. Pagos:
    - Flujo consolidado en `POST /pagos-admin` con registro por `propiedad_id`.
    - Validación manual disponible en `POST /pagos/:id/validar`.
-   - Cascada FIFO: el abono se aplica del recibo más antiguo al más reciente.
-   - Actualización automática de `propiedades.saldo_actual` y de `recibos.monto_pagado_usd`/`estado` (`Pagado` o `Parcial`).
+    - Cascada FIFO: el abono se aplica del recibo más antiguo al más reciente.
+    - Actualización automática de `propiedades.saldo_actual` y de `recibos.monto_pagado_usd`/`estado` (`Pagado` o `Parcial`).
+    - Distribución en fondos ajustada para exactitud contable:
+      - pagos en `BS` distribuyen porcentajes sobre `monto_origen`,
+      - pagos en `USD` distribuyen sobre `monto_usd`,
+      - `Extra` no se distribuye en fondos.
 6. Historial de avisos:
    - Filtros activos por texto, estado y rango de fechas.
    - Pestañas de estados alineadas visualmente con el patrón de `Gastos`.

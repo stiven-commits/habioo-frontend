@@ -200,7 +200,8 @@ const Bancos: FC<BancosProps> = () => {
 
   useEffect(() => {
     if (!monedaRule.moneda) return;
-    setForm((prev: FormState) => (prev.moneda === monedaRule.moneda ? prev : { ...prev, moneda: monedaRule.moneda }));
+    const forcedMoneda: 'BS' | 'USD' = monedaRule.moneda;
+    setForm((prev: FormState) => (prev.moneda === forcedMoneda ? prev : { ...prev, moneda: forcedMoneda }));
   }, [form.tipo]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
