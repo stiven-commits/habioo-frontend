@@ -163,9 +163,9 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({ propiedadPreseleccion
     if (!updatedForm.monto_origen || !updatedForm.cuenta_id) return '0.00';
 
     const banco = cuentasConFondos.find((b: BancoCuenta) => b.id.toString() === updatedForm.cuenta_id);
-    const monto = parseFloat(updatedForm.monto_origen.replace(/\./g, '').replace(',', '.')) || 0;
+    const monto = parseInputNumber(updatedForm.monto_origen);
     const isForeign = !!banco && ['Zelle', 'Efectivo'].includes(String(banco.tipo || ''));
-    const tasaRaw = parseFloat(updatedForm.tasa_cambio.replace(/\./g, '').replace(',', '.'));
+    const tasaRaw = parseInputNumber(updatedForm.tasa_cambio);
 
     if (isForeign) return monto.toFixed(2);
     if (tasaRaw && tasaRaw > 0) return (monto / tasaRaw).toFixed(2);
@@ -236,11 +236,17 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({ propiedadPreseleccion
     try {
       const monedaReal = requiresTasa ? 'BS' : 'USD';
       const token = localStorage.getItem('habioo_token');
+      const montoOrigenNum = parseInputNumber(formPago.monto_origen);
+      const tasaCambioNum = parseInputNumber(formPago.tasa_cambio);
+      const montoUsdNum = parseInputNumber(conversionUSD);
 
       const payload = {
         ...formPago,
         propiedad_id: propiedadPreseleccionada.id,
         moneda: monedaReal,
+        monto_origen: montoOrigenNum,
+        tasa_cambio: requiresTasa ? tasaCambioNum : null,
+        monto_usd: montoUsdNum,
       };
 
       const res = await fetch(`${API_BASE_URL}/pagos-admin`, {
@@ -383,6 +389,14 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({ propiedadPreseleccion
 
 const toNumber = (value: string | number | undefined | null): number => {
   const n = parseFloat(String(value ?? 0));
+  return Number.isFinite(n) ? n : 0;
+};
+
+const parseInputNumber = (value: string | number | undefined | null): number => {
+  const raw = String(value ?? '').trim();
+  if (!raw) return 0;
+  const normalized = raw.replace(/\./g, '').replace(',', '.');
+  const n = parseFloat(normalized);
   return Number.isFinite(n) ? n : 0;
 };
 

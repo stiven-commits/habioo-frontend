@@ -329,9 +329,12 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
 
   const montoOrigenNum = parseNumber(form.monto_origen);
   const tasaNum = parseNumber(form.tasa_cambio);
-  const montoUsdEquivalente = fondoOrigen
-    ? (fondoOrigen.moneda === 'USD' ? montoOrigenNum : (tasaNum > 0 ? montoOrigenNum / tasaNum : 0))
-    : 0;
+  const montoUsdEquivalente = useMemo(() => {
+    if (!fondoOrigen || !fondoDestino) return 0;
+    if (fondoDestino.moneda === 'USD') return montoDestinoFinal;
+    if (fondoDestino.moneda === 'BS' && tasaNum > 0) return montoDestinoFinal / tasaNum;
+    return fondoOrigen.moneda === 'USD' ? montoOrigenNum : (tasaNum > 0 ? montoOrigenNum / tasaNum : 0);
+  }, [fondoOrigen, fondoDestino, montoDestinoFinal, montoOrigenNum, tasaNum]);
 
   const isTransferFormValid = Boolean(
     form.fondo_origen_id &&
@@ -511,8 +514,16 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
 
                 {form.monto_origen && (
                   <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-xl border border-green-100 dark:border-green-800/50 flex justify-between items-center">
-                    <span className="text-xs font-bold text-green-700 dark:text-green-300 uppercase">Destino recibe (equiv. USD):</span>
-                    <span className="font-black text-green-600 dark:text-green-300 text-lg">${formatMoney(montoUsdEquivalente)}</span>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-green-700 dark:text-green-300 uppercase">Destino recibe:</span>
+                      <span className="text-[11px] font-semibold text-green-700/80 dark:text-green-300/80 uppercase">Equivalente USD:</span>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-black text-green-600 dark:text-green-300 text-lg">
+                        {fondoDestino?.moneda === 'BS' ? 'Bs ' : '$'}{formatMoney(montoDestinoFinal)}
+                      </div>
+                      <div className="text-sm font-bold text-green-700 dark:text-green-300">${formatMoney(montoUsdEquivalente)}</div>
+                    </div>
                   </div>
                 )}
 

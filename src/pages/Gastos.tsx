@@ -350,7 +350,7 @@ const Gastos: FC<GastosProps> = () => {
   return (
     <div className="space-y-6 relative">
       <div className="flex flex-col sm:flex-row justify-between items-center bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 gap-4">
-        <h3 className="text-xl font-bold text-gray-800 dark:text-white">🗂️ Gastos</h3>
+        <h3 className="text-xl font-bold text-gray-800 dark:text-white">🗂️ Gestión de Gastos</h3>
         <div className="flex-1 max-w-md w-full relative">
           <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">🔍</span>
           <input
@@ -426,12 +426,12 @@ const Gastos: FC<GastosProps> = () => {
               onClick={() => setActiveTab(tab)}
               className={`pb-3 px-2 font-bold text-sm transition-all relative rounded-t-lg ${
                 activeTab === tab
-                  ? 'text-donezo-primary dark:text-white bg-blue-50 dark:bg-blue-900/40'
+                  ? 'text-donezo-primary dark:text-white'
                   : 'text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white'
               }`}
             >
               {tab === 'Comun' ? 'Comunes' : tab === 'Zona' ? 'Por Áreas / Sectores' : tab === 'Individual' ? 'Individuales' : tab}
-              {activeTab === tab && <span className="absolute bottom-0 left-0 w-full h-1 bg-donezo-primary rounded-t-full"></span>}
+              {activeTab === tab && <span className="absolute bottom-0 left-0 w-full h-1 bg-donezo-primary dark:bg-white rounded-t-full"></span>}
             </button>
           ))}
         </div>
@@ -463,6 +463,7 @@ const Gastos: FC<GastosProps> = () => {
                       const montoTotal = toNumber(g.monto_total_usd);
                       const montoPagado = toNumber(g.monto_pagado_usd);
                       const progresoPago = montoTotal > 0 ? Math.min(100, (montoPagado / montoTotal) * 100) : 0;
+                      const incluidoEnAvisoCobro = g.cuotas.some((c: GastoCuota) => String(c.estado || '').toLowerCase() !== 'pendiente');
                       const estadoPago: 'Pendiente' | 'Abonado' | 'Pagado' =
                         montoPagado <= 0 ? 'Pendiente' : montoPagado < montoTotal ? 'Abonado' : 'Pagado';
                       const estadoPagoClass =
@@ -550,14 +551,20 @@ const Gastos: FC<GastosProps> = () => {
                             <div className="flex items-center justify-center gap-1">
                               <button
                                 type="button"
-                                disabled={estadoPago === 'Pagado'}
+                                disabled={estadoPago === 'Pagado' || !incluidoEnAvisoCobro}
                                 onClick={(e: MouseEvent<HTMLButtonElement>) => {
                                   e.stopPropagation();
                                   setGastoPagar(g);
                                   setIsModalPagarOpen(true);
                                 }}
-                                className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300 disabled:opacity-40 disabled:cursor-not-allowed"
-                                title={estadoPago === 'Pagado' ? 'Gasto pagado completamente' : 'Registrar pago al proveedor'}
+                                className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/50 dark:text-emerald-200 dark:hover:bg-emerald-800 dark:hover:text-emerald-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                                title={
+                                  estadoPago === 'Pagado'
+                                    ? 'Gasto pagado completamente'
+                                    : !incluidoEnAvisoCobro
+                                      ? 'Debe incluirse primero en un aviso de cobro'
+                                      : 'Registrar pago al proveedor'
+                                }
                               >
                                 💳 Registrar Pago
                               </button>
