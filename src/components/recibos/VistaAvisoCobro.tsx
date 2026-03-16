@@ -18,6 +18,7 @@ interface IAvisoGasto {
 
 interface IAvisoInmueble {
   identificador: string;
+  alicuota?: number;
   propietario: string;
   inquilino?: string | null;
   titular_mostrado?: string;
@@ -76,6 +77,7 @@ const fallbackAvisoData: IAvisoData = {
   },
   inmueble: {
     identificador: 'A-12',
+    alicuota: 3.125,
     propietario: 'Sofia Mendoza',
     inquilino: 'Carlos Perez',
     titular_mostrado: 'Sofia Mendoza / Inquilino: Carlos Perez',
@@ -208,6 +210,7 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
           },
           inmueble: {
             identificador: String(raw.inmueble?.identificador || ''),
+            alicuota: toNumber(raw.inmueble?.alicuota),
             propietario,
             inquilino,
             titular_mostrado: titularMostrado,
@@ -338,6 +341,8 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
             <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">Inmueble</p>
             <p className="mt-1 text-lg font-black text-slate-800">{avisoData.inmueble.identificador || 'N/A'}</p>
             <p className="mt-1 text-sm font-semibold text-slate-700">{avisoData.inmueble.titular_mostrado || avisoData.inmueble.propietario}</p>
+            <p className="mt-2 text-xs font-bold uppercase tracking-wider text-slate-500">Alícuota: {formatMoney(toNumber(avisoData.inmueble.alicuota))}%</p>
+            <p className="mt-1 text-sm font-black text-slate-700">Por alícuota en este aviso: Bs {formatMoney(totals.cuota_bs)} / $ {formatMoney(totals.cuota_usd)}</p>
           </div>
           <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
             <p className="text-[11px] font-black uppercase tracking-wider text-indigo-600">Estado de Cuenta (Propietario)</p>
@@ -370,8 +375,8 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
                   <th className="px-4 py-3 font-extrabold">Descripcion del Gasto</th>
                   <th className="px-4 py-3 text-right font-extrabold">Total Gasto (Bs)</th>
                   <th className="px-4 py-3 text-right font-extrabold">Total Gasto ($)</th>
-                  <th className="px-4 py-3 text-right font-extrabold">Tu Cuota (Bs)</th>
-                  <th className="px-4 py-3 text-right font-extrabold">Tu Cuota ($)</th>
+                  <th className="px-4 py-3 text-right font-extrabold">Por Alícuota (Bs)</th>
+                  <th className="px-4 py-3 text-right font-extrabold">Por Alícuota ($)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
