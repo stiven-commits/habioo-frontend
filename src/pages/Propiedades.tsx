@@ -198,6 +198,9 @@ interface ApiActionResponse {
   message?: string;
 }
 
+type SortColumn = 'identificador' | 'alicuota' | 'saldo_actual' | 'prop_nombre';
+type SortDirection = 'asc' | 'desc';
+
 const toNumber = (value: string | number | undefined | null): number => parseFloat(String(value ?? 0)) || 0;
 
 const Propiedades: FC<PropiedadesProps> = () => {
@@ -211,6 +214,8 @@ const Propiedades: FC<PropiedadesProps> = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const itemsPerPage = 13;
+  const [sortColumn, setSortColumn] = useState<SortColumn>('identificador');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
@@ -279,6 +284,20 @@ const Propiedades: FC<PropiedadesProps> = () => {
 
   useEffect(() => { if (userRole === 'Administrador') fetchPropiedades(); }, [userRole]);
   useEffect(() => { setCurrentPage(1); }, [searchTerm]);
+
+  const toggleSort = (column: SortColumn): void => {
+    if (sortColumn === column) {
+      setSortDirection((prev: SortDirection) => (prev === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+    setSortColumn(column);
+    setSortDirection('asc');
+  };
+
+  const sortIndicator = (column: SortColumn): string => {
+    if (sortColumn !== column) return '↕';
+    return sortDirection === 'asc' ? '↑' : '↓';
+  };
 
   const fetchEstadoCuenta = async (propId: number): Promise<void> => {
     setLoadingCuenta(true);
@@ -945,8 +964,22 @@ const Propiedades: FC<PropiedadesProps> = () => {
   const totalAbono = estadoCuentaFiltrado.reduce((acc: number, m: EstadoCuentaMovimientoConSaldo) => acc + toNumber(m.abono), 0);
 
   const filteredProps = propiedades.filter((p: Propiedad) => p.identificador.toLowerCase().includes(searchTerm.toLowerCase()) || p.prop_nombre?.toLowerCase().includes(searchTerm.toLowerCase()));
-  const totalPages = Math.ceil(filteredProps.length / itemsPerPage);
-  const currentProps = filteredProps.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const sortedProps = [...filteredProps].sort((a: Propiedad, b: Propiedad) => {
+    let cmp = 0;
+    if (sortColumn === 'identificador') {
+      cmp = String(a.identificador || '').localeCompare(String(b.identificador || ''), 'es', { sensitivity: 'base' });
+    } else if (sortColumn === 'prop_nombre') {
+      cmp = String(a.prop_nombre || '').localeCompare(String(b.prop_nombre || ''), 'es', { sensitivity: 'base' });
+    } else if (sortColumn === 'alicuota') {
+      cmp = toNumber(a.alicuota) - toNumber(b.alicuota);
+    } else if (sortColumn === 'saldo_actual') {
+      cmp = toNumber(a.saldo_actual) - toNumber(b.saldo_actual);
+    }
+    return sortDirection === 'asc' ? cmp : -cmp;
+  });
+
+  const totalPages = Math.ceil(sortedProps.length / itemsPerPage);
+  const currentProps = sortedProps.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const setFormForModal: Dispatch<SetStateAction<PropiedadFormData>> = (value) => {
     setForm((prev: FormState) => {
@@ -1045,10 +1078,26 @@ const Propiedades: FC<PropiedadesProps> = () => {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 text-sm">
-                    <th className="py-4 pr-3">Inmueble</th>
-                    <th className="py-4 px-3 text-right">Alícuota</th>
-                    <th className="py-4 px-3 text-right">Saldo Actual</th>
-                    <th className="py-4 px-3">Propietario</th>
+                    <th className="py-4 pr-3">
+                      <button type="button" onClick={() => toggleSort('identificador')} className="font-bold hover:text-donezo-primary">
+                        Inmueble {sortIndicator('identificador')}
+                      </button>
+                    </th>
+                    <th className="py-4 px-3 text-right">
+                      <button type="button" onClick={() => toggleSort('alicuota')} className="font-bold hover:text-donezo-primary">
+                        Alícuota {sortIndicator('alicuota')}
+                      </button>
+                    </th>
+                    <th className="py-4 px-3 text-right">
+                      <button type="button" onClick={() => toggleSort('saldo_actual')} className="font-bold hover:text-donezo-primary">
+                        Saldo Actual {sortIndicator('saldo_actual')}
+                      </button>
+                    </th>
+                    <th className="py-4 px-3">
+                      <button type="button" onClick={() => toggleSort('prop_nombre')} className="font-bold hover:text-donezo-primary">
+                        Propietario {sortIndicator('prop_nombre')}
+                      </button>
+                    </th>
                     <th className="py-4 pl-3 text-center">Acciones</th>
                   </tr>
                 </thead>
