@@ -1,5 +1,18 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent, FC, FormEvent } from 'react';
+import { LexicalComposer } from '@lexical/react/LexicalComposer';
+import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
+import { ContentEditable } from '@lexical/react/LexicalContentEditable';
+import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
+import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin';
+import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
+import { ListPlugin } from '@lexical/react/LexicalListPlugin';
+import { ListNode, ListItemNode, INSERT_UNORDERED_LIST_COMMAND, INSERT_ORDERED_LIST_COMMAND } from '@lexical/list';
+import { QuoteNode } from '@lexical/rich-text';
+import { FORMAT_TEXT_COMMAND, $createParagraphNode, $getRoot } from 'lexical';
+import type { LexicalCommand } from 'lexical';
+import { $convertFromMarkdownString, $convertToMarkdownString, TRANSFORMERS } from '@lexical/markdown';
 import { API_BASE_URL } from '../config/api';
 
 type UploadTipo = 'logo' | 'firma';
@@ -93,6 +106,113 @@ const cardClass = 'rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dar
 const inputClass =
   'w-full rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-sm text-gray-900 outline-none transition focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white';
 const labelClass = 'mb-1 block text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400';
+type AvisoMessageField = 'aviso_msg_1' | 'aviso_msg_2' | 'aviso_msg_3' | 'aviso_msg_4';
+const editorBtnClass =
+  'rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-bold text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700';
+
+interface MarkdownEditorFieldProps {
+  value: string;
+  placeholder: string;
+  onChange: (next: string) => void;
+}
+
+const MarkdownSyncPlugin: FC<{ value: string }> = ({ value }) => {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(() => {
+    let currentMarkdown = '';
+    editor.getEditorState().read(() => {
+      currentMarkdown = $convertToMarkdownString(TRANSFORMERS);
+    });
+
+    if (currentMarkdown === value) return;
+
+    editor.update(() => {
+      const root = $getRoot();
+      root.clear();
+      if (value.trim()) {
+        $convertFromMarkdownString(value, TRANSFORMERS);
+      } else {
+        root.append($createParagraphNode());
+      }
+    });
+  }, [editor, value]);
+
+  return null;
+};
+
+const MarkdownToolbar: FC = () => {
+  const [editor] = useLexicalComposerContext();
+  const runCommand = <T,>(command: LexicalCommand<T>, payload: T): void => {
+    editor.focus();
+    editor.dispatchCommand(command, payload);
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-900/40">
+      <button type="button" className={editorBtnClass} onClick={() => runCommand(FORMAT_TEXT_COMMAND, 'bold')}>
+        B
+      </button>
+      <button type="button" className={editorBtnClass} onClick={() => runCommand(FORMAT_TEXT_COMMAND, 'italic')}>
+        I
+      </button>
+      <button type="button" className={editorBtnClass} onClick={() => runCommand(FORMAT_TEXT_COMMAND, 'strikethrough')}>
+        S
+      </button>
+      <button type="button" className={editorBtnClass} onClick={() => runCommand(INSERT_UNORDERED_LIST_COMMAND, undefined)}>
+        Viñetas
+      </button>
+      <button type="button" className={editorBtnClass} onClick={() => runCommand(INSERT_ORDERED_LIST_COMMAND, undefined)}>
+        Lista
+      </button>
+    </div>
+  );
+};
+
+const MarkdownEditorField: FC<MarkdownEditorFieldProps> = ({ value, placeholder, onChange }) => {
+  const initialConfig = useMemo(
+    () => ({
+      namespace: 'PerfilCondominioMarkdownEditor',
+      theme: {
+        text: {
+          strikethrough: 'line-through',
+        },
+      },
+      onError: (error: Error) => {
+        console.error(error);
+      },
+      nodes: [ListNode, ListItemNode, QuoteNode],
+    }),
+    []
+  );
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800/70">
+      <LexicalComposer initialConfig={initialConfig}>
+        <MarkdownSyncPlugin value={value} />
+        <MarkdownToolbar />
+        <div className="relative">
+          <RichTextPlugin
+            contentEditable={
+              <ContentEditable className="min-h-[120px] p-3 text-sm text-gray-900 outline-none dark:text-white [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6 [&_li]:my-0.5" />
+            }
+            placeholder={<p className="pointer-events-none absolute left-0 top-0 p-3 text-sm text-gray-400">{placeholder}</p>}
+            ErrorBoundary={LexicalErrorBoundary}
+          />
+        </div>
+        <ListPlugin />
+        <HistoryPlugin />
+        <OnChangePlugin
+          onChange={(editorState) => {
+            editorState.read(() => {
+              onChange($convertToMarkdownString(TRANSFORMERS));
+            });
+          }}
+        />
+      </LexicalComposer>
+    </div>
+  );
+};
 
 const PerfilCondominio: FC = () => {
   const [form, setForm] = useState<PerfilCondominioFormData>(initialPerfil);
@@ -158,7 +278,6 @@ const PerfilCondominio: FC = () => {
   const handlePasswordInputChange = (field: keyof PasswordFormData) => (e: ChangeEvent<HTMLInputElement>): void => {
     setPasswordForm((prev) => ({ ...prev, [field]: e.target.value }));
   };
-
   const handleGuardarCambios = async (): Promise<void> => {
     try {
       setSaving(true);
@@ -327,7 +446,7 @@ const PerfilCondominio: FC = () => {
       ) : (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           <section className={cardClass}>
-            <h2 className="mb-4 text-lg font-black text-gray-900 dark:text-white">🏢 Datos del Condominio</h2>
+            <h2 className="mb-4 text-lg font-black text-gray-900 dark:text-white">Datos del Condominio</h2>
             <div className="grid grid-cols-1 gap-4">
               <div>
                 <label className={labelClass}>Nombre Legal</label>
@@ -345,7 +464,7 @@ const PerfilCondominio: FC = () => {
           </section>
 
           <section className={cardClass}>
-            <h2 className="mb-4 text-lg font-black text-gray-900 dark:text-white">🏬 Empresa Administradora</h2>
+            <h2 className="mb-4 text-lg font-black text-gray-900 dark:text-white">Empresa Administradora</h2>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className={labelClass}>Razón Social</label>
@@ -369,7 +488,7 @@ const PerfilCondominio: FC = () => {
               </div>
             </div>
             <div className="mt-5 border-t border-gray-200 pt-5 dark:border-gray-700">
-              <h3 className="mb-4 text-base font-black text-gray-900 dark:text-white">🎨 Identidad Visual</h3>
+              <h3 className="mb-4 text-base font-black text-gray-900 dark:text-white">Identidad Visual</h3>
               <div className="space-y-4">
                 <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
                   <p className="mb-2 text-sm font-bold text-gray-700 dark:text-gray-200">Logo de la Administradora/Condominio</p>
@@ -407,8 +526,8 @@ const PerfilCondominio: FC = () => {
             </div>
           </section>
 
-          <section className={cardClass}>
-            <h2 className="mb-4 text-lg font-black text-gray-900 dark:text-white">📊 Reglas de Cobranza</h2>
+          <section className={`${cardClass} xl:col-span-2`}>
+            <h2 className="mb-4 text-lg font-black text-gray-900 dark:text-white">Reglas de Cobranza</h2>
             <div>
               <label className={labelClass}>Porcentaje de Morosidad (%)</label>
               <input
@@ -421,55 +540,30 @@ const PerfilCondominio: FC = () => {
               />
               <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Se aplica a propietarios con más de 2 avisos vencidos.</p>
             </div>
-            <div className="mt-5 grid grid-cols-1 gap-4">
-              <div>
-                <label className={labelClass}>Mensaje Aviso #1 (Markdown)</label>
-                <textarea
-                  rows={3}
-                  className={inputClass}
-                  value={form.aviso_msg_1}
-                  onChange={handleInputChange('aviso_msg_1')}
-                  placeholder="Ej: **Recuerde** mantener su pago al día."
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Mensaje Aviso #2 (Markdown)</label>
-                <textarea
-                  rows={3}
-                  className={inputClass}
-                  value={form.aviso_msg_2}
-                  onChange={handleInputChange('aviso_msg_2')}
-                  placeholder="Ej: Puede pagar por transferencia o pago móvil."
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Mensaje Aviso #3 (Markdown)</label>
-                <textarea
-                  rows={3}
-                  className={inputClass}
-                  value={form.aviso_msg_3}
-                  onChange={handleInputChange('aviso_msg_3')}
-                  placeholder="Ej: En caso de dudas, contacte administración."
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Mensaje Aviso #4 (Markdown)</label>
-                <textarea
-                  rows={3}
-                  className={inputClass}
-                  value={form.aviso_msg_4}
-                  onChange={handleInputChange('aviso_msg_4')}
-                  placeholder="Ej: Gracias por su colaboración."
-                />
-              </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+            <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
+              {([
+                { key: 'aviso_msg_1', label: 'Mensaje Aviso #1 (Markdown)', placeholder: 'Ej: **Recuerde** mantener su pago al día.' },
+                { key: 'aviso_msg_2', label: 'Mensaje Aviso #2 (Markdown)', placeholder: 'Ej: Puede pagar por transferencia o pago móvil.' },
+                { key: 'aviso_msg_3', label: 'Mensaje Aviso #3 (Markdown)', placeholder: 'Ej: En caso de dudas, contacte administración.' },
+                { key: 'aviso_msg_4', label: 'Mensaje Aviso #4 (Markdown)', placeholder: 'Ej: Gracias por su colaboración.' },
+              ] as Array<{ key: AvisoMessageField; label: string; placeholder: string }>).map((item) => (
+                <div key={item.key}>
+                  <label className={labelClass}>{item.label}</label>
+                  <MarkdownEditorField
+                    value={form[item.key]}
+                    placeholder={item.placeholder}
+                    onChange={(val) => setForm((prev) => ({ ...prev, [item.key]: val || '' }))}
+                  />
+                </div>
+              ))}
+              <p className="text-xs text-gray-500 dark:text-gray-400 lg:col-span-2">
                 Estos mensajes son exclusivos de este condominio y se usarán como textos predeterminados en avisos de cobro.
               </p>
             </div>
           </section>
 
           <section className={`${cardClass} xl:col-span-2`}>
-            <h2 className="mb-4 text-lg font-black text-gray-900 dark:text-white">🔒 Seguridad</h2>
+            <h2 className="mb-4 text-lg font-black text-gray-900 dark:text-white">Seguridad</h2>
             <form onSubmit={(e) => void handleCambiarPassword(e)} className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
                 <label className={labelClass}>Nueva Contraseña</label>
@@ -497,3 +591,7 @@ const PerfilCondominio: FC = () => {
 };
 
 export default PerfilCondominio;
+
+
+
+

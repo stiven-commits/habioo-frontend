@@ -130,6 +130,94 @@ const formatMoney = (value: number): string =>
     maximumFractionDigits: 2,
   }).format(value);
 
+const escapeHtml = (value: string): string =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const formatInlineMarkdown = (value: string): string => {
+  let html = escapeHtml(value);
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  html = html.replace(/~~(.+?)~~/g, '<s>$1</s>');
+  return html;
+};
+
+const markdownToHtml = (value: string): string => {
+  const normalized = String(value || '')
+    .replace(/\\n/g, '\n')
+    .replace(/\\([*_~`])/g, '$1');
+  if (!normalized.includes('\n') && /-\s+/.test(normalized) && (normalized.match(/-\s+/g) || []).length > 1) {
+    const items = normalized
+      .split(/-\s+/)
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0);
+    if (items.length > 1) {
+      return `<ul class="list-disc pl-5 space-y-1">${items.map((item) => `<li>${formatInlineMarkdown(item)}</li>`).join('')}</ul>`;
+    }
+  }
+  const lines = normalized.split(/\r?\n/);
+  let html = '';
+  let inUl = false;
+  let inOl = false;
+
+  const closeLists = (): void => {
+    if (inUl) {
+      html += '</ul>';
+      inUl = false;
+    }
+    if (inOl) {
+      html += '</ol>';
+      inOl = false;
+    }
+  };
+
+  lines.forEach((rawLine) => {
+    const line = rawLine.trim();
+    if (!line) {
+      closeLists();
+      return;
+    }
+
+    const ulMatch = line.match(/^[-*]\s+(.+)$/);
+    if (ulMatch) {
+      if (inOl) {
+        html += '</ol>';
+        inOl = false;
+      }
+      if (!inUl) {
+        html += '<ul class="list-disc pl-5 space-y-1">';
+        inUl = true;
+      }
+      html += `<li>${formatInlineMarkdown(ulMatch[1] || '')}</li>`;
+      return;
+    }
+
+    const olMatch = line.match(/^\d+\.\s+(.+)$/);
+    if (olMatch) {
+      if (inUl) {
+        html += '</ul>';
+        inUl = false;
+      }
+      if (!inOl) {
+        html += '<ol class="list-decimal pl-5 space-y-1">';
+        inOl = true;
+      }
+      html += `<li>${formatInlineMarkdown(olMatch[1] || '')}</li>`;
+      return;
+    }
+
+    closeLists();
+    html += `<p>${formatInlineMarkdown(line)}</p>`;
+  });
+
+  closeLists();
+  return html;
+};
+
 const toNumber = (value: unknown): number => parseFloat(String(value ?? 0)) || 0;
 const normalizeTipo = (tipo: string | undefined): string => String(tipo || '').trim().toLowerCase();
 const normalizeClasificacion = (clasificacion: string | undefined): string => String(clasificacion || '').trim().toLowerCase();
@@ -471,7 +559,7 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
           <div className="aviso-mensajes-grid grid grid-cols-1 gap-3 md:grid-cols-2">
             {(avisoData.mensajes.length > 0 ? avisoData.mensajes : fallbackAvisoData.mensajes).map((mensaje, index) => (
               <div key={index} className="rounded-md border-l-4 border-yellow-400 bg-yellow-50 p-4 text-sm text-yellow-800">
-                {mensaje}
+                <div className="space-y-1 [&_p]:m-0" dangerouslySetInnerHTML={{ __html: markdownToHtml(mensaje) }} />
               </div>
             ))}
           </div>

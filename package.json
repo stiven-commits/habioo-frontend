@@ -11,7 +11,13 @@
     "start": "serve -s dist -l 3000"
   },
   "dependencies": {
+    "@lexical/link": "^0.41.0",
+    "@lexical/list": "^0.41.0",
+    "@lexical/markdown": "^0.41.0",
+    "@lexical/react": "^0.41.0",
+    "@lexical/rich-text": "^0.41.0",
     "@tailwindcss/vite": "^4.2.1",
+    "lexical": "^0.41.0",
     "mcp-server": "^0.0.9",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
