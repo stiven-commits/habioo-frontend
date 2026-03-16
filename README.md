@@ -1,14 +1,14 @@
-﻿# Habioo - Plataforma de Gestión de Condominios
+﻿# Habioo - Plataforma de Gestion de Condominios
 
-Documento de referencia funcional y técnica del estado actual de la app.
-Este README fusiona la base conceptual original con el inventario actualizado de módulos, endpoints y modelo de datos.
+Documento de referencia funcional y tecnica del estado actual de la app.
+Este README fusiona la base conceptual original con el inventario actualizado de modulos, endpoints y modelo de datos.
 
-- Última actualización: 2026-03-16
+- Ultima actualizacion: 2026-03-16
 - Stack: React + Vite + Tailwind (frontend), Node/Express + PostgreSQL (backend)
 
 ---
 
-## 1) Stack tecnológico
+## 1) Stack tecnologico
 
 - Frontend: React, Vite, React Router DOM, Tailwind CSS (dark/light).
 - Backend: Express, `pg`, `jsonwebtoken`, `bcryptjs`, `multer`, `sharp`.
@@ -17,116 +17,23 @@ Este README fusiona la base conceptual original con el inventario actualizado de
 
 ---
 
-## 1.1) Remanufacturación del backend (marzo 2026)
+## 2) Rutas frontend activas
 
-El backend fue refactorizado de un archivo monolítico a módulos por dominio, manteniendo la misma API pública para el frontend.
+Archivo de referencia: `habioo-frontend/src/App.jsx`
 
-- `index.js` ahora solo inicializa la app y registra rutas.
-- Capas nuevas:
-  - `config/db.js`
-  - `middleware/verifyToken.js`
-  - `utils/calendar.js`
-  - `utils/number.js`
-  - `services/pagosColumns.js`
-- Rutas separadas en `routes/*.js`:
-  - `root`, `auth`, `gastos`, `proveedores`, `propiedades`, `bancos`, `zonas`, `recibos`, `fondos`, `pagos`, `dashboard`.
-
-Impacto:
-- Se conserva compatibilidad de URLs/métodos actuales.
-- Mejor mantenibilidad y menor riesgo al extender funcionalidades.
-
----
-
-## 1.2) Memoria técnica de remanufacturación TS/TSX (frontend, marzo 2026)
-
-Se hizo una remanufacturación progresiva de pantallas y modales a TypeScript estricto, cuidando no alterar JSX visual, clases Tailwind ni flujos de hooks.
-
-### Alcance principal trabajado
-
-- Páginas: `CuentasPorCobrar.tsx`, `Cierres.tsx`, `EstadoCuentasBancarias.tsx`, `Gastos.tsx`, `Propiedades.tsx`, `Proveedores.tsx`, `Bancos.tsx`.
-- Componentes/modales: `ModalRegistrarPago.tsx`, `ModalFondos.tsx`, `ModalAgregarGasto.tsx`, `BancosModals.tsx`, `DialogProvider.tsx`, `PropiedadesModals.tsx`.
-- Utilidades/config ya migradas a `.ts` en el flujo previo de trabajo.
-
-### Reglas y decisiones de tipado que se aplicaron
-
-1. `exactOptionalPropertyTypes`:
-   - Evitar pasar `undefined` explícito en props opcionales.
-   - Cuando un campo es opcional, agregarlo solo si existe (en vez de `campo: undefined`).
-
-2. `noUncheckedIndexedAccess`:
-   - Proteger accesos por índice:
-     - `arr[0] ?? ''`
-     - `const [a = ''] = str.split('...')`
-     - `obj[key]?.prop ?? fallback`
-
-3. Contratos entre páginas y modales:
-   - Se alinearon tipos de props para evitar incompatibilidades entre interfaces con el mismo nombre pero distinta forma.
-   - Donde fue necesario, se usaron adaptadores de `setState` para respetar firmas esperadas por modales sin cambiar lógica funcional.
-
-4. Eventos y formularios:
-   - Handlers tipados explícitamente (`ChangeEvent`, `FormEvent`, etc.).
-   - Guardas para `checkbox` con `instanceof HTMLInputElement`.
-
-5. Respuestas API:
-   - Interfaces explícitas para payloads relevantes de frontend.
-   - Normalización numérica en cálculos contables para evitar unions ambiguas.
-
-### Problemas reales detectados y cómo evitarlos
-
-- Error de codificación (mojibake / `�`):
-  - Se presentó en varios archivos durante cambios sucesivos de encoding.
-  - Recomendación: mantener todos los `.ts/.tsx` en UTF-8.
-  - Evitar mezclar escrituras `Default/ANSI` y UTF-8 en el mismo archivo.
-
-- Error TS2719 (tipos “iguales” pero no relacionados):
-  - Ocurre por interfaces duplicadas con mismo nombre en distintos módulos.
-  - Recomendación: centralizar tipos compartidos en un módulo común (`src/types/...`) o alinear estructura exacta al pasar props.
-
-### Comandos útiles de verificación rápida
-
-- Validación global frontend:
-  - `npx tsc --noEmit`
-- Validar un archivo específico por nombre:
-  - `npx tsc --noEmit 2>&1 | Select-String -Pattern 'NombreArchivo.tsx'`
-- Build frontend:
-  - `npm run build`
-
-### Nota para continuidad (memoria IA)
-
-Si se retoma este proyecto con contexto nuevo:
-- Priorizar revisión de contratos de props entre páginas y modales antes de tocar lógica.
-- Revisar encoding UTF-8 de archivos que muestren símbolos raros.
-- Antes de cambios grandes, ejecutar `npx tsc --noEmit` y atacar errores por archivo con `Select-String`.
-
----
-
-## 2) Lógica de negocio (resumen)
-
-1. Multitenancy por condominio:
-   - El administrador (`users`) está vinculado a `condominios.admin_user_id`.
-   - Los datos operativos se filtran por `condominio_id`.
-
-2. Arquitectura de gastos (4 niveles):
-   - `Comun`: impacta a todo el condominio.
-   - `Zona` / `No Comun`: impacta solo propiedades asociadas a la zona.
-   - `Individual`: impacta 1 inmueble específico.
-   - `Extra`: gasto común extraordinario (se distribuye como `Comun`).
-
-3. Diferimiento por cuotas:
-   - Un gasto se divide en `total_cuotas`.
-   - Se generan filas en `gastos_cuotas` por mes (`mes_asignado` tipo `YYYY-MM`).
-
-4. Cierre mensual:
-   - El condominio tiene `mes_actual`.
-   - `POST /cerrar-ciclo` genera recibos (`recibos`) y avanza al siguiente mes.
-
-5. Pagos y fondos virtuales:
-   - Los pagos se registran en `pagos`.
-   - Se distribuyen automáticamente a `fondos` según porcentaje.
-   - Para cuentas en `BS`, la distribución usa `monto_origen` (exactitud contable en bolívares).
-   - Para cuentas en `USD`, la distribución usa `monto_usd`.
-   - La porción imputada a gastos tipo `Extra` no genera movimiento en fondos (`Tránsito/Extra`).
-   - Se auditan en `movimientos_fondos`.
+- `/` -> `Login`
+- `/dashboard` -> `DashboardHome`
+- `/perfil` -> `PerfilCondominio`
+- `/proveedores` -> `Proveedores`
+- `/gastos` -> `Gastos`
+- `/cierres` -> `Cierres`
+- `/inmuebles` -> `Propiedades`
+- `/cuentas-cobrar` -> `CuentasPorCobrar`
+- `/bancos` -> `Bancos`
+- `/estado-cuentas` -> `EstadoCuentasBancarias`
+- `/zonas` -> `Zonas`
+- `/avisos-cobro` -> `HistorialAvisos`
+- `/aviso-cobro/:id` -> `VistaAvisoCobro`
 
 ---
 
@@ -134,8 +41,8 @@ Si se retoma este proyecto con contexto nuevo:
 
 ### 3.1 Funcionalidades activas
 
-1. Login y sesión JWT (`/login` + validación `/me` en `Layout`).
-2. Proveedores: listar/crear/editar/eliminar (borrado lógico) por junta (aislados por condominio).
+1. Login y sesion JWT (`/login` + validacion `/me` en `Layout`).
+2. Proveedores: listar/crear/editar/eliminar (borrado logico) por junta (aislados por condominio).
 3. Gastos: crear con factura/soportes, listar (con filtros por tipo/fecha), eliminar (si cuotas pendientes).
 4. Cierres: vista preliminar y cierre de ciclo.
 5. Historial de avisos: filtros por texto/estado/fecha.
@@ -148,425 +55,194 @@ Si se retoma este proyecto con contexto nuevo:
 12. Libro Mayor / Estado de Cuentas Bancarias (admin): selector de cuenta, movimientos con saldo acumulado, pago a proveedores y transferencias entre fondos.
 13. Sistema de avisos/confirmaciones UI: alertas del navegador migradas a modal centrada reutilizable en frontend (dark/light con contraste mejorado).
 
-### 3.2 Funcionalidades inactivas/parciales
+### 3.2 Funcionalidades inactivas o parciales
 
-1. `src/Dashboard.jsx` (legacy): no está enrutado en `App.jsx`.
-2. Modal de impresión en `HistorialAvisos`: placeholder visual.
-3. `POST /register`: existe backend pero sin flujo UI activo.
-4. `POST /pagos` histórico: el flujo actual usa `/pagos-admin`.
+1. Flujo visual de registro de usuario no expuesto en menu principal (aunque `POST /register` existe).
+2. Funciones legacy fuera de rutas activas pueden existir en archivos historicos, pero no forman parte del circuito principal.
 
 ---
 
-## 4) Rutas frontend activas
+## 4) Backend: mapa unico de endpoints por archivo `.ts`
 
-- `/` -> Login
-- `/dashboard` -> DashboardHome
-- `/perfil` -> PerfilCondominio
-- `/proveedores` -> Proveedores
-- `/gastos` -> Gastos
-- `/cierres` -> Cierres
-- `/inmuebles` -> Propiedades
-- `/cuentas-cobrar` -> CuentasPorCobrar
-- `/bancos` -> Bancos
-- `/estado-cuentas` -> EstadoCuentasBancarias (Libro Mayor)
-- `/zonas` -> Zonas
-- `/avisos-cobro` -> HistorialAvisos
+Archivo de composicion: `habioo-auth/index.ts`
 
----
+### `routes/root.ts`
+- `GET /`
 
-## 5) Mapa de URLs (frontend -> backend -> acción)
+### `routes/auth.ts`
+- `POST /register`
+- `POST /login`
+- `GET /me`
 
-### Auth y sesión
-- `POST https://auth.habioo.cloud/login`
-  - Front: `src/pages/Login.jsx`
-  - Acción: autentica y devuelve token.
-- `GET https://auth.habioo.cloud/me` (protegida)
-  - Front: `src/components/Layout.jsx`
-  - Acción: valida token vigente.
+### `routes/perfil.ts` (montado en `/api/perfil`)
+- `GET /api/perfil/`
+- `PUT /api/perfil/`
+- `PUT /api/perfil/password`
+- `POST /api/perfil/upload/:tipo`
 
-### Perfil de condominio
-- `GET https://auth.habioo.cloud/api/perfil` (protegida)
-  - Front: `src/pages/PerfilCondominio.tsx`
-  - Acción: obtiene datos de perfil del condominio y administradora por `condominio_id` del JWT.
-- `PUT https://auth.habioo.cloud/api/perfil` (protegida)
-  - Front: `src/pages/PerfilCondominio.tsx`
-  - Acción: actualiza datos de texto del perfil (condominio + administradora + cobranza).
-- `PUT https://auth.habioo.cloud/api/perfil/password` (protegida)
-  - Front: `src/pages/PerfilCondominio.tsx`
-  - Acción: actualiza la contraseña del usuario autenticado (`users.password`) usando `nueva_password`.
-- `POST https://auth.habioo.cloud/api/perfil/upload/:tipo` (protegida)
-  - Front: `src/pages/PerfilCondominio.tsx`
-  - Acción: sube `logo` o `firma` en webp a `uploads/perfil` y guarda URL en `condominios`.
-  - Para `firma` se procesa fondo blanco a transparente y en UI se aplica `mix-blend-multiply`.
+### `routes/proveedores.ts`
+- `GET /proveedores`
+- `POST /proveedores`
+- `POST /proveedores/lote`
+- `PUT /proveedores/:id`
+- `DELETE /proveedores/:id`
 
-### Proveedores
-- `GET https://auth.habioo.cloud/proveedores` -> listar proveedores activos del condominio del admin autenticado.
-- `POST https://auth.habioo.cloud/proveedores` -> crear proveedor en el condominio del admin (reactiva si existía inactivo con mismo RIF). Incluye validación de `email`.
-- `PUT https://auth.habioo.cloud/proveedores/:id` -> editar datos de contacto/rubro del proveedor. Incluye validación de `email`.
-- `DELETE https://auth.habioo.cloud/proveedores/:id` -> borrado lógico (`activo = false`).
-- `POST https://auth.habioo.cloud/proveedores/lote` -> carga masiva de proveedores (Excel) con validación de `email` por fila.
+### `routes/gastos.ts`
+- `POST /gastos`
+- `GET /gastos`
+- `DELETE /gastos/:id`
+- `GET /preliminar`
+- `PUT /metodo-division`
+- `POST /cerrar-ciclo`
 
-### Gastos
-- `GET https://auth.habioo.cloud/gastos` -> listar gastos/cuotas.
-- `POST https://auth.habioo.cloud/gastos` -> crear gasto (multipart: `factura_img`, `soportes`) para tipos `Comun`, `Zona`, `Individual`, `Extra`.
-  - Incluye etiqueta de clasificación: `Fijo` o `Variable` (`gastos.clasificacion`).
-- `DELETE https://auth.habioo.cloud/gastos/:id` -> eliminar gasto.
+### `routes/recibos.ts`
+- `GET /recibos-historial`
+- `GET /recibos/:id/aviso`
 
-### Cierres y recibos
-- `GET https://auth.habioo.cloud/preliminar` -> preliminar contable del mes.
-- `POST https://auth.habioo.cloud/cerrar-ciclo` -> generar recibos y avanzar mes.
-- `GET https://auth.habioo.cloud/recibos-historial` -> historial de avisos/recibos.
-- `GET https://auth.habioo.cloud/cuentas-por-cobrar` -> cobranza global admin.
+### `routes/pagos.ts`
+- `POST /pagos-admin`
+- `POST /pagos/:id/validar`
+- `GET /pagos-proveedores/gasto/:gasto_id/detalles`
+- `POST /pagos-proveedores`
 
-### Pagos
-- `POST https://auth.habioo.cloud/pagos-admin`
-  - Registra pago de administrador por `propiedad_id` (auto-validado), aplica cascada FIFO sobre recibos e imputa a gastos.
-  - La parte `Extra` queda fuera de distribución de fondos.
-  - La parte distribuible se reparte por porcentajes en fondos:
-    - base `monto_origen` si la cuenta/pago es `BS`,
-    - base `monto_usd` si la cuenta/pago es `USD`.
-  - Cada movimiento de distribución guarda `referencia_id` (pago) y `tasa_cambio` en `movimientos_fondos`.
-- `POST https://auth.habioo.cloud/pagos/:id/validar`
-  - Valida pagos pendientes y aplica cascada FIFO de imputación.
+### `routes/bancos.ts`
+- `GET /bancos`
+- `POST /bancos`
+- `PUT /bancos/:id/predeterminada`
+- `DELETE /bancos/:id`
+- `GET /bancos-admin/:id/estado-cuenta`
+- `POST /transferencias`
+- `GET /gastos-pendientes-pago`
 
-### Bancos y fondos
-- `GET https://auth.habioo.cloud/bancos` -> listar cuentas.
-- `POST https://auth.habioo.cloud/bancos` -> crear cuenta.
-  - Tipos soportados en UI: `Transferencia (Bs)`, `Pago Móvil (Bs)`, `Zelle (USD)`, `Efectivo / Caja Fuerte (Bs)`, `Efectivo / Caja Fuerte (USD)`.
-  - La moneda base se autodefine por tipo cuando aplica (nacional -> `BS`, internacional -> `USD`) y solo se habilita manualmente en tipos genéricos.
-- `PUT https://auth.habioo.cloud/bancos/:id/predeterminada` -> marcar principal.
-- `DELETE https://auth.habioo.cloud/bancos/:id` -> eliminar cuenta.
-- `GET https://auth.habioo.cloud/fondos` -> listar fondos.
-- `POST https://auth.habioo.cloud/fondos` -> crear fondo.
-- `DELETE https://auth.habioo.cloud/fondos/:id` -> eliminar fondo sin movimientos.
-- `GET https://auth.habioo.cloud/bancos-admin/:id/estado-cuenta` -> libro mayor de la cuenta (movimientos y saldos).
-  - Incluye ingresos distribuidos por fondo (`movimientos_fondos`) y remanente sin fondo (`Tránsito/Extra`).
-  - Expone `monto_origen_pago` en ingresos para permitir consolidación exacta en Bs en la vista de cuenta bancaria.
-- `GET https://auth.habioo.cloud/gastos-pendientes-pago` -> gastos/facturas pendientes para pago a proveedor.
-- `POST https://auth.habioo.cloud/pagos-proveedores` -> registrar pago parcial o total de gasto con imputación multiorigen (múltiples cuentas/fondos en una sola operación).
-- `POST https://auth.habioo.cloud/transferencias` -> transferir entre fondos/cuentas (con o sin conversión).
+### `routes/fondos.ts`
+- `GET /fondos`
+- `POST /fondos`
+- `DELETE /fondos/:id`
 
-Notas de desarrollo local:
-- En código frontend, Bancos/Fondos usan `API_BASE_URL` (`src/config/api.js`) en lugar de URLs hardcodeadas a producción.
-- Archivos actualizados para local-first: `src/pages/Bancos.jsx`, `src/components/ModalFondos.jsx`, `src/components/BancosModals.jsx`.
+### `routes/zonas.ts`
+- `GET /zonas`
+- `POST /zonas`
+- `PUT /zonas/:id`
+- `DELETE /zonas/:id`
 
-### Zonas
-- `GET https://auth.habioo.cloud/zonas` -> listar.
-- `POST https://auth.habioo.cloud/zonas` -> crear.
-- `PUT https://auth.habioo.cloud/zonas/:id` -> editar/activar/desactivar.
-- `DELETE https://auth.habioo.cloud/zonas/:id` -> eliminar.
+### `routes/propiedades.ts`
+- `GET /propiedades-admin`
+- `DELETE /propiedades-admin/eliminar-todos`
+- `GET /propiedades-admin/:id/estado-cuenta`
+- `POST /propiedades-admin/lote`
+- `POST /propiedades-admin`
+- `PUT /propiedades-admin/:id`
+- `DELETE /propiedades-admin/:id` (solo sin avisos/recibos)
+- `POST /propiedades-admin/:id/ajustar-saldo`
 
-### Propiedades
-- `GET https://auth.habioo.cloud/propiedades-admin` -> listar inmuebles.
-- `POST https://auth.habioo.cloud/propiedades-admin` -> crear inmueble.
-- `PUT https://auth.habioo.cloud/propiedades-admin/:id` -> editar inmueble.
-- `GET https://auth.habioo.cloud/propiedades-admin/:id/estado-cuenta` -> movimientos de cuenta del inmueble.
-- `POST https://auth.habioo.cloud/propiedades-admin/:id/ajustar-saldo` -> ajuste manual de saldo (deuda/a favor), afecta solo estado de cuenta del inmueble.
-- `POST https://auth.habioo.cloud/propiedades-admin/lote` -> carga masiva de inmuebles (Excel/lote).
-
-### Dashboard residente
-- `GET https://auth.habioo.cloud/mis-propiedades` -> propiedades del usuario.
-- `GET https://auth.habioo.cloud/mis-finanzas` -> resumen financiero.
-
-### Seeder de pruebas (admin)
-- `POST https://auth.habioo.cloud/dashboard-admin/seed-prueba`
-  - Solo habilitado cuando `ENABLE_TEST_SEEDER=true` en backend (`habioo-auth/.env`).
-  - Solo ejecutable por el usuario de prueba con cédula `J123456789`.
-  - La limpieza de usuarios seed quedó aislada al condominio del admin autenticado (no impacta otros condominios/usuarios).
-
-### API externa
-- `GET https://ve.dolarapi.com/v1/dolares/oficial` -> tasa BCV (modal de pago).
+### `routes/dashboard.ts`
+- `GET /mis-propiedades`
+- `GET /mis-finanzas`
+- `GET /cuentas-por-cobrar`
+- `POST /dashboard-admin/seed-prueba`
 
 ---
 
-## 6) Modelo de datos (estructura actual relevante)
+## 5) Reglas funcionales clave
 
-### Seguridad y núcleo
-- `users`: usuarios (admin y residentes).
-- `condominios`: condominio y configuración contable (`mes_actual`, `metodo_division`).
-  - Perfil ampliado (migración `habioo-auth/sql/2026-03-16_add_condominios_profile_fields.sql`):
-    - `nombre_legal`, `rif`, `direccion`, `porcentaje_morosidad`
-    - `admin_nombre`, `admin_rif`, `admin_representante`, `admin_telefono`, `admin_correo`
-    - `logo_url`, `firma_url`
-
-### Habitacional
-- `propiedades`: inmuebles (`identificador`, `alicuota`, `zona_id`, `saldo_actual`).
-- `usuarios_propiedades`: relación usuario-inmueble (`Propietario` / `Inquilino`).
-- `zonas`: áreas/sectores (`activa`).
-- `propiedades_zonas`: relación N:M zona-propiedad.
-- `historial_saldos_inmuebles`: auditoría de saldos (`SALDO_INICIAL`, `CARGAR_DEUDA`, `AGREGAR_FAVOR`).
-
-### Proveedores y cuentas
-- `proveedores`.
-  - Alcance por junta: cada registro se asocia a `condominio_id` y no se comparte entre condominios.
-  - Borrado lógico: columna `activo` para ocultar sin perder trazabilidad histórica.
-  - Nuevos campos relevantes: `rubro`, `email`, `condominio_id`, `activo`.
-- `cuentas_bancarias`:
-  - Campos clave actuales: `numero_cuenta`, `nombre_banco`, `apodo`, `tipo`, `es_predeterminada`, `nombre_titular`, `cedula_rif`, `telefono`.
-  - Convención vigente de tipos: `Transferencia`, `Pago Movil`, `Zelle`, `Efectivo BS`, `Efectivo USD`.
-
-### Gastos y facturación
-- `gastos`:
-  - Base del gasto: `monto_bs`, `tasa_cambio`, `monto_usd`, `tipo`, `clasificacion`, `zona_id`, `propiedad_id`, `fecha_gasto`, `created_at`.
-  - `tipo` soportado actualmente: `Comun`, `No Comun`, `Zona`, `Individual`, `Extra`.
-  - `clasificacion` soportada: `Fijo` | `Variable`.
-  - Soportes: `factura_img` (principal), `imagenes` (array de soportes).
-- `gastos_cuotas`:
-  - Fracciones mensuales: `numero_cuota`, `monto_cuota_usd`, `mes_asignado`, `estado`.
-- `recibos`:
-  - Resultado del cierre mensual por inmueble.
-  - Snapshot inmutable del aviso al momento de emisión:
-    - `snapshot_jsonb` (JSONB)
-    - `snapshot_version` (INTEGER, default `1`)
-  - Índice GIN para snapshot:
-    - `idx_recibos_snapshot_jsonb_gin` sobre `snapshot_jsonb`
-
-### Fondos y pagos
-- `fondos`:
-  - Fondo virtual anclado a cuenta bancaria (`cuenta_bancaria_id`), con porcentaje y saldo.
-- `movimientos_fondos`:
-  - Auditoría de ingresos/egresos/ajustes.
-  - Para ingresos por pagos: almacena `referencia_id` del pago y `tasa_cambio` usada.
-- `pagos`:
-  - Pagos por propiedad/recibo (`monto_origen`, `monto_usd`, `tasa_cambio`, `moneda`, `estado`, `propiedad_id`, `cuenta_bancaria_id`).
-- `recibos`:
-  - Incluye `monto_pagado_usd` para control de abonos parciales y liquidación total por cascada.
-- `gastos_pagos_fondos`:
-  - Relación de pagos de gastos con fondos (estructura disponible para expansión).
-- `pagos_proveedores`:
-  - Pagos aplicados a gastos (parciales/totales) con orígenes múltiples; soporta referencia por origen, fecha y nota global.
-- `transferencias`:
-  - Movimientos entre fondos/cuentas con soporte de tasa de cambio y montos origen/destino.
-- `gastos.monto_pagado_usd`:
-  - Acumulado pagado por gasto para control de deuda pendiente.
+- Multitenancy: los datos se filtran por condominio del admin autenticado.
+- Aviso inmutable: `recibos.snapshot_jsonb` congela el estado del aviso al momento de emision.
+- Clasificacion de gastos: `Fijo` y `Variable`.
+- Ajustes de inmueble: afectan solo estado de cuenta del inmueble (no cuentas bancarias/fondos).
+- Eliminacion de inmueble: solo permitida si no tiene avisos/recibos generados.
+- Carga masiva de inmuebles: no genera avisos automaticamente; importa estructura y saldos base.
 
 ---
 
-## 7) Novedades funcionales recientes
+## 6) Modelo de datos (resumen)
 
-1. Propiedades:
-   - Corrección de guardado completo en crear/editar (propietario + inquilino).
-   - `alicuota` con coma decimal en UI y límite operativo de 3 decimales.
-   - Ajuste manual de saldo por inmueble y estado de cuenta con cargos/abonos.
-   - En el registro de inmueble se agregó captura de `Saldo Inicial (Bs)`, `Tasa BCV` y cálculo automático a `Saldo Inicial (USD)` con botón de consulta BCV.
-   - Carga masiva desde Excel con validaciones (apto, nombre, cédula, alícuota y duplicados de correo).
-   - Plantilla de carga masiva actualizada a 2 hojas:
-     - `Propiedades`
-     - `saldos_bases` (columnas: `Monto Deuda`, `Monto Abono`, `Saldo`).
-   - En `saldos_bases`, `Saldo` viene preconfigurado con fórmula `Monto Deuda - Monto Abono` en toda la columna de captura y estilo visual para guiar al usuario.
-   - Importación de lote en modo silencioso:
-     - Aplica saldo por inmueble (`saldo_actual` + historial),
-     - No genera recibos históricos automáticos,
-     - No crea avisos de cobro al importar.
-   - Alta manual de inmueble:
-     - Nuevo toggle `¿Tiene deudas anteriores?`
-     - Permite agregar múltiples filas (concepto, monto deuda, monto abono opcional),
-     - Si está activo, se oculta el bloque de saldo inicial manual.
-   - Paginación de la tabla principal ajustada a 13 inmuebles por página.
-   - Modales desacopladas en `src/components/propiedades/PropiedadesModals.jsx`.
-   - La acción `Estado de Cuenta` fue retirada del dropdown de `Inmuebles`.
-   - Alta de usuarios desde inmueble: si no se define contraseña explícita, la clave inicial se establece igual a la cédula.
-2. Inquilinos:
-   - Se agregó toggle en la modal: `Permitir acceso del inquilino al portal`.
-   - Persistencia en BD: `usuarios_propiedades.acceso_portal` (default `true`).
-   - Login bloquea usuarios residentes/inquilinos cuando todas sus relaciones están con `acceso_portal=false`.
-   - Endpoints de residente (`/mis-propiedades`, `/mis-finanzas`) solo devuelven relaciones con `acceso_portal=true`.
-3. Avisos de cobro (histórico inmutable):
-   - Se agregó soporte de snapshot por recibo para congelar la representación del aviso al momento de emisión.
-   - Objetivo: al abrir avisos antiguos, no recalcular con estados de cuenta/fondos/mensajes actuales, sino mostrar exactamente el contexto histórico.
-   - Migración asociada:
-     - `habioo-auth/sql/2026-03-16_add_recibos_snapshot_jsonb.sql`
-4. Seeder de pruebas (hardening):
-   - Control por variable de entorno:
-     - `ENABLE_TEST_SEEDER=true|false` (backend).
-   - Restricción de acceso:
-     - solo cédula `J123456789`.
-   - Limpieza segura:
-     - solo elimina usuarios seed vinculados al condominio de prueba actual; no borra usuarios seed de otros condominios.
-3. Gastos:
-   - Migración de ciclos numéricos a meses calendario (`mes_actual`, `mes_asignado`).
-   - Doble fecha de gasto (`fecha_gasto` y `created_at`).
-   - Soportes de imagen: `factura_img` + `imagenes[]`.
-   - En UI, `Distribución (asignación)` pasó a llamarse `Tipo de gasto`.
-   - Nuevo tipo de gasto `Extra` agregado en frontend/backend/BD.
-   - Vista `/gastos`:
-     - título actualizado a `Gastos` (no solo comunes),
-     - tarjetas de resumen por tipo (Comun, Zona, Individual, Extra),
-     - filtro por rango de fecha + botón `Limpiar`,
-     - filtros por tipo con mejor contraste en tema oscuro,
-     - tabla paginada a 13 filas,
-     - orden de columnas ajustado (`Monto Total` antes de `Cuotas`),
-     - ordenamiento asc/desc por clic en encabezados (`Fechas`, `Proveedor`, `Concepto`, `Etiqueta`, `Monto Total`, `Cuotas`, `Estado de Pago`),
-     - nota visible para UX: doble clic en un gasto abre su detalle.
-   - Alta de gasto:
-     - nuevo select de etiqueta: `Gasto fijo` / `Gasto variable`.
-     - botón BCV optimizado para evitar salto de layout durante carga (spinner con tamaño fijo).
-   - Modal de detalle de gasto:
-     - etiqueta `Cargado el` (antes `sistema`),
-     - muestra `Notas` y fallback `Sin notas` si no existe,
-     - muestra la etiqueta del gasto (`Fijo`/`Variable`).
-4. Bancos y fondos:
-   - Cuenta predeterminada (`PUT /bancos/:id/predeterminada`) activa.
-   - Fondos virtuales anclados a cuentas bancarias con trazabilidad.
-   - Nueva vista `Libro Mayor` (`/estado-cuentas`) con estado de cuenta por banco/cuenta.
-   - Alta de cuenta actualizada con tipos explícitos de efectivo en dos monedas: `Efectivo / Caja Fuerte (Bs)` y `Efectivo / Caja Fuerte (USD)`.
-   - Modales operativas para `Pagar Proveedor` y `Transferencia` entre fondos.
-    - Integración con endpoints `GET /bancos-admin/:id/estado-cuenta`, `POST /pagos-proveedores`, `POST /transferencias`, `GET /gastos-pendientes-pago`.
-    - Estado de cuenta bancario:
-      - pestaña `Cuenta bancaria` consolidada por `Pago de Recibo #...` (una sola línea por pago),
-      - pestañas de fondos mantienen el desglose real de distribución,
-      - `Tránsito/Extra` muestra ingresos/egresos sin fondo y porción `Extra`.
-    - Tarjetas superiores en libro mayor:
-      - saldo equivalente USD de la cuenta,
-      - saldo Bs,
-      - tarjetas por fondo con saldo y equivalente USD.
-    - Consulta BCV:
-      - la equivalencia en Bs del saldo USD se muestra debajo de la tarjeta de saldo USD.
-   - Pago a proveedor con carrito de orígenes:
-     - permite distribuir un mismo pago entre múltiples cuentas/fondos;
-     - soporta Bs y USD por fila con tasa BCV por origen en Bs;
-     - valida sobrepago al gasto y saldo insuficiente por fondo (incluyendo suma de múltiples filas sobre un mismo fondo).
-5. Pagos:
-   - Flujo consolidado en `POST /pagos-admin` con registro por `propiedad_id`.
-   - Validación manual disponible en `POST /pagos/:id/validar`.
-    - Cascada FIFO: el abono se aplica del recibo más antiguo al más reciente.
-    - Actualización automática de `propiedades.saldo_actual` y de `recibos.monto_pagado_usd`/`estado` (`Pagado` o `Parcial`).
-    - Distribución en fondos ajustada para exactitud contable:
-      - pagos en `BS` distribuyen porcentajes sobre `monto_origen`,
-      - pagos en `USD` distribuyen sobre `monto_usd`,
-      - `Extra` no se distribuye en fondos.
-6. Historial de avisos:
-   - Filtros activos por texto, estado y rango de fechas.
-   - Pestañas de estados alineadas visualmente con el patrón de `Gastos`.
-   - Se retiró la acción de pagar desde esta vista.
-7. Cobranza (ajuste de flujo):
-   - Se centraliza la gestión operativa por inmueble con deuda.
-   - Incluye acciones `Estado de Cuenta` y `Registrar Pago` por fila.
-   - Se agrega acción `Ajuste` por inmueble en `/cuentas-cobrar` con modal:
-     - Tipo de ajuste (`Deuda` / `A favor`),
-     - Monto en Bs,
-     - Tasa BCV (consulta automática),
-     - Equivalente en USD calculado.
-   - Los ajustes de cobranza no impactan cuentas bancarias ni fondos; solo actualizan saldo y estado de cuenta del inmueble.
-   - Mantiene paginación de 13 registros por página.
-8. Desarrollo local:
-   - Se incorporó `src/config/api.js` con `API_BASE_URL` dinámico.
-   - En local (`localhost/127.0.0.1`) usa `http://localhost:3000` por defecto.
-   - `main.jsx` reescribe automáticamente llamadas legacy a `https://auth.habioo.cloud` hacia la base local para evitar romper pruebas.
-9. Proveedores (nuevo alcance por junta):
-   - Listado aislado por `condominio_id` (cada junta ve solo sus propios proveedores).
-   - Se agregó `rubro` al proveedor.
-   - Se habilitó borrado lógico con `activo` (eliminar oculta, no destruye).
-   - Alta inteligente: si un proveedor del mismo condominio existe inactivo con el mismo RIF, se reactiva y actualiza.
-10. UX de notificaciones (nuevo):
-   - Se agregó proveedor global de diálogos: `src/components/ui/DialogProvider.jsx`.
-   - `App.jsx` quedó envuelto con `DialogProvider` para habilitar modales centradas en toda la app.
-   - Se unificaron mensajes de acciones en gestión bancaria (crear/eliminar cuenta, predeterminada, crear/eliminar fondo, pagar proveedor, transferir).
-   - Se mejoró contraste en selects/botones de modales de transferencia y pago para dark/light.
-11. Seeder de pruebas (dashboard-admin):
-   - `POST /dashboard-admin/seed-prueba` ahora limpia completamente los datos operativos del condominio (pruebas viejas/manuales) antes de poblar.
-   - Escenario sembrado actualizado:
-     - 20 inmuebles de prueba con saldos mixtos (deuda, a favor y cero).
-     - 20 propietarios vinculados (clave inicial = cédula).
-     - 8 proveedores de prueba con correo (`email`) y datos de contacto.
-     - 4 cuentas bancarias de prueba: 3 cuentas en `BS` y 1 cuenta en `USD`.
-     - 4 fondos de prueba alineados con las cuentas y su moneda (1 por cuenta).
-     - 14 gastos con mezcla de tipos (incluye `Extra`) y varios en 4 cuotas para pruebas de cierre/cobranza.
-     - cada gasto seed incluye:
-       - `clasificacion` (`Fijo` o `Variable`),
-       - `nota` descriptiva (mínimo 80 caracteres).
-12. Proveedores (front + back + BD):
-   - BD: se agregó columna `proveedores.email`.
-   - Backend: `POST/PUT /proveedores` y `POST /proveedores/lote` validan y persisten `email`.
-   - Frontend:
-     - Formulario individual de proveedor incluye `email` obligatorio.
-     - Vista detalle muestra `email`.
-   - Carga masiva Excel agrega columna `Email` y valida formato antes de enviar.
-13. Perfil del Condominio (front + back + BD):
-   - Nueva vista `Perfil y Configuración` en `/perfil` con tarjetas para:
-     - datos del condominio,
-     - empresa administradora,
-     - reglas de cobranza,
-     - identidad visual (logo/firma),
-     - seguridad (cambio de contraseña).
-   - Se agregó sidebar link `Perfil Condominio` en `Layout`.
-   - Login JWT ahora incluye `condominio_id` e `is_admin` para resolver contexto de perfil.
-   - Nueva ruta backend `app.use('/api/perfil', perfilRoutes)`.
-   - Migración SQL añadida para campos de perfil en `condominios` y backfill inicial.
-   - `PUT /api/perfil/password` actualiza `users.password` del usuario autenticado.
+- `users`: autenticacion y actores del sistema.
+- `condominios`: configuracion del condominio (perfil, reglas de cobranza, mensajes de aviso).
+- `propiedades`: inmuebles (`identificador`, `alicuota`, `saldo_actual`, etc.).
+- `usuarios_propiedades`: relacion propietario/inquilino con inmueble.
+- `zonas`, `propiedades_zonas`: segmentacion por areas/sectores.
+- `proveedores`: proveedores por condominio.
+- `gastos`, `gastos_cuotas`: origen de deuda mensual y diferimiento.
+- `recibos`: aviso/recibo por inmueble, con `snapshot_jsonb`.
+- `pagos`: pagos de propietarios y su validacion.
+- `cuentas_bancarias`, `fondos`, `movimientos_fondos`: tesoreria y trazabilidad.
+- `historial_saldos_inmuebles`: auditoria de ajustes/saldos iniciales.
 
 ---
 
-## 8) Notas de sesión y seguridad
+## 7) Migraciones recientes
 
-- Las rutas protegidas requieren `Authorization: Bearer <token>`.
-- `Layout` valida sesión real con `/me`; si falla, limpia sesión y redirige a login.
-- `HistorialAvisos` también maneja 401 explícito para evitar estados rotos.
-
----
-
-## 11) Ejecución local (frontend + backend)
-
-1. Backend (`habioo-auth`):
-   - Configurar `.env` con `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `JWT_SECRET`.
-   - Ejecutar en `http://localhost:3000`.
-
-2. Frontend (`habioo-frontend`):
-   - Ejecutar Vite en `http://localhost:5173`.
-   - `API_BASE_URL` se resuelve así:
-     - `VITE_API_BASE_URL` (si está definida), o
-     - `http://localhost:3000` cuando estás en localhost, o
-     - `https://auth.habioo.cloud` en producción.
-
-3. Recomendación para pruebas:
-   - Si cambias de prod a local y ves `401`, limpia `localStorage` (token viejo) y vuelve a iniciar sesión.
+- `2026-03-16_add_condominios_profile_fields.sql`
+- `2026-03-16_add_condominios_avisos_mensajes.sql`
+- `2026-03-16_add_recibos_snapshot_jsonb.sql`
+- `2026-03-16_add_gastos_clasificacion.sql`
+- `2026-03-16_backfill_recibos_snapshot_gastos_clasificacion.sql`
 
 ---
 
-## 9) Convenciones de UI/UX implementadas
+## 8) Convenciones de UI/UX implementadas
 
-1. Vistas separadas en Configuración (Bancos, Zonas, Inmuebles) y Contabilidad (Gastos, Cierres, Avisos, Cobranza).
-2. En UI, "Zona" se presenta como "Área / Sector" según contexto.
+1. Vistas separadas en Configuracion (Bancos, Zonas, Inmuebles) y Contabilidad (Gastos, Cierres, Avisos, Cobranza).
+2. En UI, "Zona" se presenta como "Area / Sector" segun contexto.
 3. Modales desacopladas para rendimiento (`ModalAgregarGasto`, `ModalDetallesGasto`, `ModalFondos`, `ModalRegistrarPago`, `ModalPropiedadForm`, `ModalEstadoCuenta`, `ModalAjusteSaldo`, `ModalCargaMasiva`).
 4. Soporte dark/light consistente.
 5. Formato de montos en frontend: miles con `.` y decimales con `,`.
 
 ---
 
-## 10) Visión final del modelo organizacional (JG -> JI -> Propietario)
+## 9) Vision final del modelo organizacional (JG -> JI -> Propietario)
 
-La Junta General no es un "supervisor intrusivo" que ve quién vive en qué apartamento, sino que trata a cada Junta Individual como si fuera un solo gran cliente o un "propietario gigante".
+La Junta General no es un "supervisor intrusivo" que ve quien vive en que apartamento, sino que trata a cada Junta Individual como si fuera un solo gran cliente o un "propietario gigante".
 
-Bajo esta visión corregida y mucho más precisa, así es como queda la jerarquía y el flujo de Habioo al final del desarrollo:
+Bajo esta vision corregida y mucho mas precisa, asi es como queda la jerarquia y el flujo de Habioo al final del desarrollo:
 
-### 🏢 El Modelo de "Entidades Anidadas" (JG -> JI -> Propietario)
+### El Modelo de "Entidades Anidadas" (JG -> JI -> Propietario)
 
 #### 1. Nivel Superior: Junta General (La Administradora Central)
-La configuración de la General es un reflejo de la Individual, pero a mayor escala.
+La configuracion de la General es un reflejo de la Individual, pero a mayor escala.
 
-- Visión: Solo ve a las Juntas Individuales como cuentas económicas. No tiene acceso a la lista de propietarios, ni a las zonas internas, ni a los pagos individuales de cada vecino.
-- Relación: La relación JG-JI es idéntica a la relación JI-Propietario. Para la General, una "Residencia" es equivalente a lo que un "Apartamento" es para la Individual.
-- Acción principal: Registra gastos globales (ej: "Mantenimiento de Ascensores") y se los asigna a la Junta Individual correspondiente.
+- Vision: Solo ve a las Juntas Individuales como cuentas economicas. No tiene acceso a la lista de propietarios, ni a las zonas internas, ni a los pagos individuales de cada vecino.
+- Relacion: La relacion JG-JI es identica a la relacion JI-Propietario. Para la General, una "Residencia" es equivalente a lo que un "Apartamento" es para la Individual.
+- Accion principal: Registra gastos globales (ej: "Mantenimiento de Ascensores") y se los asigna a la Junta Individual correspondiente.
 
 #### 2. Nivel Operativo: Junta Individual (El Condominio)
 Es el "traductor" entre lo macro (General) y lo micro (Propietarios).
 
-- Gestión de gastos: Recibe los gastos que le carga la Junta General.
-- Distribución automática: Cuando la JI recibe un gasto de la General (ej: factura de vigilancia de $1,000), el sistema lo divide automáticamente entre sus propietarios basado en la alícuota o partes iguales, según esté configurada esa JI.
-- Privacidad: Sus datos internos (quién debe, quién pagó) son privados y no son visibles para la Junta General.
+- Gestion de gastos: Recibe los gastos que le carga la Junta General.
+- Distribucion automatica: Cuando la JI recibe un gasto de la General (ej: factura de vigilancia de $1,000), el sistema lo divide automaticamente entre sus propietarios basado en la alicuota o partes iguales, segun este configurada esa JI.
+- Privacidad: Sus datos internos (quien debe, quien pago) son privados y no son visibles para la Junta General.
 
 #### 3. Nivel final: El Propietario
 - Visibilidad limitada y transparente: El propietario no ve los gastos de otros edificios de la Junta General.
-- Su alcance: Solo ve la relación económica de su Junta Individual con la General. Puede auditar en qué se está usando el dinero que su edificio le paga a la administración central (transparencia de gastos y pagos JI -> JG).
+- Su alcance: Solo ve la relacion economica de su Junta Individual con la General. Puede auditar en que se esta usando el dinero que su edificio le paga a la administracion central (transparencia de gastos y pagos JI -> JG).
 
-### 🧬 Resumen del flujo de un gasto
+### Resumen del flujo de un gasto
 
-1. Gasto en la General: La Junta General carga un gasto de $500 por "Limpieza de Áreas Comunes" a la Residencia A.
+1. Gasto en la General: La Junta General carga un gasto de $500 por "Limpieza de Areas Comunes" a la Residencia A.
 2. Deuda de la JI: La Residencia A (JI) ahora tiene una deuda de $500 con la Junta General.
-3. Prorrateo interno: Internamente, el sistema de la Residencia A toma esos $500 y los reparte (ej: el Apto 1 paga $5, el Apto 2 paga $10, etc., según su alícuota).
-4. Recibo del propietario: Al propietario del Apto 2 le llega su aviso de cobro donde aparece el concepto "Limpieza Áreas Comunes (Cuota General)" por valor de $10.
-5. Auditoría del propietario: Si el propietario tiene dudas, puede entrar a su panel y ver: "Mi edificio (JI) le pagó a la Junta General los $500 correspondientes a la limpieza de este mes".
+3. Prorrateo interno: Internamente, el sistema de la Residencia A toma esos $500 y los reparte (ej: el Apto 1 paga $5, el Apto 2 paga $10, etc., segun su alicuota).
+4. Recibo del propietario: Al propietario del Apto 2 le llega su aviso de cobro donde aparece el concepto "Limpieza Areas Comunes (Cuota General)" por valor de $10.
+5. Auditoria del propietario: Si el propietario tiene dudas, puede entrar a su panel y ver: "Mi edificio (JI) le pago a la Junta General los $500 correspondientes a la limpieza de este mes".
 
-### 🎯 Conclusión del modelo
+### Conclusion del modelo
 
-Este sistema es ciego hacia abajo (JG no ve propietarios) pero transparente hacia arriba (Propietario ve la relación JI-JG).
+Este sistema es ciego hacia abajo (JG no ve propietarios) pero transparente hacia arriba (Propietario ve la relacion JI-JG).
+
+---
+
+## 10) Ejecucion local (frontend + backend)
+
+1. Backend (`habioo-auth`):
+   - Configurar `.env` con `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `JWT_SECRET`.
+   - Opcional: `ENABLE_TEST_SEEDER=true` para habilitar seeder de pruebas.
+   - Ejecutar en `http://localhost:3000`.
+
+2. Frontend (`habioo-frontend`):
+   - Ejecutar Vite en `http://localhost:5173`.
+   - `API_BASE_URL` se resuelve asi:
+     - `VITE_API_BASE_URL` (si esta definida), o
+     - `http://localhost:3000` cuando estas en localhost, o
+     - `https://auth.habioo.cloud` en produccion.
+
+3. Recomendacion para pruebas:
+   - Si cambias de prod a local y ves `401`, limpia `localStorage` (token viejo) y vuelve a iniciar sesion.
