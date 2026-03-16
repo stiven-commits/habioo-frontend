@@ -9,7 +9,7 @@ interface OutletContextType {
   userRole?: string;
 }
 
-type EstadoFiltro = 'Todos' | 'Recibos' | 'Abonado' | 'Pendiente';
+type EstadoFiltro = 'Todos' | 'Pagados' | 'Abonado' | 'Pendiente';
 
 interface Recibo {
   id: number | string;
@@ -76,7 +76,7 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
   }, [userRole]);
 
   const mapEstadoTab = (estado: string): Exclude<EstadoFiltro, 'Todos'> => {
-    if (['Pagado', 'Solvente', 'Validado'].includes(estado)) return 'Recibos';
+    if (['Pagado', 'Solvente', 'Validado', 'Recibo'].includes(estado)) return 'Pagados';
     if (['Abonado', 'Abonado Parcial', 'Parcial'].includes(estado)) return 'Abonado';
     return 'Pendiente';
   };
@@ -179,16 +179,18 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
 
       <div className="bg-white dark:bg-donezo-card-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
         <div className="flex border-b border-gray-100 dark:border-gray-800 px-6 pt-4 gap-6 overflow-x-auto">
-          {(['Todos', 'Recibos', 'Abonado', 'Pendiente'] as EstadoFiltro[]).map((estado: EstadoFiltro) => (
+          {(['Todos', 'Pagados', 'Abonado', 'Pendiente'] as EstadoFiltro[]).map((estado: EstadoFiltro) => (
             <button
               key={estado}
               onClick={() => setFiltroEstado(estado)}
               className={`pb-3 font-bold text-sm transition-all relative whitespace-nowrap ${
-                filtroEstado === estado ? 'text-donezo-primary' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                filtroEstado === estado
+                  ? 'text-donezo-primary dark:text-white'
+                  : 'text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white'
               }`}
             >
               {estado === 'Abonado' ? 'Abonados' : estado}
-              {filtroEstado === estado && <span className="absolute bottom-0 left-0 w-full h-1 bg-donezo-primary rounded-t-full"></span>}
+              {filtroEstado === estado && <span className="absolute bottom-0 left-0 w-full h-1 bg-donezo-primary dark:bg-white rounded-t-full"></span>}
             </button>
           ))}
         </div>
@@ -225,9 +227,9 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
                       </td>
                       <td className="p-3 text-gray-600 dark:text-gray-300">{r.propietario || 'Sin asignar'}</td>
                       <td className="p-3 text-center">
-                        {mapEstadoTab(r.estado) === 'Recibos' ? (
+                        {mapEstadoTab(r.estado) === 'Pagados' ? (
                           <span className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px] font-black px-2.5 py-1.5 rounded-lg uppercase tracking-wider shadow-sm border border-green-200 dark:border-green-800/50">
-                            Recibo
+                            Pagado
                           </span>
                         ) : mapEstadoTab(r.estado) === 'Abonado' ? (
                           <span className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 text-[10px] font-black px-2.5 py-1.5 rounded-lg uppercase tracking-wider shadow-sm border border-yellow-200 dark:border-yellow-800/50">
