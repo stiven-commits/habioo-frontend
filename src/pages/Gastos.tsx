@@ -16,6 +16,8 @@ interface OutletContextType {
 }
 
 type ActiveTab = 'Todos' | 'Comun' | 'Zona' | 'Individual' | 'Extra';
+type SortColumn = 'fecha_factura' | 'proveedor' | 'concepto' | 'clasificacion' | 'monto_total_usd' | 'total_cuotas' | 'estado_pago';
+type SortDirection = 'asc' | 'desc';
 
 interface GastoCuota {
   cuota_id: number | string;
@@ -32,6 +34,7 @@ interface GastoCuota {
   monto_pagado_usd?: string | number;
   total_cuotas: number;
   nota?: string;
+  clasificacion?: string;
   tipo?: string;
   zona_nombre?: string;
   propiedad_identificador?: string;
@@ -56,6 +59,7 @@ interface GastoAgrupado {
   monto_pagado_usd: string | number;
   total_cuotas: number;
   nota?: string;
+  clasificacion?: string;
   tipo: string;
   zona_nombre?: string;
   propiedad_identificador?: string;
@@ -148,6 +152,11 @@ interface ExpandedRows {
   [key: string]: boolean;
 }
 
+interface SortConfig {
+  column: SortColumn;
+  direction: SortDirection;
+}
+
 const toNumber = (value: string | number | undefined | null): number => parseFloat(String(value ?? 0)) || 0;
 
 const formatMonthText = (yyyyMm: string | undefined): string => {
@@ -182,6 +191,7 @@ const Gastos: FC<GastosProps> = () => {
   const [fechaDesde, setFechaDesde] = useState<string>('');
   const [fechaHasta, setFechaHasta] = useState<string>('');
   const [activeTab, setActiveTab] = useState<ActiveTab>('Todos');
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ column: 'fecha_factura', direction: 'desc' });
   const [currentPage, setCurrentPage] = useState<number>(1);
   const ITEMS_PER_PAGE = 13;
 
@@ -229,6 +239,7 @@ const Gastos: FC<GastosProps> = () => {
               monto_pagado_usd: curr.monto_pagado_usd || 0,
               total_cuotas: curr.total_cuotas,
               tipo: curr.tipo || 'Comun',
+              clasificacion: curr.clasificacion || 'Variable',
               cuotas: [],
               canDelete: true,
             };
@@ -309,13 +320,74 @@ const Gastos: FC<GastosProps> = () => {
     };
   }, [filteredBySearchAndDate]);
 
-  const totalPages = Math.ceil(filteredGastos.length / ITEMS_PER_PAGE);
-  const paginatedGastos = filteredGastos.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  const getEstadoPago = (gasto: GastoAgrupado): 'Pendiente' | 'Abonado' | 'Pagado' => {
+    const total = toNumber(gasto.monto_total_usd);
+    const pagado = toNumber(gasto.monto_pagado_usd);
+    if (pagado <= 0) return 'Pendiente';
+    if (pagado < total) return 'Abonado';
+    return 'Pagado';
+  };
+
+  const sortedGastos = useMemo<GastoAgrupado[]>(() => {
+    const list = [...filteredGastos];
+    list.sort((a: GastoAgrupado, b: GastoAgrupado) => {
+      let cmp = 0;
+      switch (sortConfig.column) {
+        case 'fecha_factura': {
+          const da = parseDisplayDate(a.fecha_factura)?.getTime() || 0;
+          const db = parseDisplayDate(b.fecha_factura)?.getTime() || 0;
+          cmp = da - db;
+          break;
+        }
+        case 'proveedor':
+          cmp = a.proveedor.localeCompare(b.proveedor, 'es', { sensitivity: 'base' });
+          break;
+        case 'concepto':
+          cmp = a.concepto.localeCompare(b.concepto, 'es', { sensitivity: 'base' });
+          break;
+        case 'clasificacion':
+          cmp = String(a.clasificacion || 'Variable').localeCompare(String(b.clasificacion || 'Variable'), 'es', { sensitivity: 'base' });
+          break;
+        case 'monto_total_usd':
+          cmp = toNumber(a.monto_total_usd) - toNumber(b.monto_total_usd);
+          break;
+        case 'total_cuotas':
+          cmp = a.total_cuotas - b.total_cuotas;
+          break;
+        case 'estado_pago': {
+          const order: Record<'Pendiente' | 'Abonado' | 'Pagado', number> = { Pendiente: 0, Abonado: 1, Pagado: 2 };
+          cmp = order[getEstadoPago(a)] - order[getEstadoPago(b)];
+          break;
+        }
+        default:
+          cmp = 0;
+      }
+      return sortConfig.direction === 'asc' ? cmp : -cmp;
+    });
+    return list;
+  }, [filteredGastos, sortConfig]);
+
+  const paginatedGastos = sortedGastos.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  const totalPagesSorted = Math.ceil(sortedGastos.length / ITEMS_PER_PAGE);
 
   const toggleRow = (id: number | string, e: MouseEvent<HTMLElement>): void => {
     e.stopPropagation();
     const key = String(id);
     setExpandedRows((prev: ExpandedRows) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const toggleSort = (column: SortColumn): void => {
+    setSortConfig((prev: SortConfig) => {
+      if (prev.column === column) {
+        return { column, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+      }
+      return { column, direction: 'asc' };
+    });
+  };
+
+  const sortIndicator = (column: SortColumn): string => {
+    if (sortConfig.column !== column) return '↕';
+    return sortConfig.direction === 'asc' ? '↑' : '↓';
   };
 
   const getExtraProgress = (gasto: GastoAgrupado): ExtraProgress => {
@@ -450,17 +522,49 @@ const Gastos: FC<GastosProps> = () => {
             <p className="text-gray-500 text-center py-8 dark:text-gray-400">No se encontraron gastos.</p>
           ) : (
             <>
+              <p className="mb-3 text-xs font-semibold text-gray-500 dark:text-gray-400">
+                Tip: haz doble click sobre un gasto para ver sus detalles.
+              </p>
               <div className="overflow-x-auto min-h-[300px]">
                 <table className="w-full text-left border-collapse select-none">
                   <thead>
                     <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 text-sm dark:text-gray-400">
                       <th className="p-3 w-10"></th>
-                      <th className="p-3">Fechas</th>
-                      <th className="p-3">Proveedor</th>
-                      <th className="p-3">Concepto</th>
-                      <th className="p-3 text-right">Monto Total</th>
-                      <th className="p-3 text-center">Cuotas</th>
-                      <th className="p-3 text-center">Estado de Pago</th>
+                      <th className="p-3">
+                        <button type="button" onClick={() => toggleSort('fecha_factura')} className="font-bold hover:text-donezo-primary">
+                          Fechas {sortIndicator('fecha_factura')}
+                        </button>
+                      </th>
+                      <th className="p-3">
+                        <button type="button" onClick={() => toggleSort('proveedor')} className="font-bold hover:text-donezo-primary">
+                          Proveedor {sortIndicator('proveedor')}
+                        </button>
+                      </th>
+                      <th className="p-3">
+                        <button type="button" onClick={() => toggleSort('concepto')} className="font-bold hover:text-donezo-primary">
+                          Concepto {sortIndicator('concepto')}
+                        </button>
+                      </th>
+                      <th className="p-3 text-center">
+                        <button type="button" onClick={() => toggleSort('clasificacion')} className="font-bold hover:text-donezo-primary">
+                          Etiqueta {sortIndicator('clasificacion')}
+                        </button>
+                      </th>
+                      <th className="p-3 text-right">
+                        <button type="button" onClick={() => toggleSort('monto_total_usd')} className="font-bold hover:text-donezo-primary">
+                          Monto Total {sortIndicator('monto_total_usd')}
+                        </button>
+                      </th>
+                      <th className="p-3 text-center">
+                        <button type="button" onClick={() => toggleSort('total_cuotas')} className="font-bold hover:text-donezo-primary">
+                          Cuotas {sortIndicator('total_cuotas')}
+                        </button>
+                      </th>
+                      <th className="p-3 text-center">
+                        <button type="button" onClick={() => toggleSort('estado_pago')} className="font-bold hover:text-donezo-primary">
+                          Estado de Pago {sortIndicator('estado_pago')}
+                        </button>
+                      </th>
                       <th className="p-3 text-center">Acciones</th>
                     </tr>
                   </thead>
@@ -514,6 +618,13 @@ const Gastos: FC<GastosProps> = () => {
                                 Extra
                               </span>
                             )}
+                          </td>
+                          <td className="p-3 text-center">
+                            <span className={`inline-block text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${String(g.clasificacion || 'Variable') === 'Fijo'
+                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                              : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}>
+                              {String(g.clasificacion || 'Variable') === 'Fijo' ? 'Fijo' : 'Variable'}
+                            </span>
                           </td>
                           <td className="p-3 text-right font-bold text-gray-800 dark:text-white text-sm">
                             {g.tipo === 'Extra' && extraProgress ? (
@@ -603,7 +714,7 @@ const Gastos: FC<GastosProps> = () => {
                           g.cuotas.map((c: GastoCuota, cuotaIndex: number) => (
                             <tr key={c.cuota_id} className="bg-gray-50/50 dark:bg-gray-800/30 border-b border-gray-50 dark:border-gray-800/50">
                               <td className="p-3 border-l-2 border-donezo-primary"></td>
-                              <td className="p-3 text-gray-500 text-xs dark:text-gray-400" colSpan={2}>
+                              <td className="p-3 text-gray-500 text-xs dark:text-gray-400" colSpan={3}>
                                 Cobro en: <strong>{formatMonthText(c.mes_asignado)}</strong>
                               </td>
                               <td className="p-3 text-gray-500 text-xs dark:text-gray-400">
@@ -629,9 +740,9 @@ const Gastos: FC<GastosProps> = () => {
                 </table>
               </div>
 
-              {totalPages > 1 && (
+              {totalPagesSorted > 1 && (
                 <div className="flex justify-between items-center mt-6 border-t border-gray-100 dark:border-gray-800 pt-4">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Página {currentPage} de {totalPages}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Página {currentPage} de {totalPagesSorted}</p>
                   <div className="flex gap-2">
                     <button
                       onClick={() => setCurrentPage((p: number) => Math.max(1, p - 1))}
@@ -641,8 +752,8 @@ const Gastos: FC<GastosProps> = () => {
                       Anterior
                     </button>
                     <button
-                      onClick={() => setCurrentPage((p: number) => Math.min(totalPages, p + 1))}
-                      disabled={currentPage === totalPages}
+                      onClick={() => setCurrentPage((p: number) => Math.min(totalPagesSorted, p + 1))}
+                      disabled={currentPage === totalPagesSorted}
                       className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 disabled:opacity-50 text-sm font-bold"
                     >
                       Siguiente

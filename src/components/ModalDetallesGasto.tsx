@@ -7,6 +7,7 @@ interface GastoDetalle {
   fecha_factura: string;
   fecha_registro: string;
   concepto: string;
+  clasificacion?: string;
   nota?: string;
   monto_bs: string | number;
   tasa_cambio: string | number;
@@ -40,6 +41,10 @@ const ModalDetallesGasto: FC<ModalDetallesGastoProps> = ({ gasto, onClose }) => 
             </div>
           </div>
           <p><strong className="text-gray-800 dark:text-white">Concepto:</strong> {gasto.concepto}</p>
+          <p>
+            <strong className="text-gray-800 dark:text-white">Etiqueta:</strong>{' '}
+            {String(gasto.clasificacion || 'Variable') === 'Fijo' ? 'Gasto fijo' : 'Gasto variable'}
+          </p>
           <p>
             <strong className="text-gray-800 dark:text-white">Notas:</strong>{' '}
             {gasto.nota && String(gasto.nota).trim() ? gasto.nota : 'Sin notas'}

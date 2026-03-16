@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import type { FC, ChangeEvent, FormEvent } from 'react';
 import { API_BASE_URL } from '../config/api';
 
@@ -27,6 +27,7 @@ interface Propiedad {
 }
 
 type AsignacionTipo = 'Comun' | 'Zona' | 'Individual' | 'Extra';
+type ClasificacionGasto = 'Fijo' | 'Variable';
 
 interface FormState {
   proveedor_id: string;
@@ -35,6 +36,7 @@ interface FormState {
   tasa_cambio: string;
   total_cuotas: string;
   nota: string;
+  clasificacion: ClasificacionGasto;
   asignacion_tipo: AsignacionTipo;
   zona_id: string;
   propiedad_id: string;
@@ -50,6 +52,7 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({ onClose, onSuccess, pro
 
   const [form, setForm] = useState<FormState>({
     proveedor_id: '', concepto: '', monto_bs: '', tasa_cambio: '', total_cuotas: '1', nota: '',
+    clasificacion: 'Variable',
     asignacion_tipo: 'Comun',
     zona_id: '', propiedad_id: '',
     fecha_gasto: todayString
@@ -183,6 +186,18 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({ onClose, onSuccess, pro
             </div>
           </div>
 
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Etiqueta</label>
+            <select
+              name="clasificacion"
+              value={form.clasificacion}
+              onChange={handleChange}
+              className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
+            >
+              <option value="Fijo">Gasto fijo</option>
+              <option value="Variable">Gasto variable</option>
+            </select>
+          </div>
           <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Monto (Bs) <span className="text-red-500">*</span></label>
@@ -198,16 +213,41 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({ onClose, onSuccess, pro
                 <input 
                   type="text" name="tasa_cambio" value={form.tasa_cambio} onChange={handleMonedaChange} 
                   placeholder="0,00" required 
-                  className="flex-1 p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono text-lg" 
+                  className="w-full max-w-[190px] p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono text-lg" 
                 />
                 <button 
                   type="button" 
                   onClick={handleFetchBCV} 
                   disabled={loadingBCV}
                   title="Obtener tasa oficial del BCV actual"
-                  className="bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 dark:bg-blue-900/30 dark:border-blue-800/50 dark:text-blue-400 dark:hover:bg-blue-900/50 px-4 rounded-xl font-bold transition-all shadow-sm flex items-center justify-center disabled:opacity-50"
+                  className="bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 dark:bg-blue-900/30 dark:border-blue-800/50 dark:text-blue-400 dark:hover:bg-blue-900/50 w-[92px] h-[50px] rounded-xl font-bold transition-all shadow-sm inline-flex items-center justify-center gap-2 disabled:opacity-50 shrink-0"
                 >
-                  {loadingBCV ? '⌛' : '🔄 BCV'}
+                  {loadingBCV ? (
+                    <svg
+                      className="w-5 h-5 animate-spin"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M20 12a8 8 0 1 1-2.34-5.66"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M20 4v6h-6"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  ) : (
+                    <span>BCV</span>
+                  )}
                 </button>
               </div>
             </div>
@@ -292,3 +332,5 @@ function formatMoneyDisplay(value: string | number): string {
 }
 
 export default ModalAgregarGasto;
+
+
