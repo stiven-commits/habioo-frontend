@@ -82,6 +82,31 @@ interface ApiActionResponse {
   error?: string;
 }
 
+interface PagoPendienteAprobacion {
+  id: number;
+  propiedad_id: number;
+  recibo_id: number | null;
+  identificador: string;
+  propietario?: string | null;
+  monto_origen?: string | number | null;
+  monto_usd?: string | number | null;
+  moneda?: string | null;
+  referencia?: string | null;
+  fecha_pago?: string | null;
+  estado: string;
+  nota?: string | null;
+}
+
+interface PagosPendientesResponse {
+  status: string;
+  message?: string;
+  pagos?: PagoPendienteAprobacion[];
+}
+
+interface PendingCountMap {
+  [propiedadId: number]: number;
+}
+
 const toNumber = (value: string | number | undefined | null): number => parseFloat(String(value ?? 0)) || 0;
 const formatNumberInput = (value: string | number | undefined | null): string => {
   const strValue = String(value || '');
@@ -130,6 +155,14 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
   const [conceptoAjuste, setConceptoAjuste] = useState<string>('');
   const [isFetchingBCV, setIsFetchingBCV] = useState<boolean>(false);
   const [isSavingAjuste, setIsSavingAjuste] = useState<boolean>(false);
+  const [showAprobacionModal, setShowAprobacionModal] = useState<boolean>(false);
+  const [selectedPropAprobacion, setSelectedPropAprobacion] = useState<Propiedad | null>(null);
+  const [pagosPendientes, setPagosPendientes] = useState<PagoPendienteAprobacion[]>([]);
+  const [loadingPendientes, setLoadingPendientes] = useState<boolean>(false);
+  const [decisionLoadingId, setDecisionLoadingId] = useState<number | null>(null);
+  const [rechazoDraft, setRechazoDraft] = useState<Record<number, string>>({});
+  const [pendingByPropiedad, setPendingByPropiedad] = useState<PendingCountMap>({});
+  const [rejectingPagoId, setRejectingPagoId] = useState<number | null>(null);
 
   const montoUsdAjuste = parseNumberInput(tasaBcvAjuste) > 0
     ? (parseNumberInput(montoBsAjuste) / parseNumberInput(tasaBcvAjuste))
@@ -159,8 +192,33 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
     }
   };
 
+  const fetchPendingCounts = async (): Promise<void> => {
+    try {
+      const token = localStorage.getItem('habioo_token');
+      const res = await fetch(`${API_BASE_URL}/pagos/pendientes-aprobacion`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data: PagosPendientesResponse = await res.json();
+      if (!res.ok || data.status !== 'success') {
+        setPendingByPropiedad({});
+        return;
+      }
+      const rows = Array.isArray(data.pagos) ? data.pagos : [];
+      const grouped: PendingCountMap = {};
+      rows.forEach((p: PagoPendienteAprobacion) => {
+        grouped[p.propiedad_id] = (grouped[p.propiedad_id] || 0) + 1;
+      });
+      setPendingByPropiedad(grouped);
+    } catch {
+      setPendingByPropiedad({});
+    }
+  };
+
   useEffect(() => {
-    if (userRole === 'Administrador') fetchData();
+    if (userRole === 'Administrador') {
+      fetchData();
+      fetchPendingCounts();
+    }
   }, [userRole]);
 
   useEffect(() => {
@@ -213,6 +271,94 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
     setTasaBcvAjuste('');
     setConceptoAjuste('');
     setShowAjusteModal(true);
+  };
+
+  const fetchPagosPendientes = async (propiedadId: number): Promise<void> => {
+    setLoadingPendientes(true);
+    try {
+      const token = localStorage.getItem('habioo_token');
+      const res = await fetch(`${API_BASE_URL}/pagos/pendientes-aprobacion?propiedad_id=${propiedadId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data: PagosPendientesResponse = await res.json();
+      if (res.ok && data.status === 'success') {
+        setPagosPendientes(Array.isArray(data.pagos) ? data.pagos : []);
+      } else {
+        setPagosPendientes([]);
+      }
+    } catch {
+      setPagosPendientes([]);
+    } finally {
+      setLoadingPendientes(false);
+    }
+  };
+
+  const handleOpenAprobaciones = (prop: Propiedad): void => {
+    setSelectedPropAprobacion(prop);
+    setRechazoDraft({});
+    setRejectingPagoId(null);
+    setShowAprobacionModal(true);
+    void fetchPagosPendientes(prop.id);
+  };
+
+  const aprobarPagoPendiente = async (pagoId: number): Promise<void> => {
+    setDecisionLoadingId(pagoId);
+    try {
+      const token = localStorage.getItem('habioo_token');
+      const res = await fetch(`${API_BASE_URL}/pagos/${pagoId}/validar`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data: ApiActionResponse = await res.json();
+      if (!res.ok) {
+        alert(data.error || data.message || 'No se pudo aprobar el pago.');
+        return;
+      }
+      if (selectedPropAprobacion?.id) {
+        await fetchPagosPendientes(selectedPropAprobacion.id);
+      }
+      await fetchData();
+      await fetchPendingCounts();
+      setRejectingPagoId(null);
+    } catch {
+      alert('Error al aprobar el pago.');
+    } finally {
+      setDecisionLoadingId(null);
+    }
+  };
+
+  const rechazarPagoPendiente = async (pagoId: number): Promise<void> => {
+    const nota = String(rechazoDraft[pagoId] || '').trim();
+    if (!nota) {
+      alert('Debe escribir una nota para rechazar el pago.');
+      return;
+    }
+    setDecisionLoadingId(pagoId);
+    try {
+      const token = localStorage.getItem('habioo_token');
+      const res = await fetch(`${API_BASE_URL}/pagos/${pagoId}/rechazar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ nota })
+      });
+      const data: ApiActionResponse = await res.json();
+      if (!res.ok) {
+        alert(data.error || data.message || 'No se pudo rechazar el pago.');
+        return;
+      }
+      if (selectedPropAprobacion?.id) {
+        await fetchPagosPendientes(selectedPropAprobacion.id);
+      }
+      await fetchPendingCounts();
+      setRejectingPagoId(null);
+    } catch {
+      alert('Error al rechazar el pago.');
+    } finally {
+      setDecisionLoadingId(null);
+    }
   };
 
   const fetchBCVAjuste = async (): Promise<void> => {
@@ -424,6 +570,13 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                           >
                             Ajuste
                           </button>
+                          <button
+                            onClick={() => handleOpenAprobaciones(p)}
+                            disabled={!pendingByPropiedad[p.id]}
+                            className="px-3 py-2 rounded-xl text-xs font-bold bg-violet-50 text-violet-700 hover:bg-violet-100 dark:bg-violet-900/30 dark:text-violet-300 dark:hover:bg-violet-900/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            Aprobar pagos{pendingByPropiedad[p.id] ? ` (${pendingByPropiedad[p.id]})` : ''}
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -486,6 +639,91 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
         estadoCuentaFiltrado={estadoCuentaFiltrado}
         showAjuste={false}
       />
+
+      {showAprobacionModal && selectedPropAprobacion && (
+        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-3xl shadow-2xl border border-gray-100 dark:border-gray-800 relative">
+            <button
+              onClick={() => {
+                setShowAprobacionModal(false);
+                setSelectedPropAprobacion(null);
+                setPagosPendientes([]);
+                setRejectingPagoId(null);
+              }}
+              className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl"
+            >
+              X
+            </button>
+            <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-1">Aprobación de Pagos</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
+              {selectedPropAprobacion.identificador} - {selectedPropAprobacion.prop_nombre || 'Sin propietario'}
+            </p>
+
+            {loadingPendientes ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 py-6">Cargando pagos pendientes...</p>
+            ) : pagosPendientes.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 py-6">No hay pagos pendientes de aprobación para este inmueble.</p>
+            ) : (
+              <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+                {pagosPendientes.map((pago: PagoPendienteAprobacion) => (
+                  <article key={pago.id} className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900/30">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                      <p><span className="font-bold">Pago:</span> #{pago.id}</p>
+                      <p><span className="font-bold">Ref:</span> {pago.referencia || 'Sin referencia'}</p>
+                      <p><span className="font-bold">Monto:</span> {String(pago.moneda || 'USD').toUpperCase() === 'USD' ? '$' : 'Bs '} {formatMoney(pago.moneda?.toUpperCase() === 'USD' ? toNumber(pago.monto_usd) : toNumber(pago.monto_origen))}</p>
+                      <p><span className="font-bold">Fecha:</span> {pago.fecha_pago ? String(pago.fecha_pago).slice(0, 10) : '-'}</p>
+                    </div>
+
+                    <div className="mt-3 flex gap-2 justify-end">
+                      <button
+                        type="button"
+                        disabled={decisionLoadingId === pago.id}
+                        onClick={() => aprobarPagoPendiente(pago.id)}
+                        className="px-3 py-2 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300 disabled:opacity-50"
+                      >
+                        Aprobar
+                      </button>
+                      <button
+                        type="button"
+                        disabled={decisionLoadingId === pago.id}
+                        onClick={() => setRejectingPagoId((prev: number | null) => (prev === pago.id ? null : pago.id))}
+                        className="px-3 py-2 rounded-xl text-xs font-bold bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-300 disabled:opacity-50"
+                      >
+                        {rejectingPagoId === pago.id ? 'Cancelar rechazo' : 'Rechazar'}
+                      </button>
+                    </div>
+
+                    {rejectingPagoId === pago.id && (
+                      <div className="mt-3 rounded-xl border border-red-200 dark:border-red-800/50 bg-red-50/50 dark:bg-red-900/10 p-3">
+                        <label className="block text-xs font-bold text-red-700 dark:text-red-300 mb-1">Motivo de rechazo (obligatorio)</label>
+                        <textarea
+                          value={rechazoDraft[pago.id] || ''}
+                          onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+                            setRechazoDraft((prev) => ({ ...prev, [pago.id]: e.target.value }))
+                          }
+                          className="w-full p-2.5 rounded-xl border border-red-200 dark:border-red-700 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-red-400 dark:text-white text-sm"
+                          rows={2}
+                          placeholder="Ej: El comprobante no coincide con el monto reportado."
+                        />
+                        <div className="mt-2 flex justify-end">
+                          <button
+                            type="button"
+                            disabled={decisionLoadingId === pago.id}
+                            onClick={() => rechazarPagoPendiente(pago.id)}
+                            className="px-3 py-2 rounded-xl text-xs font-bold bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                          >
+                            Enviar rechazo del pago
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {showAjusteModal && selectedPropAjuste && (
         <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">

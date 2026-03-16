@@ -13,6 +13,11 @@ import HistorialAvisos from './pages/HistorialAvisos';
 import EstadoCuentasBancarias from './pages/EstadoCuentasBancarias';
 import PerfilCondominio from './pages/PerfilCondominio';
 import VistaAvisoCobro from './components/recibos/VistaAvisoCobro.tsx';
+import RecibosPropietario from './pages/propietario/RecibosPropietario';
+import GastosPropietario from './pages/propietario/GastosPropietario';
+import EstadoCuentaPropietario from './pages/propietario/EstadoCuentaPropietario';
+import PerfilPropietario from './pages/propietario/PerfilPropietario';
+import NotificacionesPropietario from './pages/propietario/NotificacionesPropietario';
 import { DialogProvider } from './components/ui/DialogProvider';
 
 export default function App() {
@@ -35,6 +40,11 @@ export default function App() {
             <Route path="/zonas" element={<Zonas />} />
             <Route path="/avisos-cobro" element={<HistorialAvisos />} />
             <Route path="/aviso-cobro/:id" element={<VistaAvisoCobro />} />
+            <Route path="/propietario/gastos" element={<GastosPropietario />} />
+            <Route path="/propietario/recibos" element={<RecibosPropietario />} />
+            <Route path="/propietario/estado-cuenta" element={<EstadoCuentaPropietario />} />
+            <Route path="/propietario/perfil" element={<PerfilPropietario />} />
+            <Route path="/propietario/notificaciones" element={<NotificacionesPropietario />} />
           </Route>
         </Routes>
       </BrowserRouter>

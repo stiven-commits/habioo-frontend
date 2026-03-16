@@ -7,6 +7,9 @@ import { useDialog } from './ui/DialogProvider';
 
 interface ModalRegistrarPagoProps {
   propiedadPreseleccionada: PropiedadPreseleccionada | null;
+  reciboId?: number | null;
+  soloCuentaPrincipal?: boolean;
+  condominioId?: number | null;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -32,6 +35,7 @@ interface Fondo {
 interface CuentasResponse {
   status: string;
   bancos?: BancoCuenta[];
+  data?: BancoCuenta;
 }
 
 interface FondosResponse {
@@ -91,7 +95,14 @@ const initialFormPago = (): FormPagoState => ({
   banco_origen: ''
 });
 
-const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({ propiedadPreseleccionada, onClose, onSuccess }) => {
+const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
+  propiedadPreseleccionada,
+  reciboId = null,
+  soloCuentaPrincipal = false,
+  condominioId = null,
+  onClose,
+  onSuccess,
+}) => {
   const { showConfirm } = useDialog() as DialogContextType;
   const [cuentasBancarias, setCuentasBancarias] = useState<BancoCuenta[]>([]);
   const [cuentasConFondos, setCuentasConFondos] = useState<BancoCuenta[]>([]);
@@ -131,6 +142,19 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({ propiedadPreseleccion
     const fetchCuentasBancarias = async (): Promise<void> => {
       try {
         const token = localStorage.getItem('habioo_token');
+
+        if (soloCuentaPrincipal && condominioId) {
+          const resPrincipal = await fetch(`${API_BASE_URL}/api/propietario/cuenta-principal/${condominioId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const dataPrincipal: CuentasResponse = await resPrincipal.json();
+          const cuenta = resPrincipal.ok && dataPrincipal.status === 'success' ? dataPrincipal.data : undefined;
+          const principal = cuenta ? [cuenta] : [];
+          setCuentasBancarias(principal);
+          setCuentasConFondos(principal);
+          return;
+        }
+
         const [resCuentas, resFondos] = await Promise.all([
           fetch(`${API_BASE_URL}/bancos`, { headers: { Authorization: `Bearer ${token}` } }),
           fetch(`${API_BASE_URL}/fondos`, { headers: { Authorization: `Bearer ${token}` } }),
@@ -250,6 +274,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({ propiedadPreseleccion
 
       const payload = {
         ...formPago,
+        recibo_id: reciboId,
         propiedad_id: propiedadPreseleccionada.id,
         moneda: monedaReal,
         monto_origen: montoOrigenNum,
@@ -257,7 +282,8 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({ propiedadPreseleccion
         monto_usd: montoUsdNum,
       };
 
-      const res = await fetch(`${API_BASE_URL}/pagos-admin`, {
+      const endpoint = soloCuentaPrincipal ? `${API_BASE_URL}/pagos-propietario` : `${API_BASE_URL}/pagos-admin`;
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload),
@@ -265,7 +291,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({ propiedadPreseleccion
 
       const result: PagoResponse = await res.json();
       if (result.status === 'success') {
-        alert(result.message);
+        alert(result.message || (soloCuentaPrincipal ? 'Pago enviado para aprobación.' : 'Pago registrado.'));
         onSuccess();
       } else alert(result.error);
     } finally {
