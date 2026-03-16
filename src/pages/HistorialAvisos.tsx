@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FC, ChangeEvent } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { formatMoney } from '../utils/currency';
@@ -44,6 +44,98 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
   const [search, setSearch] = useState<string>('');
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
   const [selectedReciboId, setSelectedReciboId] = useState<number | string | null>(null);
+  const avisoPrintRef = useRef<HTMLDivElement | null>(null);
+
+  const handlePrintAviso = (): void => {
+    const target = avisoPrintRef.current;
+    if (!target) return;
+
+    const printWindow = window.open('', '_blank', 'width=1200,height=900');
+    if (!printWindow) return;
+
+    const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
+      .map((el) => el.outerHTML)
+      .join('\n');
+
+    const html = `
+      <!doctype html>
+      <html lang="es">
+        <head>
+          <meta charset="UTF-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <title>Aviso de Cobro</title>
+          ${styles}
+          <style>
+            @page { size: auto; margin: 6mm; }
+            html, body { background: #ffffff; margin: 0; padding: 0; }
+            .print-shell { padding: 0; zoom: 80%; }
+            @supports not (zoom: 1) {
+              .print-shell {
+                transform: scale(0.8);
+                transform-origin: top left;
+                width: 125%;
+              }
+            }
+            .print-shell > .min-h-screen {
+              min-height: auto !important;
+              background: #ffffff !important;
+              padding: 0 !important;
+              margin: 0 !important;
+            }
+            .print-shell > .min-h-screen > .mx-auto {
+              max-width: 100% !important;
+              width: 100% !important;
+              margin: 0 !important;
+              border-radius: 0 !important;
+              box-shadow: none !important;
+              padding: 4mm !important;
+            }
+            .print-shell .shadow-sm,
+            .print-shell .shadow-lg,
+            .print-shell .shadow-2xl {
+              box-shadow: none !important;
+            }
+            .print-shell .aviso-header {
+              display: flex !important;
+              flex-direction: row !important;
+              align-items: flex-start !important;
+              justify-content: space-between !important;
+              gap: 12px !important;
+            }
+            .print-shell .aviso-header-left {
+              width: 25% !important;
+            }
+            .print-shell .aviso-header-center {
+              width: 50% !important;
+              text-align: center !important;
+            }
+            .print-shell .aviso-header-right {
+              width: 25% !important;
+              text-align: right !important;
+            }
+            .print-shell .aviso-top-grid,
+            .print-shell .aviso-mensajes-grid {
+              display: grid !important;
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              gap: 12px !important;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="print-shell">${target.innerHTML}</div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    window.setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
+  };
 
   const fetchData = async (): Promise<void> => {
     const token = localStorage.getItem('habioo_token');
@@ -299,7 +391,7 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => window.print()}
+                  onClick={handlePrintAviso}
                   className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700"
                 >
                   Imprimir
@@ -316,7 +408,7 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
                 </button>
               </div>
             </div>
-            <div className="max-h-[85vh] overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-950">
+            <div ref={avisoPrintRef} className="max-h-[85vh] overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-950">
               <VistaAvisoCobro reciboId={selectedReciboId} />
             </div>
           </div>

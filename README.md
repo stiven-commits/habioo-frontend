@@ -209,6 +209,7 @@ Si se retoma este proyecto con contexto nuevo:
 ### Gastos
 - `GET https://auth.habioo.cloud/gastos` -> listar gastos/cuotas.
 - `POST https://auth.habioo.cloud/gastos` -> crear gasto (multipart: `factura_img`, `soportes`) para tipos `Comun`, `Zona`, `Individual`, `Extra`.
+  - Incluye etiqueta de clasificación: `Fijo` o `Variable` (`gastos.clasificacion`).
 - `DELETE https://auth.habioo.cloud/gastos/:id` -> eliminar gasto.
 
 ### Cierres y recibos
@@ -306,8 +307,9 @@ Notas de desarrollo local:
 
 ### Gastos y facturación
 - `gastos`:
-  - Base del gasto: `monto_bs`, `tasa_cambio`, `monto_usd`, `tipo`, `zona_id`, `propiedad_id`, `fecha_gasto`, `created_at`.
+  - Base del gasto: `monto_bs`, `tasa_cambio`, `monto_usd`, `tipo`, `clasificacion`, `zona_id`, `propiedad_id`, `fecha_gasto`, `created_at`.
   - `tipo` soportado actualmente: `Comun`, `No Comun`, `Zona`, `Individual`, `Extra`.
+  - `clasificacion` soportada: `Fijo` | `Variable`.
   - Soportes: `factura_img` (principal), `imagenes` (array de soportes).
 - `gastos_cuotas`:
   - Fracciones mensuales: `numero_cuota`, `monto_cuota_usd`, `mes_asignado`, `estado`.
@@ -393,10 +395,16 @@ Notas de desarrollo local:
      - filtro por rango de fecha + botón `Limpiar`,
      - filtros por tipo con mejor contraste en tema oscuro,
      - tabla paginada a 13 filas,
-     - orden de columnas ajustado (`Monto Total` antes de `Cuotas`).
+     - orden de columnas ajustado (`Monto Total` antes de `Cuotas`),
+     - ordenamiento asc/desc por clic en encabezados (`Fechas`, `Proveedor`, `Concepto`, `Etiqueta`, `Monto Total`, `Cuotas`, `Estado de Pago`),
+     - nota visible para UX: doble clic en un gasto abre su detalle.
+   - Alta de gasto:
+     - nuevo select de etiqueta: `Gasto fijo` / `Gasto variable`.
+     - botón BCV optimizado para evitar salto de layout durante carga (spinner con tamaño fijo).
    - Modal de detalle de gasto:
      - etiqueta `Cargado el` (antes `sistema`),
-     - muestra `Notas` y fallback `Sin notas` si no existe.
+     - muestra `Notas` y fallback `Sin notas` si no existe,
+     - muestra la etiqueta del gasto (`Fijo`/`Variable`).
 4. Bancos y fondos:
    - Cuenta predeterminada (`PUT /bancos/:id/predeterminada`) activa.
    - Fondos virtuales anclados a cuentas bancarias con trazabilidad.
@@ -464,6 +472,9 @@ Notas de desarrollo local:
      - 4 cuentas bancarias de prueba: 3 cuentas en `BS` y 1 cuenta en `USD`.
      - 4 fondos de prueba alineados con las cuentas y su moneda (1 por cuenta).
      - 14 gastos con mezcla de tipos (incluye `Extra`) y varios en 4 cuotas para pruebas de cierre/cobranza.
+     - cada gasto seed incluye:
+       - `clasificacion` (`Fijo` o `Variable`),
+       - `nota` descriptiva (mínimo 80 caracteres).
 12. Proveedores (front + back + BD):
    - BD: se agregó columna `proveedores.email`.
    - Backend: `POST/PUT /proveedores` y `POST /proveedores/lote` validan y persisten `email`.

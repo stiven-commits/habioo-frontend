@@ -545,11 +545,6 @@ const Gastos: FC<GastosProps> = () => {
                           Concepto {sortIndicator('concepto')}
                         </button>
                       </th>
-                      <th className="p-3 text-center">
-                        <button type="button" onClick={() => toggleSort('clasificacion')} className="font-bold hover:text-donezo-primary">
-                          Etiqueta {sortIndicator('clasificacion')}
-                        </button>
-                      </th>
                       <th className="p-3 text-right">
                         <button type="button" onClick={() => toggleSort('monto_total_usd')} className="font-bold hover:text-donezo-primary">
                           Monto Total {sortIndicator('monto_total_usd')}
@@ -603,6 +598,11 @@ const Gastos: FC<GastosProps> = () => {
                             <div className="text-gray-600 dark:text-gray-400 truncate max-w-[200px] text-sm" title={g.concepto}>
                               {g.concepto}
                             </div>
+                            <span className={`inline-block mt-1 mr-1 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${String(g.clasificacion || 'Variable') === 'Fijo'
+                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                              : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}>
+                              {String(g.clasificacion || 'Variable') === 'Fijo' ? 'Gasto fijo' : 'Gasto variable'}
+                            </span>
                             {(g.tipo === 'Zona' || g.tipo === 'No Comun') && (
                               <span className="inline-block mt-1 bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
                                 Zona: {g.zona_nombre || 'Especifica'}
@@ -618,13 +618,6 @@ const Gastos: FC<GastosProps> = () => {
                                 Extra
                               </span>
                             )}
-                          </td>
-                          <td className="p-3 text-center">
-                            <span className={`inline-block text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${String(g.clasificacion || 'Variable') === 'Fijo'
-                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-                              : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}>
-                              {String(g.clasificacion || 'Variable') === 'Fijo' ? 'Fijo' : 'Variable'}
-                            </span>
                           </td>
                           <td className="p-3 text-right font-bold text-gray-800 dark:text-white text-sm">
                             {g.tipo === 'Extra' && extraProgress ? (
@@ -714,7 +707,7 @@ const Gastos: FC<GastosProps> = () => {
                           g.cuotas.map((c: GastoCuota, cuotaIndex: number) => (
                             <tr key={c.cuota_id} className="bg-gray-50/50 dark:bg-gray-800/30 border-b border-gray-50 dark:border-gray-800/50">
                               <td className="p-3 border-l-2 border-donezo-primary"></td>
-                              <td className="p-3 text-gray-500 text-xs dark:text-gray-400" colSpan={3}>
+                              <td className="p-3 text-gray-500 text-xs dark:text-gray-400" colSpan={2}>
                                 Cobro en: <strong>{formatMonthText(c.mes_asignado)}</strong>
                               </td>
                               <td className="p-3 text-gray-500 text-xs dark:text-gray-400">

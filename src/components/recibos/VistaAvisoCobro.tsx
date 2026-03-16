@@ -6,6 +6,7 @@ interface IAvisoGasto {
   id: number;
   concepto: string;
   nota?: string;
+  clasificacion?: string;
   tipo?: string;
   zona_nombre?: string;
   propiedad_identificador?: string;
@@ -90,6 +91,7 @@ const fallbackAvisoData: IAvisoData = {
       id: 1,
       concepto: 'Vigilancia y Seguridad',
       nota: 'Servicio mensual integral de vigilancia.',
+      clasificacion: 'Fijo',
       tipo: 'Comun',
       total_bs: 154320.5,
       total_usd: 2411.26,
@@ -100,6 +102,7 @@ const fallbackAvisoData: IAvisoData = {
       id: 2,
       concepto: 'Mantenimiento de Ascensores',
       nota: 'Contrato preventivo y correctivo.',
+      clasificacion: 'Variable',
       tipo: 'Zona',
       zona_nombre: 'Torre B',
       total_bs: 60210.24,
@@ -127,6 +130,8 @@ const formatMoney = (value: number): string =>
 
 const toNumber = (value: unknown): number => parseFloat(String(value ?? 0)) || 0;
 const normalizeTipo = (tipo: string | undefined): string => String(tipo || '').trim().toLowerCase();
+const normalizeClasificacion = (clasificacion: string | undefined): string => String(clasificacion || '').trim().toLowerCase();
+const isFixedClasificacion = (clasificacion: string | undefined): boolean => normalizeClasificacion(clasificacion).startsWith('fij');
 
 const isNonCommonGasto = (tipo: string | undefined): boolean => {
   const t = normalizeTipo(tipo);
@@ -218,6 +223,7 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
                 id: toNumber(g.id),
                 concepto: String(g.concepto || ''),
                 nota: String(g.nota || ''),
+                clasificacion: String(g.clasificacion || 'Variable'),
                 tipo: String(g.tipo || ''),
                 zona_nombre: String(g.zona_nombre || ''),
                 propiedad_identificador: String(g.propiedad_identificador || ''),
@@ -268,6 +274,16 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
     [avisoData.gastos],
   );
 
+  const gastosFijos = useMemo(
+    () => avisoData.gastos.filter((gasto) => isFixedClasificacion(gasto.clasificacion)),
+    [avisoData.gastos],
+  );
+
+  const gastosVariables = useMemo(
+    () => avisoData.gastos.filter((gasto) => !isFixedClasificacion(gasto.clasificacion)),
+    [avisoData.gastos],
+  );
+
   const estadoRecibo = normalizeEstado(avisoData.estado_recibo);
 
   if (loadingSnapshot) {
@@ -287,8 +303,8 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-10">
       <div className="mx-auto max-w-4xl rounded-lg bg-white p-8 shadow-2xl md:p-12">
-        <header className="mb-6 flex flex-col gap-6 border-b border-gray-200 pb-6 md:flex-row md:items-start md:justify-between">
-          <div className="min-w-0 md:w-1/3">
+        <header className="aviso-header mb-6 flex flex-col gap-6 border-b border-gray-200 pb-6 md:flex-row md:items-start md:justify-between">
+          <div className="aviso-header-left min-w-0 md:w-1/4">
             {avisoData.administradora.logo_url ? (
               <img src={avisoData.administradora.logo_url} alt="Logo administradora" className="h-16 w-auto object-contain" />
             ) : (
@@ -301,7 +317,7 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
             </div>
           </div>
 
-          <div className="text-center md:w-1/3">
+          <div className="aviso-header-center text-center md:w-2/4">
             <h1 className="text-3xl font-black tracking-tight text-gray-900 md:text-4xl">AVISO DE COBRO</h1>
             <p className="mt-2 text-base font-bold text-donezo-primary md:text-lg">{avisoData.mes_correspondiente}</p>
             <span className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${estadoBadgeClass(estadoRecibo)}`}>
@@ -309,7 +325,7 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
             </span>
           </div>
 
-          <div className="text-left md:w-1/3 md:text-right">
+          <div className="aviso-header-right text-left md:w-1/4 md:text-right">
             <h2 className="text-sm font-black uppercase tracking-wide text-gray-900">Condominio</h2>
             <p className="mt-1 text-sm font-bold text-gray-800">{avisoData.condominio.nombre}</p>
             <p className="text-xs text-gray-500">RIF: {avisoData.condominio.rif}</p>
@@ -317,7 +333,7 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
           </div>
         </header>
 
-        <section className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-2">
+        <section className="aviso-top-grid mb-6 grid grid-cols-1 gap-3 md:grid-cols-2">
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">Inmueble</p>
             <p className="mt-1 text-lg font-black text-slate-800">{avisoData.inmueble.identificador || 'N/A'}</p>
@@ -359,7 +375,34 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {avisoData.gastos.map((gasto) => (
+                <tr className="bg-slate-50">
+                  <td colSpan={5} className="px-4 py-2 text-[11px] font-black uppercase tracking-wider text-slate-700">
+                    Gastos Fijos ({gastosFijos.length})
+                  </td>
+                </tr>
+                {gastosFijos.map((gasto) => (
+                  <tr key={`fijo-${gasto.id}`} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-gray-700">
+                      <p className="font-semibold text-gray-800">{gasto.concepto}</p>
+                      {gasto.nota ? <p className="mt-1 text-xs text-gray-500">Nota: {gasto.nota}</p> : null}
+                      {isNonCommonGasto(gasto.tipo) ? (
+                        <p className="mt-1 text-[11px] font-semibold text-amber-700">Cargo no comun: {getScopeLabel(gasto)}</p>
+                      ) : (
+                        <p className="mt-1 text-[11px] text-emerald-700">Cargo comun</p>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right font-semibold text-gray-700">Bs {formatMoney(gasto.total_bs)}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-gray-700">$ {formatMoney(gasto.total_usd)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-gray-900">Bs {formatMoney(gasto.cuota_bs)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-gray-900">$ {formatMoney(gasto.cuota_usd)}</td>
+                  </tr>
+                ))}
+                <tr className="bg-slate-50">
+                  <td colSpan={5} className="px-4 py-2 text-[11px] font-black uppercase tracking-wider text-slate-700">
+                    Gastos Variables ({gastosVariables.length})
+                  </td>
+                </tr>
+                {gastosVariables.map((gasto) => (
                   <tr key={gasto.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-gray-700">
                       <p className="font-semibold text-gray-800">{gasto.concepto}</p>
@@ -370,20 +413,20 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
                         <p className="mt-1 text-[11px] text-emerald-700">Cargo comun</p>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right font-semibold text-gray-700">{formatMoney(gasto.total_bs)}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-gray-700">{formatMoney(gasto.total_usd)}</td>
-                    <td className="px-4 py-3 text-right font-bold text-gray-900">{formatMoney(gasto.cuota_bs)}</td>
-                    <td className="px-4 py-3 text-right font-bold text-gray-900">{formatMoney(gasto.cuota_usd)}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-gray-700">Bs {formatMoney(gasto.total_bs)}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-gray-700">$ {formatMoney(gasto.total_usd)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-gray-900">Bs {formatMoney(gasto.cuota_bs)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-gray-900">$ {formatMoney(gasto.cuota_usd)}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot className="bg-gray-100">
                 <tr>
                   <td className="px-4 py-3 font-black text-gray-900">TOTAL</td>
-                  <td className="px-4 py-3 text-right font-black text-gray-900">{formatMoney(totals.total_bs)}</td>
-                  <td className="px-4 py-3 text-right font-black text-gray-900">{formatMoney(totals.total_usd)}</td>
-                  <td className="px-4 py-3 text-right font-black text-gray-900">{formatMoney(totals.cuota_bs)}</td>
-                  <td className="px-4 py-3 text-right font-black text-gray-900">{formatMoney(totals.cuota_usd)}</td>
+                  <td className="px-4 py-3 text-right font-black text-gray-900">Bs {formatMoney(totals.total_bs)}</td>
+                  <td className="px-4 py-3 text-right font-black text-gray-900">$ {formatMoney(totals.total_usd)}</td>
+                  <td className="px-4 py-3 text-right font-black text-gray-900">Bs {formatMoney(totals.cuota_bs)}</td>
+                  <td className="px-4 py-3 text-right font-black text-gray-900">$ {formatMoney(totals.cuota_usd)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -407,10 +450,10 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
                 {avisoData.fondos.map((fondo) => (
                   <tr key={fondo.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-semibold text-gray-700">{fondo.banco_fondo}</td>
-                    <td className="px-4 py-3 text-right text-gray-700">{formatMoney(fondo.saldo_actual_bs)}</td>
-                    <td className="px-4 py-3 text-right text-gray-700">{formatMoney(fondo.saldo_actual_usd)}</td>
-                    <td className="px-4 py-3 text-right font-bold text-emerald-700">{formatMoney(fondo.proyeccion_bs)}</td>
-                    <td className="px-4 py-3 text-right font-bold text-emerald-700">{formatMoney(fondo.proyeccion_usd)}</td>
+                    <td className="px-4 py-3 text-right text-gray-700">Bs {formatMoney(fondo.saldo_actual_bs)}</td>
+                    <td className="px-4 py-3 text-right text-gray-700">$ {formatMoney(fondo.saldo_actual_usd)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-emerald-700">Bs {formatMoney(fondo.proyeccion_bs)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-emerald-700">$ {formatMoney(fondo.proyeccion_usd)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -420,7 +463,7 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
 
         <section>
           <h3 className="mb-3 text-lg font-black text-gray-900">Mensajes Importantes</h3>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div className="aviso-mensajes-grid grid grid-cols-1 gap-3 md:grid-cols-2">
             {(avisoData.mensajes.length > 0 ? avisoData.mensajes : fallbackAvisoData.mensajes).map((mensaje, index) => (
               <div key={index} className="rounded-md border-l-4 border-yellow-400 bg-yellow-50 p-4 text-sm text-yellow-800">
                 {mensaje}
