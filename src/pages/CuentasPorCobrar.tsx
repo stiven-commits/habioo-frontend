@@ -72,7 +72,34 @@ interface EstadoCuentaResponse {
   movimientos?: EstadoCuentaMovimientoRaw[];
 }
 
+interface BcvApiResponse {
+  promedio?: string | number;
+}
+
+interface ApiActionResponse {
+  status?: string;
+  message?: string;
+  error?: string;
+}
+
 const toNumber = (value: string | number | undefined | null): number => parseFloat(String(value ?? 0)) || 0;
+const formatNumberInput = (value: string | number | undefined | null): string => {
+  const strValue = String(value || '');
+  const isNegative = strValue.trim().startsWith('-');
+  let rawValue = strValue.replace(/[^0-9,]/g, '');
+  if (isNegative && !rawValue) return '-';
+  const parts = rawValue.split(',');
+  if (parts.length > 2) rawValue = `${parts[0]},${parts.slice(1).join('')}`;
+  let [integerPart, decimalPart] = rawValue.split(',');
+  if (integerPart) integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const formatted = decimalPart !== undefined ? `${integerPart},${decimalPart.slice(0, 2)}` : (integerPart || '');
+  if (!formatted) return '';
+  return isNegative ? `-${formatted}` : formatted;
+};
+const parseNumberInput = (value: string | number | undefined | null): number => {
+  if (!value) return 0;
+  return parseFloat(String(value).replace(/\./g, '').replace(',', '.')) || 0;
+};
 
 const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
   const { userRole } = useOutletContext<OutletContextType>();
@@ -95,6 +122,18 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
   const [loadingCuenta, setLoadingCuenta] = useState<boolean>(false);
   const [fechaDesde, setFechaDesde] = useState<string>('');
   const [fechaHasta, setFechaHasta] = useState<string>('');
+  const [showAjusteModal, setShowAjusteModal] = useState<boolean>(false);
+  const [selectedPropAjuste, setSelectedPropAjuste] = useState<Propiedad | null>(null);
+  const [ajusteTipo, setAjusteTipo] = useState<'DEUDA' | 'FAVOR'>('DEUDA');
+  const [montoBsAjuste, setMontoBsAjuste] = useState<string>('');
+  const [tasaBcvAjuste, setTasaBcvAjuste] = useState<string>('');
+  const [conceptoAjuste, setConceptoAjuste] = useState<string>('');
+  const [isFetchingBCV, setIsFetchingBCV] = useState<boolean>(false);
+  const [isSavingAjuste, setIsSavingAjuste] = useState<boolean>(false);
+
+  const montoUsdAjuste = parseNumberInput(tasaBcvAjuste) > 0
+    ? (parseNumberInput(montoBsAjuste) / parseNumberInput(tasaBcvAjuste))
+    : 0;
 
   const toLocalYmd = (dateLike: string | number | Date | undefined): string => {
     const d = new Date(dateLike ?? '');
@@ -165,6 +204,71 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
     setFechaHasta('');
     fetchEstadoCuenta(prop.id);
     setEstadoCuentaModalOpen(true);
+  };
+
+  const handleOpenAjuste = (prop: Propiedad): void => {
+    setSelectedPropAjuste(prop);
+    setAjusteTipo('DEUDA');
+    setMontoBsAjuste('');
+    setTasaBcvAjuste('');
+    setConceptoAjuste('');
+    setShowAjusteModal(true);
+  };
+
+  const fetchBCVAjuste = async (): Promise<void> => {
+    setIsFetchingBCV(true);
+    try {
+      const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
+      if (!response.ok) throw new Error('API Error');
+      const json: BcvApiResponse = await response.json();
+      if (!json?.promedio) {
+        alert('No se pudo obtener la tasa BCV actual.');
+        return;
+      }
+      setTasaBcvAjuste(formatNumberInput(String(json.promedio).replace('.', ',')));
+    } catch {
+      alert('Error al consultar BCV.');
+    } finally {
+      setIsFetchingBCV(false);
+    }
+  };
+
+  const handleGuardarAjuste = async (): Promise<void> => {
+    if (!selectedPropAjuste?.id) return;
+    const montoUsd = montoUsdAjuste;
+    if (montoUsd <= 0) {
+      alert('Debe ingresar un monto en Bs y una tasa BCV válida.');
+      return;
+    }
+    setIsSavingAjuste(true);
+    try {
+      const token = localStorage.getItem('habioo_token');
+      const payload = {
+        tipo_ajuste: ajusteTipo === 'DEUDA' ? 'CARGAR_DEUDA' : 'AGREGAR_FAVOR',
+        monto: Number(montoUsd.toFixed(2)),
+        nota: `${(conceptoAjuste || 'Ajuste manual').trim()} | Ajuste desde Cuentas por Cobrar (${ajusteTipo}) - Bs ${montoBsAjuste} | Tasa ${tasaBcvAjuste}`
+      };
+      const res = await fetch(`${API_BASE_URL}/propiedades-admin/${selectedPropAjuste.id}/ajustar-saldo`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      const data: ApiActionResponse = await res.json();
+      if (res.ok && data.status === 'success') {
+        setShowAjusteModal(false);
+        setSelectedPropAjuste(null);
+        fetchData();
+      } else {
+        alert(data.error || data.message || 'No se pudo guardar el ajuste.');
+      }
+    } catch {
+      alert('Error de conexión al guardar ajuste.');
+    } finally {
+      setIsSavingAjuste(false);
+    }
   };
 
   // Lógica de filtrado por pestañas
@@ -314,6 +418,12 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                           >
                             Registrar Pago
                           </button>
+                          <button
+                            onClick={() => handleOpenAjuste(p)}
+                            className="px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/40 transition-colors"
+                          >
+                            Ajuste
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -376,6 +486,115 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
         estadoCuentaFiltrado={estadoCuentaFiltrado}
         showAjuste={false}
       />
+
+      {showAjusteModal && selectedPropAjuste && (
+        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-xl shadow-2xl border border-gray-100 dark:border-gray-800 relative">
+            <button
+              onClick={() => setShowAjusteModal(false)}
+              disabled={isSavingAjuste}
+              className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl disabled:opacity-40"
+            >
+              X
+            </button>
+            <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-1">Ajuste de Saldo</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
+              {selectedPropAjuste.identificador} - {selectedPropAjuste.prop_nombre || 'Sin asignar'}
+            </p>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-bold text-gray-600 dark:text-gray-300">Tipo:</span>
+                <button
+                  type="button"
+                  onClick={() => setAjusteTipo('DEUDA')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${ajusteTipo === 'DEUDA'
+                    ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800/50'
+                    : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'
+                    }`}
+                >
+                  Deuda
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAjusteTipo('FAVOR')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${ajusteTipo === 'FAVOR'
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800/50'
+                    : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'
+                    }`}
+                >
+                  A favor
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="md:col-span-3">
+                  <label className="block text-xs font-bold text-gray-500 mb-1">Concepto</label>
+                  <input
+                    type="text"
+                    value={conceptoAjuste}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setConceptoAjuste(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
+                    placeholder="Ej: Ajuste por revisión de deuda histórica"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1">Monto (Bs)</label>
+                  <input
+                    type="text"
+                    value={montoBsAjuste}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setMontoBsAjuste(formatNumberInput(e.target.value))}
+                    className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                    placeholder="0,00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1">Tasa BCV</label>
+                  <input
+                    type="text"
+                    value={tasaBcvAjuste}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setTasaBcvAjuste(formatNumberInput(e.target.value))}
+                    className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                    placeholder="Ej: 36,50"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={fetchBCVAjuste}
+                  disabled={isFetchingBCV}
+                  className="w-full p-2.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-900/30 dark:border-blue-800/50 dark:text-blue-400 font-bold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-60"
+                >
+                  {isFetchingBCV ? 'Consultando...' : 'BCV'}
+                </button>
+              </div>
+
+              <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-3">
+                <p className="text-xs uppercase font-bold text-gray-500 mb-1">Equivalente en USD</p>
+                <p className="text-xl font-black text-gray-800 dark:text-white">${formatMoney(montoUsdAjuste)}</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-6">
+              <button
+                type="button"
+                onClick={() => setShowAjusteModal(false)}
+                disabled={isSavingAjuste}
+                className="px-6 py-3 rounded-xl bg-gray-100 dark:bg-gray-800 font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleGuardarAjuste}
+                disabled={isSavingAjuste}
+                className="px-6 py-3 rounded-xl font-bold bg-donezo-primary text-white hover:bg-blue-700 transition-all disabled:opacity-50"
+              >
+                {isSavingAjuste ? 'Guardando...' : 'Guardar Ajuste'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

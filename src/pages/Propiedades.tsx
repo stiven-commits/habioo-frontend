@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef, useMemo } from 'react';
 import type { FC, ChangeEvent, FormEvent, Dispatch, SetStateAction } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { formatMoney } from '../utils/currency';
@@ -73,6 +73,14 @@ interface FormState {
   tipo_saldo_inicial?: 'CERO';
   saldo_inicial_bs: string;
   tasa_bcv: string;
+  tiene_deuda_inicial?: boolean;
+  deudas_iniciales?: DeudaInicialManualForm[];
+}
+
+interface DeudaInicialManualForm {
+  concepto: string;
+  monto_deuda: string;
+  monto_abono: string;
 }
 
 interface FormAjusteState {
@@ -88,10 +96,19 @@ interface LoteDataRow {
   cedula: string;
   alicuota: number | string;
   saldo_inicial: string;
+  saldo_inicial_base?: string;
   correo: string;
   telefono: string;
   isValid: boolean;
   errors: string;
+}
+
+interface LoteDeudaRow {
+  identificador: string;
+  concepto: string;
+  monto_total: number;
+  monto_abonado: number;
+  saldo: number | null;
 }
 
 interface EstadoCuentaPropiedad {
@@ -119,6 +136,8 @@ interface PropiedadFormData {
   inq_email: string;
   inq_telefono: string;
   inq_permitir_acceso?: boolean;
+  tiene_deuda_inicial?: boolean;
+  deudas_iniciales?: DeudaInicialManualForm[];
 }
 
 interface AjusteSaldoFormData {
@@ -160,6 +179,7 @@ interface DialogContextType {
 interface ApiPropiedadesResponse {
   status: string;
   propiedades: Propiedad[];
+  can_delete_all?: boolean;
   error?: string;
   message?: string;
 }
@@ -185,6 +205,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
   const [propiedades, setPropiedades] = useState<Propiedad[]>([]);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
+  const [canDeleteAll, setCanDeleteAll] = useState<boolean>(false);
 
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -207,17 +228,37 @@ const Propiedades: FC<PropiedadesProps> = () => {
   // 💡 ESTADOS PARA CARGA MASIVA Y BARRA DE PROGRESO
   const [loteModalOpen, setLoteModalOpen] = useState<boolean>(false);
   const [loteData, setLoteData] = useState<LoteDataRow[]>([]);
+  const [loteDeudas, setLoteDeudas] = useState<LoteDeudaRow[]>([]);
   const [loteErrors, setLoteErrors] = useState<number>(0);
   const [isUploadingLote, setIsUploadingLote] = useState<boolean>(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   void fileInputRef;
 
+  const montoTotalIngresoLote = useMemo((): number => {
+    if (loteDeudas.length > 0) {
+      const saldoNetoById = new Map<string, number>();
+      loteDeudas.forEach((item: LoteDeudaRow) => {
+        const key = item.identificador.toLowerCase();
+        const saldoFila = item.saldo ?? (item.monto_total - item.monto_abonado);
+        const prev = saldoNetoById.get(key) ?? 0;
+        saldoNetoById.set(key, prev + saldoFila);
+      });
+      return Array.from(saldoNetoById.values()).reduce((acc: number, value: number) => acc + value, 0);
+    }
+
+    return loteData.reduce((acc: number, item: LoteDataRow) => {
+      const saldo = parseFloat(String(item.saldo_inicial).replace(',', '.'));
+      return acc + (Number.isNaN(saldo) ? 0 : saldo);
+    }, 0);
+  }, [loteData, loteDeudas]);
+
   const initialForm: FormState = {
     identificador: '', alicuota: '', prop_nombre: '', prop_cedula: '', prop_email: '', prop_telefono: '', prop_password: '',
     tiene_inquilino: false, inq_nombre: '', inq_cedula: '', inq_email: '', inq_telefono: '', inq_password: '',
     inq_permitir_acceso: true,
-    monto_saldo_inicial: '', tipo_saldo_inicial: 'CERO', saldo_inicial_bs: '', tasa_bcv: ''
+    monto_saldo_inicial: '', tipo_saldo_inicial: 'CERO', saldo_inicial_bs: '', tasa_bcv: '',
+    tiene_deuda_inicial: false, deudas_iniciales: [{ concepto: '', monto_deuda: '', monto_abono: '' }]
   };
 
   const [form, setForm] = useState<FormState>(initialForm);
@@ -227,7 +268,10 @@ const Propiedades: FC<PropiedadesProps> = () => {
       const token = localStorage.getItem('habioo_token');
       const res = await fetch(`${API_BASE_URL}/propiedades-admin`, { headers: { Authorization: `Bearer ${token}` } });
       const data: ApiPropiedadesResponse = await res.json();
-      if (data.status === 'success') setPropiedades(data.propiedades);
+      if (data.status === 'success') {
+        setPropiedades(data.propiedades);
+        setCanDeleteAll(Boolean(data.can_delete_all));
+      }
     } catch (error) { console.error(error); }
     finally { setLoading(false); }
   };
@@ -317,7 +361,8 @@ const Propiedades: FC<PropiedadesProps> = () => {
       prop_nombre: prop.prop_nombre || '', prop_cedula: prop.prop_cedula || '', prop_email: prop.prop_email || '', prop_telefono: prop.prop_telefono || '', prop_password: '',
       tiene_inquilino: !!prop.inq_cedula, inq_nombre: prop.inq_nombre || '', inq_cedula: prop.inq_cedula || '', inq_email: prop.inq_email || '', inq_telefono: prop.inq_telefono || '', inq_password: '',
       inq_permitir_acceso: prop.inq_acceso_portal !== false,
-      monto_saldo_inicial: '', tipo_saldo_inicial: 'CERO', saldo_inicial_bs: '', tasa_bcv: ''
+      monto_saldo_inicial: '', tipo_saldo_inicial: 'CERO', saldo_inicial_bs: '', tasa_bcv: '',
+      tiene_deuda_inicial: false, deudas_iniciales: [{ concepto: '', monto_deuda: '', monto_abono: '' }]
     });
     setIsModalOpen(true);
   };
@@ -327,7 +372,23 @@ const Propiedades: FC<PropiedadesProps> = () => {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     const alicuotaNum = parseFloat(form.alicuota.toString().replace(',', '.'));
-    if (isNaN(alicuotaNum) || alicuotaNum <= 0 || alicuotaNum > 100) return alert('⚠️ Error: La alícuota debe ser un porcentaje mayor a 0 y máximo 100.');
+    const propiedadesComparables = propiedades.filter((p: Propiedad) => {
+      if (editingId === null) return true;
+      return Number(p.id) !== Number(editingId);
+    });
+    const restoEnCero = propiedadesComparables.every((p: Propiedad) => toNumber(p.alicuota) === 0);
+    const alicuotaValida =
+      Number.isFinite(alicuotaNum) &&
+      alicuotaNum >= 0 &&
+      alicuotaNum <= 100 &&
+      (alicuotaNum > 0 || restoEnCero);
+
+    if (!alicuotaValida) {
+      if (alicuotaNum === 0 && !restoEnCero) {
+        return alert('⚠️ Error: Solo puedes usar alícuota 0 si todos los inmuebles del condominio también están en 0 (partes iguales).');
+      }
+      return alert('⚠️ Error: La alícuota debe estar entre 0 y 100.');
+    }
     if (!isValidCedulaRif(form.prop_cedula)) return alert('Error: la cédula del propietario debe iniciar con V, E, J o G y contener solo números.');
     if (form.prop_email && !isValidEmail(form.prop_email)) return alert('Error: el correo del propietario no tiene un formato válido.');
     if (form.prop_telefono && !isValidPhone(form.prop_telefono)) return alert('Error: el teléfono del propietario debe tener solo números.');
@@ -368,33 +429,192 @@ const Propiedades: FC<PropiedadesProps> = () => {
     } else { alert(data.error); }
   };
 
+  const handleEliminarTodos = async (): Promise<void> => {
+    if (!canDeleteAll) {
+      alert('No se puede eliminar inmuebles porque ya existen gastos cargados en el sistema.');
+      return;
+    }
+
+    const ok = await showConfirm({
+      title: 'Eliminar todos los inmuebles',
+      message: 'Esta acción eliminará todos los inmuebles del condominio y sus datos asociados. ¿Desea continuar?',
+      confirmText: 'Eliminar todo',
+      cancelText: 'Cancelar',
+      variant: 'warning',
+    });
+    if (!ok) return;
+
+    try {
+      const token = localStorage.getItem('habioo_token');
+      const res = await fetch(`${API_BASE_URL}/propiedades-admin/eliminar-todos`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data: ApiActionResponse = await res.json();
+      if (data.status === 'success') {
+        alert(data.message || 'Inmuebles eliminados.');
+        fetchPropiedades();
+      } else {
+        alert(data.error || 'No fue posible eliminar los inmuebles.');
+      }
+    } catch {
+      alert('Error de conexión al eliminar inmuebles.');
+    }
+  };
+
   // ==========================================
   // FUNCIONES DE LA CARGA MASIVA DE EXCEL
   // ==========================================
   const handleDownloadTemplate = (): void => {
-    const data = [
-      { Apto: '1A', Nombre: 'Juan Perez', Cedula: 'V12345678', Alicuota: '2.555', SaldoInicial: '50.00', Correo: 'juan@gmail.com', Telefono: '04141234567' },
-      { Apto: '1B', Nombre: 'Maria Lopez', Cedula: 'E87654321', Alicuota: '2.5', SaldoInicial: '-20.50', Correo: '', Telefono: '' }
+    const dataPropiedades = [
+      {
+        'Nro Apartamento': 'A-1',
+        'Propietario': 'Juan Pérez',
+        'Cédula': 'V12345678',
+        'Email': 'juan.perez@email.com',
+        'Teléfono': '04141234567',
+        'Alícuota': 0
+      },
+      {
+        'Nro Apartamento': 'A-2',
+        'Propietario': 'María López',
+        'Cédula': 'V87654321',
+        'Email': 'maria.lopez@email.com',
+        'Teléfono': '04145556677',
+        'Alícuota': 0
+      },
+      {
+        'Nro Apartamento': 'A-3',
+        'Propietario': 'Carlos Gómez',
+        'Cédula': 'V11223344',
+        'Email': 'carlos.gomez@email.com',
+        'Teléfono': '04143332211',
+        'Alícuota': 0
+      },
+      {
+        'Nro Apartamento': 'A-4',
+        'Propietario': 'Ana Ruiz',
+        'Cédula': 'V55667788',
+        'Email': 'ana.ruiz@email.com',
+        'Teléfono': '04147778899',
+        'Alícuota': 0
+      }
     ];
-    const ws = XLSX.utils.json_to_sheet(data);
 
-    XLSX.utils.sheet_add_aoa(
-      ws,
-      [
-        ['NOTAS DEL DEMO', ''],
-        ['Cedula:', 'La letra inicial (V, E, J, G, P) debe ir en MAYUSCULA.'],
-        ['Alicuota:', 'Use maximo 3 decimales (ej: 2.555 o 2,555).'],
-        ['Alicuota en 0:', 'Si todas quedan en 0, el sistema divide gastos por partes iguales entre todos los inmuebles.'],
-        ['SaldoInicial:', '0 = sin saldo, positivo = deuda, negativo = saldo a favor.'],
-      ],
-      { origin: 'I1' }
-    );
-
-    ws['!cols'] = [{ wch: 10 }, { wch: 25 }, { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 25 }, { wch: 15 }, { wch: 3 }, { wch: 16 }, { wch: 85 }];
+    const dataEstadoCuenta = [
+      {
+        'Nro Apartamento': 'A-1',
+        'Concepto': 'Gasto antiguo mantenimiento',
+        'Monto Deuda': 60.0,
+        'Monto Abono': 30.0,
+        'Saldo': 30.0
+      },
+      {
+        'Nro Apartamento': 'A-2',
+        'Concepto': 'Gasto antiguo ascensor',
+        'Monto Deuda': 80.0,
+        'Monto Abono': 0.0,
+        'Saldo': 80.0
+      },
+      {
+        'Nro Apartamento': 'A-3',
+        'Concepto': '',
+        'Monto Deuda': 0.0,
+        'Monto Abono': 30.0,
+        'Saldo': -30.0
+      },
+      {
+        'Nro Apartamento': 'A-4',
+        'Concepto': '',
+        'Monto Deuda': 0.0,
+        'Monto Abono': 0.0,
+        'Saldo': 0.0
+      }
+    ];
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Plantilla');
-    XLSX.writeFile(wb, 'Plantilla_Habioo_Inmuebles.xlsx');
+    const setCellTextStyle = (ws: XLSX.WorkSheet, cellRef: string): void => {
+      const cell = ws[cellRef];
+      if (!cell) return;
+      (cell as XLSX.CellObject & {
+        s?: {
+          fill?: { fgColor?: { rgb?: string } };
+          font?: { bold?: boolean; color?: { rgb?: string } };
+          alignment?: { vertical?: string; wrapText?: boolean };
+        };
+      }).s = {
+        fill: { fgColor: { rgb: 'FFF7D6' } },
+        font: { bold: true, color: { rgb: '7A5A00' } },
+        alignment: { vertical: 'top', wrapText: true }
+      };
+    };
+    const setSaldoCellStyle = (ws: XLSX.WorkSheet, cellRef: string): void => {
+      const cell = ws[cellRef];
+      if (!cell) return;
+      (cell as XLSX.CellObject & {
+        s?: {
+          fill?: { fgColor?: { rgb?: string } };
+          font?: { bold?: boolean; color?: { rgb?: string } };
+          alignment?: { vertical?: string };
+        };
+      }).s = {
+        fill: { fgColor: { rgb: 'E8F5E9' } },
+        font: { bold: true, color: { rgb: '1B5E20' } },
+        alignment: { vertical: 'center' }
+      };
+    };
+
+        const wsPropiedades = XLSX.utils.json_to_sheet(dataPropiedades);
+    const guiaPropiedades: string[][] = [
+      ['Guía de llenado'],
+      ['Paso 1 (A): Nro Apartamento único (ej: A-1).'],
+      ['Paso 2 (B): Nombre del Propietario.'],
+      ['Paso 3 (C): Cédula con formato V/E/J/G/P + números.'],
+      ['Paso 4 (D): Email (opcional).'],
+      ['Paso 5 (E): Teléfono de 7 a 15 dígitos.'],
+      ['Paso 6 (F): Alícuota: todas en 0 o todas > 0 (no mezclar).']
+    ];
+    XLSX.utils.sheet_add_aoa(wsPropiedades, guiaPropiedades, { origin: 'H1' });
+    guiaPropiedades.forEach((_, index) => setCellTextStyle(wsPropiedades, `H${index + 1}`));
+    wsPropiedades['!cols'] = [
+      { wch: 16 },
+      { wch: 24 },
+      { wch: 14 },
+      { wch: 28 },
+      { wch: 16 },
+      { wch: 10 },
+      { wch: 3 },
+      { wch: 90 }
+    ];
+
+    const wsDeudas = XLSX.utils.json_to_sheet(dataEstadoCuenta);
+    for (let row = 2; row <= 500; row += 1) {
+      wsDeudas[`E${row}`] = { t: 'n', f: `C${row}-D${row}` };
+      setSaldoCellStyle(wsDeudas, `E${row}`);
+    }
+    const guiaDeudas: string[][] = [
+      ['Guía de llenado'],
+      ['Paso 1 (A): Nro Apartamento igual al de la hoja Propiedades.'],
+      ['Paso 2 (B): Concepto del cobro o nota de estado de cuenta.'],
+      ['Paso 3 (C): Monto Deuda en USD (si no hay deuda, use 0).'],
+      ['Paso 4 (D): Monto Abono en USD (si no hay abono, use 0).'],
+      ['Paso 5 (E): Saldo = Monto Deuda - Monto Abono (fórmula automática, no editar).']
+    ];
+    XLSX.utils.sheet_add_aoa(wsDeudas, guiaDeudas, { origin: 'G1' });
+    guiaDeudas.forEach((_, index) => setCellTextStyle(wsDeudas, `G${index + 1}`));
+    wsDeudas['!cols'] = [
+      { wch: 16 },
+      { wch: 36 },
+      { wch: 16 },
+      { wch: 18 },
+      { wch: 14 },
+      { wch: 3 },
+      { wch: 90 }
+    ];
+
+    XLSX.utils.book_append_sheet(wb, wsPropiedades, 'Propiedades');
+    XLSX.utils.book_append_sheet(wb, wsDeudas, 'saldos_bases');
+    XLSX.writeFile(wb, 'Plantilla_Carga_Masiva_Habioo.xlsx');
   };
 
   const handleFileUpload = (e: ChangeEvent<HTMLInputElement>): void => {
@@ -412,6 +632,11 @@ const Propiedades: FC<PropiedadesProps> = () => {
       const ws = wb.Sheets[wsname];
       if (ws === undefined) return;
       const rawData = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' });
+      const wsnameDeudas = wb.SheetNames[1];
+      const wsDeudas = wsnameDeudas !== undefined ? wb.Sheets[wsnameDeudas] : undefined;
+      const rawDeudas = wsDeudas
+        ? XLSX.utils.sheet_to_json<Record<string, unknown>>(wsDeudas, { defval: '' })
+        : [];
 
       const parseAlicuota = (value: unknown): number => {
         const normalized = String(value ?? '').trim().replace(',', '.');
@@ -427,6 +652,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
 
       if (tieneCeros && tieneMayoresACero) {
         setLoteData([]);
+        setLoteDeudas([]);
         setLoteErrors(0);
         e.target.value = '';
         alert('Error: El archivo tiene alícuotas mixtas. Ingrese todas en 0 (para dividir por partes iguales) o asigne un valor mayor a 0 a todas.');
@@ -437,7 +663,16 @@ const Propiedades: FC<PropiedadesProps> = () => {
       const seenEmails = new Set<string>();
 
       const parsedData: LoteDataRow[] = rawData.map((row: Record<string, unknown>, index: number) => {
-        const apto = row.Apto || row.Identificador || row.Apartamento || row.Casa || '';
+        const apto =
+          row['Nro Apartamento'] ||
+          row['Nro. Apartamento'] ||
+          row['NroApartamento'] ||
+          row.Apto ||
+          row['Apto/Casa'] ||
+          row.Identificador ||
+          row.Apartamento ||
+          row.Casa ||
+          '';
         const nombre = row.Nombre || row.Propietario || '';
         const cedulaRaw = row.Cedula || row.Cédula || '';
         const alicuota = row.Alicuota || row.Alícuota || '';
@@ -480,6 +715,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
           cedula: cedulaFmt,
           alicuota: isAliValid ? aliNum : String(alicuota),
           saldo_inicial: String(saldo).replace(',', '.'),
+          saldo_inicial_base: String(saldo).replace(',', '.'),
           correo: emailFmt,
           telefono: telefonoFmt,
           isValid: errorMsg.length === 0,
@@ -487,7 +723,77 @@ const Propiedades: FC<PropiedadesProps> = () => {
         };
       });
 
-      setLoteData(parsedData);
+      const parseMoney = (value: unknown): number => {
+        const normalized = String(value ?? '').trim().replace(',', '.');
+        const parsed = parseFloat(normalized);
+        return Number.isNaN(parsed) ? 0 : parsed;
+      };
+
+      const parsedDeudas: LoteDeudaRow[] = rawDeudas
+        .map((row: Record<string, unknown>) => {
+          const montoDeuda = parseMoney(
+            row['Monto Deuda'] ??
+            row['Monto deuda'] ??
+            row['Monto Deuda ($)'] ??
+            row['Monto Total ($)'] ??
+            row.MontoTotal ??
+            row.monto_total
+          );
+          const montoAbono = parseMoney(
+            row['Monto Abono'] ??
+            row['Monto abono'] ??
+            row['Monto Abonado ($)'] ??
+            row.MontoAbonado ??
+            row.monto_abonado
+          );
+          const saldoRaw = String(row.Saldo ?? row['Saldo ($)'] ?? row.saldo ?? '').trim();
+          const saldoNum = saldoRaw !== '' ? parseMoney(saldoRaw) : (montoDeuda - montoAbono);
+          return {
+            identificador: String(
+              row['Nro Apartamento'] ||
+              row['Nro. Apartamento'] ||
+              row['NroApartamento'] ||
+              row.Identificador ||
+              ''
+            ).trim(),
+            concepto: String(row.Concepto || '').trim(),
+            monto_total: montoDeuda,
+            monto_abonado: montoAbono,
+            saldo: saldoNum
+          };
+        })
+        .filter((item: LoteDeudaRow) => {
+          if (!item.identificador) return false;
+          return Boolean(
+            item.concepto ||
+            item.monto_total > 0 ||
+            item.monto_abonado > 0 ||
+            item.saldo !== null
+          );
+        });
+
+      const saldoNetoByIdentificador = new Map<string, number>();
+
+      parsedDeudas.forEach((item: LoteDeudaRow) => {
+        const key = item.identificador.toLowerCase();
+        if (!key) return;
+
+        const saldoFila = item.saldo ?? (item.monto_total - item.monto_abonado);
+        const acumulado = saldoNetoByIdentificador.get(key) ?? 0;
+        saldoNetoByIdentificador.set(key, acumulado + saldoFila);
+      });
+
+      const parsedDataConSaldo = parsedData.map((row: LoteDataRow) => {
+        const key = row.identificador.toLowerCase();
+        if (saldoNetoByIdentificador.has(key)) {
+          const saldoNeto = saldoNetoByIdentificador.get(key) ?? 0;
+          return { ...row, saldo_inicial: String(saldoNeto) };
+        }
+        return row;
+      });
+
+      setLoteData(parsedDataConSaldo);
+      setLoteDeudas(parsedDeudas);
       setLoteErrors(errCount);
     };
     reader.readAsBinaryString(file);
@@ -522,10 +828,28 @@ const Propiedades: FC<PropiedadesProps> = () => {
 
     try {
       const token = localStorage.getItem('habioo_token');
+      const propiedadesPayload = loteData.map((item: LoteDataRow) => ({
+        identificador: item.identificador,
+        alicuota: item.alicuota,
+        saldo_inicial: item.saldo_inicial_base ?? item.saldo_inicial,
+        nombre: item.nombre,
+        cedula: item.cedula,
+        correo: item.correo,
+        telefono: item.telefono
+      }));
       const res = await fetch(`${API_BASE_URL}/propiedades-admin/lote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ inmuebles: loteData })
+        body: JSON.stringify({
+          propiedades: propiedadesPayload,
+          deudas: loteDeudas.map((item: LoteDeudaRow) => ({
+            identificador: item.identificador,
+            concepto: item.concepto,
+            monto_total: item.monto_total,
+            monto_abonado: item.monto_abonado,
+            saldo: item.saldo
+          }))
+        })
       });
 
       clearInterval(progressInterval);
@@ -538,6 +862,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
           alert(data.message);
           setLoteModalOpen(false);
           setLoteData([]);
+          setLoteDeudas([]);
           fetchPropiedades();
           setIsUploadingLote(false);
           setUploadProgress(0); // Reiniciamos para la próxima
@@ -593,8 +918,6 @@ const Propiedades: FC<PropiedadesProps> = () => {
       const modalPrev: PropiedadFormData = {
         identificador: prev.identificador,
         alicuota: prev.alicuota,
-        saldo_inicial_bs: prev.saldo_inicial_bs,
-        tasa_bcv: prev.tasa_bcv,
         monto_saldo_inicial: prev.monto_saldo_inicial,
         prop_cedula: prev.prop_cedula,
         prop_nombre: prev.prop_nombre,
@@ -606,7 +929,11 @@ const Propiedades: FC<PropiedadesProps> = () => {
         inq_nombre: prev.inq_nombre,
         inq_email: prev.inq_email,
         inq_telefono: prev.inq_telefono,
-        inq_permitir_acceso: prev.inq_permitir_acceso,
+        ...(prev.saldo_inicial_bs !== undefined ? { saldo_inicial_bs: prev.saldo_inicial_bs } : {}),
+        ...(prev.tasa_bcv !== undefined ? { tasa_bcv: prev.tasa_bcv } : {}),
+        ...(prev.inq_permitir_acceso !== undefined ? { inq_permitir_acceso: prev.inq_permitir_acceso } : {}),
+        ...(prev.tiene_deuda_inicial !== undefined ? { tiene_deuda_inicial: prev.tiene_deuda_inicial } : {}),
+        ...(prev.deudas_iniciales !== undefined ? { deudas_iniciales: prev.deudas_iniciales } : {}),
       };
       const next = typeof value === 'function' ? value(modalPrev) : value;
       return { ...prev, ...next };
@@ -639,6 +966,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
         rowNum: prev[index]?.rowNum ?? index + 1,
         ...row,
         saldo_inicial: String(row.saldo_inicial),
+        saldo_inicial_base: prev[index]?.saldo_inicial_base ?? String(row.saldo_inicial),
       }));
     });
   };
@@ -656,6 +984,14 @@ const Propiedades: FC<PropiedadesProps> = () => {
           <input type="text" placeholder="Buscar apartamento o propietario..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 p-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white transition-all"/>
         </div>
         <div className="flex gap-3 w-full xl:w-auto">
+          {canDeleteAll && propiedades.length > 0 && (
+            <button
+              onClick={handleEliminarTodos}
+              className="flex-1 xl:flex-none bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:border-red-800/50 dark:text-red-400 font-bold py-2.5 px-5 rounded-xl transition-all shadow-sm text-sm"
+            >
+              Eliminar todos
+            </button>
+          )}
           <button onClick={() => setLoteModalOpen(true)} className="flex-1 xl:flex-none bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 dark:border-green-800/50 dark:text-green-400 font-bold py-2.5 px-5 rounded-xl transition-all shadow-sm text-sm flex items-center justify-center gap-2">
             📊 Carga Masiva
           </button>
@@ -682,10 +1018,11 @@ const Propiedades: FC<PropiedadesProps> = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {currentProps.map((p: Propiedad) => {
+                  {currentProps.map((p: Propiedad, index: number) => {
                     const saldo = toNumber(p.saldo_actual);
                     const isDeuda = saldo > 0;
                     const isFavor = saldo < 0;
+                    const abrirHaciaArriba = index >= currentProps.length - 2;
                     return (
                       <tr key={p.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                         <td className="py-3 pr-3 font-bold text-gray-800 dark:text-white">{p.identificador}</td>
@@ -703,7 +1040,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
                             Opciones <span className="text-[9px]">▼</span>
                           </button>
                           {openDropdownId === p.id && (
-                        <div className="absolute right-0 top-12 w-48 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden text-left animate-fadeIn">
+                        <div className={`absolute right-0 ${abrirHaciaArriba ? 'bottom-12' : 'top-12'} w-48 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden text-left animate-fadeIn`}>
 
                           <button onClick={(e) => { e.stopPropagation(); handleEdit(p); }} className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors">
                             ✏️ Editar Datos
@@ -769,6 +1106,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
         loteData={loteData}
         setLoteData={setLoteDataForModal}
         loteErrors={loteErrors}
+        montoTotalIngresoLote={montoTotalIngresoLote}
         isUploadingLote={isUploadingLote}
         uploadProgress={uploadProgress} 
         handleDownloadTemplate={handleDownloadTemplate}
@@ -781,3 +1119,4 @@ const Propiedades: FC<PropiedadesProps> = () => {
 };
 
 export default Propiedades;
+

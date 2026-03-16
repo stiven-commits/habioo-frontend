@@ -27,6 +27,12 @@ interface PropiedadFormData {
   inq_email: string;
   inq_telefono: string;
   inq_permitir_acceso?: boolean;
+  tiene_deuda_inicial?: boolean;
+  deudas_iniciales?: Array<{
+    concepto: string;
+    monto_deuda: string;
+    monto_abono: string;
+  }>;
 }
 
 interface BcvApiResponse {
@@ -115,6 +121,7 @@ interface ModalCargaMasivaProps {
   loteData: LotePropiedadRow[];
   setLoteData: Dispatch<SetStateAction<LotePropiedadRow[]>>;
   loteErrors: number;
+  montoTotalIngresoLote: number;
   isUploadingLote: boolean;
   uploadProgress: number;
   handleDownloadTemplate: () => void | Promise<void>;
@@ -152,6 +159,44 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
   const parseNumberInput = (value: string | number | undefined | null): number => {
     if (!value) return 0;
     return parseFloat(String(value).replace(/\./g, '').replace(',', '.')) || 0;
+  };
+
+  const deudasIniciales = Array.isArray(form.deudas_iniciales) ? form.deudas_iniciales : [];
+
+  const updateDeudaInicial = (index: number, field: 'concepto' | 'monto_deuda' | 'monto_abono', value: string): void => {
+    const next = deudasIniciales.map((item, i) => {
+      if (i !== index) return item;
+      if (field === 'concepto') return { ...item, [field]: value };
+      return { ...item, [field]: formatNumberInput(value) };
+    });
+    setForm({ ...form, deudas_iniciales: next });
+  };
+
+  const addDeudaInicial = (): void => {
+    setForm({
+      ...form,
+      deudas_iniciales: [...deudasIniciales, { concepto: '', monto_deuda: '', monto_abono: '' }]
+    });
+  };
+
+  const removeDeudaInicial = (index: number): void => {
+    const next = deudasIniciales.filter((_, i) => i !== index);
+    setForm({
+      ...form,
+      deudas_iniciales: next.length > 0 ? next : [{ concepto: '', monto_deuda: '', monto_abono: '' }]
+    });
+  };
+
+  const toggleDeudaInicial = (): void => {
+    const nextEnabled = !form.tiene_deuda_inicial;
+    setForm({
+      ...form,
+      tiene_deuda_inicial: nextEnabled,
+      deudas_iniciales: nextEnabled
+        ? (deudasIniciales.length > 0 ? deudasIniciales : [{ concepto: '', monto_deuda: '', monto_abono: '' }])
+        : deudasIniciales,
+      ...(nextEnabled ? { monto_saldo_inicial: '', saldo_inicial_bs: '', tasa_bcv: '' } : {})
+    });
   };
 
   const handleSaldoBsChange = (value: string): void => {
@@ -207,52 +252,124 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
 
               {!editingId && (
                 <div className="md:col-span-2 space-y-3">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-xs font-bold text-gray-500 mb-1">Saldo Inicial (Bs)</label>
-                      <input
-                        type="text"
-                        value={form.saldo_inicial_bs || ''}
-                        onChange={(e: ChangeEvent<HTMLInputElement>) => handleSaldoBsChange(e.target.value)}
-                        placeholder="0,00"
-                        className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-500 mb-1">Tasa BCV</label>
-                      <input
-                        type="text"
-                        value={form.tasa_bcv || ''}
-                        onChange={(e: ChangeEvent<HTMLInputElement>) => handleTasaChange(e.target.value)}
-                        placeholder="Ej: 36,50"
-                        className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={fetchBCV}
-                      disabled={isFetchingBCV}
-                      className="w-full p-2.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-900/30 dark:border-blue-800/50 dark:text-blue-400 font-bold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-60"
-                    >
-                      {isFetchingBCV ? 'Consultando...' : 'BCV'}
-                    </button>
+                  <div
+                    className="flex items-center gap-3 mb-1 cursor-pointer"
+                    onClick={toggleDeudaInicial}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={Boolean(form.tiene_deuda_inicial)}
+                      readOnly
+                      className="w-5 h-5 text-donezo-primary"
+                    />
+                    <h4 className="font-bold text-gray-700 dark:text-gray-300">¿Tiene deudas anteriores?</h4>
                   </div>
-                  <div className="grid grid-cols-1 gap-3">
-                    <div>
-                      <label className="block text-xs font-bold text-gray-500 mb-1">Saldo Inicial (USD)</label>
-                      <input
-                        type="text"
-                        name="monto_saldo_inicial"
-                        value={form.monto_saldo_inicial}
-                        onChange={handleChange}
-                        className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
-                      />
+                  {form.tiene_deuda_inicial ? (
+                    <div className="space-y-3 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-amber-50/40 dark:bg-amber-900/10 p-3">
+                      {deudasIniciales.map((deuda, index) => (
+                        <div key={`deuda-${index}`} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+                          <div className="md:col-span-6">
+                            <label className="block text-xs font-bold text-gray-500 mb-1">Concepto</label>
+                            <input
+                              type="text"
+                              value={deuda.concepto}
+                              onChange={(e: ChangeEvent<HTMLInputElement>) => updateDeudaInicial(index, 'concepto', e.target.value)}
+                              placeholder="Ej: Deuda mantenimiento enero"
+                              className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="block text-xs font-bold text-gray-500 mb-1">Monto deuda ($)</label>
+                            <input
+                              type="text"
+                              value={deuda.monto_deuda}
+                              onChange={(e: ChangeEvent<HTMLInputElement>) => updateDeudaInicial(index, 'monto_deuda', e.target.value)}
+                              placeholder="0,00"
+                              className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="block text-xs font-bold text-gray-500 mb-1">Monto abono ($)</label>
+                            <input
+                              type="text"
+                              value={deuda.monto_abono}
+                              onChange={(e: ChangeEvent<HTMLInputElement>) => updateDeudaInicial(index, 'monto_abono', e.target.value)}
+                              placeholder="Opcional"
+                              className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                            />
+                          </div>
+                          <div className="md:col-span-2 flex gap-2">
+                            <button
+                              type="button"
+                              onClick={addDeudaInicial}
+                              className="flex-1 p-2.5 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800/50 font-bold text-sm"
+                            >
+                              +
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeDeudaInicial(index)}
+                              className="flex-1 p-2.5 rounded-xl bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800/50 font-bold text-sm"
+                            >
+                              -
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        El sistema calculará automáticamente el saldo neto por cada deuda: monto deuda - monto abono.
+                      </p>
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      El sistema interpreta automáticamente el tipo por signo:
-                      negativo = saldo a favor, positivo = deuda, cero = sin saldo.
-                    </p>
-                  </div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 mb-1">Saldo Inicial (Bs)</label>
+                          <input
+                            type="text"
+                            value={form.saldo_inicial_bs || ''}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) => handleSaldoBsChange(e.target.value)}
+                            placeholder="0,00"
+                            className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 mb-1">Tasa BCV</label>
+                          <input
+                            type="text"
+                            value={form.tasa_bcv || ''}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) => handleTasaChange(e.target.value)}
+                            placeholder="Ej: 36,50"
+                            className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={fetchBCV}
+                          disabled={isFetchingBCV}
+                          className="w-full p-2.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-900/30 dark:border-blue-800/50 dark:text-blue-400 font-bold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-60"
+                        >
+                          {isFetchingBCV ? 'Consultando...' : 'BCV'}
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 mb-1">Saldo Inicial (USD)</label>
+                          <input
+                            type="text"
+                            name="monto_saldo_inicial"
+                            value={form.monto_saldo_inicial}
+                            onChange={handleChange}
+                            className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          El sistema interpreta automáticamente el tipo por signo:
+                          negativo = saldo a favor, positivo = deuda, cero = sin saldo.
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -433,7 +550,7 @@ export const ModalEstadoCuenta: FC<ModalEstadoCuentaProps> = ({
               <tfoot>
                 <tr className="bg-gray-50 dark:bg-gray-900 border-t-2 border-gray-200 dark:border-gray-700">
                   <td colSpan={7} className="p-4 text-right font-black uppercase text-xs text-gray-600 dark:text-gray-300 tracking-wider">Saldo Final:</td>
-                  <td className="p-4 text-right font-black text-donezo-primary font-mono">${formatMoney(saldoFinal)}</td>
+                  <td className="p-4 text-right font-black text-donezo-primary dark:text-cyan-300 font-mono">${formatMoney(saldoFinal)}</td>
                   <td className="p-4"></td>
                 </tr>
               </tfoot>
@@ -505,6 +622,7 @@ export const ModalCargaMasiva: FC<ModalCargaMasivaProps> = ({
   loteData,
   setLoteData,
   loteErrors,
+  montoTotalIngresoLote,
   isUploadingLote,
   uploadProgress,
   handleDownloadTemplate,
@@ -531,6 +649,11 @@ export const ModalCargaMasiva: FC<ModalCargaMasivaProps> = ({
                 <p className="text-sm text-gray-500 mt-1">
                   Se encontraron {loteData.length} registros.
                   {loteErrors > 0 && <span className="text-red-500 font-bold ml-2">Hay {loteErrors} errores detectados.</span>}
+                </p>
+              )}
+              {loteData.length > 0 && (
+                <p className="text-sm text-emerald-600 dark:text-emerald-400 font-bold mt-1">
+                  Monto total a ingresar en inmuebles: ${formatMoney(montoTotalIngresoLote)}
                 </p>
               )}
            </div>
@@ -562,24 +685,24 @@ export const ModalCargaMasiva: FC<ModalCargaMasivaProps> = ({
             </div>
           </div>
         ) : (
-          <>
-            <div className="flex-1 overflow-y-auto p-0 bg-white dark:bg-donezo-card-dark custom-scrollbar relative">
-              {isUploadingLote && (
-                <div className="absolute inset-0 bg-white/50 dark:bg-black/50 backdrop-blur-sm z-20 flex flex-col items-center justify-center">
-                   <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 flex flex-col items-center gap-4 w-full max-w-sm">
-                      <span className="font-bold text-gray-800 dark:text-white text-lg">Procesando {loteData.length} registros...</span>
-                      <p className="text-sm text-gray-500 text-center">Por favor, no cierre esta ventana mientras se guardan los datos.</p>
+          <div className="relative flex-1 min-h-0 flex flex-col">
+            {isUploadingLote && (
+              <div className="absolute inset-0 bg-white/55 dark:bg-black/55 backdrop-blur-sm z-30 flex flex-col items-center justify-center p-4">
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 flex flex-col items-center gap-4 w-full max-w-sm">
+                  <span className="font-bold text-gray-800 dark:text-white text-lg">Procesando {loteData.length} registros...</span>
+                  <p className="text-sm text-gray-500 text-center">Por favor, no cierre esta ventana mientras se guardan los datos.</p>
 
-                      <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-4 overflow-hidden relative shadow-inner mt-2">
-                        <div
-                          className="bg-green-500 h-4 rounded-full transition-all duration-300 ease-out"
-                          style={{ width: `${Math.round(uploadProgress)}%` }}
-                        ></div>
-                      </div>
-                      <span className="text-sm font-bold text-green-600 dark:text-green-400">{Math.round(uploadProgress)}%</span>
-                   </div>
+                  <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-4 overflow-hidden relative shadow-inner mt-2">
+                    <div
+                      className="bg-green-500 h-4 rounded-full transition-all duration-300 ease-out"
+                      style={{ width: `${Math.round(uploadProgress)}%` }}
+                    ></div>
+                  </div>
+                  <span className="text-sm font-bold text-green-600 dark:text-green-400">{Math.round(uploadProgress)}%</span>
                 </div>
-              )}
+              </div>
+            )}
+            <div className="flex-1 overflow-y-auto p-0 bg-white dark:bg-donezo-card-dark custom-scrollbar">
               <table className="w-full text-left border-collapse text-sm">
                 <thead className="sticky top-0 bg-gray-100 dark:bg-gray-800 shadow-sm z-10">
                   <tr className="text-gray-600 dark:text-gray-300">
@@ -596,7 +719,15 @@ export const ModalCargaMasiva: FC<ModalCargaMasivaProps> = ({
                 <tbody>
                   {loteData.map((row, i) => (
                     <tr key={i} className={`border-b ${row.isValid ? 'border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800' : 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30'}`}>
-                      <td className="p-3 text-center">{row.isValid ? <span className="text-green-500 text-lg" title="Correcto">OK</span> : <span className="text-red-500 text-lg cursor-help" title={row.errors}>ERR</span>}</td>
+                      <td className="p-3 text-center text-xs">
+                        {row.isValid ? (
+                          <span className="text-green-500 text-lg" title="Correcto">OK</span>
+                        ) : (
+                          <span className="text-red-500 font-semibold" title={row.errors}>
+                            ERR{row.errors ? ` - ${row.errors}` : ''}
+                          </span>
+                        )}
+                      </td>
                       <td className="p-3 font-bold text-gray-800 dark:text-white">{row.identificador}</td>
                       <td className="p-3"><div className="text-gray-700 dark:text-gray-300 font-medium">{row.nombre}</div>{!row.isValid && row.errors.includes('Nombre') && <span className="text-[10px] text-red-500 font-bold">Requerido</span>}</td>
                       <td className="p-3 font-mono text-gray-600 dark:text-gray-400">{row.cedula}{!row.isValid && row.errors.includes('Cédula') && <div className="text-[10px] text-red-500 font-bold">Inválida</div>}</td>
@@ -639,7 +770,7 @@ export const ModalCargaMasiva: FC<ModalCargaMasivaProps> = ({
                 </div>
               </div>
             </div>
-          </>
+          </div>
         )}
       </div>
     </div>

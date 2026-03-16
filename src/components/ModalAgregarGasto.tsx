@@ -61,8 +61,14 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({ onClose, onSuccess, pro
   // NUEVO: Estado para el loading de la tasa BCV
   const [loadingBCV, setLoadingBCV] = useState<boolean>(false);
 
-  const montoBsNum = parseFloat(form.monto_bs.replace(/\./g, '').replace(',', '.')) || 0;
-  const tasaNum = parseFloat(form.tasa_cambio.replace(/\./g, '').replace(',', '.')) || 0;
+  const parseInputNumber = (txt: string): number => {
+    const cleaned = String(txt || '').trim().replace(/\./g, '').replace(',', '.');
+    const parsed = parseFloat(cleaned);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
+  const montoBsNum = parseInputNumber(form.monto_bs);
+  const tasaNum = parseInputNumber(form.tasa_cambio);
   const equivalenteUSD = tasaNum > 0 ? (montoBsNum / tasaNum).toFixed(2) : '0.00';
 
   const formatCurrencyInput = (value: string): string => {
@@ -119,10 +125,18 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({ onClose, onSuccess, pro
   const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     const token = localStorage.getItem('habioo_token');
+    const montoCanonico = parseInputNumber(form.monto_bs);
+    const tasaCanonica = parseInputNumber(form.tasa_cambio);
+    if (montoCanonico <= 0 || tasaCanonica <= 0) {
+      alert('Monto y tasa deben ser mayores a 0.');
+      return;
+    }
     
     const formData = new FormData();
     (Object.keys(form) as Array<keyof FormState>).forEach((key: keyof FormState) => {
       if (key === 'asignacion_tipo') formData.append('tipo', form[key]);
+      else if (key === 'monto_bs') formData.append('monto_bs', montoCanonico.toFixed(2));
+      else if (key === 'tasa_cambio') formData.append('tasa_cambio', tasaCanonica.toFixed(4));
       else formData.append(key, form[key]);
     });
     

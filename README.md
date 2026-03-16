@@ -244,7 +244,7 @@ Notas de desarrollo local:
 - `POST https://auth.habioo.cloud/propiedades-admin` -> crear inmueble.
 - `PUT https://auth.habioo.cloud/propiedades-admin/:id` -> editar inmueble.
 - `GET https://auth.habioo.cloud/propiedades-admin/:id/estado-cuenta` -> movimientos de cuenta del inmueble.
-- `POST https://auth.habioo.cloud/propiedades-admin/:id/ajustar-saldo` -> ajuste manual de saldo (deuda/a favor).
+- `POST https://auth.habioo.cloud/propiedades-admin/:id/ajustar-saldo` -> ajuste manual de saldo (deuda/a favor), afecta solo estado de cuenta del inmueble.
 - `POST https://auth.habioo.cloud/propiedades-admin/lote` -> carga masiva de inmuebles (Excel/lote).
 
 ### Dashboard residente
@@ -317,6 +317,18 @@ Notas de desarrollo local:
    - Ajuste manual de saldo por inmueble y estado de cuenta con cargos/abonos.
    - En el registro de inmueble se agregó captura de `Saldo Inicial (Bs)`, `Tasa BCV` y cálculo automático a `Saldo Inicial (USD)` con botón de consulta BCV.
    - Carga masiva desde Excel con validaciones (apto, nombre, cédula, alícuota y duplicados de correo).
+   - Plantilla de carga masiva actualizada a 2 hojas:
+     - `Propiedades`
+     - `saldos_bases` (columnas: `Monto Deuda`, `Monto Abono`, `Saldo`).
+   - En `saldos_bases`, `Saldo` viene preconfigurado con fórmula `Monto Deuda - Monto Abono` en toda la columna de captura y estilo visual para guiar al usuario.
+   - Importación de lote en modo silencioso:
+     - Aplica saldo por inmueble (`saldo_actual` + historial),
+     - No genera recibos históricos automáticos,
+     - No crea avisos de cobro al importar.
+   - Alta manual de inmueble:
+     - Nuevo toggle `¿Tiene deudas anteriores?`
+     - Permite agregar múltiples filas (concepto, monto deuda, monto abono opcional),
+     - Si está activo, se oculta el bloque de saldo inicial manual.
    - Paginación de la tabla principal ajustada a 13 inmuebles por página.
    - Modales desacopladas en `src/components/propiedades/PropiedadesModals.jsx`.
    - La acción `Estado de Cuenta` fue retirada del dropdown de `Inmuebles`.
@@ -379,6 +391,12 @@ Notas de desarrollo local:
 7. Cobranza (ajuste de flujo):
    - Se centraliza la gestión operativa por inmueble con deuda.
    - Incluye acciones `Estado de Cuenta` y `Registrar Pago` por fila.
+   - Se agrega acción `Ajuste` por inmueble en `/cuentas-cobrar` con modal:
+     - Tipo de ajuste (`Deuda` / `A favor`),
+     - Monto en Bs,
+     - Tasa BCV (consulta automática),
+     - Equivalente en USD calculado.
+   - Los ajustes de cobranza no impactan cuentas bancarias ni fondos; solo actualizan saldo y estado de cuenta del inmueble.
    - Mantiene paginación de 13 registros por página.
 8. Desarrollo local:
    - Se incorporó `src/config/api.js` con `API_BASE_URL` dinámico.
