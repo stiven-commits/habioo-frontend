@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 
 interface LayoutProps {}
@@ -124,6 +124,7 @@ const Layout: React.FC<LayoutProps> = () => {
         <div className="p-8"><h1 className="text-2xl font-bold bg-gradient-to-r from-donezo-primary to-green-400 bg-clip-text text-transparent">Habioo</h1></div>
         <nav className="flex-1 px-4 space-y-2 overflow-y-auto">
           <Link to="/dashboard" className={navClass('/dashboard')}>📊 Dashboard</Link>
+          <Link to="/perfil" className={navClass('/perfil')}>⚙️ Perfil Condominio</Link>
           {userRole === 'Administrador' && (
             <>
               <p className="px-4 text-xs font-bold text-gray-400 uppercase mt-6 mb-2">Configuración</p>
@@ -167,3 +168,6 @@ const Layout: React.FC<LayoutProps> = () => {
 };
 
 export default Layout;
+
+
+

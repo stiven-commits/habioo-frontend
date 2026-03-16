@@ -11,6 +11,7 @@ import Bancos from './pages/Bancos';
 import Zonas from './pages/Zonas';
 import HistorialAvisos from './pages/HistorialAvisos';
 import EstadoCuentasBancarias from './pages/EstadoCuentasBancarias';
+import PerfilCondominio from './pages/PerfilCondominio';
 import { DialogProvider } from './components/ui/DialogProvider';
 
 export default function App() {
@@ -22,6 +23,7 @@ export default function App() {
 
           <Route element={<Layout />}>
             <Route path="/dashboard" element={<DashboardHome />} />
+            <Route path="/perfil" element={<PerfilCondominio />} />
             <Route path="/proveedores" element={<Proveedores />} />
             <Route path="/gastos" element={<Gastos />} />
             <Route path="/cierres" element={<Cierres />} />
