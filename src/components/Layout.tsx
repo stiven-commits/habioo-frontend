@@ -135,7 +135,7 @@ const Layout: React.FC<LayoutProps> = () => {
               <p className="px-4 text-xs font-bold text-gray-400 uppercase mt-6 mb-2">Contabilidad</p>
               <Link to="/gastos" className={navClass('/gastos')}>🧾 Gastos</Link>
               <Link to="/cierres" className={navClass('/cierres')}>🔒 Cierres Preliminares</Link>
-              <Link to="/avisos-cobro" className={navClass('/avisos-cobro')}>🗂️ Avisos y Recibos</Link>
+              <Link to="/avisos-cobro" className={navClass('/avisos-cobro')}>🗂️ Avisos de cobro</Link>
               <Link to="/cuentas-cobrar" className={navClass('/cuentas-cobrar')}>💰 Cobranza</Link>
               <Link to="/estado-cuentas" className={navClass('/estado-cuentas')}>📊 Libro Mayor</Link>
             </>
