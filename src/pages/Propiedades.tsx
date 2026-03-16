@@ -28,6 +28,7 @@ interface Propiedad {
   inq_email?: string;
   inq_telefono?: string;
   inq_acceso_portal?: boolean;
+  can_delete?: boolean;
   [key: string]: unknown;
 }
 
@@ -459,6 +460,40 @@ const Propiedades: FC<PropiedadesProps> = () => {
       }
     } catch {
       alert('Error de conexión al eliminar inmuebles.');
+    }
+  };
+
+  const handleEliminarInmueble = async (prop: Propiedad): Promise<void> => {
+    if (!prop.can_delete) {
+      alert('No se puede eliminar este inmueble porque ya tiene avisos/recibos generados.');
+      return;
+    }
+
+    const ok = await showConfirm({
+      title: 'Eliminar inmueble',
+      message: `¿Eliminar el inmueble ${prop.identificador}? Esta acción no se puede deshacer.`,
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      variant: 'warning',
+    });
+    if (!ok) return;
+
+    try {
+      const token = localStorage.getItem('habioo_token');
+      const res = await fetch(`${API_BASE_URL}/propiedades-admin/${prop.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data: ApiActionResponse = await res.json();
+      if (data.status === 'success') {
+        alert(data.message || 'Inmueble eliminado.');
+        setOpenDropdownId(null);
+        fetchPropiedades();
+      } else {
+        alert(data.error || 'No fue posible eliminar el inmueble.');
+      }
+    } catch {
+      alert('Error de conexión al eliminar inmueble.');
     }
   };
 
@@ -1045,7 +1080,15 @@ const Propiedades: FC<PropiedadesProps> = () => {
                           <button onClick={(e) => { e.stopPropagation(); handleEdit(p); }} className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors">
                             ✏️ Editar Datos
                           </button>
-                          
+                          <button
+                            onClick={(e) => { e.stopPropagation(); void handleEliminarInmueble(p); }}
+                            disabled={!p.can_delete}
+                            className="w-full text-left px-4 py-3 hover:bg-red-50 dark:hover:bg-red-900/30 text-sm text-red-600 dark:text-red-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            title={p.can_delete ? 'Eliminar inmueble' : 'No se puede eliminar: ya tiene avisos/recibos'}
+                          >
+                            🗑️ Eliminar inmueble
+                          </button>
+                           
                         </div>
                       )}
                         </td>
@@ -1119,4 +1162,3 @@ const Propiedades: FC<PropiedadesProps> = () => {
 };
 
 export default Propiedades;
-
