@@ -161,6 +161,7 @@ Si se retoma este proyecto con contexto nuevo:
 
 - `/` -> Login
 - `/dashboard` -> DashboardHome
+- `/perfil` -> PerfilCondominio
 - `/proveedores` -> Proveedores
 - `/gastos` -> Gastos
 - `/cierres` -> Cierres
@@ -182,6 +183,21 @@ Si se retoma este proyecto con contexto nuevo:
 - `GET https://auth.habioo.cloud/me` (protegida)
   - Front: `src/components/Layout.jsx`
   - Acción: valida token vigente.
+
+### Perfil de condominio
+- `GET https://auth.habioo.cloud/api/perfil` (protegida)
+  - Front: `src/pages/PerfilCondominio.tsx`
+  - Acción: obtiene datos de perfil del condominio y administradora por `condominio_id` del JWT.
+- `PUT https://auth.habioo.cloud/api/perfil` (protegida)
+  - Front: `src/pages/PerfilCondominio.tsx`
+  - Acción: actualiza datos de texto del perfil (condominio + administradora + cobranza).
+- `PUT https://auth.habioo.cloud/api/perfil/password` (protegida)
+  - Front: `src/pages/PerfilCondominio.tsx`
+  - Acción: actualiza la contraseña del usuario autenticado (`users.password`) usando `nueva_password`.
+- `POST https://auth.habioo.cloud/api/perfil/upload/:tipo` (protegida)
+  - Front: `src/pages/PerfilCondominio.tsx`
+  - Acción: sube `logo` o `firma` en webp a `uploads/perfil` y guarda URL en `condominios`.
+  - Para `firma` se procesa fondo blanco a transparente y en UI se aplica `mix-blend-multiply`.
 
 ### Proveedores
 - `GET https://auth.habioo.cloud/proveedores` -> listar proveedores activos del condominio del admin autenticado.
@@ -251,6 +267,12 @@ Notas de desarrollo local:
 - `GET https://auth.habioo.cloud/mis-propiedades` -> propiedades del usuario.
 - `GET https://auth.habioo.cloud/mis-finanzas` -> resumen financiero.
 
+### Seeder de pruebas (admin)
+- `POST https://auth.habioo.cloud/dashboard-admin/seed-prueba`
+  - Solo habilitado cuando `ENABLE_TEST_SEEDER=true` en backend (`habioo-auth/.env`).
+  - Solo ejecutable por el usuario de prueba con cédula `J123456789`.
+  - La limpieza de usuarios seed quedó aislada al condominio del admin autenticado (no impacta otros condominios/usuarios).
+
 ### API externa
 - `GET https://ve.dolarapi.com/v1/dolares/oficial` -> tasa BCV (modal de pago).
 
@@ -261,6 +283,10 @@ Notas de desarrollo local:
 ### Seguridad y núcleo
 - `users`: usuarios (admin y residentes).
 - `condominios`: condominio y configuración contable (`mes_actual`, `metodo_division`).
+  - Perfil ampliado (migración `habioo-auth/sql/2026-03-16_add_condominios_profile_fields.sql`):
+    - `nombre_legal`, `rif`, `direccion`, `porcentaje_morosidad`
+    - `admin_nombre`, `admin_rif`, `admin_representante`, `admin_telefono`, `admin_correo`
+    - `logo_url`, `firma_url`
 
 ### Habitacional
 - `propiedades`: inmuebles (`identificador`, `alicuota`, `zona_id`, `saldo_actual`).
@@ -287,6 +313,11 @@ Notas de desarrollo local:
   - Fracciones mensuales: `numero_cuota`, `monto_cuota_usd`, `mes_asignado`, `estado`.
 - `recibos`:
   - Resultado del cierre mensual por inmueble.
+  - Snapshot inmutable del aviso al momento de emisión:
+    - `snapshot_jsonb` (JSONB)
+    - `snapshot_version` (INTEGER, default `1`)
+  - Índice GIN para snapshot:
+    - `idx_recibos_snapshot_jsonb_gin` sobre `snapshot_jsonb`
 
 ### Fondos y pagos
 - `fondos`:
@@ -338,6 +369,18 @@ Notas de desarrollo local:
    - Persistencia en BD: `usuarios_propiedades.acceso_portal` (default `true`).
    - Login bloquea usuarios residentes/inquilinos cuando todas sus relaciones están con `acceso_portal=false`.
    - Endpoints de residente (`/mis-propiedades`, `/mis-finanzas`) solo devuelven relaciones con `acceso_portal=true`.
+3. Avisos de cobro (histórico inmutable):
+   - Se agregó soporte de snapshot por recibo para congelar la representación del aviso al momento de emisión.
+   - Objetivo: al abrir avisos antiguos, no recalcular con estados de cuenta/fondos/mensajes actuales, sino mostrar exactamente el contexto histórico.
+   - Migración asociada:
+     - `habioo-auth/sql/2026-03-16_add_recibos_snapshot_jsonb.sql`
+4. Seeder de pruebas (hardening):
+   - Control por variable de entorno:
+     - `ENABLE_TEST_SEEDER=true|false` (backend).
+   - Restricción de acceso:
+     - solo cédula `J123456789`.
+   - Limpieza segura:
+     - solo elimina usuarios seed vinculados al condominio de prueba actual; no borra usuarios seed de otros condominios.
 3. Gastos:
    - Migración de ciclos numéricos a meses calendario (`mes_actual`, `mes_asignado`).
    - Doble fecha de gasto (`fecha_gasto` y `created_at`).
@@ -427,7 +470,19 @@ Notas de desarrollo local:
    - Frontend:
      - Formulario individual de proveedor incluye `email` obligatorio.
      - Vista detalle muestra `email`.
-     - Carga masiva Excel agrega columna `Email` y valida formato antes de enviar.
+   - Carga masiva Excel agrega columna `Email` y valida formato antes de enviar.
+13. Perfil del Condominio (front + back + BD):
+   - Nueva vista `Perfil y Configuración` en `/perfil` con tarjetas para:
+     - datos del condominio,
+     - empresa administradora,
+     - reglas de cobranza,
+     - identidad visual (logo/firma),
+     - seguridad (cambio de contraseña).
+   - Se agregó sidebar link `Perfil Condominio` en `Layout`.
+   - Login JWT ahora incluye `condominio_id` e `is_admin` para resolver contexto de perfil.
+   - Nueva ruta backend `app.use('/api/perfil', perfilRoutes)`.
+   - Migración SQL añadida para campos de perfil en `condominios` y backfill inicial.
+   - `PUT /api/perfil/password` actualiza `users.password` del usuario autenticado.
 
 ---
 

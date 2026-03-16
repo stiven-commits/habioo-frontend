@@ -12,6 +12,7 @@ import Zonas from './pages/Zonas';
 import HistorialAvisos from './pages/HistorialAvisos';
 import EstadoCuentasBancarias from './pages/EstadoCuentasBancarias';
 import PerfilCondominio from './pages/PerfilCondominio';
+import VistaAvisoCobro from './components/recibos/VistaAvisoCobro.tsx';
 import { DialogProvider } from './components/ui/DialogProvider';
 
 export default function App() {
@@ -33,6 +34,7 @@ export default function App() {
             <Route path="/estado-cuentas" element={<EstadoCuentasBancarias />} />
             <Route path="/zonas" element={<Zonas />} />
             <Route path="/avisos-cobro" element={<HistorialAvisos />} />
+            <Route path="/aviso-cobro/:id" element={<VistaAvisoCobro />} />
           </Route>
         </Routes>
       </BrowserRouter>

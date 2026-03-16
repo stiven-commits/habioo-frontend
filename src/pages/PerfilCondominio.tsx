@@ -16,6 +16,10 @@ interface PerfilCondominioFormData {
   admin_correo: string;
   logo_url: string;
   firma_url: string;
+  aviso_msg_1: string;
+  aviso_msg_2: string;
+  aviso_msg_3: string;
+  aviso_msg_4: string;
 }
 
 interface PerfilCondominioApiData {
@@ -32,6 +36,10 @@ interface PerfilCondominioApiData {
   admin_correo?: string | null;
   logo_url?: string | null;
   firma_url?: string | null;
+  aviso_msg_1?: string | null;
+  aviso_msg_2?: string | null;
+  aviso_msg_3?: string | null;
+  aviso_msg_4?: string | null;
 }
 
 interface PasswordFormData {
@@ -64,6 +72,10 @@ const initialPerfil: PerfilCondominioFormData = {
   admin_correo: '',
   logo_url: '',
   firma_url: '',
+  aviso_msg_1: '',
+  aviso_msg_2: '',
+  aviso_msg_3: '',
+  aviso_msg_4: '',
 };
 
 const initialPasswordForm: PasswordFormData = {
@@ -77,12 +89,9 @@ const buildAssetUrl = (url: string): string => {
   return `${API_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
 };
 
-const cardClass =
-  'rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark';
-
+const cardClass = 'rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark';
 const inputClass =
   'w-full rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-sm text-gray-900 outline-none transition focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white';
-
 const labelClass = 'mb-1 block text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400';
 
 const PerfilCondominio: FC = () => {
@@ -97,59 +106,58 @@ const PerfilCondominio: FC = () => {
 
   const token = useMemo<string>(() => localStorage.getItem('habioo_token') || '', []);
 
-  const loadPerfil = async (): Promise<void> => {
-    try {
-      setLoading(true);
-      setErrorMessage('');
+  useEffect(() => {
+    const loadPerfil = async (): Promise<void> => {
+      try {
+        setLoading(true);
+        setErrorMessage('');
 
-      const res = await fetch(`${API_BASE_URL}/api/perfil`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+        const res = await fetch(`${API_BASE_URL}/api/perfil`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-      const data: ApiResponse<PerfilCondominioApiData> = await res.json();
-      if (!res.ok || data.status !== 'success') {
-        setErrorMessage(data.status === 'error' ? data.message : 'No se pudo cargar el perfil.');
-        return;
+        const data: ApiResponse<PerfilCondominioApiData> = await res.json();
+        if (!res.ok || data.status !== 'success') {
+          setErrorMessage(data.status === 'error' ? data.message : 'No se pudo cargar el perfil.');
+          return;
+        }
+
+        const profile = data.data ?? {};
+        setForm({
+          nombre_legal: String(profile.nombre_legal ?? profile.nombre ?? ''),
+          rif: String(profile.rif ?? ''),
+          direccion: String(profile.direccion ?? ''),
+          porcentaje_morosidad: String(profile.porcentaje_morosidad ?? profile.tasa_interes ?? ''),
+          admin_nombre: String(profile.admin_nombre ?? ''),
+          admin_rif: String(profile.admin_rif ?? ''),
+          admin_representante: String(profile.admin_representante ?? ''),
+          admin_telefono: String(profile.admin_telefono ?? ''),
+          admin_correo: String(profile.admin_correo ?? ''),
+          logo_url: String(profile.logo_url ?? ''),
+          firma_url: String(profile.firma_url ?? ''),
+          aviso_msg_1: String(profile.aviso_msg_1 ?? ''),
+          aviso_msg_2: String(profile.aviso_msg_2 ?? ''),
+          aviso_msg_3: String(profile.aviso_msg_3 ?? ''),
+          aviso_msg_4: String(profile.aviso_msg_4 ?? ''),
+        });
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Error al cargar el perfil.';
+        setErrorMessage(msg);
+      } finally {
+        setLoading(false);
       }
+    };
 
-      const profile: PerfilCondominioApiData = data.data ?? {};
-      setForm({
-        // Soportamos ambos nombres para evitar vacíos por diferencias backend/frontend.
-        nombre_legal: String(profile.nombre_legal ?? profile.nombre ?? ''),
-        rif: String(profile.rif ?? ''),
-        direccion: String(profile.direccion ?? ''),
-        porcentaje_morosidad: String(profile.porcentaje_morosidad ?? profile.tasa_interes ?? ''),
-        admin_nombre: String(profile.admin_nombre ?? ''),
-        admin_rif: String(profile.admin_rif ?? ''),
-        admin_representante: String(profile.admin_representante ?? ''),
-        admin_telefono: String(profile.admin_telefono ?? ''),
-        admin_correo: String(profile.admin_correo ?? ''),
-        logo_url: String(profile.logo_url ?? ''),
-        firma_url: String(profile.firma_url ?? ''),
-      });
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Error al cargar el perfil.';
-      setErrorMessage(msg);
-    } finally {
-      setLoading(false);
-    }
+    void loadPerfil();
+  }, [token]);
+
+  const handleInputChange = (field: keyof PerfilCondominioFormData) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
+    setForm((prev) => ({ ...prev, [field]: e.target.value }));
   };
 
-  useEffect(() => {
-    void loadPerfil();
-  }, []);
-
-  const handleInputChange =
-    (field: keyof PerfilCondominioFormData) =>
-    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-      setForm((prev) => ({ ...prev, [field]: e.target.value }));
-    };
-
-  const handlePasswordInputChange =
-    (field: keyof PasswordFormData) =>
-    (e: ChangeEvent<HTMLInputElement>): void => {
-      setPasswordForm((prev) => ({ ...prev, [field]: e.target.value }));
-    };
+  const handlePasswordInputChange = (field: keyof PasswordFormData) => (e: ChangeEvent<HTMLInputElement>): void => {
+    setPasswordForm((prev) => ({ ...prev, [field]: e.target.value }));
+  };
 
   const handleGuardarCambios = async (): Promise<void> => {
     try {
@@ -158,7 +166,6 @@ const PerfilCondominio: FC = () => {
       setSuccessMessage('');
 
       const payload = {
-        // nombre para backend actual, nombre_legal por compatibilidad.
         nombre: form.nombre_legal.trim(),
         nombre_legal: form.nombre_legal.trim(),
         rif: form.rif.trim(),
@@ -169,6 +176,10 @@ const PerfilCondominio: FC = () => {
         admin_representante: form.admin_representante.trim(),
         admin_telefono: form.admin_telefono.trim(),
         admin_correo: form.admin_correo.trim(),
+        aviso_msg_1: form.aviso_msg_1,
+        aviso_msg_2: form.aviso_msg_2,
+        aviso_msg_3: form.aviso_msg_3,
+        aviso_msg_4: form.aviso_msg_4,
       };
 
       const res = await fetch(`${API_BASE_URL}/api/perfil`, {
@@ -185,7 +196,6 @@ const PerfilCondominio: FC = () => {
         setErrorMessage(data.status === 'error' ? data.message : 'No se pudo guardar.');
         return;
       }
-
       setSuccessMessage(data.message || 'Cambios guardados correctamente.');
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Error al guardar.';
@@ -222,7 +232,6 @@ const PerfilCondominio: FC = () => {
         logo_url: tipo === 'logo' ? newUrl : prev.logo_url,
         firma_url: tipo === 'firma' ? newUrl : prev.firma_url,
       }));
-
       setSuccessMessage(data.message || 'Imagen actualizada correctamente.');
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Error al subir la imagen.';
@@ -248,12 +257,10 @@ const PerfilCondominio: FC = () => {
       setErrorMessage('Completa todos los campos de seguridad.');
       return;
     }
-
     if (passwordForm.nueva_password.length < 6) {
       setErrorMessage('La nueva contraseña debe tener al menos 6 caracteres.');
       return;
     }
-
     if (passwordForm.nueva_password !== passwordForm.confirmar_password) {
       setErrorMessage('La confirmación de contraseña no coincide.');
       return;
@@ -361,6 +368,43 @@ const PerfilCondominio: FC = () => {
                 <input type="email" className={inputClass} value={form.admin_correo} onChange={handleInputChange('admin_correo')} />
               </div>
             </div>
+            <div className="mt-5 border-t border-gray-200 pt-5 dark:border-gray-700">
+              <h3 className="mb-4 text-base font-black text-gray-900 dark:text-white">🎨 Identidad Visual</h3>
+              <div className="space-y-4">
+                <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+                  <p className="mb-2 text-sm font-bold text-gray-700 dark:text-gray-200">Logo de la Administradora/Condominio</p>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <label className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700">
+                      {uploading.logo ? 'Subiendo...' : 'Subir Logo'}
+                      <input type="file" accept="image/*" className="hidden" onChange={onUploadChange('logo')} />
+                    </label>
+                    {form.logo_url ? (
+                      <img src={buildAssetUrl(form.logo_url)} alt="Logo" className="h-20 w-auto rounded-lg border border-gray-200 bg-white p-1 dark:border-gray-700" />
+                    ) : (
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Sin imagen cargada.</span>
+                    )}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+                  <p className="mb-2 text-sm font-bold text-gray-700 dark:text-gray-200">Sello/Firma digital</p>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <label className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700">
+                      {uploading.firma ? 'Subiendo...' : 'Subir Firma'}
+                      <input type="file" accept="image/*" className="hidden" onChange={onUploadChange('firma')} />
+                    </label>
+                    {form.firma_url ? (
+                      <img
+                        src={buildAssetUrl(form.firma_url)}
+                        alt="Firma"
+                        className="h-20 w-auto rounded-lg border border-gray-200 bg-white p-1 mix-blend-multiply dark:border-gray-700"
+                      />
+                    ) : (
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Sin imagen cargada.</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
           </section>
 
           <section className={cardClass}>
@@ -377,44 +421,50 @@ const PerfilCondominio: FC = () => {
               />
               <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Se aplica a propietarios con más de 2 avisos vencidos.</p>
             </div>
-          </section>
-
-          <section className={cardClass}>
-            <h2 className="mb-4 text-lg font-black text-gray-900 dark:text-white">🎨 Identidad Visual</h2>
-            <div className="space-y-5">
-              <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
-                <p className="mb-2 text-sm font-bold text-gray-700 dark:text-gray-200">Logo de la Administradora/Condominio</p>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <label className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700">
-                    {uploading.logo ? 'Subiendo...' : 'Subir Logo'}
-                    <input type="file" accept="image/*" className="hidden" onChange={onUploadChange('logo')} />
-                  </label>
-                  {form.logo_url ? (
-                    <img src={buildAssetUrl(form.logo_url)} alt="Logo" className="h-20 w-auto rounded-lg border border-gray-200 bg-white p-1 dark:border-gray-700" />
-                  ) : (
-                    <span className="text-xs text-gray-500 dark:text-gray-400">Sin imagen cargada.</span>
-                  )}
-                </div>
+            <div className="mt-5 grid grid-cols-1 gap-4">
+              <div>
+                <label className={labelClass}>Mensaje Aviso #1 (Markdown)</label>
+                <textarea
+                  rows={3}
+                  className={inputClass}
+                  value={form.aviso_msg_1}
+                  onChange={handleInputChange('aviso_msg_1')}
+                  placeholder="Ej: **Recuerde** mantener su pago al día."
+                />
               </div>
-
-              <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
-                <p className="mb-2 text-sm font-bold text-gray-700 dark:text-gray-200">Sello/Firma digital</p>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <label className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700">
-                    {uploading.firma ? 'Subiendo...' : 'Subir Firma'}
-                    <input type="file" accept="image/*" className="hidden" onChange={onUploadChange('firma')} />
-                  </label>
-                  {form.firma_url ? (
-                    <img
-                      src={buildAssetUrl(form.firma_url)}
-                      alt="Firma"
-                      className="h-20 w-auto rounded-lg border border-gray-200 bg-white p-1 mix-blend-multiply dark:border-gray-700"
-                    />
-                  ) : (
-                    <span className="text-xs text-gray-500 dark:text-gray-400">Sin imagen cargada.</span>
-                  )}
-                </div>
+              <div>
+                <label className={labelClass}>Mensaje Aviso #2 (Markdown)</label>
+                <textarea
+                  rows={3}
+                  className={inputClass}
+                  value={form.aviso_msg_2}
+                  onChange={handleInputChange('aviso_msg_2')}
+                  placeholder="Ej: Puede pagar por transferencia o pago móvil."
+                />
               </div>
+              <div>
+                <label className={labelClass}>Mensaje Aviso #3 (Markdown)</label>
+                <textarea
+                  rows={3}
+                  className={inputClass}
+                  value={form.aviso_msg_3}
+                  onChange={handleInputChange('aviso_msg_3')}
+                  placeholder="Ej: En caso de dudas, contacte administración."
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Mensaje Aviso #4 (Markdown)</label>
+                <textarea
+                  rows={3}
+                  className={inputClass}
+                  value={form.aviso_msg_4}
+                  onChange={handleInputChange('aviso_msg_4')}
+                  placeholder="Ej: Gracias por su colaboración."
+                />
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Estos mensajes son exclusivos de este condominio y se usarán como textos predeterminados en avisos de cobro.
+              </p>
             </div>
           </section>
 
@@ -447,4 +497,3 @@ const PerfilCondominio: FC = () => {
 };
 
 export default PerfilCondominio;
-

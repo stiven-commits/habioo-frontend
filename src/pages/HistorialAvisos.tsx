@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { FC, ChangeEvent } from 'react';
-import { useOutletContext, useNavigate } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { formatMoney } from '../utils/currency';
+import VistaAvisoCobro from '../components/recibos/VistaAvisoCobro';
 
 interface HistorialAvisosProps {}
 
@@ -37,12 +38,12 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const ITEMS_PER_PAGE = 15;
 
-  const [showPrintModal, setShowPrintModal] = useState<Recibo | null>(null);
-
   const [filtroEstado, setFiltroEstado] = useState<EstadoFiltro>('Todos');
   const [fechaDesde, setFechaDesde] = useState<string>('');
   const [fechaHasta, setFechaHasta] = useState<string>('');
   const [search, setSearch] = useState<string>('');
+  const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
+  const [selectedReciboId, setSelectedReciboId] = useState<number | string | null>(null);
 
   const fetchData = async (): Promise<void> => {
     const token = localStorage.getItem('habioo_token');
@@ -52,7 +53,9 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
     }
 
     try {
-      const resRecibos = await fetch('https://auth.habioo.cloud/recibos-historial', { headers: { Authorization: `Bearer ${token}` } });
+      const resRecibos = await fetch('https://auth.habioo.cloud/recibos-historial', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       if (resRecibos.status === 401) {
         localStorage.removeItem('habioo_token');
@@ -62,7 +65,6 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
       }
 
       const dataR: RecibosResponse = await resRecibos.json();
-
       if (dataR.status === 'success') setRecibos(dataR.recibos || []);
     } catch (error) {
       console.error(error);
@@ -72,7 +74,7 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
   };
 
   useEffect(() => {
-    if (userRole === 'Administrador') fetchData();
+    if (userRole === 'Administrador') void fetchData();
   }, [userRole]);
 
   const mapEstadoTab = (estado: string): Exclude<EstadoFiltro, 'Todos'> => {
@@ -174,7 +176,6 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
             )}
           </div>
         </div>
-
       </div>
 
       <div className="bg-white dark:bg-donezo-card-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
@@ -203,54 +204,63 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
           ) : (
             <>
               <div className="overflow-x-auto min-h-[400px]">
-              <table className="w-full text-left border-collapse select-none">
-                <thead>
-                  <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 text-sm dark:text-gray-400">
-                    <th className="p-3">Recibo</th>
-                    <th className="p-3">Inmueble</th>
-                    <th className="p-3">Propietario</th>
-                    <th className="p-3 text-center">Estado</th>
-                    <th className="p-3 text-right text-red-500">Deuda</th>
-                    <th className="p-3 text-center">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedData.map((r: Recibo) => (
-                    <tr key={r.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-sm">
-                      <td className="p-3">
-                        <span className="font-mono text-gray-400 block">#{r.id}</span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">{r.fecha}</span>
-                      </td>
-                      <td className="p-3 font-bold text-gray-800 dark:text-white">
-                        {r.apto}
-                        <div className="text-[10px] font-normal text-gray-400">{r.mes_cobro}</div>
-                      </td>
-                      <td className="p-3 text-gray-600 dark:text-gray-300">{r.propietario || 'Sin asignar'}</td>
-                      <td className="p-3 text-center">
-                        {mapEstadoTab(r.estado) === 'Pagados' ? (
-                          <span className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px] font-black px-2.5 py-1.5 rounded-lg uppercase tracking-wider shadow-sm border border-green-200 dark:border-green-800/50">
-                            Pagado
-                          </span>
-                        ) : mapEstadoTab(r.estado) === 'Abonado' ? (
-                          <span className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 text-[10px] font-black px-2.5 py-1.5 rounded-lg uppercase tracking-wider shadow-sm border border-yellow-200 dark:border-yellow-800/50">
-                            Abonado
-                          </span>
-                        ) : (
-                          <span className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-[10px] font-black px-2.5 py-1.5 rounded-lg uppercase tracking-wider shadow-sm border border-red-200 dark:border-red-800/50">
-                            Pendiente
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-3 text-right font-bold text-gray-800 dark:text-white">
-                        ${formatMoney(r.deuda_pendiente ?? r.monto_usd)}
-                      </td>
-                      <td className="p-3 flex justify-center gap-2">
-                        <button onClick={() => setShowPrintModal(r)} className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-lg" title="Ver / Imprimir">🖨️</button>
-                      </td>
+                <table className="w-full text-left border-collapse select-none">
+                  <thead>
+                    <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 text-sm dark:text-gray-400">
+                      <th className="p-3">Recibo</th>
+                      <th className="p-3">Inmueble</th>
+                      <th className="p-3">Propietario</th>
+                      <th className="p-3 text-center">Estado</th>
+                      <th className="p-3 text-right text-red-500">Deuda</th>
+                      <th className="p-3 text-center">Acciones</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {paginatedData.map((r: Recibo) => (
+                      <tr key={r.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-sm">
+                        <td className="p-3">
+                          <span className="font-mono text-gray-400 block">#{r.id}</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">{r.fecha}</span>
+                        </td>
+                        <td className="p-3 font-bold text-gray-800 dark:text-white">
+                          {r.apto}
+                          <div className="text-[10px] font-normal text-gray-400">{r.mes_cobro}</div>
+                        </td>
+                        <td className="p-3 text-gray-600 dark:text-gray-300">{r.propietario || 'Sin asignar'}</td>
+                        <td className="p-3 text-center">
+                          {mapEstadoTab(r.estado) === 'Pagados' ? (
+                            <span className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px] font-black px-2.5 py-1.5 rounded-lg uppercase tracking-wider shadow-sm border border-green-200 dark:border-green-800/50">
+                              Pagado
+                            </span>
+                          ) : mapEstadoTab(r.estado) === 'Abonado' ? (
+                            <span className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 text-[10px] font-black px-2.5 py-1.5 rounded-lg uppercase tracking-wider shadow-sm border border-yellow-200 dark:border-yellow-800/50">
+                              Abonado
+                            </span>
+                          ) : (
+                            <span className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-[10px] font-black px-2.5 py-1.5 rounded-lg uppercase tracking-wider shadow-sm border border-red-200 dark:border-red-800/50">
+                              Pendiente
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3 text-right font-bold text-gray-800 dark:text-white">
+                          ${formatMoney(r.deuda_pendiente ?? r.monto_usd)}
+                        </td>
+                        <td className="p-3 flex justify-center gap-2">
+                          <button
+                            onClick={() => {
+                              setSelectedReciboId(r.id);
+                              setShowPrintModal(true);
+                            }}
+                            className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-lg"
+                            title="Ver / Imprimir"
+                          >
+                            🖨️
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
 
               {totalPages > 1 && (
@@ -280,11 +290,35 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
       </div>
 
       {showPrintModal && (
-        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-8 w-full max-w-lg shadow-2xl text-center my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
-            <h3 className="font-bold text-gray-800 dark:text-white mb-4">Vista Previa</h3>
-            <p className="text-gray-500 mb-6 dark:text-gray-400">Recibo #{showPrintModal.id}</p>
-            <button onClick={() => setShowPrintModal(null)} className="px-6 py-2 bg-gray-200 rounded-xl font-bold">Cerrar</button>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm p-4 sm:p-6 overflow-y-auto print:hidden">
+          <div className="mx-auto w-full max-w-6xl">
+            <div className="mb-3 flex items-center justify-between rounded-xl border border-gray-200 bg-white/95 p-3 shadow-lg dark:border-gray-700 dark:bg-gray-900/95">
+              <p className="text-sm font-bold text-gray-700 dark:text-gray-200">
+                Aviso de Cobro {selectedReciboId ? `#${selectedReciboId}` : ''}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700"
+                >
+                  Imprimir
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPrintModal(false);
+                    setSelectedReciboId(null);
+                  }}
+                  className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+            <div className="max-h-[85vh] overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-950">
+              <VistaAvisoCobro reciboId={selectedReciboId} />
+            </div>
           </div>
         </div>
       )}
