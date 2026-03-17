@@ -171,13 +171,6 @@ const PerfilPropietario: FC = () => {
 
   return (
     <section className="space-y-5">
-      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
-        <h2 className="text-xl font-black text-gray-800 dark:text-white">Mi Perfil</h2>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Datos del propietario en el inmueble activo.
-        </p>
-      </div>
-
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
           <p className="text-xs font-black uppercase tracking-wider text-gray-400">Nombre</p>

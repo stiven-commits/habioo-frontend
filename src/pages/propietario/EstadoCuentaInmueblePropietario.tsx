@@ -200,13 +200,6 @@ const EstadoCuentaInmueblePropietario: FC = () => {
 
   return (
     <section className="space-y-5">
-      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
-        <h2 className="text-xl font-black text-gray-800 dark:text-white">Estado de Cuenta del Inmueble</h2>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          {propiedadActiva ? `${propiedadActiva.identificador} | ${propiedadActiva.nombre_condominio}` : 'Selecciona un inmueble.'}
-        </p>
-      </div>
-
       {!loading && movimientosConSaldo.length > 0 && (
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
           {pendingApprovals > 0 && (
@@ -222,6 +215,7 @@ const EstadoCuentaInmueblePropietario: FC = () => {
                   <path d="M10 2a8 8 0 1 1 5.293 14.002l4.352 4.353-1.414 1.414-4.353-4.352A8 8 0 0 1 10 2Zm0 2a6 6 0 1 0 0 12A6 6 0 0 0 10 4Z" />
                 </svg>
               </span>
+              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">🔍</span>
               <input
                 type="text"
                 value={searchTerm}

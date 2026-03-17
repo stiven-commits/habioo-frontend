@@ -161,13 +161,6 @@ const GastosPropietario: FC = () => {
 
   return (
     <section className="space-y-5">
-      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
-        <h2 className="text-xl font-black text-gray-800 dark:text-white">Cartelera de Gastos</h2>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          {propiedadActiva ? `${propiedadActiva.identificador} | ${propiedadActiva.nombre_condominio}` : 'Selecciona un inmueble.'}
-        </p>
-      </div>
-
       {!loading && gastos.length > 0 && (
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
           <div className="grid grid-cols-1 items-center gap-3 lg:grid-cols-5">

@@ -202,18 +202,8 @@ const RecibosPropietario: FC = () => {
   return (
     <section className="space-y-5">
       <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-xl font-black text-gray-800 dark:text-white">Mis Recibos / Pagar</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {propiedadActiva
-                ? `Inmueble activo: ${propiedadActiva.identificador} | ${propiedadActiva.nombre_condominio}`
-                : 'Selecciona un inmueble para ver sus recibos.'}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-5">
+        
+        <div className="mt-2">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left">
               <thead>

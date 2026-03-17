@@ -72,9 +72,8 @@ const NotificacionesPropietario: FC = () => {
   return (
     <section className="space-y-5">
       <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
-        <h2 className="text-xl font-black text-gray-800 dark:text-white">Notificaciones</h2>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Estado de los pagos registrados por ti en este inmueble.
+          Noficaciones generados por el sistema.
         </p>
 
         <div className="mt-4 space-y-3">
