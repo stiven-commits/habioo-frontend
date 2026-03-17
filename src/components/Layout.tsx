@@ -356,7 +356,7 @@ const Layout: React.FC<LayoutProps> = () => {
     '/perfil': 'Mi Perfil',
     '/propietario/gastos': 'Cartelera de Gastos',
     '/propietario/recibos': 'Mis Recibos / Pagar',
-    '/propietario/estado-cuenta': 'Estado de Cuenta Edificio',
+    '/propietario/estado-cuenta': 'Tesorería',
     '/propietario/notificaciones': 'Notificaciones',
     '/propietario/perfil': 'Mi Perfil',
   };
@@ -449,7 +449,7 @@ const Layout: React.FC<LayoutProps> = () => {
                 💳 Mis Recibos / Pagar
               </Link>
               <Link to="/propietario/estado-cuenta" className={navClass('/propietario/estado-cuenta')}>
-                📊 Estado de Cuenta Edificio
+                📊 Tesorería
               </Link>
               <Link to="/propietario/notificaciones" className={navClass('/propietario/notificaciones')}>
                 🔔 Notificaciones
