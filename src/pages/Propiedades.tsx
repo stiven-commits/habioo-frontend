@@ -464,9 +464,9 @@ const Propiedades: FC<PropiedadesProps> = () => {
       if (form.prop_telefono && !isValidPhone(form.prop_telefono)) return alert('Error: el teléfono del propietario debe tener solo números.');
     }
     if (form.tiene_inquilino) {
-      if (!isValidCedulaRif(form.inq_cedula)) return alert('Error: la cédula del inquilino debe iniciar con V, E, J o G y contener solo números.');
-      if (form.inq_email && !isValidEmail(form.inq_email)) return alert('Error: el correo del inquilino no tiene un formato válido.');
-      if (form.inq_telefono && !isValidPhone(form.inq_telefono)) return alert('Error: el teléfono del inquilino debe tener solo números.');
+      if (!isValidCedulaRif(form.inq_cedula)) return alert('Error: la cédula del residente debe iniciar con V, E, J o G y contener solo números.');
+      if (form.inq_email && !isValidEmail(form.inq_email)) return alert('Error: el correo del residente no tiene un formato válido.');
+      if (form.inq_telefono && !isValidPhone(form.inq_telefono)) return alert('Error: el teléfono del residente debe tener solo números.');
     }
 
     const token = localStorage.getItem('habioo_token');

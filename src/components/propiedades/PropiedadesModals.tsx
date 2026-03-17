@@ -535,14 +535,14 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
           </div>
 
           <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center gap-3 mb-3 cursor-pointer" onClick={() => setForm({ ...form, tiene_inquilino: !form.tiene_inquilino })}><input type="checkbox" checked={form.tiene_inquilino} readOnly className="w-5 h-5 text-donezo-primary" /><h4 className="font-bold text-gray-700 dark:text-gray-300">¿Tiene Inquilino Residente?</h4></div>
+            <div className="flex items-center gap-3 mb-3 cursor-pointer" onClick={() => setForm({ ...form, tiene_inquilino: !form.tiene_inquilino })}><input type="checkbox" checked={form.tiene_inquilino} readOnly className="w-5 h-5 text-donezo-primary" /><h4 className="font-bold text-gray-700 dark:text-gray-300">¿Tiene residente?</h4></div>
             {form.tiene_inquilino && (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                  <input type="text" name="inq_cedula" value={form.inq_cedula} onChange={handleChange} pattern="^[VEJG][0-9]{5,9}$" placeholder="Ej: V12345678" title="Cédula del inquilino (V/E/J/G + números)" className="p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white uppercase" required />
-                  <input type="text" name="inq_nombre" value={form.inq_nombre} onChange={handleChange} placeholder="Ej: Carlos Daniel Rojas" title="Nombre y apellido del inquilino" className="p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white" required />
-                  <input type="email" name="inq_email" value={form.inq_email} onChange={handleChange} placeholder="Ej: inquilino@email.com" title="Correo del inquilino (opcional)" className="p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-                  <input type="text" name="inq_telefono" value={form.inq_telefono} onChange={handleChange} inputMode="numeric" pattern="^[0-9]{7,15}$" placeholder="Ej: 04141234567" title="Teléfono del inquilino (solo números)" className="p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                  <input type="text" name="inq_cedula" value={form.inq_cedula} onChange={handleChange} pattern="^[VEJG][0-9]{5,9}$" placeholder="Ej: V12345678" title="Cédula del residente (V/E/J/G + números)" className="p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white uppercase" required />
+                  <input type="text" name="inq_nombre" value={form.inq_nombre} onChange={handleChange} placeholder="Ej: Carlos Daniel Rojas" title="Nombre y apellido del residente" className="p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white" required />
+                  <input type="email" name="inq_email" value={form.inq_email} onChange={handleChange} placeholder="Ej: residente@email.com" title="Correo del residente (opcional)" className="p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                  <input type="text" name="inq_telefono" value={form.inq_telefono} onChange={handleChange} inputMode="numeric" pattern="^[0-9]{7,15}$" placeholder="Ej: 04141234567" title="Teléfono del residente (solo números)" className="p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                 </div>
                 <label className="mt-4 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                   <input
@@ -552,7 +552,7 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
                     onChange={handleChange}
                     className="w-4 h-4 text-donezo-primary"
                   />
-                  Permitir acceso del inquilino al portal
+                  Permitir acceso del residente al portal
                 </label>
               </>
             )}
@@ -603,7 +603,7 @@ export const ModalEstadoCuenta: FC<ModalEstadoCuentaProps> = ({
               {selectedPropCuenta.identificador} <span className="text-gray-300 font-normal">|</span> {selectedPropCuenta.prop_nombre}
             </h3>
             {selectedPropCuenta.inq_nombre && (
-              <p className="text-sm font-medium text-gray-500 mt-1">Inquilino Residente: <span className="text-gray-700 dark:text-gray-300">{selectedPropCuenta.inq_nombre}</span></p>
+              <p className="text-sm font-medium text-gray-500 mt-1">Residente: <span className="text-gray-700 dark:text-gray-300">{selectedPropCuenta.inq_nombre}</span></p>
             )}
           </div>
           <button onClick={() => setEstadoCuentaModalOpen(false)} className="text-gray-400 hover:text-red-500 font-bold text-2xl transition-colors">x</button>
