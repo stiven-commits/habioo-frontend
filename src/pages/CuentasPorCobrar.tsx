@@ -539,8 +539,9 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                 </tr>
               </thead>
               <tbody>
-                {paginatedProperties.map((p: Propiedad) => {
+                {paginatedProperties.map((p: Propiedad, index: number) => {
                   const saldo = toNumber(p.saldo_actual);
+                  const abrirHaciaArriba = index >= paginatedProperties.length - 2;
                   
                   // Lógica de colores dinámicos para el saldo
                   const isDeuda = saldo > 0;
@@ -576,7 +577,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                           </button>
 
                           {openOptionsFor === p.id && (
-                            <div className="absolute right-0 z-30 mt-2 w-52 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800">
+                            <div className={`absolute right-0 z-50 w-52 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800 ${abrirHaciaArriba ? 'bottom-12' : 'top-12'} animate-fadeIn`}>
                               <button
                                 type="button"
                                 onClick={() => {

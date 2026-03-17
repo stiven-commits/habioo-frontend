@@ -104,6 +104,12 @@ const normalizeTipo = (value: string): string => value
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '');
 
+const formatNumeroCuenta = (value: string): string => {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (!digits) return value;
+  return digits.match(/.{1,4}/g)?.join('-') || digits;
+};
+
 const resolveTipoMoneda = (tipo: string): { moneda: 'BS' | 'USD' | null; blocked: boolean } => {
   const t = normalizeTipo(tipo);
   const isInternational = t.includes('zelle')
@@ -459,7 +465,12 @@ const Bancos: FC<BancosProps> = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm text-gray-600 dark:text-gray-400">
                   <p><strong className="text-gray-800 dark:text-gray-300 font-medium">Titular/Custodio:</strong> {b.nombre_titular}</p>
                   {b.cedula_rif && <p><strong className="text-gray-800 dark:text-gray-300 font-medium">CI/RIF:</strong> {b.cedula_rif}</p>}
-                  {b.numero_cuenta && <p><strong className="text-gray-800 dark:text-gray-300 font-medium">{b.tipo === 'Zelle' ? 'Correo:' : 'N Cuenta:'}</strong> {b.numero_cuenta}</p>}
+                  {b.numero_cuenta && (
+                    <p>
+                      <strong className="text-gray-800 dark:text-gray-300 font-medium">{b.tipo === 'Zelle' ? 'Correo:' : 'N Cuenta:'}</strong>{' '}
+                      {b.tipo === 'Zelle' ? b.numero_cuenta : formatNumeroCuenta(b.numero_cuenta)}
+                    </p>
+                  )}
                   {b.telefono && <p><strong className="text-gray-800 dark:text-gray-300 font-medium">Telefono:</strong> {b.telefono}</p>}
                 </div>
               </div>
