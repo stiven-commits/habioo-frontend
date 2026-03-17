@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FC } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import ModalRegistrarPago from '../../components/ModalRegistrarPago';
 import VistaAvisoCobro from '../../components/recibos/VistaAvisoCobro';
 import { API_BASE_URL } from '../../config/api';
 import { formatMoney } from '../../utils/currency';
@@ -25,7 +24,6 @@ interface MisRecibosResponse {
 
 interface NotificacionPago {
   id: number;
-  propiedad_id: number;
   estado: string;
 }
 
@@ -48,12 +46,6 @@ interface OutletContextType {
   propiedadActiva?: PropiedadActiva | null;
 }
 
-interface PropiedadPreseleccionada {
-  id: number;
-  identificador: string;
-  saldo_actual: string | number;
-}
-
 const toNumber = (value: string | number | undefined | null): number => Number.parseFloat(String(value ?? 0)) || 0;
 
 const RecibosPropietario: FC = () => {
@@ -61,10 +53,7 @@ const RecibosPropietario: FC = () => {
   const [recibos, setRecibos] = useState<ReciboPropietario[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedReciboId, setSelectedReciboId] = useState<number | null>(null);
-  const [selectedPropPago, setSelectedPropPago] = useState<PropiedadPreseleccionada | null>(null);
-  const [showPayModal, setShowPayModal] = useState<boolean>(false);
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
-  const [pendingApprovals, setPendingApprovals] = useState<number>(0);
   const avisoPrintRef = useRef<HTMLDivElement | null>(null);
 
   const fetchRecibos = async (): Promise<void> => {
@@ -99,32 +88,6 @@ const RecibosPropietario: FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [propiedadActiva?.id_propiedad]);
 
-  useEffect(() => {
-    const fetchNotificaciones = async (): Promise<void> => {
-      if (!propiedadActiva?.id_propiedad) {
-        setPendingApprovals(0);
-        return;
-      }
-      try {
-        const token = localStorage.getItem('habioo_token');
-        const res = await fetch(`${API_BASE_URL}/api/propietario/notificaciones?propiedad_id=${propiedadActiva.id_propiedad}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data: NotificacionesResponse = (await res.json()) as NotificacionesResponse;
-        if (!res.ok || data.status !== 'success') {
-          setPendingApprovals(0);
-          return;
-        }
-        const list = Array.isArray(data.data) ? data.data : [];
-        const pending = list.filter((n) => n.estado === 'PendienteAprobacion').length;
-        setPendingApprovals(pending);
-      } catch {
-        setPendingApprovals(0);
-      }
-    };
-    void fetchNotificaciones();
-  }, [propiedadActiva?.id_propiedad, showPayModal]);
-
   const rows = useMemo(
     () =>
       recibos.map((r) => {
@@ -135,18 +98,6 @@ const RecibosPropietario: FC = () => {
       }),
     [recibos],
   );
-
-  const openPagoModal = (): void => {
-    if (!propiedadActiva) return;
-    const totalPendiente = rows.reduce((acc, row) => acc + row.saldoPendiente, 0);
-    setSelectedPropPago({
-      id: propiedadActiva.id_propiedad,
-      identificador: propiedadActiva.identificador,
-      saldo_actual: totalPendiente,
-    });
-    setSelectedReciboId(null);
-    setShowPayModal(true);
-  };
 
   const handleOpenRecibo = (reciboId: number): void => {
     setSelectedReciboId(reciboId);
@@ -263,20 +214,6 @@ const RecibosPropietario: FC = () => {
         </div>
 
         <div className="mt-5">
-          {pendingApprovals > 0 && (
-            <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-300">
-              Tienes {pendingApprovals} pago(s) en aprobacion por la junta de condominio.
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={openPagoModal}
-            disabled={!rows.some((r) => r.saldoPendiente > 0)}
-            className="mb-4 w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Registrar Pago
-          </button>
-
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left">
               <thead>
@@ -343,26 +280,6 @@ const RecibosPropietario: FC = () => {
           </div>
         </div>
       </div>
-
-      {showPayModal && (
-        <ModalRegistrarPago
-          propiedadPreseleccionada={selectedPropPago}
-          reciboId={selectedReciboId}
-          soloCuentaPrincipal={true}
-          condominioId={propiedadActiva?.id_condominio ?? null}
-          onClose={() => {
-            setShowPayModal(false);
-            setSelectedReciboId(null);
-            setSelectedPropPago(null);
-          }}
-          onSuccess={() => {
-            setShowPayModal(false);
-            setSelectedReciboId(null);
-            setSelectedPropPago(null);
-            void fetchRecibos();
-          }}
-        />
-      )}
 
       {showPrintModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm p-4 sm:p-6 overflow-y-auto print:hidden">

@@ -1,6 +1,7 @@
 ﻿import React, { useEffect, useMemo, useState } from 'react';
 import { API_BASE_URL } from '../../config/api';
 import { formatMoney } from '../../utils/currency';
+import { formatDateVE } from '../../utils/datetime';
 
 interface PagoDetalle {
   id: string;
@@ -37,20 +38,7 @@ interface ModalVerPagosGastoProps {
 
 const toNumber = (value: string | number | null | undefined): number => parseFloat(String(value ?? 0)) || 0;
 
-const formatFecha = (value?: string | null): string => {
-  if (!value) return '-';
-  const raw = String(value);
-  if (raw.includes('T')) {
-    const d = new Date(raw);
-    if (!Number.isNaN(d.getTime())) {
-      return d.toLocaleDateString('es-VE', { timeZone: 'America/Caracas' });
-    }
-  }
-  const datePart = raw.split('T')[0] || '';
-  const [yyyy = '', mm = '', dd = ''] = datePart.split('-');
-  if (!yyyy || !mm || !dd) return raw;
-  return `${dd}/${mm}/${yyyy}`;
-};
+const formatFecha = (value?: string | null): string => formatDateVE(value);
 
 const ModalVerPagosGasto: React.FC<ModalVerPagosGastoProps> = ({ isOpen, onClose, gasto }) => {
   const [loading, setLoading] = useState<boolean>(false);

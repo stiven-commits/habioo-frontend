@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent, FC } from 'react';
+import DatePicker from 'react-datepicker';
+import { es } from 'date-fns/locale/es';
 import { useOutletContext } from 'react-router-dom';
 import { API_BASE_URL } from '../../config/api';
 import { ModalTransferencia } from '../BancosModals';
 import ModalDetalleMovimiento, { type IMovimientoDetalle } from './ModalDetalleMovimiento';
+import 'react-datepicker/dist/react-datepicker.css';
 
 type ViewMode = 'admin' | 'owner';
 type ActiveTab = 'cuenta' | 'sin-fondo' | `fondo-${number | string}`;
@@ -81,6 +84,22 @@ interface CorteFondo {
   saldo_usd: string | number;
   tasa_referencia: string | number | null;
 }
+
+const ymdToDate = (ymd: string): Date | null => {
+  if (!ymd) return null;
+  const [year, month, day] = ymd.split('-').map((v) => Number(v));
+  if (!year || !month || !day) return null;
+  const parsed = new Date(year, month - 1, day);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const dateToYmd = (date: Date | null): string => {
+  if (!date) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 interface CortesResponse {
   status: string;
@@ -910,20 +929,41 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
             <div className="flex items-end gap-2">
               <div>
                 <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Desde</label>
-                <input
-                  type="date"
-                  value={fechaDesde}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => setFechaDesde(e.target.value)}
-                  className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg text-xs bg-gray-50 dark:bg-gray-800 outline-none dark:text-white [color-scheme:light] dark:[color-scheme:dark]"
+                <DatePicker
+                  selected={ymdToDate(fechaDesde)}
+                  onChange={(date: Date | null) => setFechaDesde(dateToYmd(date))}
+                  selectsStart
+                  startDate={ymdToDate(fechaDesde)}
+                  endDate={ymdToDate(fechaHasta)}
+                  dateFormat="dd/MM/yyyy"
+                  locale={es}
+                  placeholderText="Desde (dd/mm/yyyy)"
+                  showIcon
+                  toggleCalendarOnIconClick
+                  wrapperClassName="w-full min-w-0"
+                  popperClassName="habioo-datepicker-popper"
+                  calendarClassName="habioo-datepicker-calendar"
+                  className="h-10 w-full rounded-lg border border-gray-200 bg-gray-50 p-2 pr-10 text-xs outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                 />
               </div>
               <div>
                 <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Hasta</label>
-                <input
-                  type="date"
-                  value={fechaHasta}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => setFechaHasta(e.target.value)}
-                  className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg text-xs bg-gray-50 dark:bg-gray-800 outline-none dark:text-white [color-scheme:light] dark:[color-scheme:dark]"
+                <DatePicker
+                  selected={ymdToDate(fechaHasta)}
+                  onChange={(date: Date | null) => setFechaHasta(dateToYmd(date))}
+                  selectsEnd
+                  startDate={ymdToDate(fechaDesde)}
+                  endDate={ymdToDate(fechaHasta)}
+                  {...(fechaDesde ? { minDate: ymdToDate(fechaDesde) || undefined } : {})}
+                  dateFormat="dd/MM/yyyy"
+                  locale={es}
+                  placeholderText="Hasta (dd/mm/yyyy)"
+                  showIcon
+                  toggleCalendarOnIconClick
+                  wrapperClassName="w-full min-w-0"
+                  popperClassName="habioo-datepicker-popper"
+                  calendarClassName="habioo-datepicker-calendar"
+                  className="h-10 w-full rounded-lg border border-gray-200 bg-gray-50 p-2 pr-10 text-xs outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                 />
               </div>
               <button

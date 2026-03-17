@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import DatePicker from 'react-datepicker';
+import { es } from 'date-fns/locale/es';
 import { formatMoney } from '../utils/currency';
 import { API_BASE_URL } from '../config/api';
 import { useDialog } from './ui/DialogProvider';
+import 'react-datepicker/dist/react-datepicker.css';
 
 interface ModalBaseProps {
   onClose: () => void;
@@ -80,6 +83,22 @@ interface ModalEliminarFondoProps extends ModalBaseProps {
 function parseNumber(val: unknown): number {
   return parseFloat(String(val || '').replace(/\./g, '').replace(',', '.')) || 0;
 }
+
+const ymdToDate = (ymd: string): Date | null => {
+  if (!ymd) return null;
+  const [year, month, day] = ymd.split('-').map((v) => Number(v));
+  if (!year || !month || !day) return null;
+  const parsed = new Date(year, month - 1, day);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const dateToYmd = (date: Date | null): string => {
+  if (!date) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 function formatNumberInput(value: unknown, maxDecimals = 2): string {
   const cleanedRaw = String(value || '').replace(/[^0-9,]/g, '');
@@ -256,7 +275,21 @@ export const ModalPagoProveedor: React.FC<ModalBaseProps> = ({ onClose, onSucces
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Fecha *</label>
-                <input required type="date" lang="es-ES" title="dd/mm/yyyy" max={new Date().toISOString().split('T')[0]} value={form.fecha_pago} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, fecha_pago: e.target.value })} className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
+                <DatePicker
+                  selected={ymdToDate(form.fecha_pago)}
+                  onChange={(date: Date | null) => setForm({ ...form, fecha_pago: dateToYmd(date) })}
+                  maxDate={new Date()}
+                  dateFormat="dd/MM/yyyy"
+                  locale={es}
+                  placeholderText="Fecha (dd/mm/yyyy)"
+                  showIcon
+                  toggleCalendarOnIconClick
+                  wrapperClassName="w-full min-w-0"
+                  popperClassName="habioo-datepicker-popper"
+                  calendarClassName="habioo-datepicker-calendar"
+                  className="h-[50px] w-full rounded-xl border border-gray-300 bg-white p-3 pr-10 text-gray-900 outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+                  required
+                />
               </div>
             </div>
 
@@ -538,7 +571,21 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Fecha *</label>
-                    <input required type="date" lang="es-ES" title="dd/mm/yyyy" max={new Date().toISOString().split('T')[0]} value={form.fecha} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, fecha: e.target.value })} className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
+                    <DatePicker
+                      selected={ymdToDate(form.fecha)}
+                      onChange={(date: Date | null) => setForm({ ...form, fecha: dateToYmd(date) })}
+                      maxDate={new Date()}
+                      dateFormat="dd/MM/yyyy"
+                      locale={es}
+                      placeholderText="Fecha (dd/mm/yyyy)"
+                      showIcon
+                      toggleCalendarOnIconClick
+                      wrapperClassName="w-full min-w-0"
+                      popperClassName="habioo-datepicker-popper"
+                      calendarClassName="habioo-datepicker-calendar"
+                      className="h-[50px] w-full rounded-xl border border-gray-300 bg-white p-3 pr-10 text-gray-900 outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+                      required
+                    />
                   </div>
                 </div>
 

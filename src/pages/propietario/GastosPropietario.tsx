@@ -5,6 +5,7 @@ import { es } from 'date-fns/locale/es';
 import { useOutletContext } from 'react-router-dom';
 import { API_BASE_URL } from '../../config/api';
 import { formatMoney } from '../../utils/currency';
+import { formatDateVE } from '../../utils/datetime';
 import 'react-datepicker/dist/react-datepicker.css';
 
 interface PropiedadActiva {
@@ -285,7 +286,7 @@ const GastosPropietario: FC = () => {
                   {gastosFiltrados.map((gasto) => (
                     <tr key={gasto.id} className="border-b border-gray-50 dark:border-gray-800/70">
                       <td className="p-3 text-sm text-gray-600 dark:text-gray-300">
-                        {getGastoDate(gasto.fecha_gasto)?.toLocaleDateString('es-VE') || String(gasto.fecha_gasto).slice(0, 10)}
+                        {formatDateVE(getGastoDate(gasto.fecha_gasto))}
                       </td>
                       <td className="p-3">
                         <p className="font-bold text-gray-800 dark:text-gray-200">{gasto.concepto}</p>

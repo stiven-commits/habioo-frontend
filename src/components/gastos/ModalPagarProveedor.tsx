@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import DatePicker from 'react-datepicker';
+import { es } from 'date-fns/locale/es';
 import { API_BASE_URL } from '../../config/api';
 import { formatMoney } from '../../utils/currency';
+import 'react-datepicker/dist/react-datepicker.css';
 
 interface GastoPagoProveedor {
   gasto_id: number | string;
@@ -57,6 +60,22 @@ const getLocalYmd = (): string => {
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const ymdToDate = (ymd: string): Date | null => {
+  if (!ymd) return null;
+  const [year, month, day] = ymd.split('-').map((v) => Number(v));
+  if (!year || !month || !day) return null;
+  const parsed = new Date(year, month - 1, day);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const dateToYmd = (date: Date | null): string => {
+  if (!date) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
 
@@ -418,14 +437,20 @@ const ModalPagarProveedor: React.FC<ModalPagarProveedorProps> = ({ isOpen, onClo
               <label className="mb-1 block text-xs font-bold uppercase text-slate-500 dark:text-slate-300">
                 Fecha <span className="text-red-500">*</span>
               </label>
-              <input
-                type="date"
-                lang="es-ES"
-                title="dd/mm/yyyy"
-                value={fecha}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFecha(e.target.value)}
+              <DatePicker
+                selected={ymdToDate(fecha)}
+                onChange={(date: Date | null) => setFecha(dateToYmd(date))}
+                maxDate={ymdToDate(getLocalYmd()) || undefined}
+                dateFormat="dd/MM/yyyy"
+                locale={es}
+                placeholderText="Fecha (dd/mm/yyyy)"
+                showIcon
+                toggleCalendarOnIconClick
+                wrapperClassName="w-full min-w-0"
+                popperClassName="habioo-datepicker-popper"
+                calendarClassName="habioo-datepicker-calendar"
                 disabled={saving}
-                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-emerald-500 transition focus:ring-2 disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 pr-10 text-sm text-slate-700 outline-none ring-emerald-500 transition focus:ring-2 disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                 required
               />
             </div>

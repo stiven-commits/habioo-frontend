@@ -8,7 +8,11 @@ import {
   type FormEvent,
   type SetStateAction,
 } from 'react';
+import DatePicker from 'react-datepicker';
+import { es } from 'date-fns/locale/es';
 import { formatMoney } from '../../utils/currency';
+import { formatDateTimeVE, formatDateVE } from '../../utils/datetime';
+import 'react-datepicker/dist/react-datepicker.css';
 
 interface PropiedadFormData {
   identificador: string;
@@ -139,6 +143,22 @@ interface ModalCargaMasivaProps {
   handleSaveLote: () => void | Promise<void>;
   handleFileUpload: (e: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
 }
+
+const ymdToDate = (ymd: string): Date | null => {
+  if (!ymd) return null;
+  const [year, month, day] = ymd.split('-').map((v) => Number(v));
+  if (!year || !month || !day) return null;
+  const parsed = new Date(year, month - 1, day);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const dateToYmd = (date: Date | null): string => {
+  if (!date) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 interface CopropietarioFormData {
   cedula: string;
@@ -648,26 +668,43 @@ export const ModalEstadoCuenta: FC<ModalEstadoCuentaProps> = ({
           <div className="flex gap-3 items-center">
             <div>
               <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Desde</label>
-              <input
-                type="date"
-                lang="es-ES"
-                title="dd/mm/yyyy"
-                value={fechaDesde}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setFechaDesde(e.target.value)}
-                max={todayYmd}
-                className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm bg-gray-50 dark:bg-gray-800 outline-none dark:text-white"
+              <DatePicker
+                selected={ymdToDate(fechaDesde)}
+                onChange={(date: Date | null) => setFechaDesde(dateToYmd(date))}
+                selectsStart
+                startDate={ymdToDate(fechaDesde)}
+                endDate={ymdToDate(fechaHasta)}
+                maxDate={ymdToDate(todayYmd) || undefined}
+                dateFormat="dd/MM/yyyy"
+                locale={es}
+                placeholderText="Desde (dd/mm/yyyy)"
+                showIcon
+                toggleCalendarOnIconClick
+                wrapperClassName="w-full min-w-0"
+                popperClassName="habioo-datepicker-popper"
+                calendarClassName="habioo-datepicker-calendar"
+                className="h-10 w-full rounded-lg border border-gray-200 bg-gray-50 p-2 pr-10 text-sm outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
               />
             </div>
             <div>
               <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Hasta</label>
-              <input
-                type="date"
-                lang="es-ES"
-                title="dd/mm/yyyy"
-                value={fechaHasta}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setFechaHasta(e.target.value)}
-                max={todayYmd}
-                className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm bg-gray-50 dark:bg-gray-800 outline-none dark:text-white"
+              <DatePicker
+                selected={ymdToDate(fechaHasta)}
+                onChange={(date: Date | null) => setFechaHasta(dateToYmd(date))}
+                selectsEnd
+                startDate={ymdToDate(fechaDesde)}
+                endDate={ymdToDate(fechaHasta)}
+                {...(fechaDesde ? { minDate: ymdToDate(fechaDesde) || undefined } : {})}
+                maxDate={ymdToDate(todayYmd) || undefined}
+                dateFormat="dd/MM/yyyy"
+                locale={es}
+                placeholderText="Hasta (dd/mm/yyyy)"
+                showIcon
+                toggleCalendarOnIconClick
+                wrapperClassName="w-full min-w-0"
+                popperClassName="habioo-datepicker-popper"
+                calendarClassName="habioo-datepicker-calendar"
+                className="h-10 w-full rounded-lg border border-gray-200 bg-gray-50 p-2 pr-10 text-sm outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
               />
             </div>
             <button
@@ -704,8 +741,8 @@ export const ModalEstadoCuenta: FC<ModalEstadoCuentaProps> = ({
               <tbody>
                 {movimientosPagina.map((m, idx) => (
                   <tr key={idx} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                    <td className="p-3 text-gray-600 dark:text-gray-300 font-mono text-xs">{new Date(m.fecha_operacion).toLocaleDateString('es-VE')}</td>
-                    <td className="p-3 text-gray-400 font-mono text-[10px]">{new Date(m.fecha_registro).toLocaleString('es-VE')}</td>
+                    <td className="p-3 text-gray-600 dark:text-gray-300 font-mono text-xs">{formatDateVE(m.fecha_operacion)}</td>
+                    <td className="p-3 text-gray-400 font-mono text-[10px]">{formatDateTimeVE(m.fecha_registro)}</td>
                     <td className="p-3 font-medium text-gray-800 dark:text-gray-200">
                       {m.tipo === 'RECIBO' ? m.concepto : `${m.tipo === 'PAGO' ? 'PAGO' : 'AJUSTE'} ${m.concepto}`}
                     </td>

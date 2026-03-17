@@ -1,6 +1,9 @@
 ﻿import React, { useState } from 'react';
 import type { FC, ChangeEvent, FormEvent } from 'react';
+import DatePicker from 'react-datepicker';
+import { es } from 'date-fns/locale/es';
 import { API_BASE_URL } from '../config/api';
+import 'react-datepicker/dist/react-datepicker.css';
 
 interface ModalAgregarGastoProps {
   onClose: () => void;
@@ -46,6 +49,22 @@ interface FormState {
 interface ApiErrorResponse {
   error?: string;
 }
+
+const ymdToDate = (ymd: string): Date | null => {
+  if (!ymd) return null;
+  const [year, month, day] = ymd.split('-').map((v) => Number(v));
+  if (!year || !month || !day) return null;
+  const parsed = new Date(year, month - 1, day);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const dateToYmd = (date: Date | null): string => {
+  if (!date) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({ onClose, onSuccess, proveedores, zonas, propiedades }) => {
   const todayString = new Date().toISOString().split('T')[0] ?? '';
@@ -185,7 +204,21 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({ onClose, onSuccess, pro
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha Factura <span className="text-red-500">*</span></label>
-              <input type="date" lang="es-ES" title="dd/mm/yyyy" name="fecha_gasto" value={form.fecha_gasto} onChange={handleChange} max={todayString} required className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" />
+              <DatePicker
+                selected={ymdToDate(form.fecha_gasto)}
+                onChange={(date: Date | null) => setForm((prev: FormState) => ({ ...prev, fecha_gasto: dateToYmd(date) }))}
+                maxDate={ymdToDate(todayString) || undefined}
+                dateFormat="dd/MM/yyyy"
+                locale={es}
+                placeholderText="Fecha (dd/mm/yyyy)"
+                showIcon
+                toggleCalendarOnIconClick
+                wrapperClassName="w-full min-w-0"
+                popperClassName="habioo-datepicker-popper"
+                calendarClassName="habioo-datepicker-calendar"
+                className="h-[50px] w-full rounded-xl border border-gray-200 bg-gray-50 p-3 pr-10 outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                required
+              />
             </div>
           </div>
 
