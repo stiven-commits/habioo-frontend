@@ -119,6 +119,14 @@ const formatCurrency = (value: string | number | undefined | null): string => {
   }).format(n);
 };
 
+const formatRate = (value: string | number | undefined | null): string => {
+  const n = toNumber(value);
+  return new Intl.NumberFormat('es-VE', {
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3
+  }).format(n);
+};
+
 const formatFecha = (dateString?: string): string => {
   if (!dateString) return '-';
   try {
@@ -349,7 +357,10 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
       if (!response.ok) throw new Error('No se pudo consultar BCV');
       const data: BcvResponse = await response.json();
-      if (data?.promedio) setTasaBcv(String(data.promedio));
+      if (data?.promedio) {
+        const rateNumber = parseFloat(String(data.promedio));
+        setTasaBcv(Number.isFinite(rateNumber) ? rateNumber.toFixed(3) : String(data.promedio));
+      }
     } catch {
       alert('Error obteniendo tasa BCV.');
     } finally {
@@ -883,7 +894,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
             >
               {loadingBcv ? 'Consultando BCV...' : 'Obtener BCV'}
             </button>
-            {tasaBcvNum > 0 && <span className="text-xs font-bold text-gray-500">Tasa: {formatCurrency(tasaBcvNum)}</span>}
+            {tasaBcvNum > 0 && <span className="text-xs font-bold text-gray-500">Tasa: {formatRate(tasaBcvNum)}</span>}
           </div>
           {cuentaActual?.moneda === 'USD' && <p className="text-xs text-red-400 font-bold mt-1">Cuenta en divisas</p>}
         </div>

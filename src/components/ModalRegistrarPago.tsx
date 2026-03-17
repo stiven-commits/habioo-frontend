@@ -178,14 +178,14 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
     fetchCuentasBancarias();
   }, []);
 
-  const formatCurrencyInput = (value: string): string => {
+  const formatCurrencyInput = (value: string, maxDecimals = 2): string => {
     let rawValue = value.replace(/[^0-9,]/g, '');
     const parts = rawValue.split(',');
     if (parts.length > 2) rawValue = `${parts[0]},${parts.slice(1).join('')}`;
     let [integerPart = '', decimalPart] = rawValue.split(',');
     if (integerPart) integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     if (decimalPart !== undefined) {
-      decimalPart = decimalPart.slice(0, 2);
+      decimalPart = decimalPart.slice(0, maxDecimals);
       return `${integerPart},${decimalPart}`;
     }
     return integerPart ?? '';
@@ -215,7 +215,8 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
     const field = name as keyof FormPagoState;
     let newVal = value;
 
-    if (field === 'monto_origen' || field === 'tasa_cambio') newVal = formatCurrencyInput(value);
+    if (field === 'monto_origen') newVal = formatCurrencyInput(value, 2);
+    if (field === 'tasa_cambio') newVal = formatCurrencyInput(value, 3);
     if (field === 'cedula_origen') newVal = sanitizeCedulaRif(value);
 
     applyFormChange(field, newVal);
@@ -231,8 +232,9 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
       if (!response.ok) throw new Error('API Error');
       const json: BcvResponse = await response.json();
       if (json && json.promedio) {
-        const usdRate = String(json.promedio).replace('.', ',');
-        applyFormChange('tasa_cambio', formatCurrencyInput(usdRate));
+        const rateNumber = parseFloat(String(json.promedio));
+        const usdRate = Number.isFinite(rateNumber) ? rateNumber.toFixed(3).replace('.', ',') : String(json.promedio).replace('.', ',');
+        applyFormChange('tasa_cambio', formatCurrencyInput(usdRate, 3));
       } else alert('No se pudo encontrar la tasa del BCV actual.');
     } catch {
       alert('Error de conexión o API. No se pudo obtener la tasa BCV.');
@@ -362,7 +364,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Tasa de Cambio <span className="text-red-500">*</span></label>
-                      <input type="text" name="tasa_cambio" value={formPago.tasa_cambio} onChange={handlePagoChange} placeholder="Ej: 36,50" required className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" />
+                      <input type="text" name="tasa_cambio" value={formPago.tasa_cambio} onChange={handlePagoChange} placeholder="Ej: 36,500" required className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" />
                     </div>
                   </div>
                   <button type="button" onClick={fetchBCV} disabled={isFetchingBCV} className="h-full min-h-[118px] w-full bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/40 dark:text-blue-400 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-donezo-primary disabled:opacity-60" title="Consultar tasa actual del BCV">

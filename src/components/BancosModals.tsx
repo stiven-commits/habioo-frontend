@@ -140,7 +140,11 @@ export const ModalPagoProveedor: React.FC<ModalBaseProps> = ({ onClose, onSucces
     try {
       const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
       const json: BcvResponse = (await response.json()) as BcvResponse;
-      if (json?.promedio) setForm((prev: PagoProveedorForm) => ({ ...prev, tasa_cambio: String(json.promedio) }));
+      if (json?.promedio) {
+        const rateNumber = parseFloat(String(json.promedio));
+        const formattedRate = Number.isFinite(rateNumber) ? rateNumber.toFixed(3) : String(json.promedio);
+        setForm((prev: PagoProveedorForm) => ({ ...prev, tasa_cambio: formattedRate }));
+      }
     } catch {
       await showAlert({ title: 'BCV no disponible', message: 'No se pudo obtener la tasa BCV.', variant: 'warning' });
     } finally {
@@ -229,7 +233,7 @@ export const ModalPagoProveedor: React.FC<ModalBaseProps> = ({ onClose, onSucces
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tasa BCV *</label>
                   <div className="flex gap-2">
-                    <input required type="number" step="0.01" value={form.tasa_cambio} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, tasa_cambio: e.target.value })} placeholder="Ej: 36.50" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
+                    <input required type="number" step="0.001" value={form.tasa_cambio} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, tasa_cambio: e.target.value })} placeholder="Ej: 36.500" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
                     <button type="button" onClick={fetchBCV} disabled={isFetchingBCV} className="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200 px-3 rounded-xl font-bold border border-blue-300 dark:border-blue-700">
                       {isFetchingBCV ? '...' : 'BCV'}
                     </button>
@@ -353,7 +357,7 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
       const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
       const json: BcvResponse = (await response.json()) as BcvResponse;
       if (json?.promedio) {
-        setForm((prev: TransferenciaForm) => ({ ...prev, tasa_cambio: formatNumberInput(String(json.promedio).replace('.', ','), 2) }));
+        setForm((prev: TransferenciaForm) => ({ ...prev, tasa_cambio: formatNumberInput(String(json.promedio).replace('.', ','), 3) }));
       }
     } catch {
       await showAlert({ title: 'BCV no disponible', message: 'No se pudo obtener la tasa BCV.', variant: 'warning' });
@@ -501,9 +505,9 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
 
                   {involvesBs && (
                     <div>
-                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tasa de Cambio (max 2 decimales) *</label>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tasa de Cambio (max 3 decimales) *</label>
                       <div className="flex gap-2">
-                        <input required type="text" value={form.tasa_cambio} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, tasa_cambio: formatNumberInput(e.target.value, 2) })} placeholder="Ej: 36,50" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
+                        <input required type="text" value={form.tasa_cambio} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, tasa_cambio: formatNumberInput(e.target.value, 3) })} placeholder="Ej: 36,500" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
                         <button type="button" onClick={fetchBCV} disabled={isFetchingBCV} className="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200 px-3 rounded-xl font-bold border border-blue-300 dark:border-blue-700 transition-all hover:bg-blue-200 dark:hover:bg-blue-900/60">
                           {isFetchingBCV ? '...' : 'BCV'}
                         </button>

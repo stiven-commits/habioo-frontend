@@ -74,13 +74,13 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({ onClose, onSuccess, pro
   const tasaNum = parseInputNumber(form.tasa_cambio);
   const equivalenteUSD = tasaNum > 0 ? (montoBsNum / tasaNum).toFixed(2) : '0.00';
 
-  const formatCurrencyInput = (value: string): string => {
+  const formatCurrencyInput = (value: string, maxDecimals = 2): string => {
     let rawValue = value.replace(/[^0-9,]/g, '');
     const parts = rawValue.split(',');
     if (parts.length > 2) rawValue = parts[0] + ',' + parts.slice(1).join('');
     let [integerPart = '', decimalPart] = rawValue.split(',');
     if (integerPart) integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    if (decimalPart !== undefined) return `${integerPart},${decimalPart.slice(0, 2)}`;
+    if (decimalPart !== undefined) return `${integerPart},${decimalPart.slice(0, maxDecimals)}`;
     return integerPart ?? '';
   };
 
@@ -96,7 +96,8 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({ onClose, onSuccess, pro
 
   const handleMonedaChange = (e: ChangeEvent<HTMLInputElement>): void => {
     const field = e.target.name as keyof FormState;
-    setForm((prev: FormState) => ({ ...prev, [field]: formatCurrencyInput(e.target.value) as FormState[typeof field] }));
+    const maxDecimals = field === 'tasa_cambio' ? 3 : 2;
+    setForm((prev: FormState) => ({ ...prev, [field]: formatCurrencyInput(e.target.value, maxDecimals) as FormState[typeof field] }));
   };
 
   const handleCuotasChange = (delta: number): void => {
@@ -112,7 +113,9 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({ onClose, onSuccess, pro
       const data: { promedio?: number | string } = await res.json();
       if (data && data.promedio) {
         // Convertimos el punto en coma y lo pasamos por nuestro formateador
-        const formattedTasa = formatCurrencyInput(String(data.promedio).replace('.', ','));
+        const rateNumber = parseFloat(String(data.promedio));
+        const tasaRaw = Number.isFinite(rateNumber) ? rateNumber.toFixed(3).replace('.', ',') : String(data.promedio).replace('.', ',');
+        const formattedTasa = formatCurrencyInput(tasaRaw, 3);
         setForm((prev: FormState) => ({ ...prev, tasa_cambio: formattedTasa }));
       } else {
         alert('No se pudo obtener la tasa oficial en este momento.');

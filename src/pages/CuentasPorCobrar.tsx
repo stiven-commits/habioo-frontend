@@ -108,7 +108,7 @@ interface PendingCountMap {
 }
 
 const toNumber = (value: string | number | undefined | null): number => parseFloat(String(value ?? 0)) || 0;
-const formatNumberInput = (value: string | number | undefined | null): string => {
+const formatNumberInput = (value: string | number | undefined | null, maxDecimals = 2): string => {
   const strValue = String(value || '');
   const isNegative = strValue.trim().startsWith('-');
   let rawValue = strValue.replace(/[^0-9,]/g, '');
@@ -117,7 +117,7 @@ const formatNumberInput = (value: string | number | undefined | null): string =>
   if (parts.length > 2) rawValue = `${parts[0]},${parts.slice(1).join('')}`;
   let [integerPart, decimalPart] = rawValue.split(',');
   if (integerPart) integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  const formatted = decimalPart !== undefined ? `${integerPart},${decimalPart.slice(0, 2)}` : (integerPart || '');
+  const formatted = decimalPart !== undefined ? `${integerPart},${decimalPart.slice(0, maxDecimals)}` : (integerPart || '');
   if (!formatted) return '';
   return isNegative ? `-${formatted}` : formatted;
 };
@@ -371,7 +371,9 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
         alert('No se pudo obtener la tasa BCV actual.');
         return;
       }
-      setTasaBcvAjuste(formatNumberInput(String(json.promedio).replace('.', ',')));
+      const rateNumber = parseFloat(String(json.promedio));
+      const formattedRate = Number.isFinite(rateNumber) ? rateNumber.toFixed(3).replace('.', ',') : String(json.promedio).replace('.', ',');
+      setTasaBcvAjuste(formatNumberInput(formattedRate, 3));
     } catch {
       alert('Error al consultar BCV.');
     } finally {
@@ -791,9 +793,9 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                   <input
                     type="text"
                     value={tasaBcvAjuste}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setTasaBcvAjuste(formatNumberInput(e.target.value))}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setTasaBcvAjuste(formatNumberInput(e.target.value, 3))}
                     className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
-                    placeholder="Ej: 36,50"
+                    placeholder="Ej: 36,500"
                   />
                 </div>
                 <button

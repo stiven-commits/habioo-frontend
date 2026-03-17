@@ -83,7 +83,7 @@ const parseFormattedAmount = (input: string): number => {
 
 const formatRateForInput = (value: number | ''): string => {
   if (value === '' || !Number.isFinite(value)) return '';
-  const fixed = value.toFixed(2);
+  const fixed = value.toFixed(3);
   const [intPart = '0', decPartRaw = ''] = fixed.split('.');
   const intWithDots = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   const decPart = decPartRaw.replace(/0+$/, '');
@@ -208,7 +208,7 @@ const ModalPagarProveedor: React.FC<ModalPagarProveedorProps> = ({ isOpen, onClo
 
   const handleTasaChange = (filaId: string, value: string): void => {
     const tasaNumber = parseFormattedAmount(value);
-    const tasa = tasaNumber > 0 ? parseFloat(tasaNumber.toFixed(2)) : '';
+    const tasa = tasaNumber > 0 ? parseFloat(tasaNumber.toFixed(3)) : '';
     setFila(filaId, (fila: FilaOrigen) => {
       const montoBs = parseFormattedAmount(fila.monto_input);
       const usd = Number(tasa) > 0 ? parseFloat((montoBs / Number(tasa)).toFixed(2)) : 0;
@@ -247,7 +247,7 @@ const ModalPagarProveedor: React.FC<ModalPagarProveedorProps> = ({ isOpen, onClo
         const usd = montoBs > 0 ? parseFloat((montoBs / promedio).toFixed(2)) : 0;
         return {
           ...fila,
-          tasa_cambio: parseFloat(promedio.toFixed(2)),
+          tasa_cambio: parseFloat(promedio.toFixed(3)),
           monto_usd: usd,
         };
       });
@@ -524,7 +524,7 @@ const ModalPagarProveedor: React.FC<ModalPagarProveedorProps> = ({ isOpen, onClo
                             <input
                               type="text"
                               inputMode="decimal"
-                              placeholder="0,00"
+                              placeholder="0,000"
                               value={formatRateForInput(fila.tasa_cambio)}
                               onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleTasaChange(fila.id, e.target.value)}
                               disabled={saving}

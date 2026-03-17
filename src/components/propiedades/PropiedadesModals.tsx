@@ -156,7 +156,7 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
   const [searchPropietarioExistente, setSearchPropietarioExistente] = useState<string>('');
   const [isPropietarioDropdownOpen, setIsPropietarioDropdownOpen] = useState<boolean>(false);
 
-  const formatNumberInput = (value: string | number | undefined | null): string => {
+  const formatNumberInput = (value: string | number | undefined | null, maxDecimals = 2): string => {
     const strValue = String(value || '');
     const isNegative = strValue.trim().startsWith('-');
     let rawValue = strValue.replace(/[^0-9,]/g, '');
@@ -165,7 +165,7 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
     if (parts.length > 2) rawValue = `${parts[0]},${parts.slice(1).join('')}`;
     let [integerPart, decimalPart] = rawValue.split(',');
     if (integerPart) integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    const formatted = decimalPart !== undefined ? `${integerPart},${decimalPart.slice(0, 2)}` : (integerPart || '');
+    const formatted = decimalPart !== undefined ? `${integerPart},${decimalPart.slice(0, maxDecimals)}` : (integerPart || '');
     if (!formatted) return '';
     return isNegative ? `-${formatted}` : formatted;
   };
@@ -254,7 +254,7 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
   };
 
   const handleTasaChange = (value: string): void => {
-    const tasaBcv = formatNumberInput(value);
+    const tasaBcv = formatNumberInput(value, 3);
     const saldoBs = form.saldo_inicial_bs || '';
     const saldoUsd = parseNumberInput(tasaBcv) > 0 ? (parseNumberInput(saldoBs) / parseNumberInput(tasaBcv)).toFixed(2).replace('.', ',') : '';
     setForm({ ...form, tasa_bcv: tasaBcv, monto_saldo_inicial: saldoUsd });
@@ -271,7 +271,9 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
         alert('No se pudo obtener la tasa BCV actual.');
         return;
       }
-      handleTasaChange(String(rate).replace('.', ','));
+      const rateNumber = parseFloat(String(rate));
+      const formattedRate = Number.isFinite(rateNumber) ? rateNumber.toFixed(3).replace('.', ',') : String(rate).replace('.', ',');
+      handleTasaChange(formattedRate);
     } catch (error) {
       alert('Error al consultar BCV.');
     } finally {
@@ -387,7 +389,7 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
                             type="text"
                             value={form.tasa_bcv || ''}
                             onChange={(e: ChangeEvent<HTMLInputElement>) => handleTasaChange(e.target.value)}
-                            placeholder="Ej: 36,50"
+                            placeholder="Ej: 36,500"
                             className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
                           />
                         </div>
