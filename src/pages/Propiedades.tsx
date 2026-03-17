@@ -1239,7 +1239,16 @@ const Propiedades: FC<PropiedadesProps> = () => {
   const totalCargo = estadoCuentaFiltrado.reduce((acc: number, m: EstadoCuentaMovimientoConSaldo) => acc + toNumber(m.cargo), 0);
   const totalAbono = estadoCuentaFiltrado.reduce((acc: number, m: EstadoCuentaMovimientoConSaldo) => acc + toNumber(m.abono), 0);
 
-  const filteredProps = propiedades.filter((p: Propiedad) => p.identificador.toLowerCase().includes(searchTerm.toLowerCase()) || p.prop_nombre?.toLowerCase().includes(searchTerm.toLowerCase()));
+  const searchNormalized = searchTerm.trim().toLowerCase();
+  const filteredProps = propiedades.filter((p: Propiedad) => {
+    if (!searchNormalized) return true;
+    return (
+      String(p.identificador || '').toLowerCase().includes(searchNormalized) ||
+      String(p.prop_nombre || '').toLowerCase().includes(searchNormalized) ||
+      String(p.prop_cedula || '').toLowerCase().includes(searchNormalized) ||
+      String(p.inq_cedula || '').toLowerCase().includes(searchNormalized)
+    );
+  });
   const sortedProps = [...filteredProps].sort((a: Propiedad, b: Propiedad) => {
     let cmp = 0;
     if (sortColumn === 'identificador') {
@@ -1327,7 +1336,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
         <h3 className="text-xl font-bold text-gray-800 dark:text-white whitespace-nowrap">🏠 Inmuebles y Residentes</h3>
         <div className="flex-1 w-full relative">
           <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">🔍</span>
-          <input type="text" placeholder="Buscar apartamento o propietario..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 p-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white transition-all"/>
+          <input type="text" placeholder="Buscar inmueble, propietario o cédula..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 p-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white transition-all"/>
         </div>
         <div className="flex gap-3 w-full xl:w-auto">
           {canDeleteAll && propiedades.length > 0 && (
