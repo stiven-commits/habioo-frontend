@@ -5,7 +5,7 @@ import { formatMoney } from '../utils/currency';
 import { sanitizeCedulaRif, sanitizePhone, sanitizeEmail, isValidEmail, isValidPhone, isValidCedulaRif } from '../utils/validators';
 import { API_BASE_URL } from '../config/api';
 import * as XLSX from 'xlsx';
-import { ModalAjusteSaldo, ModalEstadoCuenta, ModalPropiedadForm, ModalCargaMasiva } from '../components/propiedades/PropiedadesModals';
+import { ModalAjusteSaldo, ModalEstadoCuenta, ModalPropiedadForm, ModalCargaMasiva, ModalCopropietarioForm } from '../components/propiedades/PropiedadesModals';
 import { useDialog } from '../components/ui/DialogProvider';
 
 interface PropiedadesProps {}
@@ -202,6 +202,28 @@ interface ApiActionResponse {
   message?: string;
 }
 
+interface CopropietarioFormState {
+  cedula: string;
+  nombre: string;
+  email: string;
+  telefono: string;
+  acceso_portal: boolean;
+}
+
+interface CopropietarioItem extends CopropietarioFormState {
+  id: number;
+  user_id: number;
+  propiedad_id: number;
+  rol: string;
+}
+
+interface ApiCopropietariosResponse {
+  status: string;
+  copropietarios?: CopropietarioItem[];
+  error?: string;
+  message?: string;
+}
+
 interface PropietarioExistente {
   id: number;
   cedula: string;
@@ -232,6 +254,14 @@ const Propiedades: FC<PropiedadesProps> = () => {
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
+  const [copropModalOpen, setCopropModalOpen] = useState<boolean>(false);
+  const [copropSubmitting, setCopropSubmitting] = useState<boolean>(false);
+  const [selectedPropCoprop, setSelectedPropCoprop] = useState<Propiedad | null>(null);
+  const [copropietarios, setCopropietarios] = useState<CopropietarioItem[]>([]);
+  const [copropietariosDraft, setCopropietariosDraft] = useState<Record<number, CopropietarioFormState>>({});
+  const [copropLoading, setCopropLoading] = useState<boolean>(false);
+  const [copropSavingId, setCopropSavingId] = useState<number | null>(null);
+  const [copropDeletingId, setCopropDeletingId] = useState<number | null>(null);
 
   const [ajusteModalOpen, setAjusteModalOpen] = useState<boolean>(false);
   const [selectedPropAjuste, setSelectedPropAjuste] = useState<PropiedadAjuste | null>(null);
@@ -281,6 +311,28 @@ const Propiedades: FC<PropiedadesProps> = () => {
   };
 
   const [form, setForm] = useState<FormState>(initialForm);
+  const [copropForm, setCopropForm] = useState<CopropietarioFormState>({
+    cedula: '',
+    nombre: '',
+    email: '',
+    telefono: '',
+    acceso_portal: true,
+  });
+
+  const normalizeCopropField = (
+    name: string,
+    value: string,
+    type: string,
+    checked: boolean,
+    current: CopropietarioFormState
+  ): CopropietarioFormState => {
+    if (type === 'checkbox') return { ...current, [name]: checked } as CopropietarioFormState;
+    if (name === 'cedula') return { ...current, cedula: sanitizeCedulaRif(value) };
+    if (name === 'telefono') return { ...current, telefono: sanitizePhone(value) };
+    if (name === 'email') return { ...current, email: sanitizeEmail(value) };
+    if (name === 'nombre') return { ...current, nombre: value };
+    return current;
+  };
 
   const fetchPropietariosExistentes = async (): Promise<void> => {
     try {
@@ -433,6 +485,179 @@ const Propiedades: FC<PropiedadesProps> = () => {
   };
 
   const handleCreateNew = (): void => { setEditingId(null); setForm(initialForm); setIsModalOpen(true); };
+
+  const fetchCopropietarios = async (propId: number): Promise<void> => {
+    setCopropLoading(true);
+    try {
+      const token = localStorage.getItem('habioo_token');
+      const res = await fetch(`${API_BASE_URL}/propiedades-admin/${propId}/copropietarios`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data: ApiCopropietariosResponse = await res.json();
+      if (data.status === 'success' && Array.isArray(data.copropietarios)) {
+        const list = data.copropietarios.map((item: CopropietarioItem) => ({
+          ...item,
+          cedula: String(item.cedula || ''),
+          nombre: String(item.nombre || ''),
+          email: String(item.email || ''),
+          telefono: String(item.telefono || ''),
+          acceso_portal: item.acceso_portal !== false,
+        }));
+        const draft: Record<number, CopropietarioFormState> = {};
+        list.forEach((item: CopropietarioItem) => {
+          draft[item.id] = {
+            cedula: item.cedula,
+            nombre: item.nombre,
+            email: item.email,
+            telefono: item.telefono,
+            acceso_portal: item.acceso_portal,
+          };
+        });
+        setCopropietarios(list);
+        setCopropietariosDraft(draft);
+      } else {
+        setCopropietarios([]);
+        setCopropietariosDraft({});
+      }
+    } catch (error) {
+      console.error(error);
+      setCopropietarios([]);
+      setCopropietariosDraft({});
+    } finally {
+      setCopropLoading(false);
+    }
+  };
+
+  const handleOpenCopropietarios = (prop: Propiedad): void => {
+    setOpenDropdownId(null);
+    setSelectedPropCoprop(prop);
+    setCopropForm({
+      cedula: '',
+      nombre: '',
+      email: '',
+      telefono: '',
+      acceso_portal: true,
+    });
+    void fetchCopropietarios(prop.id);
+    setCopropModalOpen(true);
+  };
+
+  const handleCopropChange = (e: ChangeEvent<HTMLInputElement>): void => {
+    const { name, value, type } = e.target;
+    setCopropForm((prev: CopropietarioFormState) => normalizeCopropField(name, value, type, e.target.checked, prev));
+  };
+
+  const handleCopropEditChange = (copropId: number, e: ChangeEvent<HTMLInputElement>): void => {
+    const { name, value, type } = e.target;
+    setCopropietariosDraft((prev: Record<number, CopropietarioFormState>) => {
+      const current = prev[copropId];
+      if (!current) return prev;
+      return {
+        ...prev,
+        [copropId]: normalizeCopropField(name, value, type, e.target.checked, current),
+      };
+    });
+  };
+
+  const validateCopropForm = (data: CopropietarioFormState): string | null => {
+    if (!isValidCedulaRif(data.cedula)) return 'Error: la cédula del copropietario debe iniciar con V, E, J o G y contener solo números.';
+    if (!data.nombre.trim()) return 'Error: el nombre del copropietario es obligatorio.';
+    if (data.email && !isValidEmail(data.email)) return 'Error: el correo del copropietario no tiene un formato válido.';
+    if (data.telefono && !isValidPhone(data.telefono)) return 'Error: el teléfono del copropietario debe tener solo números.';
+    return null;
+  };
+
+  const handleSubmitCopropietario = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
+    e.preventDefault();
+    if (!selectedPropCoprop?.id) return;
+    const validationError = validateCopropForm(copropForm);
+    if (validationError) return alert(validationError);
+
+    setCopropSubmitting(true);
+    try {
+      const token = localStorage.getItem('habioo_token');
+      const res = await fetch(`${API_BASE_URL}/propiedades-admin/${selectedPropCoprop.id}/copropietarios`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(copropForm),
+      });
+      const data: ApiActionResponse = await res.json();
+      if (data.status === 'success') {
+        alert(data.message || 'Copropietario guardado correctamente.');
+        setCopropForm({ cedula: '', nombre: '', email: '', telefono: '', acceso_portal: true });
+        await fetchCopropietarios(selectedPropCoprop.id);
+      } else {
+        alert(data.error || data.message || 'No se pudo guardar el copropietario.');
+      }
+    } catch {
+      alert('Error de conexión al guardar copropietario.');
+    } finally {
+      setCopropSubmitting(false);
+    }
+  };
+
+  const handleSaveCopropietario = async (copropId: number): Promise<void> => {
+    if (!selectedPropCoprop?.id) return;
+    const payload = copropietariosDraft[copropId];
+    if (!payload) return;
+    const validationError = validateCopropForm(payload);
+    if (validationError) return alert(validationError);
+
+    setCopropSavingId(copropId);
+    try {
+      const token = localStorage.getItem('habioo_token');
+      const res = await fetch(`${API_BASE_URL}/propiedades-admin/${selectedPropCoprop.id}/copropietarios/${copropId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      });
+      const data: ApiActionResponse = await res.json();
+      if (data.status === 'success') {
+        alert(data.message || 'Copropietario actualizado correctamente.');
+        await fetchCopropietarios(selectedPropCoprop.id);
+      } else {
+        alert(data.error || data.message || 'No se pudo actualizar el copropietario.');
+      }
+    } catch {
+      alert('Error de conexión al actualizar copropietario.');
+    } finally {
+      setCopropSavingId(null);
+    }
+  };
+
+  const handleDeleteCopropietario = async (copropId: number): Promise<void> => {
+    if (!selectedPropCoprop?.id) return;
+    const coprop = copropietariosDraft[copropId];
+    const nombre = coprop?.nombre || 'este copropietario';
+    const ok = await showConfirm({
+      title: 'Eliminar copropietario',
+      message: `¿Deseas eliminar a ${nombre} del inmueble ${selectedPropCoprop.identificador}?`,
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      variant: 'warning',
+    });
+    if (!ok) return;
+
+    setCopropDeletingId(copropId);
+    try {
+      const token = localStorage.getItem('habioo_token');
+      const res = await fetch(`${API_BASE_URL}/propiedades-admin/${selectedPropCoprop.id}/copropietarios/${copropId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data: ApiActionResponse = await res.json();
+      if (data.status === 'success') {
+        alert(data.message || 'Copropietario eliminado correctamente.');
+        await fetchCopropietarios(selectedPropCoprop.id);
+      } else {
+        alert(data.error || data.message || 'No se pudo eliminar el copropietario.');
+      }
+    } catch {
+      alert('Error de conexión al eliminar copropietario.');
+    } finally {
+      setCopropDeletingId(null);
+    }
+  };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
@@ -1182,6 +1407,9 @@ const Propiedades: FC<PropiedadesProps> = () => {
                           <button onClick={(e) => { e.stopPropagation(); handleEdit(p); }} className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors">
                             ✏️ Editar Datos
                           </button>
+                          <button onClick={(e) => { e.stopPropagation(); handleOpenCopropietarios(p); }} className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors">
+                            👥 Copropietarios
+                          </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); void handleEliminarInmueble(p); }}
                             disabled={!p.can_delete}
@@ -1244,6 +1472,30 @@ const Propiedades: FC<PropiedadesProps> = () => {
         formAjuste={formAjuste}
         setFormAjuste={setFormAjusteForModal}
         handleSubmitAjuste={handleSubmitAjuste}
+      />
+
+      <ModalCopropietarioForm
+        isOpen={copropModalOpen}
+        propiedadIdentificador={selectedPropCoprop?.identificador || ''}
+        form={copropForm}
+        copropietarios={copropietarios}
+        copropietariosDraft={copropietariosDraft}
+        onClose={() => {
+          setCopropModalOpen(false);
+          setCopropietarios([]);
+          setCopropietariosDraft({});
+          setCopropSavingId(null);
+          setCopropDeletingId(null);
+        }}
+        onSubmit={handleSubmitCopropietario}
+        onChange={handleCopropChange}
+        onEditChange={handleCopropEditChange}
+        onSaveEdit={handleSaveCopropietario}
+        onDelete={handleDeleteCopropietario}
+        isSubmitting={copropSubmitting}
+        isLoadingList={copropLoading}
+        savingCopropId={copropSavingId}
+        deletingCopropId={copropDeletingId}
       />
 
       <ModalCargaMasiva 

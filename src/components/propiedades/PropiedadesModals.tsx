@@ -140,6 +140,39 @@ interface ModalCargaMasivaProps {
   handleFileUpload: (e: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
 }
 
+interface CopropietarioFormData {
+  cedula: string;
+  nombre: string;
+  email: string;
+  telefono: string;
+  acceso_portal: boolean;
+}
+
+interface CopropietarioItem extends CopropietarioFormData {
+  id: number;
+  user_id: number;
+  propiedad_id: number;
+  rol: string;
+}
+
+interface ModalCopropietarioFormProps {
+  isOpen: boolean;
+  propiedadIdentificador: string;
+  form: CopropietarioFormData;
+  copropietarios: CopropietarioItem[];
+  copropietariosDraft: Record<number, CopropietarioFormData>;
+  onClose: () => void;
+  onSubmit: (e: FormEvent<HTMLFormElement>) => void | Promise<void>;
+  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  onEditChange: (copropId: number, e: ChangeEvent<HTMLInputElement>) => void;
+  onSaveEdit: (copropId: number) => void | Promise<void>;
+  onDelete: (copropId: number) => void | Promise<void>;
+  isSubmitting?: boolean;
+  isLoadingList?: boolean;
+  savingCopropId?: number | null;
+  deletingCopropId?: number | null;
+}
+
 export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
   isOpen,
   editingId,
@@ -760,6 +793,225 @@ export const ModalAjusteSaldo: FC<ModalAjusteSaldoProps> = ({
           <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nota (Auditoría) *</label><textarea value={formAjuste.nota} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setFormAjuste({ ...formAjuste, nota: e.target.value })} placeholder="Ej: Cobro de multa" className="w-full p-3 rounded-xl border dark:bg-gray-900 dark:border-gray-700 outline-none dark:text-white text-sm min-h-[80px]" required /></div>
           <div className="pt-4 flex gap-3"><button type="button" onClick={() => setAjusteModalOpen(false)} className="flex-1 py-3 rounded-xl font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 transition-colors">Cancelar</button><button type="submit" className="flex-1 py-3 rounded-xl font-bold bg-yellow-500 text-white hover:bg-yellow-600 transition-all">Aplicar Ajuste</button></div>
         </form>
+      </div>
+    </div>
+  );
+};
+
+export const ModalCopropietarioForm: FC<ModalCopropietarioFormProps> = ({
+  isOpen,
+  propiedadIdentificador,
+  form,
+  copropietarios,
+  copropietariosDraft,
+  onClose,
+  onSubmit,
+  onChange,
+  onEditChange,
+  onSaveEdit,
+  onDelete,
+  isSubmitting = false,
+  isLoadingList = false,
+  savingCopropId = null,
+  deletingCopropId = null
+}) => {
+  if (!isOpen) return null;
+
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  useEffect(() => {
+    setExpandedId(null);
+  }, [isOpen, copropietarios.length]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
+      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-xl shadow-2xl border border-gray-100 dark:border-gray-800 relative my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
+        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl" disabled={isSubmitting}>X</button>
+        <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-1">Agregar Copropietario</h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Inmueble: <strong>{propiedadIdentificador}</strong></p>
+
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-500 mb-1">Cédula *</label>
+              <input
+                type="text"
+                name="cedula"
+                value={form.cedula}
+                onChange={onChange}
+                pattern="^[VEJG][0-9]{5,9}$"
+                placeholder="Ej: V12345678"
+                className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white uppercase"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 mb-1">Nombre completo *</label>
+              <input
+                type="text"
+                name="nombre"
+                value={form.nombre}
+                onChange={onChange}
+                placeholder="Ej: María Fernanda Pérez"
+                className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 mb-1">Email</label>
+              <input
+                type="email"
+                name="email"
+                value={form.email}
+                onChange={onChange}
+                placeholder="Ej: copropietario@email.com"
+                className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 mb-1">Teléfono</label>
+              <input
+                type="text"
+                name="telefono"
+                value={form.telefono}
+                onChange={onChange}
+                inputMode="numeric"
+                pattern="^[0-9]{7,15}$"
+                placeholder="Ej: 04141234567"
+                className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
+              />
+            </div>
+          </div>
+
+          <label className="mt-2 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+            <input
+              type="checkbox"
+              name="acceso_portal"
+              checked={form.acceso_portal}
+              onChange={onChange}
+              className="w-4 h-4 text-donezo-primary"
+            />
+            Permitir acceso al portal (solo lectura)
+          </label>
+
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            El copropietario tendrá acceso para consultar información y registrar pagos, pero la cobranza oficial y el recibo legal permanecen a nombre del propietario principal.
+          </p>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <button type="button" onClick={onClose} className="px-6 py-3 rounded-xl bg-gray-100 dark:bg-gray-800 font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200 transition-colors" disabled={isSubmitting}>
+              Cancelar
+            </button>
+            <button type="submit" className="px-6 py-3 rounded-xl font-bold bg-donezo-primary text-white hover:bg-blue-700 transition-all disabled:opacity-60" disabled={isSubmitting}>
+              {isSubmitting ? 'Guardando...' : 'Guardar Copropietario'}
+            </button>
+          </div>
+        </form>
+
+        <div className="mt-8 border-t border-gray-200 dark:border-gray-700 pt-5">
+          <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-3">Copropietarios registrados</h4>
+
+          {isLoadingList ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">Cargando copropietarios...</p>
+          ) : copropietarios.length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">No hay copropietarios registrados en este inmueble.</p>
+          ) : (
+            <div className="space-y-3">
+              {copropietarios.map((coprop) => {
+                const isOpenAccordion = expandedId === coprop.id;
+                const draft = copropietariosDraft[coprop.id];
+                if (!draft) return null;
+                return (
+                  <div key={coprop.id} className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-800/40 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedId((prev) => (prev === coprop.id ? null : coprop.id))}
+                      className="w-full px-4 py-3 text-left flex items-center justify-between gap-3 hover:bg-gray-100/80 dark:hover:bg-gray-700/60 transition-colors"
+                    >
+                      <div>
+                        <p className="font-semibold text-gray-800 dark:text-gray-200">{draft.nombre || 'Sin nombre'}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{draft.cedula || 'Sin cédula'} | {draft.email || 'Sin correo'}</p>
+                      </div>
+                      <span className="text-sm font-bold text-gray-500 dark:text-gray-300">{isOpenAccordion ? '▲' : '▼'}</span>
+                    </button>
+
+                    {isOpenAccordion && (
+                      <div className="px-4 pb-4 pt-2 space-y-3 border-t border-gray-200 dark:border-gray-700">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <input
+                            type="text"
+                            name="cedula"
+                            value={draft.cedula}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) => onEditChange(coprop.id, e)}
+                            pattern="^[VEJG][0-9]{5,9}$"
+                            placeholder="Cédula"
+                            className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white uppercase"
+                          />
+                          <input
+                            type="text"
+                            name="nombre"
+                            value={draft.nombre}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) => onEditChange(coprop.id, e)}
+                            placeholder="Nombre completo"
+                            className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
+                          />
+                          <input
+                            type="email"
+                            name="email"
+                            value={draft.email}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) => onEditChange(coprop.id, e)}
+                            placeholder="Email"
+                            className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
+                          />
+                          <input
+                            type="text"
+                            name="telefono"
+                            value={draft.telefono}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) => onEditChange(coprop.id, e)}
+                            inputMode="numeric"
+                            pattern="^[0-9]{7,15}$"
+                            placeholder="Teléfono"
+                            className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
+                          />
+                        </div>
+
+                        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                          <input
+                            type="checkbox"
+                            name="acceso_portal"
+                            checked={draft.acceso_portal}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) => onEditChange(coprop.id, e)}
+                            className="w-4 h-4 text-donezo-primary"
+                          />
+                          Permitir acceso al portal (solo lectura)
+                        </label>
+
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => onDelete(coprop.id)}
+                            disabled={deletingCopropId === coprop.id}
+                            className="px-4 py-2 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors"
+                          >
+                            {deletingCopropId === coprop.id ? 'Eliminando...' : 'Eliminar'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onSaveEdit(coprop.id)}
+                            disabled={savingCopropId === coprop.id || deletingCopropId === coprop.id}
+                            className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold hover:bg-emerald-700 disabled:opacity-60 transition-colors"
+                          >
+                            {savingCopropId === coprop.id ? 'Guardando...' : 'Guardar Cambios'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

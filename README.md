@@ -3,7 +3,7 @@
 Documento de referencia funcional y tecnica del estado actual de la app.
 Este README fusiona la base conceptual original con el inventario actualizado de modulos, endpoints y modelo de datos.
 
-- Ultima actualizacion: 2026-03-16
+- Ultima actualizacion: 2026-03-17
 - Stack: React + Vite + Tailwind (frontend), Node/Express + PostgreSQL (backend)
 
 ---
@@ -54,6 +54,24 @@ Archivo de referencia: `habioo-frontend/src/App.jsx`
 11. Cuentas por cobrar (admin): tabla paginada de deuda, registrar pago y ver estado de cuenta por inmueble.
 12. Libro Mayor / Estado de Cuentas Bancarias (admin): selector de cuenta, movimientos con saldo acumulado, pago a proveedores y transferencias entre fondos.
 13. Sistema de avisos/confirmaciones UI: alertas del navegador migradas a modal centrada reutilizable en frontend (dark/light con contraste mejorado).
+14. Vista de inmuebles (propietario): pantalla de estado de cuenta del edificio con vista diaria y vista por corte mensual por aviso.
+15. Visibilidad de fondos para inmuebles: la junta define con check que fondos pueden ver los propietarios; la vista de propietario solo muestra fondos marcados como visibles.
+16. Estados de cuenta por cortes (propietario): al emitir aviso de cobro se genera corte historico de fondos y el propietario puede filtrar por ano/mes.
+17. Notificaciones de pago (propietario -> junta): los pagos enviados por propietarios quedan pendientes de aprobacion y la junta puede aprobar o rechazar con trazabilidad.
+
+### 3.3 Novedades recientes (inmuebles y cobros)
+
+1. Rediseño de la vista de estado de cuenta para inmuebles:
+   - Tarjetas de resumen (Bs/USD) y boton para obtener BCV.
+   - Vista dia a dia del saldo visible.
+   - Tabla de egresos del fondo seleccionado.
+2. Soporte de cortes mensuales por aviso de cobro:
+   - Generacion de snapshot/corte por fondo al crear aviso.
+   - Consulta historica por ano y mes para el propietario.
+3. Flujo de pagos con aprobacion de junta:
+   - El propietario registra/solicita pago.
+   - La junta revisa pagos pendientes.
+   - Aprobacion o rechazo con impacto en estado de cuenta y fondos.
 
 ### 3.2 Funcionalidades inactivas o parciales
 
@@ -101,9 +119,24 @@ Archivo de composicion: `habioo-auth/index.ts`
 
 ### `routes/pagos.ts`
 - `POST /pagos-admin`
+- `POST /pagos-propietario`
+- `GET /pagos/pendientes-aprobacion`
 - `POST /pagos/:id/validar`
+- `POST /pagos/:id/rechazar`
 - `GET /pagos-proveedores/gasto/:gasto_id/detalles`
 - `POST /pagos-proveedores`
+
+### `routes/propietario.ts` (montado en `/api/propietario`)
+- `GET /api/propietario/mis-propiedades`
+- `GET /api/propietario/gastos/:condominio_id`
+- `GET /api/propietario/mis-recibos/:propiedad_id`
+- `GET /api/propietario/estado-cuenta/:condominio_id`
+- `GET /api/propietario/cuentas/:condominio_id`
+- `GET /api/propietario/fondos-principal/:condominio_id`
+- `GET /api/propietario/fondos/:condominio_id`
+- `GET /api/propietario/estado-cuenta-cortes/:condominio_id`
+- `GET /api/propietario/cuenta-principal/:condominio_id`
+- `GET /api/propietario/notificaciones`
 
 ### `routes/bancos.ts`
 - `GET /bancos`
@@ -149,6 +182,9 @@ Archivo de composicion: `habioo-auth/index.ts`
 - Aviso inmutable: `recibos.snapshot_jsonb` congela el estado del aviso al momento de emision.
 - Clasificacion de gastos: `Fijo` y `Variable`.
 - Ajustes de inmueble: afectan solo estado de cuenta del inmueble (no cuentas bancarias/fondos).
+- Visibilidad de fondos a propietarios: se controla por `fondos.visible_propietarios`.
+- Cortes de estado de cuenta para propietarios: se almacenan en `cortes_estado_cuenta_fondos` y se consultan por periodo.
+- Pagos de propietario: entran a cola de aprobacion (`PendienteAprobacion`) antes de su validacion final por junta.
 - Eliminacion de inmueble: solo permitida si no tiene avisos/recibos generados.
 - Carga masiva de inmuebles: no genera avisos automaticamente; importa estructura y saldos base.
 
@@ -166,6 +202,7 @@ Archivo de composicion: `habioo-auth/index.ts`
 - `recibos`: aviso/recibo por inmueble, con `snapshot_jsonb`.
 - `pagos`: pagos de propietarios y su validacion.
 - `cuentas_bancarias`, `fondos`, `movimientos_fondos`: tesoreria y trazabilidad.
+- `cortes_estado_cuenta_fondos`: snapshots mensuales por aviso para consulta historica del propietario.
 - `historial_saldos_inmuebles`: auditoria de ajustes/saldos iniciales.
 
 ---
@@ -177,6 +214,7 @@ Archivo de composicion: `habioo-auth/index.ts`
 - `2026-03-16_add_recibos_snapshot_jsonb.sql`
 - `2026-03-16_add_gastos_clasificacion.sql`
 - `2026-03-16_backfill_recibos_snapshot_gastos_clasificacion.sql`
+- `2026-03-16_fondos_visibilidad_y_cortes_estado_cuenta.sql`
 
 ---
 
