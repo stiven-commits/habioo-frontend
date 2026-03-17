@@ -29,6 +29,10 @@ interface BancoCuenta {
   apodo?: string;
   tipo?: string;
   es_predeterminada?: boolean;
+  acepta_transferencia?: boolean;
+  acepta_pago_movil?: boolean;
+  pago_movil_telefono?: string;
+  pago_movil_cedula_rif?: string;
 }
 
 interface Fondo {
@@ -58,6 +62,7 @@ interface BcvResponse {
 
 interface FormPagoState {
   cuenta_id: string;
+  metodo_pago: 'Transferencia' | 'Pago Movil' | 'Zelle' | 'Efectivo';
   monto_origen: string;
   tasa_cambio: string;
   referencia: string;
@@ -105,6 +110,7 @@ const dateToYmd = (date: Date | null): string => {
 
 const initialFormPago = (): FormPagoState => ({
   cuenta_id: '',
+  metodo_pago: 'Transferencia',
   monto_origen: '',
   tasa_cambio: '',
   referencia: '',
@@ -137,9 +143,11 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
       const cuentaPorDefecto = cuentasConFondos.find((c: BancoCuenta) => c.es_predeterminada) ?? cuentasConFondos[0];
       
       if (cuentaPorDefecto) {
+        const metodos = getMetodosCuenta(cuentaPorDefecto);
         setFormPago((prev: FormPagoState) => ({
           ...prev,
-          cuenta_id: String(cuentaPorDefecto.id)
+          cuenta_id: String(cuentaPorDefecto.id),
+          metodo_pago: metodos[0] || 'Transferencia',
         }));
       }
     }
@@ -154,6 +162,28 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
     'Banco Exterior', 'Banco de la Fuerza Armada Nacional Bolivariana (Banfanb)',
     'Banco Digital de los Trabajadores (BDT)', 'N58 Banco Digital', 'Bancrecer', 'Bangente', 'R4 Banco Microfinanciero'
   ];
+
+  const getMetodosCuenta = (cuenta?: BancoCuenta): Array<FormPagoState['metodo_pago']> => {
+    if (!cuenta) return [];
+    const tipo = String(cuenta.tipo || '');
+    const legacyTransfer = tipo === 'Transferencia';
+    const legacyPagoMovil = tipo === 'Pago Movil';
+    const legacyZelle = tipo === 'Zelle';
+    const legacyEfectivo = tipo.startsWith('Efectivo');
+
+    const canTransfer = cuenta.acepta_transferencia ?? legacyTransfer;
+    const canPagoMovil = cuenta.acepta_pago_movil ?? legacyPagoMovil;
+
+    if (legacyZelle) return ['Zelle'];
+    if (legacyEfectivo) return ['Efectivo'];
+
+    const methods: Array<FormPagoState['metodo_pago']> = [];
+    if (canTransfer) methods.push('Transferencia');
+    if (canPagoMovil) methods.push('Pago Movil');
+    if (methods.length === 0 && legacyTransfer) methods.push('Transferencia');
+    if (methods.length === 0 && legacyPagoMovil) methods.push('Pago Movil');
+    return methods;
+  };
 
   const [conversionUSD, setConversionUSD] = useState<string>('0.00');
 
@@ -224,7 +254,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
   };
 
   const applyFormChange = (name: keyof FormPagoState, value: string): void => {
-    const updatedForm: FormPagoState = { ...formPago, [name]: value };
+    const updatedForm: FormPagoState = { ...formPago, [name]: value } as FormPagoState;
     setFormPago(updatedForm);
     setConversionUSD(getConversionUSD(updatedForm));
   };
@@ -232,6 +262,22 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
   const handlePagoChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
     const { name, value } = e.target;
     const field = name as keyof FormPagoState;
+    if (field === 'cuenta_id') {
+      const cuenta = cuentasConFondos.find((b: BancoCuenta) => String(b.id) === value);
+      const metodos = getMetodosCuenta(cuenta);
+      const nextMetodo = metodos.includes(formPago.metodo_pago) ? formPago.metodo_pago : (metodos[0] || 'Transferencia');
+      const updatedForm: FormPagoState = {
+        ...formPago,
+        cuenta_id: value,
+        metodo_pago: nextMetodo,
+      };
+      if (nextMetodo === 'Pago Movil' && cuenta?.pago_movil_cedula_rif && !updatedForm.cedula_origen) {
+        updatedForm.cedula_origen = cuenta.pago_movil_cedula_rif;
+      }
+      setFormPago(updatedForm);
+      setConversionUSD(getConversionUSD(updatedForm));
+      return;
+    }
     let newVal = value;
 
     if (field === 'monto_origen') newVal = formatCurrencyInput(value, 2);
@@ -263,7 +309,15 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
   };
 
   const selectedBank = cuentasConFondos.find((b: BancoCuenta) => b.id.toString() === formPago.cuenta_id);
-  const requiresTasa = !!selectedBank && ['Transferencia', 'Pago Movil'].includes(String(selectedBank.tipo || ''));
+  const metodosCuentaSeleccionada = getMetodosCuenta(selectedBank);
+  const requiresTasa = formPago.metodo_pago === 'Transferencia' || formPago.metodo_pago === 'Pago Movil';
+
+  useEffect(() => {
+    if (!selectedBank) return;
+    if (!metodosCuentaSeleccionada.length) return;
+    if (metodosCuentaSeleccionada.includes(formPago.metodo_pago)) return;
+    setFormPago((prev: FormPagoState) => ({ ...prev, metodo_pago: metodosCuentaSeleccionada[0] || 'Transferencia' }));
+  }, [selectedBank, metodosCuentaSeleccionada, formPago.metodo_pago]);
 
   const handleSubmitPago = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
@@ -301,6 +355,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
         monto_origen: montoOrigenNum,
         tasa_cambio: requiresTasa ? tasaCambioNum : null,
         monto_usd: montoUsdNum,
+        metodo: formPago.metodo_pago,
       };
 
       const endpoint = soloCuentaPrincipal ? `${API_BASE_URL}/pagos-propietario` : `${API_BASE_URL}/pagos-admin`;
@@ -373,6 +428,35 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                   </p>
                 )}
               </div>
+
+              {formPago.cuenta_id && metodosCuentaSeleccionada.length > 0 && (
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Método de Pago</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {metodosCuentaSeleccionada.map((metodo) => (
+                      <button
+                        key={metodo}
+                        type="button"
+                        onClick={() => {
+                          const updated: FormPagoState = { ...formPago, metodo_pago: metodo };
+                          if (metodo === 'Pago Movil' && selectedBank?.pago_movil_cedula_rif && !updated.cedula_origen) {
+                            updated.cedula_origen = selectedBank.pago_movil_cedula_rif;
+                          }
+                          setFormPago(updated);
+                          setConversionUSD(getConversionUSD(updated));
+                        }}
+                        className={`rounded-xl border px-3 py-2 text-xs font-bold transition-colors ${
+                          formPago.metodo_pago === metodo
+                            ? 'border-donezo-primary bg-blue-50 text-donezo-primary dark:bg-blue-900/30 dark:text-blue-300'
+                            : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        {metodo}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {requiresTasa ? (
                 <div className="grid grid-cols-2 gap-3 items-stretch">
