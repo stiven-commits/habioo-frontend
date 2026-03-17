@@ -163,6 +163,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
   const [rechazoDraft, setRechazoDraft] = useState<Record<number, string>>({});
   const [pendingByPropiedad, setPendingByPropiedad] = useState<PendingCountMap>({});
   const [rejectingPagoId, setRejectingPagoId] = useState<number | null>(null);
+  const [openOptionsFor, setOpenOptionsFor] = useState<number | null>(null);
 
   const montoUsdAjuste = parseNumberInput(tasaBcvAjuste) > 0
     ? (parseNumberInput(montoBsAjuste) / parseNumberInput(tasaBcvAjuste))
@@ -220,6 +221,17 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
       fetchPendingCounts();
     }
   }, [userRole]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent): void => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('[data-options-menu]')) return;
+      setOpenOptionsFor(null);
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -553,32 +565,62 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                         </div>
                       </td>
                       <td className="p-3 text-center">
-                        <div className="flex items-center justify-center gap-2">
+                        <div className="relative inline-block text-left" data-options-menu>
                           <button
-                            onClick={() => handleOpenEstadoCuenta(p)}
-                            className="px-3 py-2 rounded-xl text-xs font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/40 transition-colors"
+                            type="button"
+                            onClick={() => setOpenOptionsFor((prev) => (prev === p.id ? null : p.id))}
+                            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                           >
-                            Estado de Cuenta
+                            Opciones
+                            <span className="text-[10px]">▼</span>
                           </button>
-                          <button
-                            onClick={() => handleOpenRegistrarPago(p)}
-                            className="px-3 py-2 rounded-xl text-xs font-bold bg-green-50 text-green-600 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/40 transition-colors"
-                          >
-                            Registrar Pago
-                          </button>
-                          <button
-                            onClick={() => handleOpenAjuste(p)}
-                            className="px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/40 transition-colors"
-                          >
-                            Ajuste
-                          </button>
-                          <button
-                            onClick={() => handleOpenAprobaciones(p)}
-                            disabled={!pendingByPropiedad[p.id]}
-                            className="px-3 py-2 rounded-xl text-xs font-bold bg-violet-50 text-violet-700 hover:bg-violet-100 dark:bg-violet-900/30 dark:text-violet-300 dark:hover:bg-violet-900/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                          >
-                            Aprobar pagos{pendingByPropiedad[p.id] ? ` (${pendingByPropiedad[p.id]})` : ''}
-                          </button>
+
+                          {openOptionsFor === p.id && (
+                            <div className="absolute right-0 z-30 mt-2 w-52 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleOpenEstadoCuenta(p);
+                                  setOpenOptionsFor(null);
+                                }}
+                                className="block w-full px-3 py-2 text-left text-xs font-bold text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-900/30"
+                              >
+                                Estado de Cuenta
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleOpenRegistrarPago(p);
+                                  setOpenOptionsFor(null);
+                                }}
+                                className="block w-full px-3 py-2 text-left text-xs font-bold text-green-600 transition-colors hover:bg-green-50 dark:text-green-300 dark:hover:bg-green-900/30"
+                              >
+                                Registrar Pago
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleOpenAjuste(p);
+                                  setOpenOptionsFor(null);
+                                }}
+                                className="block w-full px-3 py-2 text-left text-xs font-bold text-amber-700 transition-colors hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-900/30"
+                              >
+                                Ajuste
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!pendingByPropiedad[p.id]) return;
+                                  handleOpenAprobaciones(p);
+                                  setOpenOptionsFor(null);
+                                }}
+                                disabled={!pendingByPropiedad[p.id]}
+                                className="block w-full px-3 py-2 text-left text-xs font-bold text-violet-700 transition-colors hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-violet-300 dark:hover:bg-violet-900/30"
+                              >
+                                Aprobar pagos{pendingByPropiedad[p.id] ? ` (${pendingByPropiedad[p.id]})` : ''}
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </td>
                     </tr>
