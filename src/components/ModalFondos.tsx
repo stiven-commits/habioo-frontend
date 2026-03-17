@@ -26,6 +26,7 @@ interface Fondo {
   porcentaje_asignacion: string | number;
   saldo_actual: string | number;
   moneda: string;
+  visible_propietarios?: boolean;
 }
 
 interface FormState {
@@ -225,6 +226,36 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo }) =
     }
   };
 
+  const handleToggleVisiblePropietarios = async (fondo: Fondo, checked: boolean): Promise<void> => {
+    const token = localStorage.getItem('habioo_token');
+    try {
+      const res = await fetch(`${API_BASE_URL}/fondos/${fondo.id}/visibilidad-propietarios`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ visible_propietarios: checked }),
+      });
+      const data: ApiActionResponse = await res.json();
+      if (!res.ok || data.status !== 'success') {
+        await showAlert({
+          title: 'Error',
+          message: data.message || 'No se pudo actualizar la visibilidad del fondo.',
+          variant: 'danger',
+        });
+        return;
+      }
+      setFondos((prev: Fondo[]) => prev.map((f) => (f.id === fondo.id ? { ...f, visible_propietarios: checked } : f)));
+    } catch {
+      await showAlert({
+        title: 'Error de conexion',
+        message: 'No se pudo actualizar la visibilidad para inmuebles.',
+        variant: 'danger',
+      });
+    }
+  };
+
   const porcentajeUsado = fondos.reduce((acc: number, curr: Fondo) => acc + toNumber(curr.porcentaje_asignacion), 0);
   const porcentajeRestante = Math.max(0, 100 - porcentajeUsado).toFixed(2);
   const tieneOperativo = fondos.some((f: Fondo) => f.es_operativo);
@@ -282,6 +313,17 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo }) =
                     </div>
                   </div>
                   <div className="border-t border-gray-100 dark:border-gray-700/50 pt-2 flex justify-end">
+                    <label className="mr-auto inline-flex items-center gap-2 text-[11px] font-semibold text-gray-600 dark:text-gray-300">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(f.visible_propietarios ?? true)}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                          void handleToggleVisiblePropietarios(f, e.target.checked);
+                        }}
+                        className="rounded border-gray-300 text-donezo-primary focus:ring-donezo-primary"
+                      />
+                      Visible para inmuebles
+                    </label>
                     <button
                       onClick={() => (onDeleteFondo ? onDeleteFondo(f) : handleDeleteFondoLocal(f.id))}
                       className="text-[10px] uppercase font-bold text-red-600 hover:text-red-700 flex items-center gap-1 transition-colors"

@@ -13,6 +13,8 @@ import { formatMoney } from '../../utils/currency';
 interface PropiedadFormData {
   identificador: string;
   alicuota: string;
+  propietario_modo: 'NUEVO' | 'EXISTENTE';
+  propietario_existente_id: string;
   saldo_inicial_bs?: string;
   tasa_bcv?: string;
   monto_saldo_inicial: string;
@@ -44,9 +46,18 @@ interface ModalPropiedadFormProps {
   editingId: string | number | null;
   form: PropiedadFormData;
   setForm: Dispatch<SetStateAction<PropiedadFormData>>;
+  propietariosExistentes: PropietarioExistente[];
   handleChange: (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
   handleSubmit: (e: FormEvent<HTMLFormElement>) => void | Promise<void>;
   setIsModalOpen: Dispatch<SetStateAction<boolean>>;
+}
+
+interface PropietarioExistente {
+  id: number;
+  cedula: string;
+  nombre: string;
+  email?: string | null;
+  telefono?: string | null;
 }
 
 interface EstadoCuentaPropiedad {
@@ -134,6 +145,7 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
   editingId,
   form,
   setForm,
+  propietariosExistentes,
   handleChange,
   handleSubmit,
   setIsModalOpen
@@ -141,6 +153,8 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
   if (!isOpen) return null;
 
   const [isFetchingBCV, setIsFetchingBCV] = useState<boolean>(false);
+  const [searchPropietarioExistente, setSearchPropietarioExistente] = useState<string>('');
+  const [isPropietarioDropdownOpen, setIsPropietarioDropdownOpen] = useState<boolean>(false);
 
   const formatNumberInput = (value: string | number | undefined | null): string => {
     const strValue = String(value || '');
@@ -162,6 +176,39 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
   };
 
   const deudasIniciales = Array.isArray(form.deudas_iniciales) ? form.deudas_iniciales : [];
+  const esModoPropietarioExistente = !editingId && form.propietario_modo === 'EXISTENTE';
+
+  const propietariosFiltrados = propietariosExistentes.filter((item) => {
+    const q = searchPropietarioExistente.trim().toLowerCase();
+    if (!q) return true;
+    return item.nombre.toLowerCase().includes(q) || item.cedula.toLowerCase().includes(q);
+  });
+  const propietarioSeleccionado = propietariosExistentes.find((item) => String(item.id) === form.propietario_existente_id) || null;
+
+  const seleccionarPropietarioExistente = (idValue: string): void => {
+    const selected = propietariosExistentes.find((item) => String(item.id) === idValue);
+    if (!selected) {
+      setForm((prev) => ({
+        ...prev,
+        propietario_existente_id: '',
+        prop_cedula: '',
+        prop_nombre: '',
+        prop_email: '',
+        prop_telefono: '',
+      }));
+      return;
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      propietario_existente_id: String(selected.id),
+      prop_cedula: selected.cedula,
+      prop_nombre: selected.nombre,
+      prop_email: selected.email || '',
+      prop_telefono: selected.telefono || '',
+      prop_password: '',
+    }));
+  };
 
   const updateDeudaInicial = (index: number, field: 'concepto' | 'monto_deuda' | 'monto_abono', value: string): void => {
     const next = deudasIniciales.map((item, i) => {
@@ -382,27 +429,106 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
           </div>
 
           <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
-            <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-3 text-sm uppercase tracking-wider">2. Datos del Propietario (Login)</h4>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
+              <h4 className="font-bold text-blue-600 dark:text-blue-400 text-sm uppercase tracking-wider">2. Datos del Propietario (Login)</h4>
+              {!editingId && (
+                <div className="inline-flex items-center rounded-xl border border-gray-200 dark:border-gray-600 p-1 bg-white dark:bg-gray-800">
+                  <button
+                    type="button"
+                    onClick={() => setForm((prev) => ({ ...prev, propietario_modo: 'NUEVO', propietario_existente_id: '' }))}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${form.propietario_modo === 'NUEVO' ? 'bg-donezo-primary text-white' : 'text-gray-600 dark:text-gray-300'}`}
+                  >
+                    Propietario Nuevo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm((prev) => ({ ...prev, propietario_modo: 'EXISTENTE' }))}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${form.propietario_modo === 'EXISTENTE' ? 'bg-donezo-primary text-white' : 'text-gray-600 dark:text-gray-300'}`}
+                  >
+                    Existente
+                  </button>
+                </div>
+              )}
+            </div>
+            {esModoPropietarioExistente && (
+              <div className="mb-4 rounded-xl border border-gray-200 dark:border-gray-600 bg-white/70 dark:bg-gray-900/40 p-3 space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1">Buscar propietario existente</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={searchPropietarioExistente}
+                      onFocus={() => setIsPropietarioDropdownOpen(true)}
+                      onBlur={() => setTimeout(() => setIsPropietarioDropdownOpen(false), 120)}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                        setSearchPropietarioExistente(e.target.value);
+                        setIsPropietarioDropdownOpen(true);
+                      }}
+                      placeholder={propietarioSeleccionado ? `${propietarioSeleccionado.nombre} (${propietarioSeleccionado.cedula})` : 'Escriba cédula o nombre'}
+                      className="w-full p-2.5 pr-10 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
+                    />
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setIsPropietarioDropdownOpen((prev) => !prev);
+                      }}
+                      className="absolute inset-y-0 right-0 px-3 text-gray-500"
+                      title="Mostrar opciones"
+                    >
+                      ▼
+                    </button>
+                    {isPropietarioDropdownOpen && (
+                      <div className="absolute z-20 mt-1 w-full max-h-52 overflow-auto rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg">
+                        {propietariosFiltrados.length > 0 ? propietariosFiltrados.map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              seleccionarPropietarioExistente(String(item.id));
+                              setSearchPropietarioExistente('');
+                              setIsPropietarioDropdownOpen(false);
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-gray-100"
+                          >
+                            {item.nombre} ({item.cedula})
+                          </button>
+                        )) : (
+                          <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                            No hay propietarios que coincidan
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <input type="hidden" value={form.propietario_existente_id} required={esModoPropietarioExistente} />
+                </div>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                  Se vinculará este inmueble al propietario seleccionado sin crear un usuario nuevo.
+                </p>
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-gray-500 mb-1">Cédula (Usuario) *</label>
                 <p className="text-[11px] text-gray-400 mb-1">Formato: V, E, J o G seguido de números.</p>
-                <input type="text" name="prop_cedula" value={form.prop_cedula} onChange={handleChange} pattern="^[VEJG][0-9]{5,9}$" placeholder="Ej: V12345678" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white uppercase" required />
+                <input type="text" name="prop_cedula" value={form.prop_cedula} onChange={handleChange} pattern="^[VEJG][0-9]{5,9}$" placeholder="Ej: V12345678" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white uppercase disabled:opacity-70 disabled:cursor-not-allowed" required disabled={esModoPropietarioExistente} />
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-500 mb-1">Nombre Completo *</label>
                 <p className="text-[11px] text-gray-400 mb-1">Escriba nombre y apellido del propietario.</p>
-                <input type="text" name="prop_nombre" value={form.prop_nombre} onChange={handleChange} placeholder="Ej: María Fernanda Pérez" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" required />
+                <input type="text" name="prop_nombre" value={form.prop_nombre} onChange={handleChange} placeholder="Ej: María Fernanda Pérez" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white disabled:opacity-70 disabled:cursor-not-allowed" required disabled={esModoPropietarioExistente} />
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-500 mb-1">Email</label>
                 <p className="text-[11px] text-gray-400 mb-1">Opcional. Se usará para acceso y notificaciones.</p>
-                <input type="email" name="prop_email" value={form.prop_email} onChange={handleChange} placeholder="Ej: propietario@email.com" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" />
+                <input type="email" name="prop_email" value={form.prop_email} onChange={handleChange} placeholder="Ej: propietario@email.com" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white disabled:opacity-70 disabled:cursor-not-allowed" disabled={esModoPropietarioExistente} />
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-500 mb-1">Teléfono</label>
                 <p className="text-[11px] text-gray-400 mb-1">Solo números, sin espacios ni guiones.</p>
-                <input type="text" name="prop_telefono" value={form.prop_telefono} onChange={handleChange} inputMode="numeric" pattern="^[0-9]{7,15}$" placeholder="Ej: 04141234567" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" />
+                <input type="text" name="prop_telefono" value={form.prop_telefono} onChange={handleChange} inputMode="numeric" pattern="^[0-9]{7,15}$" placeholder="Ej: 04141234567" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white disabled:opacity-70 disabled:cursor-not-allowed" disabled={esModoPropietarioExistente} />
               </div>
               {editingId && (<div className="md:col-span-2 mt-2 bg-yellow-50 dark:bg-yellow-900/10 p-3 rounded-xl border border-yellow-200 dark:border-yellow-800"><label className="block text-xs font-bold text-yellow-800 dark:text-yellow-500 mb-1">Restablecer Contraseña</label><input type="password" name="prop_password" value={form.prop_password} onChange={handleChange} placeholder="Nueva clave..." className="w-full p-2.5 rounded-xl border border-yellow-300 dark:bg-gray-800 outline-none dark:text-white" /></div>)}
             </div>

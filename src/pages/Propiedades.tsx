@@ -58,6 +58,8 @@ interface EstadoCuentaMovimientoConSaldo {
 interface FormState {
   identificador: string;
   alicuota: string;
+  propietario_modo: 'NUEVO' | 'EXISTENTE';
+  propietario_existente_id: string;
   prop_nombre: string;
   prop_cedula: string;
   prop_email: string;
@@ -123,6 +125,8 @@ interface EstadoCuentaPropiedad {
 interface PropiedadFormData {
   identificador: string;
   alicuota: string;
+  propietario_modo: 'NUEVO' | 'EXISTENTE';
+  propietario_existente_id: string;
   saldo_inicial_bs?: string;
   tasa_bcv?: string;
   monto_saldo_inicial: string;
@@ -198,6 +202,14 @@ interface ApiActionResponse {
   message?: string;
 }
 
+interface PropietarioExistente {
+  id: number;
+  cedula: string;
+  nombre: string;
+  email?: string | null;
+  telefono?: string | null;
+}
+
 type SortColumn = 'identificador' | 'alicuota' | 'saldo_actual' | 'prop_nombre';
 type SortDirection = 'asc' | 'desc';
 
@@ -210,6 +222,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [canDeleteAll, setCanDeleteAll] = useState<boolean>(false);
+  const [propietariosExistentes, setPropietariosExistentes] = useState<PropietarioExistente[]>([]);
 
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -260,7 +273,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
   }, [loteData, loteDeudas]);
 
   const initialForm: FormState = {
-    identificador: '', alicuota: '', prop_nombre: '', prop_cedula: '', prop_email: '', prop_telefono: '', prop_password: '',
+    identificador: '', alicuota: '', propietario_modo: 'NUEVO', propietario_existente_id: '', prop_nombre: '', prop_cedula: '', prop_email: '', prop_telefono: '', prop_password: '',
     tiene_inquilino: false, inq_nombre: '', inq_cedula: '', inq_email: '', inq_telefono: '', inq_password: '',
     inq_permitir_acceso: true,
     monto_saldo_inicial: '', tipo_saldo_inicial: 'CERO', saldo_inicial_bs: '', tasa_bcv: '',
@@ -268,6 +281,33 @@ const Propiedades: FC<PropiedadesProps> = () => {
   };
 
   const [form, setForm] = useState<FormState>(initialForm);
+
+  const fetchPropietariosExistentes = async (): Promise<void> => {
+    try {
+      const token = localStorage.getItem('habioo_token');
+      const res = await fetch(`${API_BASE_URL}/propiedades-admin/propietarios-existentes`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.status === 'success' && Array.isArray(data.propietarios)) {
+        const list = data.propietarios
+          .filter((p: unknown) => typeof p === 'object' && p !== null && typeof (p as { id?: unknown }).id === 'number')
+          .map((p: unknown) => {
+            const raw = p as Record<string, unknown>;
+            return {
+              id: Number(raw.id),
+              cedula: String(raw.cedula || ''),
+              nombre: String(raw.nombre || ''),
+              email: raw.email ? String(raw.email) : null,
+              telefono: raw.telefono ? String(raw.telefono) : null,
+            } as PropietarioExistente;
+          });
+        setPropietariosExistentes(list);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   const fetchPropiedades = async (): Promise<void> => {
     try {
@@ -282,7 +322,12 @@ const Propiedades: FC<PropiedadesProps> = () => {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { if (userRole === 'Administrador') fetchPropiedades(); }, [userRole]);
+  useEffect(() => {
+    if (userRole === 'Administrador') {
+      void fetchPropiedades();
+      void fetchPropietariosExistentes();
+    }
+  }, [userRole]);
   useEffect(() => { setCurrentPage(1); }, [searchTerm]);
 
   const toggleSort = (column: SortColumn): void => {
@@ -377,7 +422,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
   const handleEdit = (prop: Propiedad): void => {
     setOpenDropdownId(null); setEditingId(prop.id);
     setForm({
-      identificador: prop.identificador, alicuota: formatAlicuotaDisplay(prop.alicuota),
+      identificador: prop.identificador, alicuota: formatAlicuotaDisplay(prop.alicuota), propietario_modo: 'NUEVO', propietario_existente_id: '',
       prop_nombre: prop.prop_nombre || '', prop_cedula: prop.prop_cedula || '', prop_email: prop.prop_email || '', prop_telefono: prop.prop_telefono || '', prop_password: '',
       tiene_inquilino: !!prop.inq_cedula, inq_nombre: prop.inq_nombre || '', inq_cedula: prop.inq_cedula || '', inq_email: prop.inq_email || '', inq_telefono: prop.inq_telefono || '', inq_password: '',
       inq_permitir_acceso: prop.inq_acceso_portal !== false,
@@ -409,9 +454,15 @@ const Propiedades: FC<PropiedadesProps> = () => {
       }
       return alert('⚠️ Error: La alícuota debe estar entre 0 y 100.');
     }
-    if (!isValidCedulaRif(form.prop_cedula)) return alert('Error: la cédula del propietario debe iniciar con V, E, J o G y contener solo números.');
-    if (form.prop_email && !isValidEmail(form.prop_email)) return alert('Error: el correo del propietario no tiene un formato válido.');
-    if (form.prop_telefono && !isValidPhone(form.prop_telefono)) return alert('Error: el teléfono del propietario debe tener solo números.');
+    const usaPropietarioExistente = !editingId && form.propietario_modo === 'EXISTENTE';
+    if (usaPropietarioExistente && !form.propietario_existente_id) {
+      return alert('Debe seleccionar un propietario existente.');
+    }
+    if (!usaPropietarioExistente) {
+      if (!isValidCedulaRif(form.prop_cedula)) return alert('Error: la cédula del propietario debe iniciar con V, E, J o G y contener solo números.');
+      if (form.prop_email && !isValidEmail(form.prop_email)) return alert('Error: el correo del propietario no tiene un formato válido.');
+      if (form.prop_telefono && !isValidPhone(form.prop_telefono)) return alert('Error: el teléfono del propietario debe tener solo números.');
+    }
     if (form.tiene_inquilino) {
       if (!isValidCedulaRif(form.inq_cedula)) return alert('Error: la cédula del inquilino debe iniciar con V, E, J o G y contener solo números.');
       if (form.inq_email && !isValidEmail(form.inq_email)) return alert('Error: el correo del inquilino no tiene un formato válido.');
@@ -423,7 +474,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
 
     const res = await fetch(url, { method: editingId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(form) });
     const data: ApiActionResponse = await res.json();
-    if (data.status === 'success') { setIsModalOpen(false); fetchPropiedades(); }
+    if (data.status === 'success') { setIsModalOpen(false); void fetchPropiedades(); void fetchPropietariosExistentes(); }
     else { alert(data.error || data.message); }
   };
 
@@ -986,6 +1037,8 @@ const Propiedades: FC<PropiedadesProps> = () => {
       const modalPrev: PropiedadFormData = {
         identificador: prev.identificador,
         alicuota: prev.alicuota,
+        propietario_modo: prev.propietario_modo,
+        propietario_existente_id: prev.propietario_existente_id,
         monto_saldo_inicial: prev.monto_saldo_inicial,
         prop_cedula: prev.prop_cedula,
         prop_nombre: prev.prop_nombre,
@@ -1178,6 +1231,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
         editingId={editingId}
         form={form}
         setForm={setFormForModal}
+        propietariosExistentes={propietariosExistentes}
         handleChange={handleChange}
         handleSubmit={handleSubmit}
         setIsModalOpen={setIsModalOpen}

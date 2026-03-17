@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config/api';
 
@@ -28,6 +28,39 @@ interface MisPropiedadesResponse {
   message?: string;
 }
 
+interface NotificacionPropietario {
+  id: number;
+  estado: string;
+  nota?: string | null;
+  referencia?: string | null;
+  identificador?: string;
+}
+
+interface NotificacionesPropietarioResponse {
+  status: 'success' | 'error';
+  data?: NotificacionPropietario[];
+  message?: string;
+}
+
+interface PagoPendienteAdmin {
+  id: number;
+  propiedad_id: number;
+  identificador?: string;
+}
+
+interface PagosPendientesAdminResponse {
+  status: 'success' | 'error';
+  pagos?: PagoPendienteAdmin[];
+  message?: string;
+}
+
+interface FloatingNotification {
+  key: string;
+  title: string;
+  message: string;
+  tone: 'success' | 'danger' | 'info';
+}
+
 type UserRole = 'Administrador' | 'Propietario';
 type Theme = 'light' | 'dark';
 
@@ -52,8 +85,20 @@ const Layout: React.FC<LayoutProps> = () => {
   const [theme, setTheme] = useState<Theme>(() => (localStorage.theme === 'dark' ? 'dark' : 'light'));
   const [misPropiedades, setMisPropiedades] = useState<MisPropiedad[]>([]);
   const [propiedadActiva, setPropiedadActiva] = useState<MisPropiedad | null>(null);
+  const [floatingNotifications, setFloatingNotifications] = useState<FloatingNotification[]>([]);
+  const seenNotificacionesRef = useRef<Record<number, string>>({});
+  const notificacionesBootstrappedRef = useRef<boolean>(false);
+  const seenPagosPendientesAdminRef = useRef<Set<number>>(new Set<number>());
+  const pagosPendientesAdminBootstrappedRef = useRef<boolean>(false);
   const location = useLocation();
   const navigate = useNavigate();
+
+  const pushFloating = (item: FloatingNotification): void => {
+    setFloatingNotifications((prev: FloatingNotification[]) => [item, ...prev].slice(0, 4));
+    window.setTimeout(() => {
+      setFloatingNotifications((prev: FloatingNotification[]) => prev.filter((n: FloatingNotification) => n.key !== item.key));
+    }, 9000);
+  };
 
   useEffect(() => {
     const validateSession = async (): Promise<void> => {
@@ -141,6 +186,141 @@ const Layout: React.FC<LayoutProps> = () => {
     };
 
     void fetchMisPropiedades();
+  }, [userRole]);
+
+  useEffect(() => {
+    if (userRole !== 'Propietario') return;
+
+    let isActive = true;
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    const pollNotificaciones = async (): Promise<void> => {
+      const token = localStorage.getItem('habioo_token');
+      if (!token) return;
+
+      const queryPropiedad = propiedadActiva?.id_propiedad ? `?propiedad_id=${propiedadActiva.id_propiedad}` : '';
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/propietario/notificaciones${queryPropiedad}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data: NotificacionesPropietarioResponse = (await res.json()) as NotificacionesPropietarioResponse;
+        if (!isActive || !res.ok || data.status !== 'success') return;
+
+        const rows = Array.isArray(data.data) ? data.data : [];
+        const currentMap: Record<number, string> = {};
+
+        rows.forEach((n: NotificacionPropietario) => {
+          currentMap[n.id] = `${n.estado}|${String(n.nota || '')}`;
+        });
+
+        if (!notificacionesBootstrappedRef.current) {
+          seenNotificacionesRef.current = currentMap;
+          notificacionesBootstrappedRef.current = true;
+          return;
+        }
+
+        rows.forEach((n: NotificacionPropietario) => {
+          const prevSignature = seenNotificacionesRef.current[n.id];
+          const currentSignature = currentMap[n.id];
+          if (prevSignature === currentSignature) return;
+
+          const baseTitle = n.identificador ? `Inmueble ${n.identificador}` : 'Notificación de pago';
+          if (n.estado === 'Validado') {
+            pushFloating({
+              key: `ok-${n.id}-${Date.now()}`,
+              title: baseTitle,
+              message: `Pago #${n.id} aprobado.`,
+              tone: 'success',
+            });
+            return;
+          }
+          if (n.estado === 'Rechazado') {
+            pushFloating({
+              key: `reject-${n.id}-${Date.now()}`,
+              title: baseTitle,
+              message: n.nota ? `Pago #${n.id} rechazado: ${n.nota}` : `Pago #${n.id} rechazado.`,
+              tone: 'danger',
+            });
+            return;
+          }
+          if (n.estado === 'PendienteAprobacion' && !prevSignature) {
+            pushFloating({
+              key: `pending-${n.id}-${Date.now()}`,
+              title: baseTitle,
+              message: `Pago #${n.id} en aprobación.`,
+              tone: 'info',
+            });
+          }
+        });
+
+        seenNotificacionesRef.current = currentMap;
+      } catch {
+        // Sin bloqueo en UI por errores transitorios.
+      }
+    };
+
+    void pollNotificaciones();
+    timer = setInterval(() => {
+      void pollNotificaciones();
+    }, 15000);
+
+    return () => {
+      isActive = false;
+      if (timer) clearInterval(timer);
+    };
+  }, [userRole, propiedadActiva?.id_propiedad]);
+
+  useEffect(() => {
+    if (userRole !== 'Administrador') return;
+
+    let isActive = true;
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    const pollPagosPendientes = async (): Promise<void> => {
+      const token = localStorage.getItem('habioo_token');
+      if (!token) return;
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/pagos/pendientes-aprobacion`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data: PagosPendientesAdminResponse = (await res.json()) as PagosPendientesAdminResponse;
+        if (!isActive || !res.ok || data.status !== 'success') return;
+
+        const rows = Array.isArray(data.pagos) ? data.pagos : [];
+        const currentIds = new Set<number>(rows.map((p) => p.id));
+
+        if (!pagosPendientesAdminBootstrappedRef.current) {
+          seenPagosPendientesAdminRef.current = currentIds;
+          pagosPendientesAdminBootstrappedRef.current = true;
+          return;
+        }
+
+        rows.forEach((p: PagoPendienteAdmin) => {
+          if (seenPagosPendientesAdminRef.current.has(p.id)) return;
+          pushFloating({
+            key: `admin-pending-${p.id}-${Date.now()}`,
+            title: p.identificador ? `Inmueble ${p.identificador}` : 'Nuevo pago reportado',
+            message: `Pago #${p.id} enviado por propietario. Pendiente de aprobación.`,
+            tone: 'info',
+          });
+        });
+
+        seenPagosPendientesAdminRef.current = currentIds;
+      } catch {
+        // Sin bloqueo en UI por errores transitorios.
+      }
+    };
+
+    void pollPagosPendientes();
+    timer = setInterval(() => {
+      void pollPagosPendientes();
+    }, 15000);
+
+    return () => {
+      isActive = false;
+      if (timer) clearInterval(timer);
+    };
   }, [userRole]);
 
   const toggleTheme: React.MouseEventHandler<HTMLButtonElement> = () => {
@@ -296,7 +476,7 @@ const Layout: React.FC<LayoutProps> = () => {
             <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{pageTitles[location.pathname] || 'Bienvenido'}</h2>
             <p className="text-gray-500 text-sm dark:text-gray-400">
               Hola, {user.nombre}
-              {userRole === 'Propietario' && propiedadActiva ? ` Â· ${propiedadResumen}` : ''}
+              {userRole === 'Propietario' && propiedadActiva ? ` · ${propiedadResumen}` : ''}
             </p>
           </div>
           <div className="flex items-center gap-4">
@@ -312,6 +492,38 @@ const Layout: React.FC<LayoutProps> = () => {
 
         <Outlet context={{ user, userRole, misPropiedades, propiedadActiva }} />
       </main>
+
+      {floatingNotifications.length > 0 && (
+        <div className="fixed right-4 top-24 z-[80] w-[340px] max-w-[92vw] space-y-2">
+          {floatingNotifications.map((n: FloatingNotification) => (
+            <article
+              key={n.key}
+              className={`rounded-xl border p-3 shadow-lg backdrop-blur-sm ${
+                n.tone === 'success'
+                  ? 'border-emerald-200 bg-emerald-50/95 dark:border-emerald-800/50 dark:bg-emerald-900/30'
+                  : n.tone === 'danger'
+                    ? 'border-red-200 bg-red-50/95 dark:border-red-800/50 dark:bg-red-900/30'
+                    : 'border-sky-200 bg-sky-50/95 dark:border-sky-800/50 dark:bg-sky-900/30'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-black text-gray-800 dark:text-gray-100">{n.title}</p>
+                  <p className="text-xs font-medium text-gray-700 dark:text-gray-200">{n.message}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFloatingNotifications((prev: FloatingNotification[]) => prev.filter((x: FloatingNotification) => x.key !== n.key))}
+                  className="text-xs font-black text-gray-500 hover:text-red-500"
+                  title="Cerrar"
+                >
+                  X
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
