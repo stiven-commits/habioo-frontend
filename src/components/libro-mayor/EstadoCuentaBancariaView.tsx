@@ -661,8 +661,8 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
 
     return (
       <div className="space-y-6 animate-fadeIn">
-        <div className="bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
+          <div className={`grid grid-cols-1 gap-4 ${ownerVista === 'actual' ? 'md:grid-cols-3' : 'md:grid-cols-4'}`}>
             <div>
               <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Cuenta a inspeccionar</label>
               <select
@@ -690,20 +690,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
               </select>
             </div>
 
-            <div className="flex items-end">
-              <button
-                type="button"
-                onClick={fetchBCV}
-                disabled={loadingBcv}
-                className="w-full px-3 py-3 rounded-xl text-sm font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800 disabled:opacity-60"
-              >
-                {loadingBcv ? 'Consultando BCV...' : 'Obtener BCV'}
-              </button>
-            </div>
-          </div>
-
-          {ownerVista === 'actual' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {ownerVista === 'actual' && (
               <div>
                 <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Fondo</label>
                 <select
@@ -719,57 +706,71 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                   ))}
                 </select>
               </div>
-            </div>
-          )}
+            )}
 
-          {ownerVista === 'corte' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Año</label>
-                <select
-                  value={ownerFiltroAnio}
-                  onChange={(e: ChangeEvent<HTMLSelectElement>) => {
-                    const nextAnio = e.target.value;
-                    setOwnerFiltroAnio(nextAnio);
-                    const firstMes = ownerPeriodos
-                      .filter((p) => String(p.anio) === nextAnio)
-                      .map((p) => String(p.mes).padStart(2, '0'))
-                      .sort((a, b) => Number(a) - Number(b))[0] || '';
-                    setOwnerFiltroMes(firstMes);
-                  }}
-                  className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:text-white outline-none focus:ring-2 focus:ring-donezo-primary font-bold text-gray-800"
-                  disabled={noHayPeriodos}
-                >
-                  {noHayPeriodos && <option value="">Sin cortes generados</option>}
-                  {aniosDisponibles.map((anio) => (
-                    <option key={anio} value={anio}>{anio}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Mes</label>
-                <select
-                  value={ownerFiltroMes}
-                  onChange={(e: ChangeEvent<HTMLSelectElement>) => setOwnerFiltroMes(e.target.value)}
-                  className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:text-white outline-none focus:ring-2 focus:ring-donezo-primary font-bold text-gray-800"
-                  disabled={noHayPeriodos || !ownerFiltroAnio || mesesDisponibles.length === 0}
-                >
-                  {(noHayPeriodos || mesesDisponibles.length === 0) && <option value="">Sin meses</option>}
-                  {meses.filter((m) => mesesDisponibles.includes(m.v)).map((m) => (
-                    <option key={m.v} value={m.v}>{m.l}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          )}
+            {ownerVista === 'corte' && (
+              <>
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Año</label>
+                  <select
+                    value={ownerFiltroAnio}
+                    onChange={(e: ChangeEvent<HTMLSelectElement>) => {
+                      const nextAnio = e.target.value;
+                      setOwnerFiltroAnio(nextAnio);
+                      const firstMes = ownerPeriodos
+                        .filter((p) => String(p.anio) === nextAnio)
+                        .map((p) => String(p.mes).padStart(2, '0'))
+                        .sort((a, b) => Number(a) - Number(b))[0] || '';
+                      setOwnerFiltroMes(firstMes);
+                    }}
+                    className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:text-white outline-none focus:ring-2 focus:ring-donezo-primary font-bold text-gray-800"
+                    disabled={noHayPeriodos}
+                  >
+                    {noHayPeriodos && <option value="">Sin cortes generados</option>}
+                    {aniosDisponibles.map((anio) => (
+                      <option key={anio} value={anio}>{anio}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Mes</label>
+                  <select
+                    value={ownerFiltroMes}
+                    onChange={(e: ChangeEvent<HTMLSelectElement>) => setOwnerFiltroMes(e.target.value)}
+                    className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:text-white outline-none focus:ring-2 focus:ring-donezo-primary font-bold text-gray-800"
+                    disabled={noHayPeriodos || !ownerFiltroAnio || mesesDisponibles.length === 0}
+                  >
+                    {(noHayPeriodos || mesesDisponibles.length === 0) && <option value="">Sin meses</option>}
+                    {meses.filter((m) => mesesDisponibles.includes(m.v)).map((m) => (
+                      <option key={m.v} value={m.v}>{m.l}</option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         {ownerVista === 'actual' ? (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-2xl border border-blue-100 dark:border-blue-800/50 flex flex-col justify-center items-center">
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-2xl border border-blue-100 dark:border-blue-800/50 flex flex-col justify-center items-center gap-3 text-center">
                 <p className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-1">Saldo total visible (USD)</p>
                 <h2 className="text-4xl font-black text-blue-700 dark:text-blue-300">${formatCurrency(ownerResumenActual.reduce((a, f) => a + f.equivalenteUsd, 0))}</h2>
+                <p className="text-xs font-medium text-blue-700/90 dark:text-blue-200">
+                  Toque el botón BCV para actualizar el equivalente en USD al día de hoy
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={fetchBCV}
+                    disabled={loadingBcv}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-100 text-blue-700 border border-blue-200 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-200 dark:border-blue-800 disabled:opacity-60"
+                  >
+                    {loadingBcv ? 'Consultando BCV...' : 'Obtener BCV'}
+                  </button>
+                  {tasaBcvNum > 0 && <span className="text-xs font-bold text-blue-700 dark:text-blue-200">Tasa: {formatRate(tasaBcvNum)}</span>}
+                </div>
               </div>
               <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 flex flex-col justify-center items-center opacity-80">
                 <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Saldo total visible (Bs)</p>
