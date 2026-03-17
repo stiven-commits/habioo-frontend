@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FC } from 'react';
+﻿import { useEffect, useMemo, useState, type FC } from 'react';
 import DatePicker from 'react-datepicker';
 import { es } from 'date-fns/locale/es';
 import { useOutletContext } from 'react-router-dom';
@@ -57,7 +57,6 @@ interface PropiedadPreseleccionada {
   saldo_actual: string | number;
 }
 
-type SortColumn = 'fecha_operacion' | 'concepto' | 'cargo' | 'abono' | 'saldoFila';
 type SortDirection = 'asc' | 'desc';
 
 const toNumber = (value: unknown): number => Number.parseFloat(String(value ?? 0)) || 0;
@@ -71,7 +70,6 @@ const EstadoCuentaInmueblePropietario: FC = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [fechaDesde, setFechaDesde] = useState<Date | null>(null);
   const [fechaHasta, setFechaHasta] = useState<Date | null>(null);
-  const [sortColumn, setSortColumn] = useState<SortColumn>('fecha_operacion');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [pendingApprovals, setPendingApprovals] = useState<number>(0);
   const [showPayModal, setShowPayModal] = useState<boolean>(false);
@@ -134,17 +132,11 @@ const EstadoCuentaInmueblePropietario: FC = () => {
     void fetchNotificaciones();
   }, [propiedadActiva?.id_propiedad, showPayModal]);
 
-  const toggleSort = (column: SortColumn): void => {
-    if (sortColumn === column) {
-      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
-      return;
-    }
-    setSortColumn(column);
-    setSortDirection('asc');
+  const toggleSortIngreso = (): void => {
+    setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
   };
 
-  const sortIndicator = (column: SortColumn): string => {
-    if (sortColumn !== column) return '↕';
+  const sortIndicator = (): string => {
     return sortDirection === 'asc' ? '↑' : '↓';
   };
 
@@ -179,21 +171,10 @@ const EstadoCuentaInmueblePropietario: FC = () => {
     });
 
     return [...filtered].sort((a, b) => {
-      let cmp = 0;
-      if (sortColumn === 'fecha_operacion') {
-        cmp = new Date(a.fecha_operacion).getTime() - new Date(b.fecha_operacion).getTime();
-      } else if (sortColumn === 'concepto') {
-        cmp = String(a.concepto || '').localeCompare(String(b.concepto || ''), 'es', { sensitivity: 'base' });
-      } else if (sortColumn === 'cargo') {
-        cmp = toNumber(a.cargo) - toNumber(b.cargo);
-      } else if (sortColumn === 'abono') {
-        cmp = toNumber(a.abono) - toNumber(b.abono);
-      } else {
-        cmp = toNumber(a.saldoFila) - toNumber(b.saldoFila);
-      }
+      const cmp = new Date(a.fecha_registro).getTime() - new Date(b.fecha_registro).getTime();
       return sortDirection === 'asc' ? cmp : -cmp;
     });
-  }, [movimientosConSaldo, searchTerm, fechaDesde, fechaHasta, sortColumn, sortDirection]);
+  }, [movimientosConSaldo, searchTerm, fechaDesde, fechaHasta, sortDirection]);
 
   const totalCargo = useMemo(() => movimientosFiltrados.reduce((acc, m) => acc + toNumber(m.cargo), 0), [movimientosFiltrados]);
   const totalAbono = useMemo(() => movimientosFiltrados.reduce((acc, m) => acc + toNumber(m.abono), 0), [movimientosFiltrados]);
@@ -241,7 +222,6 @@ const EstadoCuentaInmueblePropietario: FC = () => {
                   <path d="M10 2a8 8 0 1 1 5.293 14.002l4.352 4.353-1.414 1.414-4.353-4.352A8 8 0 0 1 10 2Zm0 2a6 6 0 1 0 0 12A6 6 0 0 0 10 4Z" />
                 </svg>
               </span>
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">🔍</span>
               <input
                 type="text"
                 value={searchTerm}
@@ -323,36 +303,30 @@ const EstadoCuentaInmueblePropietario: FC = () => {
           <p className="py-10 text-center text-gray-400">No hay movimientos para este inmueble.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1100px] border-collapse text-left text-sm">
-              <thead className="sticky top-0 z-20 bg-white dark:bg-donezo-card-dark shadow-sm">
+            <table className="w-full border-collapse text-left text-sm">
+              <thead className="bg-white dark:bg-donezo-card-dark">
                 <tr className="border-b border-gray-200 text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                  <th className="p-3 font-bold uppercase text-[11px]">Ingreso al Sistema</th>
                   <th className="p-3 font-bold uppercase text-[11px]">
-                    <button type="button" onClick={() => toggleSort('fecha_operacion')} className="font-bold hover:text-donezo-primary">
-                      Fecha Op. {sortIndicator('fecha_operacion')}
+                    <button type="button" onClick={toggleSortIngreso} className="font-bold hover:text-donezo-primary">
+                      Ingreso al Sistema {sortIndicator()}
                     </button>
                   </th>
                   <th className="p-3 font-bold uppercase text-[11px]">
-                    <button type="button" onClick={() => toggleSort('concepto')} className="font-bold hover:text-donezo-primary">
-                      Concepto {sortIndicator('concepto')}
-                    </button>
+                    Fecha Op.
                   </th>
-                  <th className="p-3 text-right font-bold uppercase text-[11px]">Monto Bs</th>
-                  <th className="p-3 text-right font-bold uppercase text-[11px]">Tasa</th>
-                  <th className="p-3 text-right font-bold uppercase text-[11px]">
-                    <button type="button" onClick={() => toggleSort('cargo')} className="font-bold hover:text-donezo-primary">
-                      Cargos {sortIndicator('cargo')}
-                    </button>
+                  <th className="p-3 font-bold uppercase text-[11px]">
+                    Concepto
                   </th>
-                  <th className="p-3 text-right font-bold uppercase text-[11px]">
-                    <button type="button" onClick={() => toggleSort('abono')} className="font-bold hover:text-donezo-primary">
-                      Abonos {sortIndicator('abono')}
-                    </button>
+                  <th className="hidden p-3 text-right font-bold uppercase text-[11px] md:table-cell">Monto Bs</th>
+                  <th className="hidden p-3 text-right font-bold uppercase text-[11px] md:table-cell">Tasa</th>
+                  <th className="hidden p-3 text-right font-bold uppercase text-[11px] md:table-cell">
+                    Cargos
+                  </th>
+                  <th className="hidden p-3 text-right font-bold uppercase text-[11px] md:table-cell">
+                    Abonos
                   </th>
                   <th className="p-3 text-right font-bold uppercase text-[11px] text-donezo-primary">
-                    <button type="button" onClick={() => toggleSort('saldoFila')} className="font-bold hover:text-donezo-primary">
-                      Saldo Final {sortIndicator('saldoFila')}
-                    </button>
+                    Saldo Final
                   </th>
                 </tr>
               </thead>
@@ -361,15 +335,15 @@ const EstadoCuentaInmueblePropietario: FC = () => {
                   <tr key={`${m.tipo}-${m.fecha_registro}-${idx}`} className="border-b border-gray-50 hover:bg-gray-50 dark:border-gray-800/50 dark:hover:bg-gray-800/50">
                     <td className="p-3 text-xs font-mono text-gray-600 dark:text-gray-300">{formatDateTimeVE(m.fecha_registro)}</td>
                     <td className="p-3 text-[10px] font-mono text-gray-400">{formatDateVE(m.fecha_operacion)}</td>
-                    <td className="p-3 font-medium text-gray-800 dark:text-gray-200">
+                    <td className="p-3 font-medium text-gray-800 dark:text-gray-200 break-words">
                       {m.tipo === 'RECIBO' ? m.concepto : `${m.tipo === 'PAGO' ? 'PAGO' : 'AJUSTE'} ${m.concepto}`}
                     </td>
-                    <td className="p-3 text-right font-mono text-gray-700 dark:text-gray-300">
+                    <td className="hidden p-3 text-right font-mono text-gray-700 dark:text-gray-300 md:table-cell">
                       {toNumber(m.monto_bs) ? `Bs ${formatMoney(toNumber(m.monto_bs))}` : '-'}
                     </td>
-                    <td className="p-3 text-right font-mono text-gray-700 dark:text-gray-300">{toNumber(m.tasa_cambio) ? formatMoney(toNumber(m.tasa_cambio)) : '-'}</td>
-                    <td className="p-3 text-right font-mono font-medium text-red-500">{toNumber(m.cargo) > 0 ? `$${formatMoney(toNumber(m.cargo))}` : '-'}</td>
-                    <td className="p-3 text-right font-mono font-medium text-green-500">{toNumber(m.abono) > 0 ? `$${formatMoney(toNumber(m.abono))}` : '-'}</td>
+                    <td className="hidden p-3 text-right font-mono text-gray-700 dark:text-gray-300 md:table-cell">{toNumber(m.tasa_cambio) ? formatMoney(toNumber(m.tasa_cambio)) : '-'}</td>
+                    <td className="hidden p-3 text-right font-mono font-medium text-red-500 md:table-cell">{toNumber(m.cargo) > 0 ? `$${formatMoney(toNumber(m.cargo))}` : '-'}</td>
+                    <td className="hidden p-3 text-right font-mono font-medium text-green-500 md:table-cell">{toNumber(m.abono) > 0 ? `$${formatMoney(toNumber(m.abono))}` : '-'}</td>
                     <td
                       className={`p-3 text-right font-mono font-black ${
                         toNumber(m.saldoFila) > 0
