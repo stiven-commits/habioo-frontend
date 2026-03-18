@@ -1374,11 +1374,11 @@ const Propiedades: FC<PropiedadesProps> = () => {
       <div className="bg-white dark:bg-donezo-card-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
         {loading ? <p className="text-gray-500 p-6">Cargando...</p> : currentProps.length === 0 ? <p className="text-gray-500 text-center py-10">No hay inmuebles registrados.</p> : (
           <>
-            <div className="overflow-x-auto pt-2 px-6">
+            <div className="w-full">
               <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 text-sm">
-                    <th className="py-4 pr-3">
+                <thead className="sticky top-0 bg-white dark:bg-donezo-card-dark z-20 shadow-sm">
+                  <tr className="border-b border-gray-200 dark:border-gray-800 text-gray-500 dark:text-gray-400 text-sm">
+                    <th className="py-4 pl-6 pr-3">
                       <button type="button" onClick={() => toggleSort('identificador')} className="font-bold hover:text-donezo-primary">
                         Inmueble {sortIndicator('identificador')}
                       </button>
@@ -1398,7 +1398,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
                         Propietario {sortIndicator('prop_nombre')}
                       </button>
                     </th>
-                    <th className="py-4 pl-3 text-center">Acciones</th>
+                    <th className="py-4 pr-6 pl-3 text-center">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1409,7 +1409,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
                     const abrirHaciaArriba = index >= currentProps.length - 4;
                     return (
                       <tr key={p.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                        <td className="py-3 pr-3 font-bold text-gray-800 dark:text-white">{p.identificador}</td>
+                        <td className="py-3 pl-6 pr-3 font-bold text-gray-800 dark:text-white">{p.identificador}</td>
                         <td className="py-3 px-3 text-right font-mono text-blue-600 dark:text-blue-400 font-bold">{formatAlicuotaDisplay(p.alicuota)}%</td>
                         <td className="py-3 px-3 text-right">
                           <div className={`font-black font-mono tracking-tight ${isDeuda ? 'text-red-500' : isFavor ? 'text-green-500' : 'text-gray-400'}`}>${formatMoney(Math.abs(saldo))}</div>
@@ -1419,7 +1419,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
                           <div className="font-medium text-gray-800 dark:text-gray-300 text-sm">{p.prop_nombre}</div>
                           <div className="text-xs text-gray-500">{p.prop_cedula}</div>
                         </td>
-                        <td className="py-3 pl-3 text-center relative">
+                        <td className="py-3 pr-6 pl-3 text-center relative">
                           <button onClick={(e) => { e.stopPropagation(); setOpenDropdownId(openDropdownId === p.id ? null : p.id); }} className="bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 px-4 py-2 rounded-xl text-xs font-bold transition-colors inline-flex items-center gap-2">
                             Opciones <span className="text-[9px]">▼</span>
                           </button>

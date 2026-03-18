@@ -204,16 +204,16 @@ const RecibosPropietario: FC = () => {
       <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
         
         <div className="mt-2">
-          <div className="overflow-x-auto">
+          <div className="w-full">
             <table className="w-full border-collapse text-left">
-              <thead>
-                <tr className="border-b border-gray-100 text-xs uppercase tracking-wider text-gray-500 dark:border-gray-800 dark:text-gray-400">
-                  <th className="p-3 font-bold">Mes</th>
+              <thead className="sticky top-0 bg-white dark:bg-donezo-card-dark z-20 shadow-sm">
+                <tr className="border-b border-gray-200 text-xs uppercase tracking-wider text-gray-500 dark:border-gray-800 dark:text-gray-400">
+                  <th className="p-3 pl-6 font-bold">Mes</th>
                   <th className="p-3 text-right font-bold">Monto ($)</th>
                   <th className="p-3 text-right font-bold">Monto Pagado ($)</th>
                   <th className="p-3 text-right font-bold">Saldo Pendiente ($)</th>
                   <th className="p-3 text-center font-bold">Estado</th>
-                  <th className="p-3 text-center font-bold">Acciones</th>
+                  <th className="p-3 pr-6 text-center font-bold">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -232,7 +232,7 @@ const RecibosPropietario: FC = () => {
                 ) : (
                   rows.map((recibo) => (
                     <tr key={recibo.id} className="border-b border-gray-50 hover:bg-gray-50/70 dark:border-gray-800/70 dark:hover:bg-gray-800/40">
-                      <td className="p-3">
+                      <td className="p-3 pl-6">
                         <p className="font-bold text-gray-800 dark:text-gray-200">{recibo.mes_cobro}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">{recibo.fecha_emision ? String(recibo.fecha_emision).slice(0, 10) : ''}</p>
                       </td>
@@ -252,7 +252,7 @@ const RecibosPropietario: FC = () => {
                           {recibo.saldoPendiente <= 0 ? 'Pagado' : toNumber(recibo.pagado) > 0 ? 'Abonado' : 'Pendiente'}
                         </span>
                       </td>
-                      <td className="p-3 text-center">
+                      <td className="p-3 pr-6 text-center">
                         <button
                           type="button"
                           onClick={() => handleOpenRecibo(recibo.id)}

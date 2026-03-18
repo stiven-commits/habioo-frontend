@@ -422,21 +422,21 @@ const Proveedores: React.FC<ProveedoresProps> = () => {
       <div className="bg-white dark:bg-donezo-card-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
         {loading ? <p className="text-gray-500 p-6">Cargando directorio...</p> : currentProveedores.length === 0 ? <p className="text-gray-500 text-center py-10">No se encontraron proveedores activos.</p> : (
           <>
-            <div className="overflow-x-auto pb-32 pt-2 px-6">
+            <div className="w-full pb-32">
               <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 text-sm">
-                    <th className="py-4 pr-3">RIF / Identificador</th>
+                <thead className="sticky top-0 bg-white dark:bg-donezo-card-dark z-20 shadow-sm">
+                  <tr className="border-b border-gray-200 dark:border-gray-800 text-gray-500 dark:text-gray-400 text-sm">
+                    <th className="py-4 pr-3 pl-6">RIF / Identificador</th>
                     <th className="py-4 px-3">Nombre y Rubro</th>
                     <th className="py-4 px-3">Teléfonos</th>
-                    <th className="py-4 pl-3 text-center">Acciones</th>
+                    <th className="py-4 pl-3 pr-6 text-center">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {/* 💡 MAPEO SOBRE LOS PROVEEDORES DE LA PÁGINA ACTUAL */}
                   {currentProveedores.map((p: Proveedor) => (
                     <tr key={p.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                      <td className="py-3 pr-3 font-mono font-medium text-gray-600 dark:text-gray-400">{p.identificador}</td>
+                      <td className="py-3 pr-3 pl-6 font-mono font-medium text-gray-600 dark:text-gray-400">{p.identificador}</td>
                       <td className="py-3 px-3">
                         <div className="font-bold text-gray-800 dark:text-white text-base">{p.nombre}</div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">{p.email || 'Sin correo'}</div>
@@ -446,7 +446,7 @@ const Proveedores: React.FC<ProveedoresProps> = () => {
                         {p.telefono1} {p.telefono2 && <><br /><span className="text-gray-400 text-xs">{p.telefono2}</span></>}
                       </td>
 
-                      <td className="py-3 pl-3 text-center relative">
+                      <td className="py-3 pl-3 pr-6 text-center relative">
                         <button onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); setOpenDropdownId(openDropdownId === p.id ? null : p.id); }} className="bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 px-4 py-2 rounded-xl text-xs font-bold transition-colors inline-flex items-center gap-2">
                           Opciones <span className="text-[9px]">▼</span>
                         </button>

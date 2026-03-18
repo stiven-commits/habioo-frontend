@@ -469,23 +469,23 @@ const Cierres: FC<CierresProps> = () => {
         </div>
 
         {gastosMesActual.length === 0 ? <p className="text-gray-500 py-4 text-center border border-dashed border-gray-300 rounded-xl dark:text-gray-400">No hay gastos asignados a este mes.</p> : (
-          <div className="overflow-x-auto">
+          <div className="w-full">
             <table className="w-full text-left border-collapse select-none">
-              <thead>
-                <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 text-sm dark:text-gray-400">
-                  <th className="p-3">Proveedor</th>
+              <thead className="sticky top-0 bg-white dark:bg-donezo-card-dark z-20 shadow-sm">
+                <tr className="border-b border-gray-200 dark:border-gray-800 text-gray-500 text-sm dark:text-gray-400">
+                  <th className="p-3 pl-6">Proveedor</th>
                   <th className="p-3">Concepto</th>
                   <th className="p-3 text-center">Cuota</th>
-                  <th className="p-3 text-right">Monto a Cobrar</th>
+                  <th className="p-3 pr-6 text-right">Monto a Cobrar</th>
                 </tr>
               </thead>
               <tbody>
                 {gastosMesActual.map((g: Gasto, i: number) => (
                   <tr key={i} onDoubleClick={() => setSelectedGasto(g)} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer">
-                    <td className="p-3 text-gray-800 dark:text-gray-300 font-medium text-sm">{g.proveedor}</td>
+                    <td className="p-3 pl-6 text-gray-800 dark:text-gray-300 font-medium text-sm">{g.proveedor}</td>
                     <td className="p-3 text-gray-600 dark:text-gray-400 text-sm">{g.concepto}</td>
                     <td className="p-3 text-center text-gray-500 text-xs dark:text-gray-400">{g.numero_cuota} de {g.total_cuotas}</td>
-                    <td className="p-3 text-right font-bold text-gray-800 dark:text-gray-300">${formatMoney(g.monto_cuota_usd)}</td>
+                    <td className="p-3 pr-6 text-right font-bold text-gray-800 dark:text-gray-300">${formatMoney(g.monto_cuota_usd)}</td>
                   </tr>
                 ))}
               </tbody>

@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type { FC, MouseEvent, ChangeEvent } from 'react';
 import DatePicker from 'react-datepicker';
 import { es } from 'date-fns/locale/es';
@@ -561,11 +561,11 @@ const Gastos: FC<GastosProps> = () => {
               <p className="mb-3 text-xs font-semibold text-gray-500 dark:text-gray-400">
                 Tip: haz doble click sobre un gasto para ver sus detalles.
               </p>
-              <div className="overflow-x-auto min-h-[300px]">
+              <div className="w-full">
                 <table className="w-full text-left border-collapse select-none">
-                  <thead>
-                    <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 text-sm dark:text-gray-400">
-                      <th className="p-3 w-10"></th>
+                  <thead className="sticky top-0 bg-white dark:bg-donezo-card-dark z-20 shadow-sm">
+                    <tr className="border-b border-gray-200 dark:border-gray-800 text-gray-500 text-sm dark:text-gray-400">
+                      <th className="p-3 pl-6 w-10"></th>
                       <th className="p-3">
                         <button type="button" onClick={() => toggleSort('fecha_factura')} className="font-bold hover:text-donezo-primary">
                           Fechas {sortIndicator('fecha_factura')}
@@ -596,7 +596,7 @@ const Gastos: FC<GastosProps> = () => {
                           Estado de Pago {sortIndicator('estado_pago')}
                         </button>
                       </th>
-                      <th className="p-3 text-center">Acciones</th>
+                      <th className="p-3 pr-6 text-center">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -694,7 +694,7 @@ const Gastos: FC<GastosProps> = () => {
                               />
                             </div>
                           </td>
-                          <td className="p-3 text-center">
+                          <td className="p-3 pr-6 text-center">
                             <div className="flex items-center justify-center gap-1">
                               <div className="inline-flex overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
                                 <button

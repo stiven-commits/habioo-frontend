@@ -331,22 +331,22 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
             <p className="text-gray-500 text-center py-4 dark:text-gray-400">No hay recibos para esos filtros.</p>
           ) : (
             <>
-              <div className="overflow-x-auto min-h-[400px]">
+              <div className="w-full">
                 <table className="w-full text-left border-collapse select-none">
-                  <thead>
-                    <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 text-sm dark:text-gray-400">
-                      <th className="p-3">Recibo</th>
+                  <thead className="sticky top-0 bg-white dark:bg-donezo-card-dark z-20 shadow-sm">
+                    <tr className="border-b border-gray-200 dark:border-gray-800 text-gray-500 text-sm dark:text-gray-400">
+                      <th className="p-3 pl-6">Recibo</th>
                       <th className="p-3">Inmueble</th>
                       <th className="p-3">Propietario</th>
                       <th className="p-3 text-center">Estado</th>
                       <th className="p-3 text-right text-red-500">Deuda</th>
-                      <th className="p-3 text-center">Acciones</th>
+                      <th className="p-3 pr-6 text-center">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {paginatedData.map((r: Recibo) => (
                       <tr key={r.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-sm">
-                        <td className="p-3">
+                        <td className="p-3 pl-6">
                           <span className="font-mono text-gray-400 block">#{r.id}</span>
                           <span className="text-xs text-gray-500 dark:text-gray-400">{r.fecha}</span>
                         </td>
@@ -373,7 +373,7 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
                         <td className="p-3 text-right font-bold text-gray-800 dark:text-white">
                           ${formatMoney(r.deuda_pendiente ?? r.monto_usd)}
                         </td>
-                        <td className="p-3 flex justify-center gap-2">
+                        <td className="p-3 pr-6 flex justify-center gap-2">
                           <button
                             onClick={() => {
                               setSelectedReciboId(r.id);

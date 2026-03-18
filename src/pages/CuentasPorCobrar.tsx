@@ -593,15 +593,15 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="w-full">
             <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 text-sm">
-                  <th className="p-3">Inmueble</th>
+              <thead className="sticky top-0 bg-white dark:bg-donezo-card-dark z-20 shadow-sm">
+                <tr className="border-b border-gray-200 dark:border-gray-800 text-gray-500 dark:text-gray-400 text-sm">
+                  <th className="p-3 pl-6">Inmueble</th>
                   <th className="p-3 text-right">Alícuota</th>
                   <th className="p-3">Propietario</th>
                   <th className="p-3 text-right">Saldo Actual</th>
-                  <th className="p-3 text-center">Acciones</th>
+                  <th className="p-3 pr-6 text-center">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -617,7 +617,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
 
                   return (
                     <tr key={p.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                      <td className="p-3 font-bold text-gray-800 dark:text-white text-base">{p.identificador}</td>
+                      <td className="p-3 pl-6 font-bold text-gray-800 dark:text-white text-base">{p.identificador}</td>
                       <td className="p-3 text-right font-mono text-blue-600 dark:text-blue-400 font-bold">{String(p.alicuota || 0).replace('.', ',')}%</td>
                       <td className="p-3">
                         <div className="font-medium text-gray-800 dark:text-gray-300 text-sm">{p.prop_nombre || 'Sin asignar'}</div>
@@ -631,7 +631,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                           {label}
                         </div>
                       </td>
-                      <td className="p-3 text-center">
+                      <td className="p-3 pr-6 text-center">
                         <div className="relative inline-block text-left" data-options-menu>
                           <button
                             type="button"
