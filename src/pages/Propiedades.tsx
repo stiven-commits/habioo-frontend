@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import type { FC, ChangeEvent, FormEvent, Dispatch, SetStateAction } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { formatMoney } from '../utils/currency';
@@ -1393,7 +1393,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
                     const saldo = toNumber(p.saldo_actual);
                     const isDeuda = saldo > 0;
                     const isFavor = saldo < 0;
-                    const abrirHaciaArriba = index >= currentProps.length - 2;
+                    const abrirHaciaArriba = index >= currentProps.length - 4;
                     return (
                       <tr key={p.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                         <td className="py-3 pr-3 font-bold text-gray-800 dark:text-white">{p.identificador}</td>

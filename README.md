@@ -1,4 +1,4 @@
-﻿# Habioo - Plataforma de Gestion de Condominios
+# Habioo - Plataforma de Gestion de Condominios
 
 Documento de referencia funcional y tecnica del estado actual de la app.
 Este README fusiona la base conceptual original con el inventario actualizado de modulos, endpoints y modelo de datos.
@@ -72,6 +72,9 @@ Archivo de referencia: `habioo-frontend/src/App.jsx`
    - El propietario registra/solicita pago.
    - La junta revisa pagos pendientes.
    - Aprobacion o rechazo con impacto en estado de cuenta y fondos.
+4. Ajustes a Favor Inteligentes:
+   - Ahora, al registrar un ajuste "A favor", es posible destinar el dinero a una cuenta bancaria, integrándose formalmente en los ingresos del Estado de Cuenta Bancario y sus fondos. 
+   - También es posible asignar el ajuste positivo a un Gasto Extra procesado en específico, disminuyendo directamente la deuda del condominio para con ese concepto facturado.
 
 ### 3.2 Funcionalidades inactivas o parciales
 

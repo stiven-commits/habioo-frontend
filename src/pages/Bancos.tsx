@@ -476,6 +476,26 @@ const Bancos: FC<BancosProps> = () => {
         </button>
       </div>
 
+      {bancos.length > 0 && !bancos.some(b => b.es_predeterminada) && (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-500 p-4 rounded-xl shadow-sm">
+          <p className="text-yellow-800 dark:text-yellow-300 font-medium text-sm">
+            <strong className="block mb-1 text-base">⚠️ Falta asignar una cuenta principal</strong>
+            Es obligatorio asignar una cuenta bancaria principal (predeterminada) ya que esta información será compartida con los inmuebles para que notifiquen sus pagos. 
+            Por favor, haz clic en el botón <span className="font-bold">Hacer Principal</span> en alguna de las cuentas abajo para continuar.
+          </p>
+        </div>
+      )}
+
+      {bancos.length > 0 && bancos.some(b => b.es_predeterminada) && bancos.some(b => !fondos.some(f => f.cuenta_bancaria_id === b.id)) && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 p-4 rounded-xl shadow-sm">
+          <p className="text-blue-800 dark:text-blue-300 font-medium text-sm">
+            <strong className="block mb-1 text-base">ℹ️ Falta configurar fondos en sus cuentas</strong>
+            Debe agregar mínimo un fondo (ej. Fondo Operativo) a sus cuentas bancarias para que los ingresos puedan ser distribuidos correctamente. Si agrega nuevas cuentas posteriormente, se le continuará recordando.
+            Por favor, haga clic en el botón <span className="font-bold">Gestionar Fondos</span> en la cuenta correspondiente.
+          </p>
+        </div>
+      )}
+
       {bancos.length === 0 ? <p className="text-gray-500 text-center py-10 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">No hay cuentas registradas.</p> : (
         <div className="flex flex-col gap-5">
           {bancos.map((b: Banco) => (

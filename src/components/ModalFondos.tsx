@@ -179,6 +179,8 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo }) =
   const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     const token = localStorage.getItem('habioo_token');
+    
+    const isFirstFondo = fondos.length === 0;
 
     try {
       const res = await fetch(`${API_BASE_URL}/fondos`, {
@@ -187,7 +189,7 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo }) =
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ ...form, cuenta_bancaria_id: cuenta.id }),
+        body: JSON.stringify({ ...form, cuenta_bancaria_id: cuenta.id, es_operativo: isFirstFondo }),
       });
 
       if (res.ok) {
@@ -256,6 +258,37 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo }) =
     }
   };
 
+  const handleSetOperativo = async (fondo: Fondo): Promise<void> => {
+    // Si ya es operativo, no hacer nada
+    if (fondo.es_operativo) return;
+    
+    // Validar si el fondo que se quiere hacer principal tiene porcentaje asignado
+    // Se recomienda advertir que si se hace principal, su porcentaje ingresado se borrará
+    const ok = await showConfirm({
+      title: 'Hacer Fondo Principal',
+      message: `¿Estás seguro de establecer "${fondo.nombre}" como el Fondo Principal para esta cuenta? \n\nCualquier porcentaje que tuviera asignado se anulará, y en su lugar, absorberá el dinero residual que sobre luego de alimentar los fondos auxiliares.`,
+      confirmText: 'Establecer como Principal',
+      variant: 'warning'
+    });
+    if (!ok) return;
+
+    const token = localStorage.getItem('habioo_token');
+    try {
+      const res = await fetch(`${API_BASE_URL}/fondos/${fondo.id}/operativo`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data: ApiActionResponse = await res.json();
+      if (res.ok && data.status === 'success') {
+        fetchFondos();
+      } else {
+        await showAlert({ title: 'Error', message: data.message || 'No se pudo establecer el fondo como principal.', variant: 'danger' });
+      }
+    } catch {
+      await showAlert({ title: 'Error de conexion', message: 'No se pudo actualizar el fondo principal.', variant: 'danger' });
+    }
+  };
+
   const porcentajeUsado = fondos.reduce((acc: number, curr: Fondo) => acc + toNumber(curr.porcentaje_asignacion), 0);
   const porcentajeRestante = Math.max(0, 100 - porcentajeUsado).toFixed(2);
   const tieneOperativo = fondos.some((f: Fondo) => f.es_operativo);
@@ -267,6 +300,15 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo }) =
 
         <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-1">Configuracion de Fondos</h3>
         <p className="text-sm text-gray-500 mb-6">Cuenta bancaria: <strong className="text-donezo-primary">{cuenta.nombre_banco} ({cuenta.apodo})</strong></p>
+
+        {!tieneOperativo && (
+          <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border-l-4 border-blue-500 shadow-sm">
+            <p className="text-sm text-blue-800 dark:text-blue-300 font-medium leading-relaxed">
+              <strong className="block text-sm mb-1">💡 Importante</strong>
+              El <strong>Fondo Principal (Operativo)</strong> funciona como la cuenta receptora base. Es el motor principal del que dependen las demas alcancías porque a partir de este fondo se descontarán matemáticamente los porcentajes asignados a cualquier otro fondo auxiliar (Reservas, Mejoras, etc.) antes de absorber el dinero sobrante.
+            </p>
+          </div>
+        )}
 
         <div className="mb-8">
           <div className="flex justify-between items-end mb-3">
@@ -312,24 +354,42 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo }) =
                       </p>
                     </div>
                   </div>
-                  <div className="border-t border-gray-100 dark:border-gray-700/50 pt-2 flex justify-end">
-                    <label className="mr-auto inline-flex items-center gap-2 text-[11px] font-semibold text-gray-600 dark:text-gray-300">
+                  <div className="border-t border-gray-100 dark:border-gray-700/50 pt-2 flex flex-col gap-2">
+                    <div className="flex justify-between items-center w-full">
+                      <label className="inline-flex items-center gap-2 text-[11px] font-semibold text-gray-600 dark:text-gray-300">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(f.es_operativo)}
+                          onChange={() => handleSetOperativo(f)}
+                          disabled={f.es_operativo}
+                          className="rounded border-gray-300 text-donezo-primary focus:ring-donezo-primary disabled:opacity-50"
+                        />
+                        Fondo Principal
+                      </label>
+                      <button
+                        onClick={() => (onDeleteFondo ? onDeleteFondo(f) : handleDeleteFondoLocal(f.id))}
+                        className="text-[10px] uppercase font-bold text-red-600 hover:text-red-700 flex items-center gap-1 transition-colors"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                    <label 
+                      className="inline-flex items-center gap-2 text-[11px] font-semibold text-gray-600 dark:text-gray-300 cursor-pointer"
+                      title="Esta opción permite que los inmuebles puedan ver los egresos que se realicen de este dinero desde su panel."
+                    >
                       <input
                         type="checkbox"
                         checked={Boolean(f.visible_propietarios ?? true)}
                         onChange={(e: ChangeEvent<HTMLInputElement>) => {
                           void handleToggleVisiblePropietarios(f, e.target.checked);
                         }}
-                        className="rounded border-gray-300 text-donezo-primary focus:ring-donezo-primary"
+                        className="rounded border-gray-300 text-donezo-primary focus:ring-donezo-primary cursor-pointer"
                       />
                       Visible para inmuebles
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5 text-gray-400 hover:text-donezo-primary transition-colors">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                      </svg>
                     </label>
-                    <button
-                      onClick={() => (onDeleteFondo ? onDeleteFondo(f) : handleDeleteFondoLocal(f.id))}
-                      className="text-[10px] uppercase font-bold text-red-600 hover:text-red-700 flex items-center gap-1 transition-colors"
-                    >
-                      Eliminar
-                    </button>
                   </div>
                 </div>
               ))}
@@ -340,23 +400,15 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo }) =
         <form onSubmit={handleSubmit} className="p-5 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-700">
           <div className="flex justify-between items-center mb-4">
             <h4 className="font-bold text-gray-700 dark:text-gray-300 text-sm uppercase tracking-wider">Aperturar Nuevo Fondo</h4>
-
-            <label className={`flex items-center gap-2 cursor-pointer text-xs font-bold ${tieneOperativo ? 'opacity-30 cursor-not-allowed' : 'text-donezo-primary'}`} title={tieneOperativo ? 'Ya existe un fondo principal' : 'Marque aqui si este fondo absorbera el dinero sobrante'}>
-              <span className="uppercase tracking-wider">Es Fondo Principal</span>
-              <div className="relative">
-                <input type="checkbox" name="es_operativo" checked={form.es_operativo} onChange={handleChange} disabled={tieneOperativo} className="sr-only peer" />
-                <div className="w-9 h-5 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-donezo-primary" />
-              </div>
-            </label>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className={`${form.es_operativo ? 'md:col-span-3' : 'md:col-span-2'}`}>
+            <div className={`${fondos.length === 0 ? 'md:col-span-3' : 'md:col-span-2'}`}>
               <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">Nombre del Fondo *</label>
               <input type="text" name="nombre" value={form.nombre} onChange={handleChange} required placeholder="Ej: Fondo de Reserva" className="w-full p-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm dark:text-white" />
             </div>
 
-            {!form.es_operativo && (
+            {fondos.length > 0 && (
               <div>
                 <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">% de Ingresos *</label>
                 <input type="number" step="0.01" min="0" max={porcentajeRestante} name="porcentaje" value={form.porcentaje} onChange={handleChange} required placeholder="Ej: 10" className="w-full p-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm dark:text-white" />
@@ -378,7 +430,7 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo }) =
               </select>
             </div>
 
-            <div className={`${!form.es_operativo ? 'md:col-span-2' : ''}`}>
+            <div className={`${fondos.length === 0 ? 'md:col-span-2' : ''}`}>
               <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">Saldo de Apertura</label>
               <input type="text" name="saldo_inicial" value={form.saldo_inicial} onChange={handleMonedaChange} required placeholder="0,00" className="w-full p-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm dark:text-white font-mono" />
             </div>

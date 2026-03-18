@@ -91,6 +91,7 @@ const Cierres: FC<CierresProps> = () => {
 
   // Estados para el Buscador Inteligente
   const [propiedades, setPropiedades] = useState<Propiedad[]>([]);
+  const [bancos, setBancos] = useState<any[]>([]);
   const [searchProp, setSearchProp] = useState<string>('');
   const [showDropdown, setShowDropdown] = useState<boolean>(false);
 
@@ -105,13 +106,15 @@ const Cierres: FC<CierresProps> = () => {
   const fetchPreliminar = async (): Promise<void> => {
     const token = localStorage.getItem('habioo_token');
     try {
-      const [resPreliminar, resProps] = await Promise.all([
+      const [resPreliminar, resProps, resBancos] = await Promise.all([
         fetch(`${API_BASE_URL}/preliminar`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API_BASE_URL}/propiedades-admin`, { headers: { Authorization: `Bearer ${token}` } })
+        fetch(`${API_BASE_URL}/propiedades-admin`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_BASE_URL}/bancos`, { headers: { Authorization: `Bearer ${token}` } })
       ]);
 
       const result: PreliminarResponse = await resPreliminar.json();
       const dataProps: PropiedadesResponse = await resProps.json();
+      const dataBancos = await resBancos.json();
 
       if (result.status === 'success') {
         setData({
@@ -130,6 +133,9 @@ const Cierres: FC<CierresProps> = () => {
 
       if (dataProps.status === 'success') {
         setPropiedades(dataProps.propiedades);
+      }
+      if (dataBancos.status === 'success') {
+        setBancos(dataBancos.bancos || []);
       }
     } catch (error) { console.error(error); }
     finally { setLoading(false); }
@@ -288,6 +294,16 @@ const Cierres: FC<CierresProps> = () => {
         </div>
       )}
 
+      {(propiedades.length === 0 || bancos.length === 0) && (
+        <div className="bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-500 p-4 rounded-xl shadow-sm flex items-start gap-3">
+          <span className="text-2xl">⚠️</span>
+          <div>
+            <h4 className="text-orange-800 dark:text-orange-300 font-bold">Requisitos Pendientes</h4>
+            <p className="text-orange-700 dark:text-orange-400 text-sm mt-1">Para generar los avisos de cobro y cerrar el mes, es obligatorio tener <strong className="font-bold">inmuebles registrados</strong> y al menos una <strong className="font-bold">cuenta bancaria configurada</strong>.</p>
+          </div>
+        </div>
+      )}
+
       {/* PANEL ACORDEON: METODO DE DIVISION */}
       <div className="bg-white dark:bg-donezo-card-dark rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 my-6 overflow-hidden transition-all duration-300">
         <button
@@ -435,14 +451,19 @@ const Cierres: FC<CierresProps> = () => {
           <h3 className="text-xl font-bold text-gray-800 dark:text-white">Borrador: {data.mes_texto}</h3>
           
           <div className="flex gap-3">
-             {/* BOTON NUEVO DE DESARROLLADOR */}
+             {/* BOTON DE PRUEBA */}
              <button onClick={handleSeeder} className="bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 font-bold py-2 px-4 rounded-xl transition-all shadow-sm text-sm border border-purple-200 dark:border-purple-800">
                🧪 Inyectar Datos
              </button>
 
-             {/* BOTON DE PRUEBA (Siempre habilitado) */}
-             <button onClick={handleCerrarCiclo} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-xl transition-all shadow-lg text-sm">
-               🚨 FORZAR CIERRE {data.mes_texto}
+             {/* FORZAR CIERRE DE PRUEBA */}
+             <button disabled={propiedades.length === 0 || bancos.length === 0} onClick={handleCerrarCiclo} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-xl transition-all shadow-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+               🚨 FORZAR CIERRE (Pruebas)
+             </button>
+
+             {/* BOTON REAL DE CIERRE */}
+             <button disabled={!canCloseMonth || propiedades.length === 0 || bancos.length === 0} onClick={handleCerrarCiclo} className="bg-donezo-primary hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-xl transition-all shadow-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+               Generar Recibos
              </button>
           </div>
         </div>

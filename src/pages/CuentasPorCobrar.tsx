@@ -605,7 +605,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
               <tbody>
                 {paginatedProperties.map((p: Propiedad, index: number) => {
                   const saldo = toNumber(p.saldo_actual);
-                  const abrirHaciaArriba = index >= paginatedProperties.length - 2;
+                  const abrirHaciaArriba = index >= paginatedProperties.length - 4;
 
                   // Lógica de colores dinámicos para el saldo
                   const isDeuda = saldo > 0;
@@ -648,9 +648,9 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                                   handleOpenEstadoCuenta(p);
                                   setOpenOptionsFor(null);
                                 }}
-                                className="block w-full px-3 py-2 text-left text-xs font-bold text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-900/30"
+                                className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors"
                               >
-                                Estado de Cuenta
+                                📄 Estado de Cuenta
                               </button>
                               <button
                                 type="button"
@@ -658,9 +658,9 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                                   handleOpenRegistrarPago(p);
                                   setOpenOptionsFor(null);
                                 }}
-                                className="block w-full px-3 py-2 text-left text-xs font-bold text-green-600 transition-colors hover:bg-green-50 dark:text-green-300 dark:hover:bg-green-900/30"
+                                className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors"
                               >
-                                Registrar Pago
+                                💵 Registrar Pago
                               </button>
                               <button
                                 type="button"
@@ -668,9 +668,9 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                                   handleOpenAjuste(p);
                                   setOpenOptionsFor(null);
                                 }}
-                                className="block w-full px-3 py-2 text-left text-xs font-bold text-amber-700 transition-colors hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-900/30"
+                                className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors"
                               >
-                                Ajuste
+                                ⚙️ Ajuste
                               </button>
                               <button
                                 type="button"
@@ -680,9 +680,9 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                                   setOpenOptionsFor(null);
                                 }}
                                 disabled={!pendingByPropiedad[p.id]}
-                                className="block w-full px-3 py-2 text-left text-xs font-bold text-violet-700 transition-colors hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-violet-300 dark:hover:bg-violet-900/30"
+                                className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                               >
-                                Aprobar pagos{pendingByPropiedad[p.id] ? ` (${pendingByPropiedad[p.id]})` : ''}
+                                ⏳ Aprobar pagos{pendingByPropiedad[p.id] ? ` (${pendingByPropiedad[p.id]})` : ''}
                               </button>
                             </div>
                           )}
