@@ -6,7 +6,7 @@ import { API_BASE_URL } from '../config/api';
 import ModalRegistrarPago from '../components/ModalRegistrarPago';
 import { ModalEstadoCuenta } from '../components/propiedades/PropiedadesModals';
 
-interface CuentasPorCobrarProps {}
+interface CuentasPorCobrarProps { }
 
 interface OutletContextType {
   userRole?: string;
@@ -131,7 +131,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
   const [propiedades, setPropiedades] = useState<Propiedad[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
-  
+
   // Nuevo estado para las pestañas
   const [activeTab, setActiveTab] = useState<ActiveTab>('Deudores');
 
@@ -329,11 +329,11 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
     setConceptoAjuste('');
     setDestinoIngreso('CUENTA');
     if (cuentasBancarias.length > 0) {
-       const defaultCta = cuentasBancarias.find((c: any) => c.es_predeterminada);
-       setCuentaBancariaSeleccionada(defaultCta ? String(defaultCta.id) : String(cuentasBancarias[0].id));
+      const defaultCta = cuentasBancarias.find((c: any) => c.es_predeterminada);
+      setCuentaBancariaSeleccionada(defaultCta ? String(defaultCta.id) : String(cuentasBancarias[0].id));
     }
     if (gastosExtras.length > 0) {
-       setGastoExtraSeleccionado(String(gastosExtras[0].id));
+      setGastoExtraSeleccionado(String(gastosExtras[0].id));
     }
     setShowAjusteModal(true);
   };
@@ -547,7 +547,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
   return (
     <div className="space-y-6">
       <div className="bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
-        
+
         <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
           <h3 className="text-xl font-bold text-gray-800 dark:text-white">Cobranza de Inmuebles</h3>
           <div className="flex-1 w-full max-w-md relative">
@@ -566,21 +566,19 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
         <div className="flex gap-6 border-b border-gray-100 dark:border-gray-800 mb-6">
           <button
             onClick={() => setActiveTab('Deudores')}
-            className={`py-3 px-2 font-bold text-sm border-b-2 transition-all ${
-              activeTab === 'Deudores'
-                ? 'border-donezo-primary text-donezo-primary dark:text-blue-400 dark:border-blue-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-            }`}
+            className={`py-3 px-2 font-bold text-sm border-b-2 transition-all ${activeTab === 'Deudores'
+              ? 'border-donezo-primary text-donezo-primary dark:text-blue-400 dark:border-blue-400'
+              : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+              }`}
           >
             ⚠️ Con Deuda Pendiente
           </button>
           <button
             onClick={() => setActiveTab('Todos')}
-            className={`py-3 px-2 font-bold text-sm border-b-2 transition-all ${
-              activeTab === 'Todos'
-                ? 'border-donezo-primary text-donezo-primary dark:text-blue-400 dark:border-blue-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-            }`}
+            className={`py-3 px-2 font-bold text-sm border-b-2 transition-all ${activeTab === 'Todos'
+              ? 'border-donezo-primary text-donezo-primary dark:text-blue-400 dark:border-blue-400'
+              : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+              }`}
           >
             🏢 Todos los Inmuebles
           </button>
@@ -608,7 +606,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                 {paginatedProperties.map((p: Propiedad, index: number) => {
                   const saldo = toNumber(p.saldo_actual);
                   const abrirHaciaArriba = index >= paginatedProperties.length - 2;
-                  
+
                   // Lógica de colores dinámicos para el saldo
                   const isDeuda = saldo > 0;
                   const isFavor = saldo < 0;
@@ -745,7 +743,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
         setFechaDesde={setFechaDesde}
         fechaHasta={fechaHasta}
         setFechaHasta={setFechaHasta}
-        handleOpenAjuste={(_prop) => {}}
+        handleOpenAjuste={(_prop) => { }}
         loadingCuenta={loadingCuenta}
         estadoCuentaFiltrado={estadoCuentaFiltrado}
         showAjuste={false}
@@ -882,19 +880,19 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                     <label className="block text-xs font-bold text-gray-500 mb-2">Destino del Ingreso</label>
                     <div className="flex gap-6">
                       <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
-                        <input 
-                          type="radio" 
-                          checked={destinoIngreso === 'CUENTA'} 
-                          onChange={() => setDestinoIngreso('CUENTA')} 
+                        <input
+                          type="radio"
+                          checked={destinoIngreso === 'CUENTA'}
+                          onChange={() => setDestinoIngreso('CUENTA')}
                           className="text-donezo-primary focus:ring-donezo-primary"
                         />
                         A cuenta bancaria
                       </label>
                       <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
-                        <input 
-                          type="radio" 
-                          checked={destinoIngreso === 'EXTRA'} 
-                          onChange={() => { setDestinoIngreso('EXTRA'); setCuentaBancariaSeleccionada(''); }} 
+                        <input
+                          type="radio"
+                          checked={destinoIngreso === 'EXTRA'}
+                          onChange={() => { setDestinoIngreso('EXTRA'); setCuentaBancariaSeleccionada(''); }}
                           className="text-donezo-primary focus:ring-donezo-primary"
                         />
                         A gasto extra (Sin cuenta)
@@ -904,7 +902,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                   {destinoIngreso === 'CUENTA' && (
                     <div className="md:col-span-2">
                       <label className="block text-xs font-bold text-gray-500 mb-1">Cuenta Bancaria Receptora</label>
-                      <select 
+                      <select
                         value={cuentaBancariaSeleccionada}
                         onChange={(e: ChangeEvent<HTMLSelectElement>) => setCuentaBancariaSeleccionada(e.target.value)}
                         className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-medium"
@@ -922,7 +920,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                       {gastosExtras.length === 0 ? (
                         <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">No hay gastos extras disponibles. Asegúrese que hayan sido generados en recibos/avisos.</p>
                       ) : (
-                        <select 
+                        <select
                           value={gastoExtraSeleccionado}
                           onChange={(e: ChangeEvent<HTMLSelectElement>) => setGastoExtraSeleccionado(e.target.value)}
                           className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-medium"
