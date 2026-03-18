@@ -697,10 +697,23 @@ const Propiedades: FC<PropiedadesProps> = () => {
     const token = localStorage.getItem('habioo_token');
     const url = editingId ? `${API_BASE_URL}/propiedades-admin/${editingId}` : `${API_BASE_URL}/propiedades-admin`;
 
-    const res = await fetch(url, { method: editingId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(form) });
-    const data: ApiActionResponse = await res.json();
-    if (data.status === 'success') { setIsModalOpen(false); void fetchPropiedades(); void fetchPropietariosExistentes(); }
-    else { alert(data.error || data.message); }
+    const buttonSubmit = document.getElementById('btnSubmitProp') as HTMLButtonElement;
+    if (buttonSubmit) {
+      buttonSubmit.disabled = true;
+      buttonSubmit.innerHTML = 'Guardando...';
+    }
+
+    try {
+      const res = await fetch(url, { method: editingId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(form) });
+      const data: ApiActionResponse = await res.json();
+      if (data.status === 'success') { setIsModalOpen(false); void fetchPropiedades(); void fetchPropietariosExistentes(); }
+      else { alert(data.error || data.message); }
+    } finally {
+      if (buttonSubmit) {
+        buttonSubmit.disabled = false;
+        buttonSubmit.innerHTML = 'Guardar Información';
+      }
+    }
   };
 
   const handleSubmitAjuste = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
