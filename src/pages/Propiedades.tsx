@@ -1265,7 +1265,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
   const sortedProps = [...filteredProps].sort((a: Propiedad, b: Propiedad) => {
     let cmp = 0;
     if (sortColumn === 'identificador') {
-      cmp = String(a.identificador || '').localeCompare(String(b.identificador || ''), 'es', { sensitivity: 'base' });
+      cmp = String(a.identificador || '').localeCompare(String(b.identificador || ''), 'es', { numeric: true, sensitivity: 'base' });
     } else if (sortColumn === 'prop_nombre') {
       cmp = String(a.prop_nombre || '').localeCompare(String(b.prop_nombre || ''), 'es', { sensitivity: 'base' });
     } else if (sortColumn === 'alicuota') {

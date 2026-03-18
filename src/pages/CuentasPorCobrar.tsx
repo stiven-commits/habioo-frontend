@@ -506,6 +506,8 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
     (p: Propiedad) =>
       p.identificador?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.prop_nombre?.toLowerCase().includes(searchTerm.toLowerCase())
+  ).sort((a: Propiedad, b: Propiedad) => 
+    String(a.identificador || '').localeCompare(String(b.identificador || ''), 'es', { numeric: true, sensitivity: 'base' })
   );
 
   const totalPages = Math.ceil(filteredProperties.length / ITEMS_PER_PAGE);
