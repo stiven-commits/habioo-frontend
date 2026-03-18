@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import type { FC, ChangeEvent } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { formatMoney } from '../utils/currency';
@@ -165,6 +165,49 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
   const [rejectingPagoId, setRejectingPagoId] = useState<number | null>(null);
   const [openOptionsFor, setOpenOptionsFor] = useState<number | null>(null);
 
+  const [destinoIngreso, setDestinoIngreso] = useState<'CUENTA' | 'EXTRA'>('CUENTA');
+  const [cuentaBancariaSeleccionada, setCuentaBancariaSeleccionada] = useState<string>('');
+  const [cuentasBancarias, setCuentasBancarias] = useState<any[]>([]);
+  const [gastosExtras, setGastosExtras] = useState<any[]>([]);
+  const [gastoExtraSeleccionado, setGastoExtraSeleccionado] = useState<string>('');
+
+  const fetchGastosExtras = async (): Promise<void> => {
+    try {
+      const token = localStorage.getItem('habioo_token');
+      const res = await fetch(`${API_BASE_URL}/gastos-extras-procesados`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        setGastosExtras(data.gastos || []);
+        if (data.gastos?.length > 0) {
+          setGastoExtraSeleccionado(String(data.gastos[0].id));
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchCuentasBancarias = async (): Promise<void> => {
+    try {
+      const token = localStorage.getItem('habioo_token');
+      const res = await fetch(`${API_BASE_URL}/bancos`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        setCuentasBancarias(data.bancos || []);
+        if (data.bancos?.length > 0) {
+          const defaultCta = data.bancos.find((c: any) => c.es_predeterminada);
+          setCuentaBancariaSeleccionada(defaultCta ? String(defaultCta.id) : String(data.bancos[0].id));
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const montoUsdAjuste = parseNumberInput(tasaBcvAjuste) > 0
     ? (parseNumberInput(montoBsAjuste) / parseNumberInput(tasaBcvAjuste))
     : 0;
@@ -219,6 +262,8 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
     if (userRole === 'Administrador') {
       fetchData();
       fetchPendingCounts();
+      fetchCuentasBancarias();
+      fetchGastosExtras();
     }
   }, [userRole]);
 
@@ -282,6 +327,14 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
     setMontoBsAjuste('');
     setTasaBcvAjuste('');
     setConceptoAjuste('');
+    setDestinoIngreso('CUENTA');
+    if (cuentasBancarias.length > 0) {
+       const defaultCta = cuentasBancarias.find((c: any) => c.es_predeterminada);
+       setCuentaBancariaSeleccionada(defaultCta ? String(defaultCta.id) : String(cuentasBancarias[0].id));
+    }
+    if (gastosExtras.length > 0) {
+       setGastoExtraSeleccionado(String(gastosExtras[0].id));
+    }
     setShowAjusteModal(true);
   };
 
@@ -400,12 +453,25 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
       alert('Debe ingresar un monto en Bs y una tasa BCV válida.');
       return;
     }
+    if (ajusteTipo === 'FAVOR' && destinoIngreso === 'CUENTA' && !cuentaBancariaSeleccionada) {
+      alert('Debe seleccionar una cuenta bancaria de destino para el ingreso.');
+      return;
+    }
+    if (ajusteTipo === 'FAVOR' && destinoIngreso === 'EXTRA' && !gastoExtraSeleccionado) {
+      alert('Debe seleccionar el Gasto Extra procesado.');
+      return;
+    }
     setIsSavingAjuste(true);
     try {
       const token = localStorage.getItem('habioo_token');
       const payload = {
         tipo_ajuste: ajusteTipo === 'DEUDA' ? 'CARGAR_DEUDA' : 'AGREGAR_FAVOR',
         monto: Number(montoUsd.toFixed(2)),
+        monto_bs: parseNumberInput(montoBsAjuste),
+        tasa_cambio: parseNumberInput(tasaBcvAjuste),
+        cuenta_bancaria_id: ajusteTipo === 'FAVOR' && destinoIngreso === 'CUENTA' ? Number(cuentaBancariaSeleccionada) : null,
+        es_gasto_extra: ajusteTipo === 'FAVOR' && destinoIngreso === 'EXTRA',
+        gasto_extra_id: ajusteTipo === 'FAVOR' && destinoIngreso === 'EXTRA' ? Number(gastoExtraSeleccionado) : null,
         nota: `${(conceptoAjuste || 'Ajuste manual').trim()} | Ajuste desde Cuentas por Cobrar (${ajusteTipo}) - Bs ${montoBsAjuste} | Tasa ${tasaBcvAjuste}`
       };
       const res = await fetch(`${API_BASE_URL}/propiedades-admin/${selectedPropAjuste.id}/ajustar-saldo`, {
@@ -809,6 +875,70 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                   A favor
                 </button>
               </div>
+
+              {ajusteTipo === 'FAVOR' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pb-3 border-b border-gray-100 dark:border-gray-800">
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-bold text-gray-500 mb-2">Destino del Ingreso</label>
+                    <div className="flex gap-6">
+                      <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+                        <input 
+                          type="radio" 
+                          checked={destinoIngreso === 'CUENTA'} 
+                          onChange={() => setDestinoIngreso('CUENTA')} 
+                          className="text-donezo-primary focus:ring-donezo-primary"
+                        />
+                        A cuenta bancaria
+                      </label>
+                      <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+                        <input 
+                          type="radio" 
+                          checked={destinoIngreso === 'EXTRA'} 
+                          onChange={() => { setDestinoIngreso('EXTRA'); setCuentaBancariaSeleccionada(''); }} 
+                          className="text-donezo-primary focus:ring-donezo-primary"
+                        />
+                        A gasto extra (Sin cuenta)
+                      </label>
+                    </div>
+                  </div>
+                  {destinoIngreso === 'CUENTA' && (
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-bold text-gray-500 mb-1">Cuenta Bancaria Receptora</label>
+                      <select 
+                        value={cuentaBancariaSeleccionada}
+                        onChange={(e: ChangeEvent<HTMLSelectElement>) => setCuentaBancariaSeleccionada(e.target.value)}
+                        className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-medium"
+                      >
+                        <option value="">Seleccione una cuenta...</option>
+                        {cuentasBancarias.map((c: any) => (
+                          <option key={c.id} value={c.id}>{c.nombre_banco} - {c.numero_cuenta}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {destinoIngreso === 'EXTRA' && (
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-bold text-gray-500 mb-1">Gasto Extra a Rebajar</label>
+                      {gastosExtras.length === 0 ? (
+                        <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">No hay gastos extras disponibles. Asegúrese que hayan sido generados en recibos/avisos.</p>
+                      ) : (
+                        <select 
+                          value={gastoExtraSeleccionado}
+                          onChange={(e: ChangeEvent<HTMLSelectElement>) => setGastoExtraSeleccionado(e.target.value)}
+                          className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-medium"
+                        >
+                          <option value="">Seleccione un gasto extra...</option>
+                          {gastosExtras.map((g: any) => (
+                            <option key={g.id} value={g.id}>
+                              {g.concepto} - Deuda act.: ${parseFloat(String(g.deuda_restante)).toFixed(2)}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="md:col-span-3">

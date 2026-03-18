@@ -4,7 +4,7 @@ import DatePicker from 'react-datepicker';
 import { es } from 'date-fns/locale/es';
 import { formatMoney } from '../utils/currency';
 import { API_BASE_URL } from '../config/api';
-import { sanitizeCedulaRif, isValidCedulaRif } from '../utils/validators';
+import { sanitizeCedulaRif, isValidCedulaRif, sanitizePhone, isValidPhone } from '../utils/validators';
 import { useDialog } from './ui/DialogProvider';
 import 'react-datepicker/dist/react-datepicker.css';
 
@@ -70,6 +70,7 @@ interface FormPagoState {
   nota: string;
   cedula_origen: string;
   banco_origen: string;
+  telefono_origen: string;
 }
 
 interface ConfirmOptions {
@@ -117,7 +118,8 @@ const initialFormPago = (): FormPagoState => ({
   fecha_pago: getLocalYmd(),
   nota: '',
   cedula_origen: '',
-  banco_origen: ''
+  banco_origen: '',
+  telefono_origen: ''
 });
 
 const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
@@ -283,6 +285,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
     if (field === 'monto_origen') newVal = formatCurrencyInput(value, 2);
     if (field === 'tasa_cambio') newVal = formatCurrencyInput(value, 3);
     if (field === 'cedula_origen') newVal = sanitizeCedulaRif(value);
+    if (field === 'telefono_origen') newVal = sanitizePhone(value);
 
     applyFormChange(field, newVal);
   };
@@ -328,6 +331,10 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
     }
     if (requiresTasa && !isValidCedulaRif(formPago.cedula_origen)) {
       alert('Error: la cédula de origen debe iniciar con V, E, J o G y contener solo números.');
+      return;
+    }
+    if (formPago.metodo_pago === 'Pago Movil' && !isValidPhone(formPago.telefono_origen)) {
+      alert('Error: para Pago Movil debe indicar un telefono de origen valido.');
       return;
     }
     const ok = await showConfirm({
@@ -482,7 +489,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
               )}
 
               {requiresTasa && (
-                <div className="grid grid-cols-2 gap-3 mt-3 border-t border-gray-100 dark:border-gray-800 pt-3">
+                <div className={`grid gap-3 mt-3 border-t border-gray-100 dark:border-gray-800 pt-3 ${formPago.metodo_pago === 'Pago Movil' ? 'grid-cols-1 md:grid-cols-3' : 'grid-cols-2'}`}>
                   <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Banco de Origen</label>
                     <select name="banco_origen" value={formPago.banco_origen} onChange={handlePagoChange} className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required>
@@ -491,9 +498,25 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Cédula Origen</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Cedula Origen</label>
                     <input type="text" name="cedula_origen" value={formPago.cedula_origen} onChange={handlePagoChange} pattern="^[VEJG][0-9]{5,9}$" placeholder="V12345678" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
                   </div>
+                  {formPago.metodo_pago === 'Pago Movil' && (
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Telefono Origen</label>
+                      <input
+                        type="text"
+                        name="telefono_origen"
+                        value={formPago.telefono_origen}
+                        onChange={handlePagoChange}
+                        inputMode="numeric"
+                        pattern="^[0-9]{7,15}$"
+                        placeholder="04141234567"
+                        className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary"
+                        required
+                      />
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -554,3 +577,5 @@ const parseInputNumber = (value: string | number | undefined | null): number => 
 };
 
 export default ModalRegistrarPago;
+
+
