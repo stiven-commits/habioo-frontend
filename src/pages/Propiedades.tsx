@@ -63,7 +63,9 @@ interface FormState {
   prop_nombre: string;
   prop_cedula: string;
   prop_email: string;
+  prop_email_secundario: string;
   prop_telefono: string;
+  prop_telefono_secundario: string;
   prop_password: string;
   tiene_inquilino: boolean;
   inq_nombre: string;
@@ -133,7 +135,9 @@ interface PropiedadFormData {
   prop_cedula: string;
   prop_nombre: string;
   prop_email: string;
+  prop_email_secundario: string;
   prop_telefono: string;
+  prop_telefono_secundario: string;
   prop_password: string;
   tiene_inquilino: boolean;
   inq_cedula: string;
@@ -303,7 +307,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
   }, [loteData, loteDeudas]);
 
   const initialForm: FormState = {
-    identificador: '', alicuota: '', propietario_modo: 'NUEVO', propietario_existente_id: '', prop_nombre: '', prop_cedula: '', prop_email: '', prop_telefono: '', prop_password: '',
+    identificador: '', alicuota: '', propietario_modo: 'NUEVO', propietario_existente_id: '', prop_nombre: '', prop_cedula: '', prop_email: '', prop_email_secundario: '', prop_telefono: '', prop_telefono_secundario: '', prop_password: '',
     tiene_inquilino: false, inq_nombre: '', inq_cedula: '', inq_email: '', inq_telefono: '', inq_password: '',
     inq_permitir_acceso: true,
     monto_saldo_inicial: '', tipo_saldo_inicial: 'CERO', saldo_inicial_bs: '', tasa_bcv: '',
@@ -475,7 +479,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
     setOpenDropdownId(null); setEditingId(prop.id);
     setForm({
       identificador: prop.identificador, alicuota: formatAlicuotaDisplay(prop.alicuota), propietario_modo: 'NUEVO', propietario_existente_id: '',
-      prop_nombre: prop.prop_nombre || '', prop_cedula: prop.prop_cedula || '', prop_email: prop.prop_email || '', prop_telefono: prop.prop_telefono || '', prop_password: '',
+      prop_nombre: prop.prop_nombre || '', prop_cedula: prop.prop_cedula || '', prop_email: prop.prop_email || '', prop_email_secundario: (prop as any).prop_email_secundario || '', prop_telefono: prop.prop_telefono || '', prop_telefono_secundario: (prop as any).prop_telefono_secundario || '', prop_password: '',
       tiene_inquilino: !!prop.inq_cedula, inq_nombre: prop.inq_nombre || '', inq_cedula: prop.inq_cedula || '', inq_email: prop.inq_email || '', inq_telefono: prop.inq_telefono || '', inq_password: '',
       inq_permitir_acceso: prop.inq_acceso_portal !== false,
       monto_saldo_inicial: '', tipo_saldo_inicial: 'CERO', saldo_inicial_bs: '', tasa_bcv: '',
@@ -1290,7 +1294,9 @@ const Propiedades: FC<PropiedadesProps> = () => {
         prop_cedula: prev.prop_cedula,
         prop_nombre: prev.prop_nombre,
         prop_email: prev.prop_email,
+        prop_email_secundario: prev.prop_email_secundario,
         prop_telefono: prev.prop_telefono,
+        prop_telefono_secundario: prev.prop_telefono_secundario,
         prop_password: prev.prop_password,
         tiene_inquilino: prev.tiene_inquilino,
         inq_cedula: prev.inq_cedula,

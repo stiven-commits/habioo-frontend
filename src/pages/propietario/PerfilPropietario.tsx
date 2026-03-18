@@ -7,7 +7,9 @@ interface User {
   nombre: string;
   cedula?: string;
   email?: string;
+  email_secundario?: string;
   telefono?: string;
+  telefono_secundario?: string;
 }
 
 interface PropiedadActiva {
@@ -27,17 +29,35 @@ interface ApiResponse<T = unknown> {
   message?: string;
 }
 
+interface ProfileForm {
+  cedula: string;
+  email: string;
+  email_secundario: string;
+  telefono: string;
+  telefono_secundario: string;
+}
+
+const inputClass =
+  'mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 p-2.5 outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white';
+
+const labelClass = 'text-xs font-black uppercase tracking-wider text-gray-400';
+
 const PerfilPropietario: FC = () => {
   const { userRole, user, propiedadActiva } = useOutletContext<OutletContextType>();
-  const [form, setForm] = useState<{ cedula: string; email: string; telefono: string }>({
+
+  const [form, setForm] = useState<ProfileForm>({
     cedula: user?.cedula || '',
     email: user?.email || '',
+    email_secundario: user?.email_secundario || '',
     telefono: user?.telefono || '',
+    telefono_secundario: user?.telefono_secundario || '',
   });
+
   const [passwordForm, setPasswordForm] = useState<{ nueva_password: string; confirmar_password: string }>({
     nueva_password: '',
     confirmar_password: '',
   });
+
   const [isSavingProfile, setIsSavingProfile] = useState<boolean>(false);
   const [isSavingPassword, setIsSavingPassword] = useState<boolean>(false);
 
@@ -45,11 +65,13 @@ const PerfilPropietario: FC = () => {
     setForm({
       cedula: user?.cedula || '',
       email: user?.email || '',
+      email_secundario: user?.email_secundario || '',
       telefono: user?.telefono || '',
+      telefono_secundario: user?.telefono_secundario || '',
     });
-  }, [user?.cedula, user?.email, user?.telefono]);
+  }, [user?.cedula, user?.email, user?.email_secundario, user?.telefono, user?.telefono_secundario]);
 
-  const persistLocalUser = (next: { cedula: string; email: string; telefono: string }): void => {
+  const persistLocalUser = (next: ProfileForm): void => {
     const raw = localStorage.getItem('habioo_user');
     if (!raw) return;
     try {
@@ -60,7 +82,9 @@ const PerfilPropietario: FC = () => {
           ...parsed,
           cedula: next.cedula || null,
           email: next.email || null,
+          email_secundario: next.email_secundario || null,
           telefono: next.telefono || null,
+          telefono_secundario: next.telefono_secundario || null,
         }),
       );
     } catch {
@@ -71,48 +95,36 @@ const PerfilPropietario: FC = () => {
   const handleSaveProfile = async (): Promise<void> => {
     const cedula = form.cedula.trim().toUpperCase();
     const email = form.email.trim().toLowerCase();
+    const email_secundario = form.email_secundario.trim().toLowerCase();
     const telefono = form.telefono.trim();
+    const telefono_secundario = form.telefono_secundario.trim();
 
-    if (!cedula) {
-      alert('La cedula es obligatoria.');
-      return;
-    }
-    if (!/^[VEJG][0-9]{5,9}$/i.test(cedula)) {
-      alert('Formato de cedula invalido. Use V, E, J o G seguido de numeros.');
-      return;
-    }
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      alert('Formato de correo invalido.');
-      return;
-    }
-    if (telefono && !/^[0-9]{7,15}$/.test(telefono)) {
-      alert('El telefono debe contener solo numeros (7 a 15 digitos).');
-      return;
-    }
+    if (!cedula) { alert('La cedula es obligatoria.'); return; }
+    if (!/^[VEJG][0-9]{5,9}$/i.test(cedula)) { alert('Formato de cedula invalido. Use V, E, J o G seguido de numeros.'); return; }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { alert('Formato de correo invalido.'); return; }
+    if (email_secundario && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email_secundario)) { alert('Formato de correo secundario invalido.'); return; }
+    if (telefono && !/^[0-9]{7,15}$/.test(telefono)) { alert('El telefono debe contener solo numeros (7 a 15 digitos).'); return; }
+    if (telefono_secundario && !/^[0-9]{7,15}$/.test(telefono_secundario)) { alert('El telefono alternativo debe contener solo numeros (7 a 15 digitos).'); return; }
 
     setIsSavingProfile(true);
     try {
       const token = localStorage.getItem('habioo_token');
       const res = await fetch(`${API_BASE_URL}/api/propietario/perfil`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           cedula,
           email: email || null,
+          email_secundario: email_secundario || null,
           telefono: telefono || null,
+          telefono_secundario: telefono_secundario || null,
         }),
       });
 
       const data: ApiResponse = (await res.json()) as ApiResponse;
-      if (!res.ok || data.status !== 'success') {
-        alert(data.message || 'No se pudo actualizar el perfil.');
-        return;
-      }
+      if (!res.ok || data.status !== 'success') { alert(data.message || 'No se pudo actualizar el perfil.'); return; }
 
-      const next = { cedula, email, telefono };
+      const next: ProfileForm = { cedula, email, email_secundario, telefono, telefono_secundario };
       setForm(next);
       persistLocalUser(next);
       alert(data.message || 'Perfil actualizado correctamente.');
@@ -127,36 +139,21 @@ const PerfilPropietario: FC = () => {
     const nueva = passwordForm.nueva_password.trim();
     const confirmar = passwordForm.confirmar_password.trim();
 
-    if (!nueva || !confirmar) {
-      alert('Debe escribir la nueva clave en ambos campos.');
-      return;
-    }
-    if (nueva.length < 6) {
-      alert('La clave debe tener al menos 6 caracteres.');
-      return;
-    }
-    if (nueva !== confirmar) {
-      alert('Las claves no coinciden.');
-      return;
-    }
+    if (!nueva || !confirmar) { alert('Debe escribir la nueva clave en ambos campos.'); return; }
+    if (nueva.length < 6) { alert('La clave debe tener al menos 6 caracteres.'); return; }
+    if (nueva !== confirmar) { alert('Las claves no coinciden.'); return; }
 
     setIsSavingPassword(true);
     try {
       const token = localStorage.getItem('habioo_token');
       const res = await fetch(`${API_BASE_URL}/api/propietario/perfil/password`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ nueva_password: nueva }),
       });
 
       const data: ApiResponse = (await res.json()) as ApiResponse;
-      if (!res.ok || data.status !== 'success') {
-        alert(data.message || 'No se pudo cambiar la clave.');
-        return;
-      }
+      if (!res.ok || data.status !== 'success') { alert(data.message || 'No se pudo cambiar la clave.'); return; }
 
       setPasswordForm({ nueva_password: '', confirmar_password: '' });
       alert(data.message || 'Clave actualizada correctamente.');
@@ -172,81 +169,119 @@ const PerfilPropietario: FC = () => {
   return (
     <section className="space-y-5">
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+
+        {/* ── Datos de contacto ── */}
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
-          <p className="text-xs font-black uppercase tracking-wider text-gray-400">Nombre</p>
+          <p className="mb-4 text-sm font-black uppercase tracking-wider text-donezo-primary">Información Personal</p>
+
+          <p className={labelClass}>Nombre</p>
           <p className="mt-1 text-lg font-bold text-gray-800 dark:text-gray-200">{user?.nombre || '-'}</p>
 
-          <p className="mt-4 text-xs font-black uppercase tracking-wider text-gray-400">Cedula</p>
+          <p className={`mt-4 ${labelClass}`}>Cédula</p>
           <input
             type="text"
             value={form.cedula}
             onChange={(e) => setForm((prev) => ({ ...prev, cedula: e.target.value.toUpperCase() }))}
             placeholder="Ej: V12345678"
-            className="mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 p-2.5 outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+            className={inputClass}
           />
 
-          <p className="mt-4 text-xs font-black uppercase tracking-wider text-gray-400">Email</p>
-          <input
-            type="email"
-            value={form.email}
-            onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
-            placeholder="Ej: propietario@email.com"
-            className="mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 p-2.5 outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-          />
+          {/* Correos */}
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <p className={labelClass}>Correo Principal</p>
+              <input
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+                placeholder="Ej: propietario@email.com"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <p className={labelClass}>Correo Secundario <span className="normal-case font-normal text-gray-400">(Opcional)</span></p>
+              <input
+                type="email"
+                value={form.email_secundario}
+                onChange={(e) => setForm((prev) => ({ ...prev, email_secundario: e.target.value }))}
+                placeholder="Ej: otro@email.com"
+                className={inputClass}
+              />
+            </div>
+          </div>
 
-          <p className="mt-4 text-xs font-black uppercase tracking-wider text-gray-400">Telefono</p>
-          <input
-            type="text"
-            inputMode="numeric"
-            value={form.telefono}
-            onChange={(e) => setForm((prev) => ({ ...prev, telefono: e.target.value.replace(/[^0-9]/g, '') }))}
-            placeholder="Ej: 04141234567"
-            className="mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 p-2.5 outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-          />
+          {/* Teléfonos */}
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <p className={labelClass}>Teléfono (WhatsApp)</p>
+              <p className="text-[10px] text-gray-400 mt-0.5 mb-1">Solo números, sin espacios ni guiones.</p>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={form.telefono}
+                onChange={(e) => setForm((prev) => ({ ...prev, telefono: e.target.value.replace(/[^0-9]/g, '') }))}
+                placeholder="Ej: 04141234567"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <p className={labelClass}>Teléfono Alternativo / Fijo</p>
+              <p className="text-[10px] text-gray-400 mt-0.5 mb-1">Solo números, sin espacios ni guiones.</p>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={form.telefono_secundario}
+                onChange={(e) => setForm((prev) => ({ ...prev, telefono_secundario: e.target.value.replace(/[^0-9]/g, '') }))}
+                placeholder="Ej: 02121234567"
+                className={inputClass}
+              />
+            </div>
+          </div>
 
-          <div className="mt-4">
+          <div className="mt-5">
             <button
               type="button"
               onClick={() => void handleSaveProfile()}
               disabled={isSavingProfile}
-              className="rounded-xl bg-donezo-primary px-4 py-2.5 text-sm font-bold text-white transition-all hover:bg-blue-700 disabled:opacity-60"
+              className="rounded-xl bg-donezo-primary px-5 py-2.5 text-sm font-bold text-white transition-all hover:bg-blue-700 disabled:opacity-60"
             >
               {isSavingProfile ? 'Guardando...' : 'Guardar Datos'}
             </button>
           </div>
         </div>
 
+        {/* ── Columna derecha ── */}
         <div className="space-y-5">
+          {/* Inmueble activo */}
           <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
-            <p className="text-xs font-black uppercase tracking-wider text-gray-400">Inmueble Activo</p>
+            <p className={labelClass}>Inmueble Activo</p>
             <p className="mt-1 text-lg font-bold text-gray-800 dark:text-gray-200">{propiedadActiva?.identificador || '-'}</p>
 
-            <p className="mt-4 text-xs font-black uppercase tracking-wider text-gray-400">Condominio</p>
+            <p className={`mt-4 ${labelClass}`}>Condominio</p>
             <p className="mt-1 text-base font-semibold text-gray-700 dark:text-gray-300">{propiedadActiva?.nombre_condominio || '-'}</p>
           </div>
 
+          {/* Cambiar clave */}
           <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
-            <p className="text-xs font-black uppercase tracking-wider text-gray-400">Cambiar Clave</p>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Escribe la nueva clave dos veces para confirmarla.
-            </p>
+            <p className={labelClass}>Cambiar Clave</p>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Escribe la nueva clave dos veces para confirmarla.</p>
 
-            <p className="mt-4 text-xs font-black uppercase tracking-wider text-gray-400">Nueva clave</p>
+            <p className={`mt-4 ${labelClass}`}>Nueva clave</p>
             <input
               type="password"
               value={passwordForm.nueva_password}
               onChange={(e) => setPasswordForm((prev) => ({ ...prev, nueva_password: e.target.value }))}
               placeholder="Nueva clave"
-              className="mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 p-2.5 outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+              className={inputClass}
             />
 
-            <p className="mt-4 text-xs font-black uppercase tracking-wider text-gray-400">Confirmar clave</p>
+            <p className={`mt-4 ${labelClass}`}>Confirmar clave</p>
             <input
               type="password"
               value={passwordForm.confirmar_password}
               onChange={(e) => setPasswordForm((prev) => ({ ...prev, confirmar_password: e.target.value }))}
               placeholder="Confirmar clave"
-              className="mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 p-2.5 outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+              className={inputClass}
             />
 
             <div className="mt-4">
@@ -261,6 +296,7 @@ const PerfilPropietario: FC = () => {
             </div>
           </div>
         </div>
+
       </div>
     </section>
   );

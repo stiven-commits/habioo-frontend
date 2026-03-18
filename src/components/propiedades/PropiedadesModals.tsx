@@ -25,7 +25,9 @@ interface PropiedadFormData {
   prop_cedula: string;
   prop_nombre: string;
   prop_email: string;
+  prop_email_secundario: string;
   prop_telefono: string;
+  prop_telefono_secundario: string;
   prop_password: string;
   tiene_inquilino: boolean;
   inq_cedula: string;
@@ -572,18 +574,26 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-500 mb-1">Nombre Completo *</label>
-                <p className="text-[11px] text-gray-400 mb-1">Escriba nombre y apellido del propietario.</p>
-                <input type="text" name="prop_nombre" value={form.prop_nombre} onChange={handleChange} placeholder="Ej: María Fernanda Pérez" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white disabled:opacity-70 disabled:cursor-not-allowed" required disabled={esModoPropietarioExistente} />
+                <p className="text-[11px] text-transparent mb-1 select-none" aria-hidden="true">_</p>
+                <input type="text" name="prop_nombre" value={form.prop_nombre} onChange={handleChange} placeholder="Ej: Carlos Daniel Rojas" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white disabled:opacity-70 disabled:cursor-not-allowed uppercase" disabled={esModoPropietarioExistente} required />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">Email</label>
-                <p className="text-[11px] text-gray-400 mb-1">Opcional. Se usará para acceso y notificaciones.</p>
-                <input type="email" name="prop_email" value={form.prop_email} onChange={handleChange} placeholder="Ej: propietario@email.com" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white disabled:opacity-70 disabled:cursor-not-allowed" disabled={esModoPropietarioExistente} />
+                <label className="block text-xs font-bold text-gray-500 mb-1">Correo Electrónico *</label>
+                <input type="email" name="prop_email" value={form.prop_email} onChange={handleChange} placeholder="Ej: usuario@email.com" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white disabled:opacity-70 disabled:cursor-not-allowed" disabled={esModoPropietarioExistente} required />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">Teléfono</label>
+                <label className="block text-xs font-bold text-gray-500 mb-1">Correo Secundario (Opcional)</label>
+                <input type="email" name="prop_email_secundario" value={form.prop_email_secundario} onChange={handleChange} placeholder="Ej: usuario_sec@email.com" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white disabled:opacity-70 disabled:cursor-not-allowed" disabled={esModoPropietarioExistente} />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500">Teléfono (WhatsApp)</label>
                 <p className="text-[11px] text-gray-400 mb-1">Solo números, sin espacios ni guiones.</p>
                 <input type="text" name="prop_telefono" value={form.prop_telefono} onChange={handleChange} inputMode="numeric" pattern="^[0-9]{7,15}$" placeholder="Ej: 04141234567" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white disabled:opacity-70 disabled:cursor-not-allowed" disabled={esModoPropietarioExistente} />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500">Teléfono Alternativo / Fijo</label>
+                <p className="text-[11px] text-gray-400 mb-1">Solo números, sin espacios ni guiones.</p>
+                <input type="text" name="prop_telefono_secundario" value={form.prop_telefono_secundario} onChange={handleChange} inputMode="numeric" pattern="^[0-9]{7,15}$" placeholder="Ej: 02121234567" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white disabled:opacity-70 disabled:cursor-not-allowed" disabled={esModoPropietarioExistente} />
               </div>
               {editingId && (<div className="md:col-span-2 mt-2 bg-yellow-50 dark:bg-yellow-900/10 p-3 rounded-xl border border-yellow-200 dark:border-yellow-800"><label className="block text-xs font-bold text-yellow-800 dark:text-yellow-500 mb-1">Restablecer Contraseña</label><input type="password" name="prop_password" value={form.prop_password} onChange={handleChange} placeholder="Nueva clave..." className="w-full p-2.5 rounded-xl border border-yellow-300 dark:bg-gray-800 outline-none dark:text-white" /></div>)}
             </div>
