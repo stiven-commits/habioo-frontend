@@ -17,6 +17,8 @@ interface Fondo {
   nombre: string;
   moneda: string;
   saldo_actual: number | string;
+  porcentaje_asignacion?: number | string;
+  es_operativo?: boolean;
 }
 
 interface CuentaBancaria {
@@ -63,9 +65,7 @@ interface PagoProveedorForm {
 
 interface TransferenciaForm {
   fondo_origen_id: string;
-  fondo_destino_id: string;
   monto_origen: string;
-  tasa_cambio: string;
   referencia: string;
   fecha: string;
   nota: string;
@@ -307,14 +307,11 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
   const [fondos, setFondos] = useState<Fondo[]>([]);
   const [cuentas, setCuentas] = useState<CuentaBancaria[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [isFetchingBCV, setIsFetchingBCV] = useState<boolean>(false);
   const [cuentaDestinoId, setCuentaDestinoId] = useState<string>('');
 
   const [form, setForm] = useState<TransferenciaForm>({
     fondo_origen_id: '',
-    fondo_destino_id: '',
     monto_origen: '',
-    tasa_cambio: '',
     referencia: '',
     fecha: new Date().toISOString().split('T')[0] ?? '',
     nota: '',
@@ -348,62 +345,47 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
   const fondoOrigen = fondos.find((f) => f.id.toString() === form.fondo_origen_id);
   const cuentaOrigenId = fondoOrigen?.cuenta_bancaria_id?.toString() || '';
   const cuentasDestinoDisponibles = cuentas.filter((c) => c.id.toString() !== cuentaOrigenId);
-  const fondosDestinoCuenta = fondos.filter((f) => f.cuenta_bancaria_id?.toString() === cuentaDestinoId);
-  const fondosDestino = fondosDestinoCuenta.filter((f) => f.id.toString() !== form.fondo_origen_id);
+  const fondosDestinoCuenta = fondos.filter((f) =>
+    f.cuenta_bancaria_id?.toString() === cuentaDestinoId &&
+    (!fondoOrigen || String(f.moneda || '').toUpperCase() === String(fondoOrigen.moneda || '').toUpperCase()) &&
+    f.id.toString() !== form.fondo_origen_id
+  );
   const cuentaDestinoSinFondos = Boolean(cuentaDestinoId) && fondosDestinoCuenta.length === 0;
-  const fondoDestino = fondos.find((f) => f.id.toString() === form.fondo_destino_id);
-
-  const isDifferentCurrency = Boolean(fondoOrigen && fondoDestino && fondoOrigen.moneda !== fondoDestino.moneda);
-  const involvesBs = Boolean(fondoOrigen && fondoDestino && (fondoOrigen.moneda === 'BS' || fondoDestino.moneda === 'BS'));
-
-  let montoDestinoFinal = parseNumber(form.monto_origen);
-  if (isDifferentCurrency && form.monto_origen && form.tasa_cambio && fondoOrigen && fondoDestino) {
-    const monto = parseNumber(form.monto_origen);
-    const tasa = parseNumber(form.tasa_cambio);
-    if (fondoOrigen.moneda === 'BS' && fondoDestino.moneda === 'USD') montoDestinoFinal = Number((monto / tasa).toFixed(2));
-    if (fondoOrigen.moneda === 'USD' && fondoDestino.moneda === 'BS') montoDestinoFinal = Number((monto * tasa).toFixed(2));
-  }
-
   const montoOrigenNum = parseNumber(form.monto_origen);
-  const tasaNum = parseNumber(form.tasa_cambio);
-  const montoUsdEquivalente = useMemo(() => {
-    if (!fondoOrigen || !fondoDestino) return 0;
-    if (fondoDestino.moneda === 'USD') return montoDestinoFinal;
-    if (fondoDestino.moneda === 'BS' && tasaNum > 0) return montoDestinoFinal / tasaNum;
-    return fondoOrigen.moneda === 'USD' ? montoOrigenNum : (tasaNum > 0 ? montoOrigenNum / tasaNum : 0);
-  }, [fondoOrigen, fondoDestino, montoDestinoFinal, montoOrigenNum, tasaNum]);
+
+  const distribucionPreview = useMemo(() => {
+    if (!fondoOrigen || !cuentaDestinoId || cuentaDestinoSinFondos || montoOrigenNum <= 0) return [];
+    const noOperativos = fondosDestinoCuenta.filter((f) => !f.es_operativo);
+    const principal = fondosDestinoCuenta.find((f) => f.es_operativo) || fondosDestinoCuenta[0];
+    const items = noOperativos.map((f) => {
+      const pct = parseNumber(f.porcentaje_asignacion || 0);
+      const monto = Number(((montoOrigenNum * pct) / 100).toFixed(2));
+      return { id: String(f.id), nombre: f.nombre, pct, monto };
+    });
+    const usado = Number(items.reduce((acc, item) => acc + item.monto, 0).toFixed(2));
+    const resto = Number((montoOrigenNum - usado).toFixed(2));
+    if (principal && resto !== 0) {
+      const idx = items.findIndex((item) => item.id === String(principal.id));
+      if (idx >= 0) items[idx].monto = Number((items[idx].monto + resto).toFixed(2));
+      else items.push({ id: String(principal.id), nombre: principal.nombre, pct: Number((100 - noOperativos.reduce((acc, f) => acc + parseNumber(f.porcentaje_asignacion || 0), 0)).toFixed(2)), monto: resto });
+    }
+    return items;
+  }, [cuentaDestinoId, cuentaDestinoSinFondos, fondoOrigen, fondosDestinoCuenta, montoOrigenNum]);
 
   const isTransferFormValid = Boolean(
     form.fondo_origen_id &&
     cuentaDestinoId &&
-    form.fondo_destino_id &&
     montoOrigenNum > 0 &&
     form.referencia.trim() &&
     form.fecha &&
-    (!involvesBs || tasaNum > 0) &&
     !cuentaDestinoSinFondos
   );
-
-  const fetchBCV = async (): Promise<void> => {
-    setIsFetchingBCV(true);
-    try {
-      const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
-      const json: BcvResponse = (await response.json()) as BcvResponse;
-      if (json?.promedio) {
-        setForm((prev: TransferenciaForm) => ({ ...prev, tasa_cambio: formatNumberInput(String(json.promedio).replace('.', ','), 3) }));
-      }
-    } catch {
-      await showAlert({ title: 'BCV no disponible', message: 'No se pudo obtener la tasa BCV.', variant: 'warning' });
-    } finally {
-      setIsFetchingBCV(false);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
 
-    if (!form.fondo_origen_id || !cuentaDestinoId || !form.fondo_destino_id) {
-      await showAlert({ title: 'Campos requeridos', message: 'Seleccione fondo de origen, cuenta destino y fondo destino.', variant: 'warning' });
+    if (!form.fondo_origen_id || !cuentaDestinoId) {
+      await showAlert({ title: 'Campos requeridos', message: 'Seleccione fondo de origen y cuenta destino.', variant: 'warning' });
       return;
     }
     if (cuentaDestinoSinFondos) {
@@ -418,18 +400,14 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
       await showAlert({ title: 'Monto invalido', message: 'El monto a transferir debe ser mayor a 0.', variant: 'warning' });
       return;
     }
-    if (involvesBs && tasaNum <= 0) {
-      await showAlert({ title: 'Tasa requerida', message: 'Debe indicar una tasa BCV valida para calcular USD.', variant: 'warning' });
-      return;
-    }
-    if (!fondoOrigen || !fondoDestino) {
-      await showAlert({ title: 'Fondos invalidos', message: 'No se pudo identificar el fondo de origen o destino.', variant: 'warning' });
+    if (!fondoOrigen) {
+      await showAlert({ title: 'Fondos invalidos', message: 'No se pudo identificar el fondo de origen.', variant: 'warning' });
       return;
     }
 
     const ok = await showConfirm({
       title: 'Confirmar transferencia',
-      message: `Se transferiran ${form.monto_origen} ${fondoOrigen.moneda} hacia ${fondoDestino.nombre}.`,
+      message: `Se transferirán ${form.monto_origen} ${fondoOrigen.moneda} y se distribuirán automáticamente en los fondos de la cuenta destino según sus porcentajes.`,
       confirmText: 'Transferir',
       cancelText: 'Cancelar',
       variant: 'warning',
@@ -443,9 +421,10 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           ...form,
+          cuenta_destino_id: Number(cuentaDestinoId),
           monto_origen: montoOrigenNum,
-          tasa_cambio: tasaNum || null,
-          monto_destino: montoDestinoFinal,
+          tasa_cambio: null,
+          monto_destino: montoOrigenNum,
         }),
       });
       const result: ApiResult = (await res.json()) as ApiResult;
@@ -476,7 +455,7 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
                 required
                 value={form.fondo_origen_id}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                  setForm({ ...form, fondo_origen_id: e.target.value, fondo_destino_id: '' });
+                  setForm({ ...form, fondo_origen_id: e.target.value });
                   setCuentaDestinoId('');
                 }}
                 className="w-full p-3 rounded-xl border border-blue-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-blue-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-400 font-semibold"
@@ -494,7 +473,6 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
                   value={cuentaDestinoId}
                   onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                     setCuentaDestinoId(e.target.value);
-                    setForm((prev: TransferenciaForm) => ({ ...prev, fondo_destino_id: '' }));
                   }}
                   className="w-full p-3 rounded-xl border border-indigo-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-indigo-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-indigo-400 font-semibold"
                 >
@@ -513,53 +491,31 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
               </div>
             )}
 
-            {fondoOrigen && cuentaDestinoId && !cuentaDestinoSinFondos && (
-              <div className="animate-fadeIn">
-                <label className="block text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase mb-1">Fondo Destino *</label>
-                <select
-                  required
-                  value={form.fondo_destino_id}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setForm({ ...form, fondo_destino_id: e.target.value })}
-                  className="w-full p-3 rounded-xl border border-indigo-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-indigo-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-indigo-400 font-semibold"
-                >
-                  <option value="">Seleccione fondo destino...</option>
-                  {fondosDestino.map((f) => <option key={f.id} value={f.id}>{f.nombre} ({f.moneda})</option>)}
-                </select>
-              </div>
-            )}
+            
 
-            {fondoOrigen && fondoDestino && (
+            {fondoOrigen && cuentaDestinoId && !cuentaDestinoSinFondos && (
               <div className="animate-fadeIn space-y-4 border-t border-gray-100 dark:border-gray-800 pt-4 mt-4">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 dark:border-blue-800/60 dark:bg-blue-900/20 dark:text-blue-300">
+                  Al confirmar, el monto se distribuirá automáticamente entre los fondos de la cuenta destino según sus porcentajes de asignación.
+                </div>
+
+                <div className="grid grid-cols-1 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Monto a Enviar *</label>
                     <input required type="text" value={form.monto_origen} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, monto_origen: formatNumberInput(e.target.value, 2) })} placeholder="Ej: 1.500,00" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
                   </div>
-
-                  {involvesBs && (
-                    <div>
-                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tasa de Cambio (max 3 decimales) *</label>
-                      <div className="flex gap-2">
-                        <input required type="text" value={form.tasa_cambio} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, tasa_cambio: formatNumberInput(e.target.value, 3) })} placeholder="Ej: 36,500" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
-                        <button type="button" onClick={fetchBCV} disabled={isFetchingBCV} className="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200 px-3 rounded-xl font-bold border border-blue-300 dark:border-blue-700 transition-all hover:bg-blue-200 dark:hover:bg-blue-900/60">
-                          {isFetchingBCV ? '...' : 'BCV'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
                 </div>
 
-                {form.monto_origen && (
-                  <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-xl border border-green-100 dark:border-green-800/50 flex justify-between items-center">
-                    <div className="flex flex-col">
-                      <span className="text-xs font-bold text-green-700 dark:text-green-300 uppercase">Destino recibe:</span>
-                      <span className="text-[11px] font-semibold text-green-700/80 dark:text-green-300/80 uppercase">Equivalente USD:</span>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-black text-green-600 dark:text-green-300 text-lg">
-                        {fondoDestino?.moneda === 'BS' ? 'Bs ' : '$'}{formatMoney(montoDestinoFinal)}
-                      </div>
-                      <div className="text-sm font-bold text-green-700 dark:text-green-300">${formatMoney(montoUsdEquivalente)}</div>
+                {form.monto_origen && distribucionPreview.length > 0 && (
+                  <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-xl border border-green-100 dark:border-green-800/50 space-y-2">
+                    <div className="text-xs font-bold text-green-700 dark:text-green-300 uppercase">Distribución automática en cuenta destino</div>
+                    <div className="space-y-1 text-sm">
+                      {distribucionPreview.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between text-green-800 dark:text-green-200">
+                          <span>{item.nombre} ({item.pct.toFixed(2)}%)</span>
+                          <span className="font-bold">{fondoOrigen.moneda === 'USD' ? '$' : 'Bs '}{formatMoney(item.monto)}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -619,11 +575,6 @@ export const ModalEliminarFondo: React.FC<ModalEliminarFondoProps> = ({ fondo, f
     e.preventDefault();
     if (!fondo) return;
 
-    if (saldo > 0 && !destinoId) {
-      await showAlert({ title: 'Destino requerido', message: 'Debe seleccionar un fondo destino para resguardar el saldo.', variant: 'warning' });
-      return;
-    }
-
     const ok = await showConfirm({
       title: 'Eliminar fondo',
       message: `Se eliminara el fondo ${fondo.nombre}.`,
@@ -639,7 +590,7 @@ export const ModalEliminarFondo: React.FC<ModalEliminarFondoProps> = ({ fondo, f
       const res = await fetch(`${API_BASE_URL}/fondos/${fondo.id}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(saldo > 0 ? { destino_id: destinoId } : {}),
+        body: JSON.stringify(destinoId ? { destino_id: destinoId } : {}),
       });
       const result: ApiResult = (await res.json()) as ApiResult;
       if (result.status === 'success') {
@@ -675,14 +626,14 @@ export const ModalEliminarFondo: React.FC<ModalEliminarFondoProps> = ({ fondo, f
               <p className="text-xs font-bold text-orange-700 dark:text-orange-300 mb-3 uppercase tracking-wider">
                 Saldo restante: {fondo.moneda === 'USD' ? '$' : 'Bs'} {formatMoney(saldo)}
               </p>
-              <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Fondo destino (obligatorio, misma moneda) *</label>
-              <select required value={destinoId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDestinoId(e.target.value)} className="w-full p-3 rounded-xl border border-orange-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-orange-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-orange-400">
-                <option value="">Seleccione fondo destino...</option>
+              <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Fondo destino (opcional, misma moneda)</label>
+              <select value={destinoId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDestinoId(e.target.value)} className="w-full p-3 rounded-xl border border-orange-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-orange-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-orange-400">
+                <option value="">Eliminar sin transferir saldo</option>
                 {fondosDestino.map((f) => <option key={f.id} value={f.id}>{f.nombre} ({f.moneda})</option>)}
               </select>
-              {fondosDestino.length === 0 && (
-                <p className="text-xs text-red-500 mt-2 font-bold">No hay otros fondos en {fondo.moneda}. Cree uno primero.</p>
-              )}
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                Si este fondo no tiene movimientos bancarios, puede eliminarlo aunque tenga saldo.
+              </p>
             </div>
           ) : (
             <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-xl border border-green-200 dark:border-green-800/50 mt-4">
@@ -690,7 +641,7 @@ export const ModalEliminarFondo: React.FC<ModalEliminarFondoProps> = ({ fondo, f
             </div>
           )}
 
-          <button type="submit" disabled={loading || (saldo > 0 && fondosDestino.length === 0)} className="w-full py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-all shadow-lg disabled:opacity-50 mt-4">
+          <button type="submit" disabled={loading} className="w-full py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-all shadow-lg disabled:opacity-50 mt-4">
             {loading ? 'Procesando...' : 'Confirmar Eliminacion'}
           </button>
         </form>
