@@ -221,11 +221,18 @@ const PerfilPropietario: FC = () => {
         }),
       });
 
-      const data: ApiResponse = (await res.json()) as ApiResponse;
+      const data: ApiResponse<PerfilApiData> = (await res.json()) as ApiResponse<PerfilApiData>;
       if (!res.ok || data.status !== 'success') { alert(data.message || 'No se pudo actualizar el perfil.'); return; }
-
-      const next: ProfileForm = { cedula, email, email_secundario, telefono, telefono_secundario };
+      const persisted = data.data;
+      const next: ProfileForm = {
+        cedula: persisted?.cedula || cedula,
+        email: persisted?.email || '',
+        email_secundario: persisted?.email_secundario || '',
+        telefono: persisted?.telefono || '',
+        telefono_secundario: persisted?.telefono_secundario || '',
+      };
       setForm(next);
+      setNombrePerfil(persisted?.nombre || nombrePerfil);
       persistLocalUser(next);
       alert(data.message || 'Perfil actualizado correctamente.');
     } catch {
