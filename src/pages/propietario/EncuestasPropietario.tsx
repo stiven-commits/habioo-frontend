@@ -241,7 +241,7 @@ const EncuestasPropietario: FC = () => {
   if (!propiedadActiva) {
     return (
       <div className="p-6 text-center text-gray-400 dark:text-gray-500 text-sm">
-        Selecciona un inmueble para ver las encuestas.
+        Selecciona un inmueble para ver las cartas consulta.
       </div>
     );
   }
@@ -249,18 +249,18 @@ const EncuestasPropietario: FC = () => {
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-black text-gray-800 dark:text-white">Encuestas</h1>
+        <h1 className="text-2xl font-black text-gray-800 dark:text-white">Cartas Consulta</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Participa en las consultas de tu condominio. Tus respuestas son anónimas para otros propietarios.
+          Participa en las cartas consulta de tu condominio. Tus respuestas son anónimas para otros propietarios.
         </p>
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">Cargando encuestas...</div>
+        <div className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">Cargando cartas consulta...</div>
       ) : encuestas.length === 0 ? (
         <div className="text-center py-16 text-gray-400 dark:text-gray-500">
           <p className="text-4xl mb-3">📋</p>
-          <p className="text-sm">No hay encuestas publicadas en tu condominio.</p>
+          <p className="text-sm">No hay cartas consulta publicadas en tu condominio.</p>
         </div>
       ) : (
         <div className="space-y-4">

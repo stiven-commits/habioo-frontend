@@ -360,8 +360,8 @@ const Layout: React.FC<LayoutProps> = () => {
     '/propietario/estado-cuenta-inmueble': 'Estado de Cuenta Inmueble',
     '/propietario/notificaciones': 'Notificaciones',
     '/propietario/perfil': 'Mi Perfil',
-    '/encuestas': 'Encuestas',
-    '/mis-encuestas': 'Encuestas',
+    '/carta-consulta': 'Cartas Consulta',
+    '/mis-cartas-consulta': 'Cartas Consulta',
   };
 
   const navClass = (path: string): string =>
@@ -424,8 +424,8 @@ const Layout: React.FC<LayoutProps> = () => {
               <Link to="/estado-cuentas" className={navClass('/estado-cuentas')}>
                 📊 Libro Mayor
               </Link>
-              <Link to="/encuestas" className={navClass('/encuestas')}>
-                📋 Encuestas
+              <Link to="/carta-consulta" className={navClass('/carta-consulta')}>
+                📋 Cartas Consulta
               </Link>
             </>
           )}
@@ -463,8 +463,8 @@ const Layout: React.FC<LayoutProps> = () => {
               <Link to="/propietario/notificaciones" className={navClass('/propietario/notificaciones')}>
                 🔔 Notificaciones
               </Link>
-              <Link to="/mis-encuestas" className={navClass('/mis-encuestas')}>
-                📋 Encuestas
+              <Link to="/mis-cartas-consulta" className={navClass('/mis-cartas-consulta')}>
+                📋 Cartas Consulta
               </Link>
 
               <p className="px-4 text-xs font-bold text-gray-400 uppercase mt-6 mb-2">Configuración</p>

@@ -41,7 +41,7 @@ export default function App() {
             <Route path="/bancos" element={<Bancos />} />
             <Route path="/estado-cuentas" element={<EstadoCuentasBancarias />} />
             <Route path="/zonas" element={<Zonas />} />
-            <Route path="/encuestas" element={<EncuestasAdmin />} />
+            <Route path="/carta-consulta" element={<EncuestasAdmin />} />
             <Route path="/avisos-cobro" element={<HistorialAvisos />} />
             <Route path="/aviso-cobro/:id" element={<VistaAvisoCobro />} />
             <Route path="/propietario/gastos" element={<GastosPropietario />} />
@@ -50,7 +50,7 @@ export default function App() {
             <Route path="/propietario/estado-cuenta-inmueble" element={<EstadoCuentaInmueblePropietario />} />
             <Route path="/propietario/perfil" element={<PerfilPropietario />} />
             <Route path="/propietario/notificaciones" element={<NotificacionesPropietario />} />
-            <Route path="/mis-encuestas" element={<EncuestasPropietario />} />
+            <Route path="/mis-cartas-consulta" element={<EncuestasPropietario />} />
           </Route>
         </Routes>
       </BrowserRouter>

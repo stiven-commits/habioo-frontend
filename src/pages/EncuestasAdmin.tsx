@@ -54,6 +54,7 @@ interface EncuestaResumen {
 }
 
 interface ResultadosData {
+  metodo_division: string;
   encuesta: EncuestaResumen;
   conteo: ConteoPorOpcion[];
   detalle: VotoDetalle[];
@@ -96,7 +97,7 @@ const TIPO_META: Record<TipoEncuesta, { label: string; color: string; badge: str
     label: 'Sí / No',
     color: 'text-blue-600 dark:text-blue-400',
     badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-    hint: 'Dos opciones fijas: "Sí" y "No". Ideal para aprobaciones o consultas binarias.',
+    hint: 'Dos opciones fijas: "Sí" y "No". Ideal para aprobaciones o cartas de consulta binarias.',
   },
   MULTIPLE: {
     label: 'Opción Múltiple',
@@ -122,30 +123,41 @@ const FORM_INITIAL: EncuestaForm = {
 
 // ─── Subcomponentes ───────────────────────────────────────────────────────────
 
-const BarraProgreso: FC<{ conteo: ConteoPorOpcion[]; totalVotos: number }> = ({ conteo, totalVotos }) => (
-  <div className="space-y-2 mt-3">
-    {conteo.map((c, i) => {
-      const pct = totalVotos > 0 ? Math.round((c.total / totalVotos) * 100) : 0;
-      return (
-        <div key={i}>
-          <div className="flex justify-between text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
-            <span>{c.opcion_texto ?? 'Respuesta abierta'}</span>
-            <span>{c.total} voto{c.total !== 1 ? 's' : ''} · {pct}%</span>
+const BarraProgreso: FC<{ conteo: ConteoPorOpcion[]; totalVotos: number; metodoDivision: string }> = ({ conteo, totalVotos, metodoDivision }) => {
+  const esPorAlicuota = metodoDivision === 'Alicuota';
+  // Para alícuota: el denominador es la suma de alícuotas votadas (no 100, para mostrar distribución relativa entre los que votaron)
+  const totalPonderado = esPorAlicuota
+    ? conteo.reduce((acc, c) => acc + Number(c.total), 0)
+    : totalVotos;
+
+  return (
+    <div className="space-y-2 mt-3">
+      {conteo.map((c, i) => {
+        const pct = totalPonderado > 0 ? Math.round((Number(c.total) / totalPonderado) * 100) : 0;
+        const etiqueta = esPorAlicuota
+          ? `${Number(c.total).toFixed(2)}% alíc. · ${pct}% del total votado`
+          : `${c.total} voto${c.total !== 1 ? 's' : ''} · ${pct}%`;
+        return (
+          <div key={i}>
+            <div className="flex justify-between text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
+              <span>{c.opcion_texto ?? 'Respuesta abierta'}</span>
+              <span>{etiqueta}</span>
+            </div>
+            <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2">
+              <div
+                className="bg-donezo-primary h-2 rounded-full transition-all duration-500"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
           </div>
-          <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2">
-            <div
-              className="bg-donezo-primary h-2 rounded-full transition-all duration-500"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-        </div>
-      );
-    })}
-    {conteo.length === 0 && (
-      <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-2">Sin votos aún.</p>
-    )}
-  </div>
-);
+        );
+      })}
+      {conteo.length === 0 && (
+        <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-2">Sin votos aún.</p>
+      )}
+    </div>
+  );
+};
 
 const TablaDetalleAdmin: FC<{ detalle: VotoDetalle[]; tipo: TipoEncuesta }> = ({ detalle, tipo }) => {
   if (detalle.length === 0) {
@@ -245,6 +257,7 @@ const EncuestasAdmin: FC = () => {
       const data = (await res.json()) as { status: string } & Partial<ResultadosData>;
       if (data.status === 'success') {
         setResultados({
+          metodo_division: data.metodo_division ?? 'Partes Iguales',
           encuesta: data.encuesta!,
           conteo: data.conteo ?? [],
           detalle: data.detalle ?? [],
@@ -298,7 +311,7 @@ const EncuestasAdmin: FC = () => {
     if (form.tipo === 'MULTIPLE') {
       const validas = form.opciones.filter((o) => o.trim().length > 0);
       if (validas.length < 2) {
-        await showAlert({ title: 'Opciones insuficientes', message: 'Debes ingresar al menos 2 opciones para una encuesta de tipo múltiple.', variant: 'warning' });
+        await showAlert({ title: 'Opciones insuficientes', message: 'Debes ingresar al menos 2 opciones para una carta consulta de tipo múltiple.', variant: 'warning' });
         return;
       }
     }
@@ -320,11 +333,11 @@ const EncuestasAdmin: FC = () => {
       });
       const data = (await res.json()) as { status: string; message?: string; error?: string };
       if (data.status === 'success') {
-        await showAlert({ title: 'Encuesta creada', message: data.message ?? 'La encuesta fue publicada exitosamente.', variant: 'success' });
+        await showAlert({ title: 'Carta Consulta creada', message: data.message ?? 'La carta consulta fue publicada exitosamente.', variant: 'success' });
         setForm(FORM_INITIAL);
         void fetchEncuestas();
       } else {
-        await showAlert({ title: 'Error', message: data.error ?? 'No se pudo crear la encuesta.', variant: 'danger' });
+        await showAlert({ title: 'Error', message: data.error ?? 'No se pudo crear la carta consulta.', variant: 'danger' });
       }
     } catch (err: unknown) {
       console.error(err);
@@ -339,9 +352,9 @@ const EncuestasAdmin: FC = () => {
     <div className="p-4 sm:p-6 max-w-screen-xl mx-auto">
       {/* Encabezado */}
       <div className="mb-6">
-        <h1 className="text-2xl font-black text-gray-800 dark:text-white">Encuestas</h1>
+        <h1 className="text-2xl font-black text-gray-800 dark:text-white">Cartas Consulta</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Crea consultas para que los propietarios voten desde su portal. Los resultados son en tiempo real.
+          Crea cartas consulta para que los propietarios voten desde su portal. Los resultados son en tiempo real.
         </p>
       </div>
 
@@ -352,7 +365,7 @@ const EncuestasAdmin: FC = () => {
           <div className="bg-white dark:bg-donezo-card-dark rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm p-5">
             <h2 className="text-base font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-donezo-primary text-white text-xs flex items-center justify-center font-black">+</span>
-              Nueva Encuesta
+              Nueva Carta Consulta
             </h2>
 
             <form onSubmit={(e) => { void handleSubmit(e); }} className="space-y-4">
@@ -461,7 +474,7 @@ const EncuestasAdmin: FC = () => {
                   className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white outline-none focus:ring-2 focus:ring-donezo-primary text-sm"
                 />
                 <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">
-                  Después de esta fecha la encuesta quedará cerrada y no aceptará más votos.
+                  Después de esta fecha la carta consulta quedará cerrada y no aceptará más votos.
                 </p>
               </div>
 
@@ -471,7 +484,7 @@ const EncuestasAdmin: FC = () => {
                 disabled={submitting}
                 className="w-full py-3 rounded-xl bg-donezo-primary text-white font-bold hover:bg-blue-700 disabled:opacity-60 transition-all shadow-md shadow-blue-500/20"
               >
-                {submitting ? 'Publicando...' : 'Publicar Encuesta'}
+                {submitting ? 'Publicando...' : 'Publicar Carta Consulta'}
               </button>
             </form>
           </div>
@@ -483,17 +496,17 @@ const EncuestasAdmin: FC = () => {
           {/* Lista */}
           <div className="bg-white dark:bg-donezo-card-dark rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
             <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
-              <h2 className="text-base font-bold text-gray-800 dark:text-white">Encuestas Publicadas</h2>
+              <h2 className="text-base font-bold text-gray-800 dark:text-white">Cartas Consulta Publicadas</h2>
               {!loading && (
-                <span className="text-xs font-bold text-gray-400 dark:text-gray-500">{encuestas.length} encuesta{encuestas.length !== 1 ? 's' : ''}</span>
+                <span className="text-xs font-bold text-gray-400 dark:text-gray-500">{encuestas.length} carta{encuestas.length !== 1 ? 's' : ''} consulta</span>
               )}
             </div>
 
             {loading ? (
-              <div className="py-10 text-center text-gray-400 dark:text-gray-500 text-sm">Cargando encuestas...</div>
+              <div className="py-10 text-center text-gray-400 dark:text-gray-500 text-sm">Cargando cartas consulta...</div>
             ) : encuestas.length === 0 ? (
               <div className="py-12 flex flex-col items-center gap-2 text-center px-6">
-                <p className="text-gray-400 dark:text-gray-500 text-sm">Aún no hay encuestas publicadas.</p>
+                <p className="text-gray-400 dark:text-gray-500 text-sm">Aún no hay cartas consulta publicadas.</p>
                 <p className="text-xs text-gray-300 dark:text-gray-600">Usa el formulario de la izquierda para crear la primera.</p>
               </div>
             ) : (
@@ -556,7 +569,7 @@ const EncuestasAdmin: FC = () => {
                               {(enc.tipo === 'SI_NO' || enc.tipo === 'MULTIPLE') && (
                                 <div className="mb-4">
                                   <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Resumen de votos</p>
-                                  <BarraProgreso conteo={resultados.conteo} totalVotos={enc.total_votos} />
+                                  <BarraProgreso conteo={resultados.conteo} totalVotos={enc.total_votos} metodoDivision={resultados.metodo_division} />
                                 </div>
                               )}
 
