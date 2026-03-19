@@ -366,7 +366,10 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
     const resto = Number((montoOrigenNum - usado).toFixed(2));
     if (principal && resto !== 0) {
       const idx = items.findIndex((item) => item.id === String(principal.id));
-      if (idx >= 0) items[idx].monto = Number((items[idx].monto + resto).toFixed(2));
+      if (idx >= 0) {
+        const current = items[idx];
+        if (current) current.monto = Number((current.monto + resto).toFixed(2));
+      }
       else items.push({ id: String(principal.id), nombre: principal.nombre, pct: Number((100 - noOperativos.reduce((acc, f) => acc + parseNumber(f.porcentaje_asignacion || 0), 0)).toFixed(2)), monto: resto });
     }
     return items;

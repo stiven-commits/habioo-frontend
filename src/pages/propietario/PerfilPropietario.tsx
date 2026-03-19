@@ -13,6 +13,7 @@ interface User {
 }
 
 interface PropiedadActiva {
+  id_propiedad?: number;
   identificador: string;
   nombre_condominio: string;
 }
@@ -35,6 +36,24 @@ interface ProfileForm {
   email_secundario: string;
   telefono: string;
   telefono_secundario: string;
+}
+
+interface PerfilRelacionUser {
+  id: number;
+  nombre: string | null;
+  cedula: string | null;
+  email: string | null;
+  telefono: string | null;
+  email_secundario: string | null;
+  telefono_secundario: string | null;
+}
+
+interface PerfilRelacionesData {
+  propiedad_id: number;
+  rol_actual: string | null;
+  propietario: PerfilRelacionUser | null;
+  residente: PerfilRelacionUser | null;
+  copropietarios: PerfilRelacionUser[];
 }
 
 const inputClass =
@@ -60,6 +79,8 @@ const PerfilPropietario: FC = () => {
 
   const [isSavingProfile, setIsSavingProfile] = useState<boolean>(false);
   const [isSavingPassword, setIsSavingPassword] = useState<boolean>(false);
+  const [relaciones, setRelaciones] = useState<PerfilRelacionesData | null>(null);
+  const [loadingRelaciones, setLoadingRelaciones] = useState<boolean>(false);
 
   useEffect(() => {
     setForm({
@@ -70,6 +91,47 @@ const PerfilPropietario: FC = () => {
       telefono_secundario: user?.telefono_secundario || '',
     });
   }, [user?.cedula, user?.email, user?.email_secundario, user?.telefono, user?.telefono_secundario]);
+
+  useEffect(() => {
+    if (userRole !== 'Propietario') return;
+    const fetchRelaciones = async (): Promise<void> => {
+      setLoadingRelaciones(true);
+      try {
+        const token = localStorage.getItem('habioo_token');
+        const query = propiedadActiva?.id_propiedad ? `?propiedad_id=${propiedadActiva.id_propiedad}` : '';
+        const res = await fetch(`${API_BASE_URL}/api/propietario/perfil-relaciones${query}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data: ApiResponse<PerfilRelacionesData> = (await res.json()) as ApiResponse<PerfilRelacionesData>;
+        if (res.ok && data.status === 'success' && data.data) {
+          setRelaciones(data.data);
+        } else {
+          setRelaciones(null);
+        }
+      } catch {
+        setRelaciones(null);
+      } finally {
+        setLoadingRelaciones(false);
+      }
+    };
+    void fetchRelaciones();
+  }, [userRole, propiedadActiva?.id_propiedad]);
+
+  const renderReadonlyUserCard = (title: string, person: PerfilRelacionUser | null) => (
+    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
+      <p className={labelClass}>{title}</p>
+      {person ? (
+        <div className="mt-2 space-y-1 text-sm text-gray-700 dark:text-gray-300">
+          <p><span className="font-bold">Nombre:</span> {person.nombre || '-'}</p>
+          <p><span className="font-bold">Cédula:</span> {person.cedula || '-'}</p>
+          <p><span className="font-bold">Correo:</span> {person.email || '-'}</p>
+          <p><span className="font-bold">Teléfono:</span> {person.telefono || '-'}</p>
+        </div>
+      ) : (
+        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">No registrado.</p>
+      )}
+    </div>
+  );
 
   const persistLocalUser = (next: ProfileForm): void => {
     const raw = localStorage.getItem('habioo_user');
@@ -260,6 +322,35 @@ const PerfilPropietario: FC = () => {
             <p className={`mt-4 ${labelClass}`}>Condominio</p>
             <p className="mt-1 text-base font-semibold text-gray-700 dark:text-gray-300">{propiedadActiva?.nombre_condominio || '-'}</p>
           </div>
+
+          {loadingRelaciones ? (
+            <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Cargando información del inmueble...</p>
+            </div>
+          ) : (
+            <>
+              {renderReadonlyUserCard('Propietario Principal (solo lectura)', relaciones?.propietario || null)}
+              {renderReadonlyUserCard('Residente (solo lectura)', relaciones?.residente || null)}
+
+              <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
+                <p className={labelClass}>Copropietarios (solo lectura)</p>
+                {!relaciones?.copropietarios || relaciones.copropietarios.length === 0 ? (
+                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">No hay copropietarios registrados.</p>
+                ) : (
+                  <div className="mt-3 space-y-3">
+                    {relaciones.copropietarios.map((item) => (
+                      <div key={item.id} className="rounded-xl border border-gray-200 p-3 text-sm dark:border-gray-700">
+                        <p className="font-bold text-gray-800 dark:text-gray-200">{item.nombre || '-'}</p>
+                        <p className="text-gray-600 dark:text-gray-400">Cédula: {item.cedula || '-'}</p>
+                        <p className="text-gray-600 dark:text-gray-400">Correo: {item.email || '-'}</p>
+                        <p className="text-gray-600 dark:text-gray-400">Teléfono: {item.telefono || '-'}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
 
           {/* Cambiar clave */}
           <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
