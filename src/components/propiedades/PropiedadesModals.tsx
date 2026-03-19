@@ -575,7 +575,7 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
               <div>
                 <label className="block text-xs font-bold text-gray-500 mb-1">Nombre Completo *</label>
                 <p className="text-[11px] text-transparent mb-1 select-none" aria-hidden="true">_</p>
-                <input type="text" name="prop_nombre" value={form.prop_nombre} onChange={(e) => setForm((prev) => ({ ...prev, prop_nombre: e.target.value.replace(/\b\w/g, (c) => c.toUpperCase()) }))} placeholder="Ej: Carlos Daniel Rojas" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white disabled:opacity-70 disabled:cursor-not-allowed" disabled={esModoPropietarioExistente} required />
+                <input type="text" name="prop_nombre" value={form.prop_nombre} onChange={(e) => setForm((prev) => ({ ...prev, prop_nombre: e.target.value.replace(/(^|\s)\S/g, (c) => c.toUpperCase()) }))} placeholder="Ej: Carlos Daniel Rojas" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white disabled:opacity-70 disabled:cursor-not-allowed" disabled={esModoPropietarioExistente} required />
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-500 mb-1">Correo Electrónico *</label>
@@ -870,6 +870,16 @@ export const ModalCopropietarioForm: FC<ModalCopropietarioFormProps> = ({
     setExpandedId(null);
   }, [isOpen, copropietarios.length]);
 
+  const handleNombreChange = (e: ChangeEvent<HTMLInputElement>): void => {
+    e.target.value = e.target.value.replace(/(^|\s)\S/g, (c) => c.toUpperCase());
+    onChange(e);
+  };
+
+  const handleEditNombreChange = (copropId: number, e: ChangeEvent<HTMLInputElement>): void => {
+    e.target.value = e.target.value.replace(/(^|\s)\S/g, (c) => c.toUpperCase());
+    onEditChange(copropId, e);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
       <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-xl shadow-2xl border border-gray-100 dark:border-gray-800 relative my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
@@ -898,7 +908,7 @@ export const ModalCopropietarioForm: FC<ModalCopropietarioFormProps> = ({
                 type="text"
                 name="nombre"
                 value={form.nombre}
-                onChange={onChange}
+                onChange={handleNombreChange}
                 placeholder="Ej: María Fernanda Pérez"
                 className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
                 required
@@ -998,7 +1008,7 @@ export const ModalCopropietarioForm: FC<ModalCopropietarioFormProps> = ({
                             type="text"
                             name="nombre"
                             value={draft.nombre}
-                            onChange={(e: ChangeEvent<HTMLInputElement>) => onEditChange(coprop.id, e)}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) => handleEditNombreChange(coprop.id, e)}
                             placeholder="Nombre completo"
                             className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
                           />
