@@ -51,6 +51,10 @@ interface NotificacionesResponse {
   data?: NotificacionPago[];
 }
 
+interface BcvApiResponse {
+  promedio?: number | string;
+}
+
 interface PropiedadPreseleccionada {
   id: number;
   identificador: string;
@@ -74,6 +78,34 @@ const EstadoCuentaInmueblePropietario: FC = () => {
   const [pendingApprovals, setPendingApprovals] = useState<number>(0);
   const [showPayModal, setShowPayModal] = useState<boolean>(false);
   const [selectedPropPago, setSelectedPropPago] = useState<PropiedadPreseleccionada | null>(null);
+  const [tasaBcvActual, setTasaBcvActual] = useState<number | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const fetchTasaBcvActual = async (): Promise<void> => {
+      try {
+        const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
+        if (!response.ok) return;
+        const json: BcvApiResponse = (await response.json()) as BcvApiResponse;
+        const rate = toNumber(json?.promedio);
+        if (isMounted && rate > 0) setTasaBcvActual(rate);
+      } catch {
+        // no-op
+      }
+    };
+
+    void fetchTasaBcvActual();
+    intervalId = setInterval(() => {
+      void fetchTasaBcvActual();
+    }, 2 * 60 * 60 * 1000);
+
+    return () => {
+      isMounted = false;
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, []);
 
   useEffect(() => {
     const fetchEstadoCuenta = async (): Promise<void> => {
@@ -311,8 +343,6 @@ const EstadoCuentaInmueblePropietario: FC = () => {
                   <th className="p-3 font-bold uppercase text-[11px]">
                     Concepto
                   </th>
-                  <th className="hidden p-3 text-right font-bold uppercase text-[11px] md:table-cell">Monto Bs</th>
-                  <th className="hidden p-3 text-right font-bold uppercase text-[11px] md:table-cell">Tasa</th>
                   <th className="hidden p-3 text-right font-bold uppercase text-[11px] md:table-cell">
                     Cargos
                   </th>
@@ -322,6 +352,8 @@ const EstadoCuentaInmueblePropietario: FC = () => {
                   <th className="p-3 text-right font-bold uppercase text-[11px] text-donezo-primary">
                     Saldo Final
                   </th>
+                  <th className="hidden p-3 text-right font-bold uppercase text-[11px] md:table-cell">Tasa BCV (hoy)</th>
+                  <th className="hidden p-3 text-right font-bold uppercase text-[11px] md:table-cell">Monto Bs (BCV hoy)</th>
                 </tr>
               </thead>
               <tbody>
@@ -332,10 +364,6 @@ const EstadoCuentaInmueblePropietario: FC = () => {
                     <td className="p-3 font-medium text-gray-800 dark:text-gray-200 break-words">
                       {m.tipo === 'RECIBO' ? m.concepto : `${m.tipo === 'PAGO' ? 'PAGO' : 'AJUSTE'} ${m.concepto}`}
                     </td>
-                    <td className="hidden p-3 text-right font-mono text-gray-700 dark:text-gray-300 md:table-cell">
-                      {toNumber(m.monto_bs) ? `Bs ${formatMoney(toNumber(m.monto_bs))}` : '-'}
-                    </td>
-                    <td className="hidden p-3 text-right font-mono text-gray-700 dark:text-gray-300 md:table-cell">{toNumber(m.tasa_cambio) ? formatMoney(toNumber(m.tasa_cambio)) : '-'}</td>
                     <td className="hidden p-3 text-right font-mono font-medium text-red-500 md:table-cell">{toNumber(m.cargo) > 0 ? `$${formatMoney(toNumber(m.cargo))}` : '-'}</td>
                     <td className="hidden p-3 text-right font-mono font-medium text-green-500 md:table-cell">{toNumber(m.abono) > 0 ? `$${formatMoney(toNumber(m.abono))}` : '-'}</td>
                     <td
@@ -348,6 +376,14 @@ const EstadoCuentaInmueblePropietario: FC = () => {
                       }`}
                     >
                       ${formatMoney(toNumber(m.saldoFila))}
+                    </td>
+                    <td className="hidden p-3 text-right font-mono text-gray-700 dark:text-gray-300 md:table-cell">
+                      {tasaBcvActual && tasaBcvActual > 0 ? formatMoney(tasaBcvActual) : '-'}
+                    </td>
+                    <td className="hidden p-3 text-right font-mono text-gray-700 dark:text-gray-300 md:table-cell">
+                      {tasaBcvActual && tasaBcvActual > 0
+                        ? `Bs ${formatMoney((toNumber(m.cargo) - toNumber(m.abono)) * tasaBcvActual)}`
+                        : '-'}
                     </td>
                   </tr>
                 ))}

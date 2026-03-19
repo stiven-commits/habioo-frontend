@@ -56,6 +56,16 @@ interface PerfilRelacionesData {
   copropietarios: PerfilRelacionUser[];
 }
 
+interface PerfilApiData {
+  id: number;
+  nombre: string | null;
+  cedula: string | null;
+  email: string | null;
+  email_secundario: string | null;
+  telefono: string | null;
+  telefono_secundario: string | null;
+}
+
 const inputClass =
   'mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 p-2.5 outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white';
 
@@ -81,6 +91,7 @@ const PerfilPropietario: FC = () => {
   const [isSavingPassword, setIsSavingPassword] = useState<boolean>(false);
   const [relaciones, setRelaciones] = useState<PerfilRelacionesData | null>(null);
   const [loadingRelaciones, setLoadingRelaciones] = useState<boolean>(false);
+  const [nombrePerfil, setNombrePerfil] = useState<string>(user?.nombre || '');
 
   useEffect(() => {
     setForm({
@@ -90,7 +101,34 @@ const PerfilPropietario: FC = () => {
       telefono: user?.telefono || '',
       telefono_secundario: user?.telefono_secundario || '',
     });
+    setNombrePerfil(user?.nombre || '');
   }, [user?.cedula, user?.email, user?.email_secundario, user?.telefono, user?.telefono_secundario]);
+
+  useEffect(() => {
+    if (userRole !== 'Propietario') return;
+    const fetchPerfil = async (): Promise<void> => {
+      try {
+        const token = localStorage.getItem('habioo_token');
+        const res = await fetch(`${API_BASE_URL}/api/propietario/perfil`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data: ApiResponse<PerfilApiData> = (await res.json()) as ApiResponse<PerfilApiData>;
+        if (!res.ok || data.status !== 'success' || !data.data) return;
+        const perfil = data.data;
+        setForm({
+          cedula: perfil.cedula || '',
+          email: perfil.email || '',
+          email_secundario: perfil.email_secundario || '',
+          telefono: perfil.telefono || '',
+          telefono_secundario: perfil.telefono_secundario || '',
+        });
+        setNombrePerfil(perfil.nombre || user?.nombre || '');
+      } catch {
+        // no-op
+      }
+    };
+    void fetchPerfil();
+  }, [userRole, user?.nombre]);
 
   useEffect(() => {
     if (userRole !== 'Propietario') return;
@@ -237,7 +275,7 @@ const PerfilPropietario: FC = () => {
           <p className="mb-4 text-sm font-black uppercase tracking-wider text-donezo-primary">Información Personal</p>
 
           <p className={labelClass}>Nombre</p>
-          <p className="mt-1 text-lg font-bold text-gray-800 dark:text-gray-200">{user?.nombre || '-'}</p>
+          <p className="mt-1 text-lg font-bold text-gray-800 dark:text-gray-200">{nombrePerfil || '-'}</p>
 
           <p className={`mt-4 ${labelClass}`}>Cédula</p>
           <input
