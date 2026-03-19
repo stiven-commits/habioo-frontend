@@ -575,7 +575,7 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
               <div>
                 <label className="block text-xs font-bold text-gray-500 mb-1">Nombre Completo *</label>
                 <p className="text-[11px] text-transparent mb-1 select-none" aria-hidden="true">_</p>
-                <input type="text" name="prop_nombre" value={form.prop_nombre} onChange={handleChange} placeholder="Ej: Carlos Daniel Rojas" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white disabled:opacity-70 disabled:cursor-not-allowed uppercase" disabled={esModoPropietarioExistente} required />
+                <input type="text" name="prop_nombre" value={form.prop_nombre} onChange={(e) => setForm((prev) => ({ ...prev, prop_nombre: e.target.value.replace(/\b\w/g, (c) => c.toUpperCase()) }))} placeholder="Ej: Carlos Daniel Rojas" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white disabled:opacity-70 disabled:cursor-not-allowed" disabled={esModoPropietarioExistente} required />
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-500 mb-1">Correo Electrónico *</label>
@@ -680,11 +680,11 @@ export const ModalEstadoCuenta: FC<ModalEstadoCuentaProps> = ({
               <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Desde</label>
               <DatePicker
                 selected={ymdToDate(fechaDesde)}
-                onChange={(date: Date | null) => setFechaDesde(dateToYmd(date))}
+                onChange={(date: Date | Date[] | null) => setFechaDesde(dateToYmd(Array.isArray(date) ? (date[0] ?? null) : date))}
                 selectsStart
                 startDate={ymdToDate(fechaDesde)}
                 endDate={ymdToDate(fechaHasta)}
-                maxDate={ymdToDate(todayYmd) || undefined}
+                maxDate={ymdToDate(todayYmd) as Date}
                 dateFormat="dd/MM/yyyy"
                 locale={es}
                 placeholderText="Desde (dd/mm/yyyy)"
@@ -700,12 +700,12 @@ export const ModalEstadoCuenta: FC<ModalEstadoCuentaProps> = ({
               <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Hasta</label>
               <DatePicker
                 selected={ymdToDate(fechaHasta)}
-                onChange={(date: Date | null) => setFechaHasta(dateToYmd(date))}
+                onChange={(date: Date | Date[] | null) => setFechaHasta(dateToYmd(Array.isArray(date) ? (date[0] ?? null) : date))}
                 selectsEnd
                 startDate={ymdToDate(fechaDesde)}
                 endDate={ymdToDate(fechaHasta)}
-                {...(fechaDesde ? { minDate: ymdToDate(fechaDesde) || undefined } : {})}
-                maxDate={ymdToDate(todayYmd) || undefined}
+                {...(fechaDesde ? { minDate: ymdToDate(fechaDesde) as Date } : {})}
+                maxDate={ymdToDate(todayYmd) as Date}
                 dateFormat="dd/MM/yyyy"
                 locale={es}
                 placeholderText="Hasta (dd/mm/yyyy)"
