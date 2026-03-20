@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 
 interface ProveedorForm {
   identificador: string;
@@ -63,16 +63,44 @@ const ESTADOS_VENEZUELA: string[] = [
 ];
 
 const CATEGORIAS_RUBROS: Record<string, string[]> = {
-  'Administración y gestión': ['Administración de condominios', 'Contabilidad para condominios', 'Asesoría legal para condominios'],
+  'Administracion y gestion': ['Administracion de condominios', 'Contabilidad para condominios', 'Asesoria legal para condominios'],
   'Mantenimiento general': ['Mantenimiento de inmuebles', 'Mantenimiento preventivo', 'Mantenimiento correctivo'],
-  'Aseo y limpieza': ['Limpieza de áreas comunes', 'Limpieza de estacionamientos', 'Desinfección y sanitización'],
-  'Jardinería y áreas verdes': ['Jardinería', 'Mantenimiento de áreas verdes', 'Poda de árboles'],
-  'Seguridad': ['Seguridad privada', 'Monitoreo de cámaras', 'Control de acceso'],
-  'Mantenimiento técnico': ['Electricistas', 'Plomería', 'Mantenimiento de ascensores', 'Aire acondicionado'],
-  'Infraestructura y construcción': ['Impermeabilización', 'Reparación de fachadas', 'Pintura de inmuebles'],
-  'Control de plagas': ['Fumigación', 'Control de roedores', 'Control de termitas'],
-  'Papelería e impresos': ['Papelería', 'Material de oficina', 'Impresión de recibos', 'Impresión de avisos y comunicados'],
-  'Otros': ['Ferretería', 'Recolección de desechos', 'Mantenimiento de portones eléctricos']
+  'Aseo y limpieza': [
+    'Limpieza de areas comunes',
+    'Limpieza de estacionamientos',
+    'Desinfeccion y sanitizacion',
+    'Compra de productos de limpieza',
+    'Suministro de insumos de limpieza'
+  ],
+  'Jardineria y areas verdes': ['Jardineria', 'Mantenimiento de areas verdes', 'Poda de arboles'],
+  'Seguridad': [
+    'Seguridad privada',
+    'Vigilancia fisica',
+    'Monitoreo CCTV',
+    'Instalacion de camaras',
+    'Control de acceso',
+    'Control de acceso biometrico',
+    'Alarmas y sensores',
+    'Cerco electrico',
+    'Sistemas contra incendios',
+    'Mantenimiento de portones electricos'
+  ],
+  'Hidraulica y agua': [
+    'Servicios hidraulicos',
+    'Plomeria general',
+    'Deteccion y reparacion de fugas',
+    'Destape de tuberias y drenajes',
+    'Mantenimiento de bombas de agua',
+    'Mantenimiento de hidroneumatico',
+    'Limpieza de tanques de agua',
+    'Impermeabilizacion de tanques',
+    'Tratamiento y filtracion de agua'
+  ],
+  'Mantenimiento tecnico': ['Electricistas', 'Mantenimiento de ascensores', 'Aire acondicionado'],
+  'Infraestructura y construccion': ['Impermeabilizacion', 'Reparacion de fachadas', 'Pintura de inmuebles'],
+  'Control de plagas': ['Fumigacion', 'Control de roedores', 'Control de termitas'],
+  'Papeleria e impresos': ['Papeleria', 'Material de oficina', 'Impresion de recibos', 'Impresion de avisos y comunicados'],
+  'Otros': ['Ferreteria', 'Recoleccion de desechos']
 };
 
 export const ModalProveedorForm: React.FC<ModalProveedorFormProps> = ({
@@ -384,3 +412,4 @@ export const ModalCargaMasivaProveedores: React.FC<ModalCargaMasivaProveedoresPr
     </div>
   );
 };
+
