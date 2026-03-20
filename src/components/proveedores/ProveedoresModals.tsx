@@ -63,15 +63,16 @@ const ESTADOS_VENEZUELA: string[] = [
 ];
 
 const CATEGORIAS_RUBROS: Record<string, string[]> = {
-  'Administracion y gestion': ['Administracion de condominios', 'Contabilidad para condominios', 'Asesoria legal para condominios'],
+  'Administración y gestión': ['Administración de condominios', 'Contabilidad para condominios', 'Asesoría legal para condominios'],
   'Mantenimiento general': ['Mantenimiento de inmuebles', 'Mantenimiento preventivo', 'Mantenimiento correctivo'],
-  'Aseo y limpieza': ['Limpieza de areas comunes', 'Limpieza de estacionamientos', 'Desinfeccion y sanitizacion'],
-  'Jardineria y areas verdes': ['Jardineria', 'Mantenimiento de areas verdes', 'Poda de arboles'],
-  'Seguridad': ['Seguridad privada', 'Monitoreo de camaras', 'Control de acceso'],
-  'Mantenimiento tecnico': ['Electricistas', 'Plomeria', 'Mantenimiento de ascensores', 'Aire acondicionado'],
-  'Infraestructura y construccion': ['Impermeabilizacion', 'Reparacion de fachadas', 'Pintura de inmuebles'],
-  'Control de plagas': ['Fumigacion', 'Control de roedores', 'Control de termitas'],
-  'Otros': ['Ferreteria', 'Recoleccion de desechos', 'Mantenimiento de portones electricos']
+  'Aseo y limpieza': ['Limpieza de áreas comunes', 'Limpieza de estacionamientos', 'Desinfección y sanitización'],
+  'Jardinería y áreas verdes': ['Jardinería', 'Mantenimiento de áreas verdes', 'Poda de árboles'],
+  'Seguridad': ['Seguridad privada', 'Monitoreo de cámaras', 'Control de acceso'],
+  'Mantenimiento técnico': ['Electricistas', 'Plomería', 'Mantenimiento de ascensores', 'Aire acondicionado'],
+  'Infraestructura y construcción': ['Impermeabilización', 'Reparación de fachadas', 'Pintura de inmuebles'],
+  'Control de plagas': ['Fumigación', 'Control de roedores', 'Control de termitas'],
+  'Papelería e impresos': ['Papelería', 'Material de oficina', 'Impresión de recibos', 'Impresión de avisos y comunicados'],
+  'Otros': ['Ferretería', 'Recolección de desechos', 'Mantenimiento de portones eléctricos']
 };
 
 export const ModalProveedorForm: React.FC<ModalProveedorFormProps> = ({
