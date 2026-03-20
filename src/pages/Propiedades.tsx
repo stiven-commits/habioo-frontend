@@ -5,7 +5,7 @@ import { formatMoney } from '../utils/currency';
 import { sanitizeCedulaRif, sanitizePhone, sanitizeEmail, isValidEmail, isValidPhone, isValidCedulaRif } from '../utils/validators';
 import { API_BASE_URL } from '../config/api';
 import * as XLSX from 'xlsx';
-import { ModalAjusteSaldo, ModalEstadoCuenta, ModalPropiedadForm, ModalCargaMasiva, ModalCopropietarioForm } from '../components/propiedades/PropiedadesModals';
+import { ModalAjusteSaldo, ModalEstadoCuenta, ModalPropiedadForm, ModalCargaMasiva, ModalCopropietarioForm, ModalResidenteForm } from '../components/propiedades/PropiedadesModals';
 import { useDialog } from '../components/ui/DialogProvider';
 
 interface PropiedadesProps {}
@@ -214,6 +214,14 @@ interface CopropietarioFormState {
   acceso_portal: boolean;
 }
 
+interface ResidenteFormState {
+  cedula: string;
+  nombre: string;
+  email: string;
+  telefono: string;
+  acceso_portal: boolean;
+}
+
 interface CopropietarioItem extends CopropietarioFormState {
   id: number;
   user_id: number;
@@ -259,8 +267,11 @@ const Propiedades: FC<PropiedadesProps> = () => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
   const [copropModalOpen, setCopropModalOpen] = useState<boolean>(false);
+  const [residenteModalOpen, setResidenteModalOpen] = useState<boolean>(false);
+  const [residenteSubmitting, setResidenteSubmitting] = useState<boolean>(false);
   const [copropSubmitting, setCopropSubmitting] = useState<boolean>(false);
   const [selectedPropCoprop, setSelectedPropCoprop] = useState<Propiedad | null>(null);
+  const [selectedPropResidente, setSelectedPropResidente] = useState<Propiedad | null>(null);
   const [copropietarios, setCopropietarios] = useState<CopropietarioItem[]>([]);
   const [copropietariosDraft, setCopropietariosDraft] = useState<Record<number, CopropietarioFormState>>({});
   const [copropLoading, setCopropLoading] = useState<boolean>(false);
@@ -278,7 +289,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
   const [fechaDesde, setFechaDesde] = useState<string>('');
   const [fechaHasta, setFechaHasta] = useState<string>('');
 
-  // 💡 ESTADOS PARA CARGA MASIVA Y BARRA DE PROGRESO
+  // Ã°Å¸â€™Â¡ ESTADOS PARA CARGA MASIVA Y BARRA DE PROGRESO
   const [loteModalOpen, setLoteModalOpen] = useState<boolean>(false);
   const [loteData, setLoteData] = useState<LoteDataRow[]>([]);
   const [loteDeudas, setLoteDeudas] = useState<LoteDeudaRow[]>([]);
@@ -315,6 +326,13 @@ const Propiedades: FC<PropiedadesProps> = () => {
   };
 
   const [form, setForm] = useState<FormState>(initialForm);
+  const [residenteForm, setResidenteForm] = useState<ResidenteFormState>({
+    cedula: '',
+    nombre: '',
+    email: '',
+    telefono: '',
+    acceso_portal: true,
+  });
   const [copropForm, setCopropForm] = useState<CopropietarioFormState>({
     cedula: '',
     nombre: '',
@@ -335,6 +353,21 @@ const Propiedades: FC<PropiedadesProps> = () => {
     if (name === 'telefono') return { ...current, telefono: sanitizePhone(value) };
     if (name === 'email') return { ...current, email: sanitizeEmail(value) };
     if (name === 'nombre') return { ...current, nombre: value };
+    return current;
+  };
+
+  const normalizeResidenteField = (
+    name: string,
+    value: string,
+    type: string,
+    checked: boolean,
+    current: ResidenteFormState
+  ): ResidenteFormState => {
+    if (type === 'checkbox') return { ...current, [name]: checked } as ResidenteFormState;
+    if (name === 'cedula') return { ...current, cedula: sanitizeCedulaRif(value) };
+    if (name === 'telefono') return { ...current, telefono: sanitizePhone(value) };
+    if (name === 'email') return { ...current, email: sanitizeEmail(value) };
+    if (name === 'nombre') return { ...current, nombre: value.replace(/(^|\s)\S/g, (c) => c.toUpperCase()) };
     return current;
   };
 
@@ -396,8 +429,8 @@ const Propiedades: FC<PropiedadesProps> = () => {
   };
 
   const sortIndicator = (column: SortColumn): string => {
-    if (sortColumn !== column) return '↕';
-    return sortDirection === 'asc' ? '↑' : '↓';
+    if (sortColumn !== column) return 'Ã¢â€ â€¢';
+    return sortDirection === 'asc' ? 'Ã¢â€ â€˜' : 'Ã¢â€ â€œ';
   };
 
   const fetchEstadoCuenta = async (propId: number): Promise<void> => {
@@ -490,6 +523,79 @@ const Propiedades: FC<PropiedadesProps> = () => {
 
   const handleCreateNew = (): void => { setEditingId(null); setForm(initialForm); setIsModalOpen(true); };
 
+  const handleOpenResidente = (prop: Propiedad): void => {
+    setOpenDropdownId(null);
+    setSelectedPropResidente(prop);
+    setResidenteForm({
+      cedula: String(prop.inq_cedula || ''),
+      nombre: String(prop.inq_nombre || ''),
+      email: String(prop.inq_email || ''),
+      telefono: String(prop.inq_telefono || ''),
+      acceso_portal: prop.inq_acceso_portal !== false,
+    });
+    setResidenteModalOpen(true);
+  };
+
+  const handleResidenteChange = (e: ChangeEvent<HTMLInputElement>): void => {
+    const { name, value, type, checked } = e.target;
+    setResidenteForm((prev: ResidenteFormState) => normalizeResidenteField(name, value, type, checked, prev));
+  };
+
+  const validateResidenteForm = (data: ResidenteFormState): string | null => {
+    if (!isValidCedulaRif(data.cedula)) return 'Error: la cÃƒÂ©dula del residente / inquilino debe iniciar con V, E, J o G y contener solo nÃƒÂºmeros.';
+    if (!data.nombre.trim()) return 'Error: el nombre del residente / inquilino es obligatorio.';
+    if (data.email && !isValidEmail(data.email)) return 'Error: el correo del residente / inquilino no tiene un formato vÃƒÂ¡lido.';
+    if (data.telefono && !isValidPhone(data.telefono)) return 'Error: el telÃƒÂ©fono del residente / inquilino debe tener solo nÃƒÂºmeros.';
+    return null;
+  };
+
+  const handleSubmitResidente = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
+    e.preventDefault();
+    if (!selectedPropResidente?.id) return;
+
+    const validationError = validateResidenteForm(residenteForm);
+    if (validationError) return alert(validationError);
+
+    setResidenteSubmitting(true);
+    try {
+      const token = localStorage.getItem('habioo_token');
+      const res = await fetch(`${API_BASE_URL}/propiedades-admin/${selectedPropResidente.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          identificador: selectedPropResidente.identificador,
+          alicuota: String(selectedPropResidente.alicuota ?? ''),
+          prop_nombre: selectedPropResidente.prop_nombre || '',
+          prop_cedula: selectedPropResidente.prop_cedula || '',
+          prop_email: selectedPropResidente.prop_email || '',
+          prop_email_secundario: String((selectedPropResidente as { prop_email_secundario?: string }).prop_email_secundario || ''),
+          prop_telefono: selectedPropResidente.prop_telefono || '',
+          prop_telefono_secundario: String((selectedPropResidente as { prop_telefono_secundario?: string }).prop_telefono_secundario || ''),
+          prop_password: '',
+          tiene_inquilino: true,
+          inq_cedula: residenteForm.cedula,
+          inq_nombre: residenteForm.nombre,
+          inq_email: residenteForm.email,
+          inq_telefono: residenteForm.telefono,
+          inq_password: '',
+          inq_permitir_acceso: residenteForm.acceso_portal,
+        }),
+      });
+      const data: ApiActionResponse = await res.json();
+      if (data.status === 'success') {
+        alert(data.message || 'Residente / inquilino guardado correctamente.');
+        setResidenteModalOpen(false);
+        await fetchPropiedades();
+      } else {
+        alert(data.error || data.message || 'No se pudo guardar el residente / inquilino.');
+      }
+    } catch {
+      alert('Error de conexiÃƒÂ³n al guardar residente / inquilino.');
+    } finally {
+      setResidenteSubmitting(false);
+    }
+  };
+
   const fetchCopropietarios = async (propId: number): Promise<void> => {
     setCopropLoading(true);
     try {
@@ -564,10 +670,10 @@ const Propiedades: FC<PropiedadesProps> = () => {
   };
 
   const validateCopropForm = (data: CopropietarioFormState): string | null => {
-    if (!isValidCedulaRif(data.cedula)) return 'Error: la cédula del copropietario debe iniciar con V, E, J o G y contener solo números.';
+    if (!isValidCedulaRif(data.cedula)) return 'Error: la cÃƒÂ©dula del copropietario debe iniciar con V, E, J o G y contener solo nÃƒÂºmeros.';
     if (!data.nombre.trim()) return 'Error: el nombre del copropietario es obligatorio.';
-    if (data.email && !isValidEmail(data.email)) return 'Error: el correo del copropietario no tiene un formato válido.';
-    if (data.telefono && !isValidPhone(data.telefono)) return 'Error: el teléfono del copropietario debe tener solo números.';
+    if (data.email && !isValidEmail(data.email)) return 'Error: el correo del copropietario no tiene un formato vÃƒÂ¡lido.';
+    if (data.telefono && !isValidPhone(data.telefono)) return 'Error: el telÃƒÂ©fono del copropietario debe tener solo nÃƒÂºmeros.';
     return null;
   };
 
@@ -594,7 +700,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
         alert(data.error || data.message || 'No se pudo guardar el copropietario.');
       }
     } catch {
-      alert('Error de conexión al guardar copropietario.');
+      alert('Error de conexiÃƒÂ³n al guardar copropietario.');
     } finally {
       setCopropSubmitting(false);
     }
@@ -623,7 +729,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
         alert(data.error || data.message || 'No se pudo actualizar el copropietario.');
       }
     } catch {
-      alert('Error de conexión al actualizar copropietario.');
+      alert('Error de conexiÃƒÂ³n al actualizar copropietario.');
     } finally {
       setCopropSavingId(null);
     }
@@ -635,7 +741,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
     const nombre = coprop?.nombre || 'este copropietario';
     const ok = await showConfirm({
       title: 'Eliminar copropietario',
-      message: `¿Deseas eliminar a ${nombre} del inmueble ${selectedPropCoprop.identificador}?`,
+      message: `Ã‚Â¿Deseas eliminar a ${nombre} del inmueble ${selectedPropCoprop.identificador}?`,
       confirmText: 'Eliminar',
       cancelText: 'Cancelar',
       variant: 'warning',
@@ -657,7 +763,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
         alert(data.error || data.message || 'No se pudo eliminar el copropietario.');
       }
     } catch {
-      alert('Error de conexión al eliminar copropietario.');
+      alert('Error de conexiÃƒÂ³n al eliminar copropietario.');
     } finally {
       setCopropDeletingId(null);
     }
@@ -679,23 +785,23 @@ const Propiedades: FC<PropiedadesProps> = () => {
 
     if (!alicuotaValida) {
       if (alicuotaNum === 0 && !restoEnCero) {
-        return alert('⚠️ Error: Solo puedes usar alícuota 0 si todos los inmuebles del condominio también están en 0 (partes iguales).');
+        return alert('Ã¢Å¡Â Ã¯Â¸Â Error: Solo puedes usar alÃƒÂ­cuota 0 si todos los inmuebles del condominio tambiÃƒÂ©n estÃƒÂ¡n en 0 (partes iguales).');
       }
-      return alert('⚠️ Error: La alícuota debe estar entre 0 y 100.');
+      return alert('Ã¢Å¡Â Ã¯Â¸Â Error: La alÃƒÂ­cuota debe estar entre 0 y 100.');
     }
     const usaPropietarioExistente = !editingId && form.propietario_modo === 'EXISTENTE';
     if (usaPropietarioExistente && !form.propietario_existente_id) {
       return alert('Debe seleccionar un propietario existente.');
     }
     if (!usaPropietarioExistente) {
-      if (!isValidCedulaRif(form.prop_cedula)) return alert('Error: la cédula del propietario debe iniciar con V, E, J o G y contener solo números.');
-      if (form.prop_email && !isValidEmail(form.prop_email)) return alert('Error: el correo del propietario no tiene un formato válido.');
-      if (form.prop_telefono && !isValidPhone(form.prop_telefono)) return alert('Error: el teléfono del propietario debe tener solo números.');
+      if (!isValidCedulaRif(form.prop_cedula)) return alert('Error: la cÃƒÂ©dula del propietario debe iniciar con V, E, J o G y contener solo nÃƒÂºmeros.');
+      if (form.prop_email && !isValidEmail(form.prop_email)) return alert('Error: el correo del propietario no tiene un formato vÃƒÂ¡lido.');
+      if (form.prop_telefono && !isValidPhone(form.prop_telefono)) return alert('Error: el telÃƒÂ©fono del propietario debe tener solo nÃƒÂºmeros.');
     }
     if (form.tiene_inquilino) {
-      if (!isValidCedulaRif(form.inq_cedula)) return alert('Error: la cédula del residente debe iniciar con V, E, J o G y contener solo números.');
-      if (form.inq_email && !isValidEmail(form.inq_email)) return alert('Error: el correo del residente no tiene un formato válido.');
-      if (form.inq_telefono && !isValidPhone(form.inq_telefono)) return alert('Error: el teléfono del residente debe tener solo números.');
+      if (!isValidCedulaRif(form.inq_cedula)) return alert('Error: la cÃƒÂ©dula del residente debe iniciar con V, E, J o G y contener solo nÃƒÂºmeros.');
+      if (form.inq_email && !isValidEmail(form.inq_email)) return alert('Error: el correo del residente no tiene un formato vÃƒÂ¡lido.');
+      if (form.inq_telefono && !isValidPhone(form.inq_telefono)) return alert('Error: el telÃƒÂ©fono del residente debe tener solo nÃƒÂºmeros.');
     }
 
     const token = localStorage.getItem('habioo_token');
@@ -715,7 +821,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
     } finally {
       if (buttonSubmit) {
         buttonSubmit.disabled = false;
-        buttonSubmit.innerHTML = 'Guardar Información';
+        buttonSubmit.innerHTML = 'Guardar InformaciÃƒÂ³n';
       }
     }
   };
@@ -725,7 +831,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
     if (!selectedPropAjuste?.id) return;
     const ok = await showConfirm({
       title: 'Registrar ajuste',
-      message: `¿Registrar ajuste para ${selectedPropAjuste.identificador}?`,
+      message: `Ã‚Â¿Registrar ajuste para ${selectedPropAjuste.identificador}?`,
       confirmText: 'Registrar',
       cancelText: 'Cancelar',
       variant: 'warning',
@@ -750,7 +856,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
 
     const ok = await showConfirm({
       title: 'Eliminar todos los inmuebles',
-      message: 'Esta acción eliminará todos los inmuebles del condominio y sus datos asociados. ¿Desea continuar?',
+      message: 'Esta acciÃƒÂ³n eliminarÃƒÂ¡ todos los inmuebles del condominio y sus datos asociados. Ã‚Â¿Desea continuar?',
       confirmText: 'Eliminar todo',
       cancelText: 'Cancelar',
       variant: 'warning',
@@ -771,7 +877,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
         alert(data.error || 'No fue posible eliminar los inmuebles.');
       }
     } catch {
-      alert('Error de conexión al eliminar inmuebles.');
+      alert('Error de conexiÃƒÂ³n al eliminar inmuebles.');
     }
   };
 
@@ -783,7 +889,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
 
     const ok = await showConfirm({
       title: 'Eliminar inmueble',
-      message: `¿Eliminar el inmueble ${prop.identificador}? Esta acción no se puede deshacer.`,
+      message: `Ã‚Â¿Eliminar el inmueble ${prop.identificador}? Esta acciÃƒÂ³n no se puede deshacer.`,
       confirmText: 'Eliminar',
       cancelText: 'Cancelar',
       variant: 'warning',
@@ -805,7 +911,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
         alert(data.error || 'No fue posible eliminar el inmueble.');
       }
     } catch {
-      alert('Error de conexión al eliminar inmueble.');
+      alert('Error de conexiÃƒÂ³n al eliminar inmueble.');
     }
   };
 
@@ -816,35 +922,35 @@ const Propiedades: FC<PropiedadesProps> = () => {
     const dataPropiedades = [
       {
         'Nro Apartamento': 'A-1',
-        'Propietario': 'Juan Pérez',
-        'Cédula': 'V12345678',
+        'Propietario': 'Juan PÃƒÂ©rez',
+        'CÃƒÂ©dula': 'V12345678',
         'Email': 'juan.perez@email.com',
-        'Teléfono': '04141234567',
-        'Alícuota': 0
+        'TelÃƒÂ©fono': '04141234567',
+        'AlÃƒÂ­cuota': 0
       },
       {
         'Nro Apartamento': 'A-2',
-        'Propietario': 'María López',
-        'Cédula': 'V87654321',
+        'Propietario': 'MarÃƒÂ­a LÃƒÂ³pez',
+        'CÃƒÂ©dula': 'V87654321',
         'Email': 'maria.lopez@email.com',
-        'Teléfono': '04145556677',
-        'Alícuota': 0
+        'TelÃƒÂ©fono': '04145556677',
+        'AlÃƒÂ­cuota': 0
       },
       {
         'Nro Apartamento': 'A-3',
-        'Propietario': 'Carlos Gómez',
-        'Cédula': 'V11223344',
+        'Propietario': 'Carlos GÃƒÂ³mez',
+        'CÃƒÂ©dula': 'V11223344',
         'Email': 'carlos.gomez@email.com',
-        'Teléfono': '04143332211',
-        'Alícuota': 0
+        'TelÃƒÂ©fono': '04143332211',
+        'AlÃƒÂ­cuota': 0
       },
       {
         'Nro Apartamento': 'A-4',
         'Propietario': 'Ana Ruiz',
-        'Cédula': 'V55667788',
+        'CÃƒÂ©dula': 'V55667788',
         'Email': 'ana.ruiz@email.com',
-        'Teléfono': '04147778899',
-        'Alícuota': 0
+        'TelÃƒÂ©fono': '04147778899',
+        'AlÃƒÂ­cuota': 0
       }
     ];
 
@@ -913,13 +1019,13 @@ const Propiedades: FC<PropiedadesProps> = () => {
 
         const wsPropiedades = XLSX.utils.json_to_sheet(dataPropiedades);
     const guiaPropiedades: string[][] = [
-      ['Guía de llenado'],
-      ['Paso 1 (A): Nro Apartamento único (ej: A-1).'],
+      ['GuÃƒÂ­a de llenado'],
+      ['Paso 1 (A): Nro Apartamento ÃƒÂºnico (ej: A-1).'],
       ['Paso 2 (B): Nombre del Propietario.'],
-      ['Paso 3 (C): Cédula con formato V/E/J/G/P + números.'],
+      ['Paso 3 (C): CÃƒÂ©dula con formato V/E/J/G/P + nÃƒÂºmeros.'],
       ['Paso 4 (D): Email (opcional).'],
-      ['Paso 5 (E): Teléfono de 7 a 15 dígitos.'],
-      ['Paso 6 (F): Alícuota: todas en 0 o todas > 0 (no mezclar).']
+      ['Paso 5 (E): TelÃƒÂ©fono de 7 a 15 dÃƒÂ­gitos.'],
+      ['Paso 6 (F): AlÃƒÂ­cuota: todas en 0 o todas > 0 (no mezclar).']
     ];
     XLSX.utils.sheet_add_aoa(wsPropiedades, guiaPropiedades, { origin: 'H1' });
     guiaPropiedades.forEach((_, index) => setCellTextStyle(wsPropiedades, `H${index + 1}`));
@@ -940,12 +1046,12 @@ const Propiedades: FC<PropiedadesProps> = () => {
       setSaldoCellStyle(wsDeudas, `E${row}`);
     }
     const guiaDeudas: string[][] = [
-      ['Guía de llenado'],
+      ['GuÃƒÂ­a de llenado'],
       ['Paso 1 (A): Nro Apartamento igual al de la hoja Propiedades.'],
       ['Paso 2 (B): Concepto del cobro o nota de estado de cuenta.'],
       ['Paso 3 (C): Monto Deuda en USD (si no hay deuda, use 0).'],
       ['Paso 4 (D): Monto Abono en USD (si no hay abono, use 0).'],
-      ['Paso 5 (E): Saldo = Monto Deuda - Monto Abono (fórmula automática, no editar).']
+      ['Paso 5 (E): Saldo = Monto Deuda - Monto Abono (fÃƒÂ³rmula automÃƒÂ¡tica, no editar).']
     ];
     XLSX.utils.sheet_add_aoa(wsDeudas, guiaDeudas, { origin: 'G1' });
     guiaDeudas.forEach((_, index) => setCellTextStyle(wsDeudas, `G${index + 1}`));
@@ -992,7 +1098,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
       };
 
       const alicuotas: number[] = rawData.map((row: Record<string, unknown>) =>
-        parseAlicuota(row.Alicuota ?? row.Alícuota ?? 0)
+        parseAlicuota(row['Alicuota'] ?? row['Alícuota'] ?? 0)
       );
       const tieneCeros: boolean = alicuotas.some((a: number) => a === 0);
       const tieneMayoresACero: boolean = alicuotas.some((a: number) => a > 0);
@@ -1002,7 +1108,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
         setLoteDeudas([]);
         setLoteErrors(0);
         e.target.value = '';
-        alert('Error: El archivo tiene alícuotas mixtas. Ingrese todas en 0 (para dividir por partes iguales) o asigne un valor mayor a 0 a todas.');
+        alert('Error: El archivo tiene alÃƒÂ­cuotas mixtas. Ingrese todas en 0 (para dividir por partes iguales) o asigne un valor mayor a 0 a todas.');
         return;
       }
 
@@ -1021,11 +1127,11 @@ const Propiedades: FC<PropiedadesProps> = () => {
           row.Casa ||
           '';
         const nombre = row.Nombre || row.Propietario || '';
-        const cedulaRaw = row.Cedula || row.Cédula || '';
-        const alicuota = row.Alicuota || row.Alícuota || '';
+        const cedulaRaw = row['Cedula'] || row['Cédula'] || '';
+        const alicuota = row['Alicuota'] || row['Alícuota'] || '';
         const saldo = row.SaldoInicial || row['Saldo Inicial'] || row.Saldo || '0';
         const correo = String(row.Correo || row.Email || '').trim().toLowerCase();
-        const telefono = row.Telefono || row.Teléfono || '';
+        const telefono = row['Telefono'] || row['Teléfono'] || '';
 
         const cedulaFmt = sanitizeCedulaRif(String(cedulaRaw));
         const telefonoFmt = sanitizePhone(String(telefono));
@@ -1038,12 +1144,12 @@ const Propiedades: FC<PropiedadesProps> = () => {
         }
 
         const errorMsg: string[] = [];
-        if (!apto) errorMsg.push('Apto vacío');
-        if (!nombre) errorMsg.push('Nombre vacío');
-        if (!cedulaFmt) errorMsg.push('Cédula inválida (Use V/E/J/G)');
-        if (!isAliValid) errorMsg.push('Alícuota inválida');
-        if (emailFmt && !isValidEmail(emailFmt)) errorMsg.push('Correo inválido');
-        if (telefonoFmt && !isValidPhone(telefonoFmt)) errorMsg.push('Teléfono inválido');
+        if (!apto) errorMsg.push('Apto vacÃƒÂ­o');
+        if (!nombre) errorMsg.push('Nombre vacÃƒÂ­o');
+        if (!cedulaFmt) errorMsg.push('CÃƒÂ©dula invÃƒÂ¡lida (Use V/E/J/G)');
+        if (!isAliValid) errorMsg.push('AlÃƒÂ­cuota invÃƒÂ¡lida');
+        if (emailFmt && !isValidEmail(emailFmt)) errorMsg.push('Correo invÃƒÂ¡lido');
+        if (telefonoFmt && !isValidPhone(telefonoFmt)) errorMsg.push('TelÃƒÂ©fono invÃƒÂ¡lido');
 
         if (emailFmt) {
           if (seenEmails.has(emailFmt)) {
@@ -1147,12 +1253,12 @@ const Propiedades: FC<PropiedadesProps> = () => {
     e.target.value = '';
   };
 
-  // 💡 LÓGICA DE GUARDADO MEJORADA CON PROGRESO
+  // Ã°Å¸â€™Â¡ LÃƒâ€œGICA DE GUARDADO MEJORADA CON PROGRESO
   const handleSaveLote = async (): Promise<void> => {
     if (loteErrors > 0) return alert('Por favor corrija los errores en el Excel antes de continuar.');
     const ok = await showConfirm({
       title: 'Guardar carga masiva',
-      message: `¿Está seguro de guardar ${loteData.length} inmuebles de golpe?`,
+      message: `Ã‚Â¿EstÃƒÂ¡ seguro de guardar ${loteData.length} inmuebles de golpe?`,
       confirmText: 'Guardar',
       cancelText: 'Cancelar',
       variant: 'warning',
@@ -1162,12 +1268,12 @@ const Propiedades: FC<PropiedadesProps> = () => {
     setIsUploadingLote(true);
     setUploadProgress(0);
 
-    // Animación de la barra de progreso
+    // AnimaciÃƒÂ³n de la barra de progreso
     const progressInterval: ReturnType<typeof setInterval> = setInterval(() => {
       setUploadProgress((prev: number) => {
         // La barra llega hasta el 90% esperando a que el servidor termine
         if (prev >= 90) return 90;
-        // Calculamos un incremento variable para que se vea más natural
+        // Calculamos un incremento variable para que se vea mÃƒÂ¡s natural
         const increment = Math.random() * 15;
         return prev + increment;
       });
@@ -1212,7 +1318,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
           setLoteDeudas([]);
           fetchPropiedades();
           setIsUploadingLote(false);
-          setUploadProgress(0); // Reiniciamos para la próxima
+          setUploadProgress(0); // Reiniciamos para la prÃƒÂ³xima
         }, 500);
 
       } else {
@@ -1224,11 +1330,11 @@ const Propiedades: FC<PropiedadesProps> = () => {
       clearInterval(progressInterval);
       setIsUploadingLote(false);
       setUploadProgress(0);
-      alert('Error de conexión al cargar lote.');
+      alert('Error de conexiÃƒÂ³n al cargar lote.');
     }
   };
 
-  // Cálculos y Paginación
+  // CÃƒÂ¡lculos y PaginaciÃƒÂ³n
   let saldoAcumulado = 0;
   const dataConSaldo: EstadoCuentaMovimientoConSaldo[] = estadoCuentaData.map((mov: EstadoCuentaMovimientoRaw) => {
     const cargo = toNumber(mov.cargo);
@@ -1352,10 +1458,10 @@ const Propiedades: FC<PropiedadesProps> = () => {
       
       {/* HEADER PRINCIPAL */}
       <div className="flex flex-col xl:flex-row justify-between items-center bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 gap-4">
-        <h3 className="text-xl font-bold text-gray-800 dark:text-white whitespace-nowrap">🏠 Inmuebles y Residentes</h3>
+        <h3 className="text-xl font-bold text-gray-800 dark:text-white whitespace-nowrap">Ã°Å¸ÂÂ  Inmuebles y Residentes</h3>
         <div className="flex-1 w-full relative">
-          <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">🔍</span>
-          <input type="text" placeholder="Buscar inmueble, propietario o cédula..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 p-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white transition-all"/>
+          <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">Ã°Å¸â€Â</span>
+          <input type="text" placeholder="Buscar inmueble, propietario o cÃƒÂ©dula..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 p-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white transition-all"/>
         </div>
         <div className="flex gap-3 w-full xl:w-auto">
           {canDeleteAll && propiedades.length > 0 && (
@@ -1367,7 +1473,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
             </button>
           )}
           <button onClick={() => setLoteModalOpen(true)} className="flex-1 xl:flex-none bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 dark:border-green-800/50 dark:text-green-400 font-bold py-2.5 px-5 rounded-xl transition-all shadow-sm text-sm flex items-center justify-center gap-2">
-            📊 Carga Masiva
+            Ã°Å¸â€œÅ  Carga Masiva
           </button>
           
           <button onClick={handleCreateNew} className="flex-1 xl:flex-none bg-donezo-primary hover:bg-blue-700 text-white font-bold py-2.5 px-5 rounded-xl transition-all shadow-md text-sm whitespace-nowrap">
@@ -1391,7 +1497,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
                     </th>
                     <th className="py-4 px-3 text-right">
                       <button type="button" onClick={() => toggleSort('alicuota')} className="font-bold hover:text-donezo-primary">
-                        Alícuota {sortIndicator('alicuota')}
+                        AlÃƒÂ­cuota {sortIndicator('alicuota')}
                       </button>
                     </th>
                     <th className="py-4 px-3 text-right">
@@ -1427,16 +1533,19 @@ const Propiedades: FC<PropiedadesProps> = () => {
                         </td>
                         <td className="py-3 pr-6 pl-3 text-center relative">
                           <button onClick={(e) => { e.stopPropagation(); setOpenDropdownId(openDropdownId === p.id ? null : p.id); }} className="bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 px-4 py-2 rounded-xl text-xs font-bold transition-colors inline-flex items-center gap-2">
-                            Opciones <span className="text-[9px]">▼</span>
+                            Opciones <span className="text-[9px]">Ã¢â€“Â¼</span>
                           </button>
                           {openDropdownId === p.id && (
                         <div className={`absolute right-0 ${abrirHaciaArriba ? 'bottom-12' : 'top-12'} w-48 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden text-left animate-fadeIn`}>
 
                           <button onClick={(e) => { e.stopPropagation(); handleEdit(p); }} className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors">
-                            ✏️ Editar Datos
+                            Ã¢Å“ÂÃ¯Â¸Â Editar Datos
+                          </button>
+                          <button onClick={(e) => { e.stopPropagation(); handleOpenResidente(p); }} className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors">
+                            Residente / Inquilino
                           </button>
                           <button onClick={(e) => { e.stopPropagation(); handleOpenCopropietarios(p); }} className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors">
-                            👥 Copropietarios
+                            Ã°Å¸â€˜Â¥ Copropietarios
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); void handleEliminarInmueble(p); }}
@@ -1444,7 +1553,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
                             className="w-full text-left px-4 py-3 hover:bg-red-50 dark:hover:bg-red-900/30 text-sm text-red-600 dark:text-red-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                             title={p.can_delete ? 'Eliminar inmueble' : 'No se puede eliminar: ya tiene avisos/recibos'}
                           >
-                            🗑️ Eliminar inmueble
+                            Ã°Å¸â€”â€˜Ã¯Â¸Â Eliminar inmueble
                           </button>
                            
                         </div>
@@ -1459,9 +1568,9 @@ const Propiedades: FC<PropiedadesProps> = () => {
 
             {totalPages > 1 && (
               <div className="flex justify-between items-center px-6 py-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-800 rounded-b-2xl">
-                <button onClick={() => setCurrentPage((p: number) => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-5 py-2 rounded-xl text-sm font-bold bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 transition-all shadow-sm">← Anterior</button>
-                <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Página {currentPage} de {totalPages}</span>
-                <button onClick={() => setCurrentPage((p: number) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-5 py-2 rounded-xl text-sm font-bold bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 transition-all shadow-sm">Siguiente →</button>
+                <button onClick={() => setCurrentPage((p: number) => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-5 py-2 rounded-xl text-sm font-bold bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 transition-all shadow-sm">Ã¢â€ Â Anterior</button>
+                <span className="text-sm font-bold text-gray-500 dark:text-gray-400">PÃƒÂ¡gina {currentPage} de {totalPages}</span>
+                <button onClick={() => setCurrentPage((p: number) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-5 py-2 rounded-xl text-sm font-bold bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 transition-all shadow-sm">Siguiente Ã¢â€ â€™</button>
               </div>
             )}
           </>
@@ -1524,6 +1633,20 @@ const Propiedades: FC<PropiedadesProps> = () => {
         isLoadingList={copropLoading}
         savingCopropId={copropSavingId}
         deletingCopropId={copropDeletingId}
+      />
+
+      <ModalResidenteForm
+        isOpen={residenteModalOpen}
+        propiedadIdentificador={selectedPropResidente?.identificador || ''}
+        form={residenteForm}
+        onClose={() => {
+          setResidenteModalOpen(false);
+          setSelectedPropResidente(null);
+        }}
+        onSubmit={handleSubmitResidente}
+        onChange={handleResidenteChange}
+        isSubmitting={residenteSubmitting}
+        hasExistingResidente={Boolean(selectedPropResidente?.inq_cedula)}
       />
 
       <ModalCargaMasiva 

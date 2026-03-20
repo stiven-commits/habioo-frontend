@@ -155,21 +155,6 @@ const PerfilPropietario: FC = () => {
     void fetchRelaciones();
   }, [userRole, propiedadActiva?.id_propiedad]);
 
-  const renderReadonlyUserCard = (title: string, person: PerfilRelacionUser | null) => (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
-      <p className={labelClass}>{title}</p>
-      {person ? (
-        <div className="mt-2 space-y-1 text-sm text-gray-700 dark:text-gray-300">
-          <p><span className="font-bold">Nombre:</span> {person.nombre || '-'}</p>
-          <p><span className="font-bold">Cédula:</span> {person.cedula || '-'}</p>
-          <p><span className="font-bold">Correo:</span> {person.email || '-'}</p>
-          <p><span className="font-bold">Teléfono:</span> {person.telefono || '-'}</p>
-        </div>
-      ) : (
-        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">No registrado.</p>
-      )}
-    </div>
-  );
 
   const persistLocalUser = (next: ProfileForm): void => {
     const raw = localStorage.getItem('habioo_user');
@@ -276,15 +261,13 @@ const PerfilPropietario: FC = () => {
   return (
     <section className="space-y-5">
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-
-        {/* ── Datos de contacto ── */}
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
-          <p className="mb-4 text-sm font-black uppercase tracking-wider text-donezo-primary">Información Personal</p>
+          <p className="mb-4 text-sm font-black uppercase tracking-wider text-donezo-primary">Informacion Personal</p>
 
           <p className={labelClass}>Nombre</p>
           <p className="mt-1 text-lg font-bold text-gray-800 dark:text-gray-200">{nombrePerfil || '-'}</p>
 
-          <p className={`mt-4 ${labelClass}`}>Cédula</p>
+          <p className={`mt-4 ${labelClass}`}>Cedula</p>
           <input
             type="text"
             value={form.cedula}
@@ -293,8 +276,7 @@ const PerfilPropietario: FC = () => {
             className={inputClass}
           />
 
-          {/* Correos */}
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <p className={labelClass}>Correo Principal</p>
               <input
@@ -317,11 +299,10 @@ const PerfilPropietario: FC = () => {
             </div>
           </div>
 
-          {/* Teléfonos */}
-          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <p className={labelClass}>Teléfono (WhatsApp)</p>
-              <p className="text-[10px] text-gray-400 mt-0.5 mb-1">Solo números, sin espacios ni guiones.</p>
+              <p className={labelClass}>Telefono (WhatsApp)</p>
+              <p className="mb-1 mt-0.5 text-[10px] text-gray-400">Solo numeros, sin espacios ni guiones.</p>
               <input
                 type="text"
                 inputMode="numeric"
@@ -332,8 +313,8 @@ const PerfilPropietario: FC = () => {
               />
             </div>
             <div>
-              <p className={labelClass}>Teléfono Alternativo / Fijo</p>
-              <p className="text-[10px] text-gray-400 mt-0.5 mb-1">Solo números, sin espacios ni guiones.</p>
+              <p className={labelClass}>Telefono Alternativo / Fijo</p>
+              <p className="mb-1 mt-0.5 text-[10px] text-gray-400">Solo numeros, sin espacios ni guiones.</p>
               <input
                 type="text"
                 inputMode="numeric"
@@ -355,11 +336,50 @@ const PerfilPropietario: FC = () => {
               {isSavingProfile ? 'Guardando...' : 'Guardar Datos'}
             </button>
           </div>
+
+          <div className="mt-6 border-t border-gray-200 pt-4 dark:border-gray-700">
+            <p className="text-sm font-black uppercase tracking-wider text-donezo-primary">Residente / Inquilino y Copropietarios</p>
+            {loadingRelaciones ? (
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Cargando informacion del inmueble...</p>
+            ) : (
+              <div className="mt-3 space-y-4">
+                <div className="rounded-xl border border-gray-200 p-3 text-sm dark:border-gray-700">
+                  <p className={labelClass}>Residente / Inquilino (solo lectura)</p>
+                  {relaciones?.residente ? (
+                    <div className="mt-2 space-y-1 text-gray-700 dark:text-gray-300">
+                      <p><span className="font-bold">Nombre:</span> {relaciones.residente.nombre || '-'}</p>
+                      <p><span className="font-bold">Cedula:</span> {relaciones.residente.cedula || '-'}</p>
+                      <p><span className="font-bold">Correo:</span> {relaciones.residente.email || '-'}</p>
+                      <p><span className="font-bold">Telefono:</span> {relaciones.residente.telefono || '-'}</p>
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-gray-500 dark:text-gray-400">No registrado.</p>
+                  )}
+                </div>
+
+                <div className="rounded-xl border border-gray-200 p-3 text-sm dark:border-gray-700">
+                  <p className={labelClass}>Copropietarios (solo lectura)</p>
+                  {!relaciones?.copropietarios || relaciones.copropietarios.length === 0 ? (
+                    <p className="mt-2 text-gray-500 dark:text-gray-400">No hay copropietarios registrados.</p>
+                  ) : (
+                    <div className="mt-3 space-y-3">
+                      {relaciones.copropietarios.map((item) => (
+                        <div key={item.id} className="rounded-xl border border-gray-200 p-3 text-sm dark:border-gray-700">
+                          <p className="font-bold text-gray-800 dark:text-gray-200">{item.nombre || '-'}</p>
+                          <p className="text-gray-600 dark:text-gray-400">Cedula: {item.cedula || '-'}</p>
+                          <p className="text-gray-600 dark:text-gray-400">Correo: {item.email || '-'}</p>
+                          <p className="text-gray-600 dark:text-gray-400">Telefono: {item.telefono || '-'}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* ── Columna derecha ── */}
         <div className="space-y-5">
-          {/* Inmueble activo */}
           <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
             <p className={labelClass}>Inmueble Activo</p>
             <p className="mt-1 text-lg font-bold text-gray-800 dark:text-gray-200">{propiedadActiva?.identificador || '-'}</p>
@@ -368,36 +388,6 @@ const PerfilPropietario: FC = () => {
             <p className="mt-1 text-base font-semibold text-gray-700 dark:text-gray-300">{propiedadActiva?.nombre_condominio || '-'}</p>
           </div>
 
-          {loadingRelaciones ? (
-            <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Cargando información del inmueble...</p>
-            </div>
-          ) : (
-            <>
-              {renderReadonlyUserCard('Propietario Principal (solo lectura)', relaciones?.propietario || null)}
-              {renderReadonlyUserCard('Residente (solo lectura)', relaciones?.residente || null)}
-
-              <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
-                <p className={labelClass}>Copropietarios (solo lectura)</p>
-                {!relaciones?.copropietarios || relaciones.copropietarios.length === 0 ? (
-                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">No hay copropietarios registrados.</p>
-                ) : (
-                  <div className="mt-3 space-y-3">
-                    {relaciones.copropietarios.map((item) => (
-                      <div key={item.id} className="rounded-xl border border-gray-200 p-3 text-sm dark:border-gray-700">
-                        <p className="font-bold text-gray-800 dark:text-gray-200">{item.nombre || '-'}</p>
-                        <p className="text-gray-600 dark:text-gray-400">Cédula: {item.cedula || '-'}</p>
-                        <p className="text-gray-600 dark:text-gray-400">Correo: {item.email || '-'}</p>
-                        <p className="text-gray-600 dark:text-gray-400">Teléfono: {item.telefono || '-'}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-
-          {/* Cambiar clave */}
           <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
             <p className={labelClass}>Cambiar Clave</p>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Escribe la nueva clave dos veces para confirmarla.</p>
@@ -432,10 +422,8 @@ const PerfilPropietario: FC = () => {
             </div>
           </div>
         </div>
-
       </div>
     </section>
-  );
-};
+  );};
 
 export default PerfilPropietario;

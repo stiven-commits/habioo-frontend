@@ -195,6 +195,25 @@ interface ModalCopropietarioFormProps {
   deletingCopropId?: number | null;
 }
 
+interface ResidenteFormData {
+  cedula: string;
+  nombre: string;
+  email: string;
+  telefono: string;
+  acceso_portal: boolean;
+}
+
+interface ModalResidenteFormProps {
+  isOpen: boolean;
+  propiedadIdentificador: string;
+  form: ResidenteFormData;
+  onClose: () => void;
+  onSubmit: (e: FormEvent<HTMLFormElement>) => void | Promise<void>;
+  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  isSubmitting?: boolean;
+  hasExistingResidente?: boolean;
+}
+
 export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
   isOpen,
   editingId,
@@ -350,7 +369,7 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
                 <input type="text" name="identificador" value={form.identificador} onChange={handleChange} placeholder="Ej: A-12 o Casa 3" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" required />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">Alícuota (%) *</label>
+                <label className="block text-xs font-bold text-gray-500 mb-1">AlÃƒÂ­cuota (%) *</label>
                 <input type="text" name="alicuota" value={form.alicuota} onChange={handleChange} placeholder="Ej: 3,125" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono" required />
               </div>
 
@@ -421,7 +440,7 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
                         </div>
                       ))}
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Cálculo automático por fila: <strong>Saldo neto = Monto deuda - Monto abono</strong>.
+                        CÃƒÂ¡lculo automÃƒÂ¡tico por fila: <strong>Saldo neto = Monto deuda - Monto abono</strong>.
                         Ejemplo: deuda 120,00 y abono 20,00 = saldo neto 100,00.
                       </p>
                     </div>
@@ -465,12 +484,12 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
                             name="monto_saldo_inicial"
                             value={form.monto_saldo_inicial}
                             readOnly
-                            placeholder="Calculado automáticamente"
+                            placeholder="Calculado automÃƒÂ¡ticamente"
                             className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-800/80 outline-none text-gray-600 dark:text-gray-300 font-mono cursor-not-allowed"
                           />
                         </div>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                          Este campo se calcula automáticamente con la fórmula:
+                          Este campo se calcula automÃƒÂ¡ticamente con la fÃƒÂ³rmula:
                           <strong> Saldo Inicial (USD) = Saldo Inicial (Bs) / Tasa BCV</strong>.
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -521,7 +540,7 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
                         setSearchPropietarioExistente(e.target.value);
                         setIsPropietarioDropdownOpen(true);
                       }}
-                      placeholder={propietarioSeleccionado ? `${propietarioSeleccionado.nombre} (${propietarioSeleccionado.cedula})` : 'Escriba cédula o nombre'}
+                      placeholder={propietarioSeleccionado ? `${propietarioSeleccionado.nombre} (${propietarioSeleccionado.cedula})` : 'Escriba cÃƒÂ©dula o nombre'}
                       className="w-full p-2.5 pr-10 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
                     />
                     <button
@@ -533,7 +552,7 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
                       className="absolute inset-y-0 right-0 px-3 text-gray-500"
                       title="Mostrar opciones"
                     >
-                      ▼
+                      Ã¢â€“Â¼
                     </button>
                     {isPropietarioDropdownOpen && (
                       <div className="absolute z-20 mt-1 w-full max-h-52 overflow-auto rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg">
@@ -562,14 +581,14 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
                   <input type="hidden" value={form.propietario_existente_id} required={esModoPropietarioExistente} />
                 </div>
                 <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                  Se vinculará este inmueble al propietario seleccionado sin crear un usuario nuevo.
+                  Se vincularÃƒÂ¡ este inmueble al propietario seleccionado sin crear un usuario nuevo.
                 </p>
               </div>
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">Cédula (Usuario) *</label>
-                <p className="text-[11px] text-gray-400 mb-1">Formato: V, E, J o G seguido de números.</p>
+                <label className="block text-xs font-bold text-gray-500 mb-1">Cedula (Usuario) *</label>
+                <p className="text-[11px] text-gray-400 mb-1">Formato: V, E, J o G seguido de numeros.</p>
                 <input type="text" name="prop_cedula" value={form.prop_cedula} onChange={handleChange} pattern="^[VEJG][0-9]{5,9}$" placeholder="Ej: V12345678" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white uppercase disabled:opacity-70 disabled:cursor-not-allowed" required disabled={esModoPropietarioExistente} />
               </div>
               <div>
@@ -578,7 +597,7 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
                 <input type="text" name="prop_nombre" value={form.prop_nombre} onChange={(e) => setForm((prev) => ({ ...prev, prop_nombre: e.target.value.replace(/(^|\s)\S/g, (c) => c.toUpperCase()) }))} placeholder="Ej: Carlos Daniel Rojas" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white disabled:opacity-70 disabled:cursor-not-allowed" disabled={esModoPropietarioExistente} required />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">Correo Electrónico *</label>
+                <label className="block text-xs font-bold text-gray-500 mb-1">Correo Electronico *</label>
                 <input type="email" name="prop_email" value={form.prop_email} onChange={handleChange} placeholder="Ej: usuario@email.com" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white disabled:opacity-70 disabled:cursor-not-allowed" disabled={esModoPropietarioExistente} required />
               </div>
               <div>
@@ -586,41 +605,17 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
                 <input type="email" name="prop_email_secundario" value={form.prop_email_secundario} onChange={handleChange} placeholder="Ej: usuario_sec@email.com" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white disabled:opacity-70 disabled:cursor-not-allowed" disabled={esModoPropietarioExistente} />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500">Teléfono (WhatsApp)</label>
-                <p className="text-[11px] text-gray-400 mb-1">Solo números, sin espacios ni guiones.</p>
+                <label className="block text-xs font-bold text-gray-500">Telefono (WhatsApp)</label>
+                <p className="text-[11px] text-gray-400 mb-1">Solo numeros, sin espacios ni guiones.</p>
                 <input type="text" name="prop_telefono" value={form.prop_telefono} onChange={handleChange} inputMode="numeric" pattern="^[0-9]{7,15}$" placeholder="Ej: 04141234567" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white disabled:opacity-70 disabled:cursor-not-allowed" disabled={esModoPropietarioExistente} />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500">Teléfono Alternativo / Fijo</label>
-                <p className="text-[11px] text-gray-400 mb-1">Solo números, sin espacios ni guiones.</p>
+                <label className="block text-xs font-bold text-gray-500">Telefono Alternativo / Fijo</label>
+                <p className="text-[11px] text-gray-400 mb-1">Solo numeros, sin espacios ni guiones.</p>
                 <input type="text" name="prop_telefono_secundario" value={form.prop_telefono_secundario} onChange={handleChange} inputMode="numeric" pattern="^[0-9]{7,15}$" placeholder="Ej: 02121234567" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white disabled:opacity-70 disabled:cursor-not-allowed" disabled={esModoPropietarioExistente} />
               </div>
-              {editingId && (<div className="md:col-span-2 mt-2 bg-yellow-50 dark:bg-yellow-900/10 p-3 rounded-xl border border-yellow-200 dark:border-yellow-800"><label className="block text-xs font-bold text-yellow-800 dark:text-yellow-500 mb-1">Restablecer Contraseña</label><input type="password" name="prop_password" value={form.prop_password} onChange={handleChange} placeholder="Nueva clave..." className="w-full p-2.5 rounded-xl border border-yellow-300 dark:bg-gray-800 outline-none dark:text-white" /></div>)}
+              {editingId && (<div className="md:col-span-2 mt-2 bg-yellow-50 dark:bg-yellow-900/10 p-3 rounded-xl border border-yellow-200 dark:border-yellow-800"><label className="block text-xs font-bold text-yellow-800 dark:text-yellow-500 mb-1">Restablecer Contrasena</label><input type="password" name="prop_password" value={form.prop_password} onChange={handleChange} placeholder="Nueva clave..." className="w-full p-2.5 rounded-xl border border-yellow-300 dark:bg-gray-800 outline-none dark:text-white" /></div>)}
             </div>
-          </div>
-
-          <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center gap-3 mb-3 cursor-pointer" onClick={() => setForm({ ...form, tiene_inquilino: !form.tiene_inquilino })}><input type="checkbox" checked={form.tiene_inquilino} readOnly className="w-5 h-5 text-donezo-primary" /><h4 className="font-bold text-gray-700 dark:text-gray-300">¿Tiene residente?</h4></div>
-            {form.tiene_inquilino && (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                  <input type="text" name="inq_cedula" value={form.inq_cedula} onChange={handleChange} pattern="^[VEJG][0-9]{5,9}$" placeholder="Ej: V12345678" title="Cédula del residente (V/E/J/G + números)" className="p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white uppercase" required />
-                  <input type="text" name="inq_nombre" value={form.inq_nombre} onChange={handleChange} placeholder="Ej: Carlos Daniel Rojas" title="Nombre y apellido del residente" className="p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white" required />
-                  <input type="email" name="inq_email" value={form.inq_email} onChange={handleChange} placeholder="Ej: residente@email.com" title="Correo del residente (opcional)" className="p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-                  <input type="text" name="inq_telefono" value={form.inq_telefono} onChange={handleChange} inputMode="numeric" pattern="^[0-9]{7,15}$" placeholder="Ej: 04141234567" title="Teléfono del residente (solo números)" className="p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-                </div>
-                <label className="mt-4 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <input
-                    type="checkbox"
-                    name="inq_permitir_acceso"
-                    checked={form.inq_permitir_acceso !== false}
-                    onChange={handleChange}
-                    className="w-4 h-4 text-donezo-primary"
-                  />
-                  Permitir acceso del residente al portal
-                </label>
-              </>
-            )}
           </div>
 
           <div className="flex justify-end gap-3 pt-4"><button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-3 rounded-xl bg-gray-100 dark:bg-gray-800 font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200 transition-colors">Cancelar</button><button type="submit" id="btnSubmitProp" className="px-6 py-3 rounded-xl font-bold bg-donezo-primary text-white hover:bg-blue-700 transition-all">{editingId ? 'Guardar Cambios' : 'Registrar Inmueble'}</button></div>
@@ -796,7 +791,7 @@ export const ModalEstadoCuenta: FC<ModalEstadoCuentaProps> = ({
             >
               Anterior
             </button>
-            <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Página {currentPage} de {totalPages}</span>
+            <span className="text-sm font-bold text-gray-500 dark:text-gray-400">PÃƒÂ¡gina {currentPage} de {totalPages}</span>
             <button
               onClick={() => setCurrentPage((p: number) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
@@ -830,14 +825,14 @@ export const ModalAjusteSaldo: FC<ModalAjusteSaldoProps> = ({
 
         <form onSubmit={handleSubmitAjuste} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Acción a realizar</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">AcciÃƒÂ³n a realizar</label>
             <select value={formAjuste.tipo_ajuste} onChange={(e: ChangeEvent<HTMLSelectElement>) => setFormAjuste({ ...formAjuste, tipo_ajuste: e.target.value })} className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-bold outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white">
               <option value="CARGAR_DEUDA">Cargar Deuda (+)</option>
               <option value="AGREGAR_FAVOR">Agregar a Favor (-)</option>
             </select>
           </div>
           <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Monto ($)</label><input type="text" value={formAjuste.monto} onChange={(e: ChangeEvent<HTMLInputElement>) => setFormAjuste({ ...formAjuste, monto: e.target.value.replace(/\./g, ',').replace(/[^0-9,]/g, '') })} placeholder="Ej: 50,00" className="w-full p-3 rounded-xl border font-mono text-lg dark:bg-gray-900 dark:border-gray-700 outline-none dark:text-white" required /></div>
-          <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nota (Auditoría) *</label><textarea value={formAjuste.nota} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setFormAjuste({ ...formAjuste, nota: e.target.value })} placeholder="Ej: Cobro de multa" className="w-full p-3 rounded-xl border dark:bg-gray-900 dark:border-gray-700 outline-none dark:text-white text-sm min-h-[80px]" required /></div>
+          <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nota (AuditorÃƒÂ­a) *</label><textarea value={formAjuste.nota} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setFormAjuste({ ...formAjuste, nota: e.target.value })} placeholder="Ej: Cobro de multa" className="w-full p-3 rounded-xl border dark:bg-gray-900 dark:border-gray-700 outline-none dark:text-white text-sm min-h-[80px]" required /></div>
           <div className="pt-4 flex gap-3"><button type="button" onClick={() => setAjusteModalOpen(false)} className="flex-1 py-3 rounded-xl font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 transition-colors">Cancelar</button><button type="submit" className="flex-1 py-3 rounded-xl font-bold bg-yellow-500 text-white hover:bg-yellow-600 transition-all">Aplicar Ajuste</button></div>
         </form>
       </div>
@@ -890,7 +885,7 @@ export const ModalCopropietarioForm: FC<ModalCopropietarioFormProps> = ({
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-gray-500 mb-1">Cédula *</label>
+              <label className="block text-xs font-bold text-gray-500 mb-1">CÃƒÂ©dula *</label>
               <input
                 type="text"
                 name="cedula"
@@ -909,7 +904,7 @@ export const ModalCopropietarioForm: FC<ModalCopropietarioFormProps> = ({
                 name="nombre"
                 value={form.nombre}
                 onChange={handleNombreChange}
-                placeholder="Ej: María Fernanda Pérez"
+                placeholder="Ej: MarÃƒÂ­a Fernanda PÃƒÂ©rez"
                 className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
                 required
               />
@@ -926,7 +921,7 @@ export const ModalCopropietarioForm: FC<ModalCopropietarioFormProps> = ({
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-500 mb-1">Teléfono</label>
+              <label className="block text-xs font-bold text-gray-500 mb-1">TelÃƒÂ©fono</label>
               <input
                 type="text"
                 name="telefono"
@@ -952,7 +947,7 @@ export const ModalCopropietarioForm: FC<ModalCopropietarioFormProps> = ({
           </label>
 
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            El copropietario tendrá acceso para consultar información y registrar pagos, pero la cobranza oficial y el recibo legal permanecen a nombre del propietario principal.
+            El copropietario tendrÃƒÂ¡ acceso para consultar informaciÃƒÂ³n y registrar pagos, pero la cobranza oficial y el recibo legal permanecen a nombre del propietario principal.
           </p>
 
           <div className="flex justify-end gap-3 pt-4">
@@ -987,9 +982,9 @@ export const ModalCopropietarioForm: FC<ModalCopropietarioFormProps> = ({
                     >
                       <div>
                         <p className="font-semibold text-gray-800 dark:text-gray-200">{draft.nombre || 'Sin nombre'}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{draft.cedula || 'Sin cédula'} | {draft.email || 'Sin correo'}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{draft.cedula || 'Sin cÃƒÂ©dula'} | {draft.email || 'Sin correo'}</p>
                       </div>
-                      <span className="text-sm font-bold text-gray-500 dark:text-gray-300">{isOpenAccordion ? '▲' : '▼'}</span>
+                      <span className="text-sm font-bold text-gray-500 dark:text-gray-300">{isOpenAccordion ? 'Ã¢â€“Â²' : 'Ã¢â€“Â¼'}</span>
                     </button>
 
                     {isOpenAccordion && (
@@ -1001,7 +996,7 @@ export const ModalCopropietarioForm: FC<ModalCopropietarioFormProps> = ({
                             value={draft.cedula}
                             onChange={(e: ChangeEvent<HTMLInputElement>) => onEditChange(coprop.id, e)}
                             pattern="^[VEJG][0-9]{5,9}$"
-                            placeholder="Cédula"
+                            placeholder="CÃƒÂ©dula"
                             className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white uppercase"
                           />
                           <input
@@ -1027,7 +1022,7 @@ export const ModalCopropietarioForm: FC<ModalCopropietarioFormProps> = ({
                             onChange={(e: ChangeEvent<HTMLInputElement>) => onEditChange(coprop.id, e)}
                             inputMode="numeric"
                             pattern="^[0-9]{7,15}$"
-                            placeholder="Teléfono"
+                            placeholder="TelÃƒÂ©fono"
                             className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
                           />
                         </div>
@@ -1069,6 +1064,105 @@ export const ModalCopropietarioForm: FC<ModalCopropietarioFormProps> = ({
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+};
+
+export const ModalResidenteForm: FC<ModalResidenteFormProps> = ({
+  isOpen,
+  propiedadIdentificador,
+  form,
+  onClose,
+  onSubmit,
+  onChange,
+  isSubmitting = false,
+  hasExistingResidente = false
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
+      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-xl shadow-2xl border border-gray-100 dark:border-gray-800 relative my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
+        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl" disabled={isSubmitting}>X</button>
+        <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-1">
+          {hasExistingResidente ? 'Editar Residente / Inquilino' : 'Agregar Residente / Inquilino'}
+        </h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Inmueble: <strong>{propiedadIdentificador}</strong></p>
+
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-500 mb-1">CÃ©dula *</label>
+              <input
+                type="text"
+                name="cedula"
+                value={form.cedula}
+                onChange={onChange}
+                pattern="^[VEJG][0-9]{5,9}$"
+                placeholder="Ej: V12345678"
+                className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white uppercase"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 mb-1">Nombre completo *</label>
+              <input
+                type="text"
+                name="nombre"
+                value={form.nombre}
+                onChange={onChange}
+                placeholder="Ej: Carlos Daniel Rojas"
+                className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 mb-1">Email</label>
+              <input
+                type="email"
+                name="email"
+                value={form.email}
+                onChange={onChange}
+                placeholder="Ej: residente@email.com"
+                className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 mb-1">TelÃ©fono</label>
+              <input
+                type="text"
+                name="telefono"
+                value={form.telefono}
+                onChange={onChange}
+                inputMode="numeric"
+                pattern="^[0-9]{7,15}$"
+                placeholder="Ej: 04141234567"
+                className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
+              />
+            </div>
+          </div>
+
+          <label className="mt-2 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+            <input
+              type="checkbox"
+              name="acceso_portal"
+              checked={form.acceso_portal}
+              onChange={onChange}
+              className="w-4 h-4 text-donezo-primary"
+            />
+            Permitir acceso al portal del residente / inquilino
+          </label>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <button type="button" onClick={onClose} className="px-6 py-3 rounded-xl bg-gray-100 dark:bg-gray-800 font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200 transition-colors" disabled={isSubmitting}>
+              Cancelar
+            </button>
+            <button type="submit" className="px-6 py-3 rounded-xl font-bold bg-donezo-primary text-white hover:bg-blue-700 transition-all disabled:opacity-60" disabled={isSubmitting}>
+              {isSubmitting ? 'Guardando...' : hasExistingResidente ? 'Guardar Cambios' : 'Guardar Residente / Inquilino'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
@@ -1130,7 +1224,7 @@ export const ModalCargaMasiva: FC<ModalCargaMasivaProps> = ({
             <div className="text-6xl mb-4">Excel</div>
             <h4 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">Importar desde Excel</h4>
             <p className="text-gray-500 dark:text-gray-400 text-center max-w-md mb-8">
-              Para cargar múltiples propiedades de golpe, descarga nuestra plantilla de Excel, llénala con los datos y súbela al sistema. Las cédulas se usarán como claves temporales.
+              Para cargar mÃƒÂºltiples propiedades de golpe, descarga nuestra plantilla de Excel, llÃƒÂ©nala con los datos y sÃƒÂºbela al sistema. Las cÃƒÂ©dulas se usarÃƒÂ¡n como claves temporales.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md">
@@ -1168,10 +1262,10 @@ export const ModalCargaMasiva: FC<ModalCargaMasivaProps> = ({
                     <th className="p-3 font-bold text-center">Estado</th>
                     <th className="p-3 font-bold">Apto/Casa</th>
                     <th className="p-3 font-bold">Propietario</th>
-                    <th className="p-3 font-bold">Cédula</th>
+                    <th className="p-3 font-bold">CÃƒÂ©dula</th>
                     <th className="p-3 font-bold">Correo</th>
-                    <th className="p-3 font-bold">Teléfono</th>
-                    <th className="p-3 font-bold text-right">Alícuota</th>
+                    <th className="p-3 font-bold">TelÃƒÂ©fono</th>
+                    <th className="p-3 font-bold text-right">AlÃƒÂ­cuota</th>
                     <th className="p-3 font-bold text-right">Saldo Inicial</th>
                   </tr>
                 </thead>
@@ -1189,10 +1283,10 @@ export const ModalCargaMasiva: FC<ModalCargaMasivaProps> = ({
                       </td>
                       <td className="p-3 font-bold text-gray-800 dark:text-white">{row.identificador}</td>
                       <td className="p-3"><div className="text-gray-700 dark:text-gray-300 font-medium">{row.nombre}</div>{!row.isValid && row.errors.includes('Nombre') && <span className="text-[10px] text-red-500 font-bold">Requerido</span>}</td>
-                      <td className="p-3 font-mono text-gray-600 dark:text-gray-400">{row.cedula}{!row.isValid && row.errors.includes('Cédula') && <div className="text-[10px] text-red-500 font-bold">Inválida</div>}</td>
+                      <td className="p-3 font-mono text-gray-600 dark:text-gray-400">{row.cedula}{!row.isValid && row.errors.includes('CÃƒÂ©dula') && <div className="text-[10px] text-red-500 font-bold">InvÃƒÂ¡lida</div>}</td>
                       <td className="p-3 text-gray-500 dark:text-gray-400 text-xs">{row.correo || '-'}{!row.isValid && row.errors.includes('Correo duplicado') && <div className="text-[10px] text-red-500 font-bold">Repetido</div>}</td>
                       <td className="p-3 text-gray-500 dark:text-gray-400 text-xs">{row.telefono || '-'}</td>
-                      <td className="p-3 text-right font-mono font-bold text-blue-600 dark:text-blue-400">{String(row.alicuota).replace('.', ',')}% {!row.isValid && row.errors.includes('Alícuota') && <div className="text-[10px] text-red-500 font-bold">Debe ser {'>'} 0</div>}</td>
+                      <td className="p-3 text-right font-mono font-bold text-blue-600 dark:text-blue-400">{String(row.alicuota).replace('.', ',')}% {!row.isValid && row.errors.includes('AlÃƒÂ­cuota') && <div className="text-[10px] text-red-500 font-bold">Debe ser {'>'} 0</div>}</td>
                       <td className="p-3 text-right font-mono font-medium"><span className={parseFloat(String(row.saldo_inicial)) > 0 ? 'text-red-500' : parseFloat(String(row.saldo_inicial)) < 0 ? 'text-green-500' : 'text-gray-500 dark:text-gray-400'}>${formatMoney(Math.abs(parseFloat(String(row.saldo_inicial || 0))))}</span></td>
                     </tr>
                   ))}
