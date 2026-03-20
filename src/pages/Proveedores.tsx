@@ -8,10 +8,10 @@ import { useDialog } from '../components/ui/DialogProvider';
 import { sanitizeCedulaRif, sanitizePhone, sanitizeEmail, isValidEmail, isValidPhone, isValidCedulaRif } from '../utils/validators';
 
 const ESTADOS_VENEZUELA = [
-  "Amazonas", "Anzoátegui", "Apure", "Aragua", "Barinas", "Bolívar", "Carabobo",
-  "Cojedes", "Delta Amacuro", "Distrito Capital", "Falcón", "Guárico", "La Guaira",
-  "Lara", "Mérida", "Miranda", "Monagas", "Nueva Esparta", "Portuguesa", "Sucre",
-  "Táchira", "Trujillo", "Yaracuy", "Zulia"
+  "Amazonas", "AnzoÃ¡tegui", "Apure", "Aragua", "Barinas", "BolÃ­var", "Carabobo",
+  "Cojedes", "Delta Amacuro", "Distrito Capital", "FalcÃ³n", "GuÃ¡rico", "La Guaira",
+  "Lara", "MÃ©rida", "Miranda", "Monagas", "Nueva Esparta", "Portuguesa", "Sucre",
+  "TÃ¡chira", "Trujillo", "Yaracuy", "Zulia"
 ];
 
 interface ProveedoresProps {}
@@ -116,7 +116,7 @@ const Proveedores: React.FC<ProveedoresProps> = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
 
-  // 💡 ESTADOS DE PAGINACIÓN (Configurado a 13 elementos por página)
+  // ðŸ’¡ ESTADOS DE PAGINACIÃ“N (Configurado a 13 elementos por pÃ¡gina)
   const [currentPage, setCurrentPage] = useState<number>(1);
   const itemsPerPage = 13;
 
@@ -150,7 +150,7 @@ const Proveedores: React.FC<ProveedoresProps> = () => {
 
   useEffect(() => { if (userRole === 'Administrador') { void fetchProveedores(); } }, [userRole]);
 
-  // Si el usuario busca algo, lo devolvemos a la página 1
+  // Si el usuario busca algo, lo devolvemos a la pÃ¡gina 1
   useEffect(() => { setCurrentPage(1); }, [searchTerm]);
 
   const handleProvChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
@@ -187,7 +187,7 @@ const Proveedores: React.FC<ProveedoresProps> = () => {
     setOpenDropdownId(null);
     const ok = await showConfirm({
       title: 'Eliminar proveedor',
-      message: `¿Está seguro de que desea eliminar a "${nombre}" del directorio? Sus facturas pasadas se mantendrán intactas.`,
+      message: `Â¿EstÃ¡ seguro de que desea eliminar a "${nombre}" del directorio? Sus facturas pasadas se mantendrÃ¡n intactas.`,
       confirmText: 'Eliminar',
       cancelText: 'Cancelar',
       variant: 'warning',
@@ -205,10 +205,10 @@ const Proveedores: React.FC<ProveedoresProps> = () => {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
-    if (!isValidCedulaRif(formProv.identificador)) return alert('Error: el RIF/Cédula debe iniciar con V, E, J o G y contener solo números.');
-    if (!isValidEmail(formProv.email)) return alert('Error: el correo del proveedor no tiene un formato válido.');
-    if (!isValidPhone(formProv.telefono1)) return alert('Error: el teléfono principal debe tener solo números.');
-    if (formProv.telefono2 && !isValidPhone(formProv.telefono2)) return alert('Error: el teléfono secundario debe tener solo números.');
+    if (!isValidCedulaRif(formProv.identificador)) return alert('Error: el RIF/CÃ©dula debe iniciar con V, E, J o G y contener solo nÃºmeros.');
+    if (formProv.email && !isValidEmail(formProv.email)) return alert('Error: el correo del proveedor no tiene un formato valido.');
+    if (!isValidPhone(formProv.telefono1)) return alert('Error: el telÃ©fono principal debe tener solo nÃºmeros.');
+    if (formProv.telefono2 && !isValidPhone(formProv.telefono2)) return alert('Error: el telÃ©fono secundario debe tener solo nÃºmeros.');
     try {
       const token = localStorage.getItem('habioo_token');
       const url = editingId ? `${API_BASE_URL}/proveedores/${editingId}` : `${API_BASE_URL}/proveedores`;
@@ -216,7 +216,7 @@ const Proveedores: React.FC<ProveedoresProps> = () => {
       const data = await res.json() as ApiActionResponse;
       if (data.status === 'success') { alert(data.message); setFormProv(initialForm); setIsModalOpen(false); void fetchProveedores(); }
       else { alert(data.error || data.message || 'Error al guardar proveedor'); }
-    } catch (_error: unknown) { alert('Error de conexión al servidor.'); }
+    } catch (_error: unknown) { alert('Error de conexiÃ³n al servidor.'); }
   };
 
   // ==========================================
@@ -224,13 +224,13 @@ const Proveedores: React.FC<ProveedoresProps> = () => {
   // ==========================================
   const handleDownloadTemplate = (): void => {
     const data = [
-      { RIF: 'J123456789', Nombre: 'Ferretería El Clavo', Email: 'contacto@elclavo.com', Rubro: 'Ferretería', Telefono1: '04141234567', Telefono2: '', Estado: 'Distrito Capital', Direccion: 'Av. Principal, Edificio Torre 1' },
-      { RIF: 'V87654321', Nombre: 'Juan Pérez Plomería', Email: 'jp.plomeria@gmail.com', Rubro: 'Plomería', Telefono1: '04129876543', Telefono2: '04161234567', Estado: 'Miranda', Direccion: 'Calle 4, Local 2' }
+      { RIF: 'J123456789', Nombre: 'FerreterÃ­a El Clavo', Email: 'contacto@elclavo.com', Rubro: 'FerreterÃ­a', Telefono1: '04141234567', Telefono2: '', Estado: 'Distrito Capital', Direccion: 'Av. Principal, Edificio Torre 1' },
+      { RIF: 'V87654321', Nombre: 'Juan PÃ©rez PlomerÃ­a', Email: 'jp.plomeria@gmail.com', Rubro: 'PlomerÃ­a', Telefono1: '04129876543', Telefono2: '04161234567', Estado: 'Miranda', Direccion: 'Calle 4, Local 2' }
     ];
     const ws = XLSX.utils.json_to_sheet(data);
 
-    if (ws['A1']) ws['A1'].c = [{ a: 'Sistema', t: 'Obligatorio. Letra mayúscula inicial.' }];
-    if (ws['C1']) ws['C1'].c = [{ a: 'Sistema', t: 'Obligatorio. Debe ser un correo válido.' }];
+    if (ws['A1']) ws['A1'].c = [{ a: 'Sistema', t: 'Obligatorio. Letra mayÃºscula inicial.' }];
+    if (ws['C1']) ws['C1'].c = [{ a: 'Sistema', t: 'Opcional. Si se indica, debe ser un correo valido.' }];
     if (ws['D1']) ws['D1'].c = [{ a: 'Sistema', t: 'Opcional. Trate de escribir un rubro conocido (ej: Electricistas, Seguridad).' }];
     if (ws['E1']) ws['E1'].c = [{ a: 'Sistema', t: 'Obligatorio.' }];
     if (ws['G1']) ws['G1'].c = [{ a: 'Sistema', t: 'Obligatorio. Debe estar escrito igual a la lista oficial (Ej: Distrito Capital, Zulia, Miranda).' }];
@@ -261,29 +261,29 @@ const Proveedores: React.FC<ProveedoresProps> = () => {
 
       const parsedData: LoteProveedorRow[] = rawData.map((row: Record<string, unknown>, index: number) => {
         const rifRaw = row['RIF'] || row['Identificador'] || '';
-        const nombre = row['Nombre'] || row['Razón Social'] || row['Razon Social'] || '';
-        const email = row['Email'] || row['Correo'] || row['Correo Electrónico'] || row['Correo Electronico'] || '';
+        const nombre = row['Nombre'] || row['RazÃ³n Social'] || row['Razon Social'] || '';
+        const email = row['Email'] || row['Correo'] || row['Correo ElectrÃ³nico'] || row['Correo Electronico'] || '';
         const rubro = row['Rubro'] || row['Especialidad'] || '';
-        const tel1 = row['Telefono1'] || row['Teléfono1'] || row['Teléfono Principal'] || row['Telefono Principal'] || row['Telefono'] || '';
-        const tel2 = row['Telefono2'] || row['Teléfono2'] || row['Teléfono Secundario'] || '';
+        const tel1 = row['Telefono1'] || row['TelÃ©fono1'] || row['TelÃ©fono Principal'] || row['Telefono Principal'] || row['Telefono'] || '';
+        const tel2 = row['Telefono2'] || row['TelÃ©fono2'] || row['TelÃ©fono Secundario'] || '';
         const estado = row['Estado'] || '';
-        const direccion = row['Direccion'] || row['Dirección'] || '';
+        const direccion = row['Direccion'] || row['DirecciÃ³n'] || '';
 
         const rifFmt = sanitizeCedulaRif(String(rifRaw));
         const emailFmt = sanitizeEmail(String(email));
-        const emailOk = isValidEmail(emailFmt);
+        const emailOk = !emailFmt || isValidEmail(emailFmt);
         const tel1Fmt = sanitizePhone(String(tel1));
         const tel2Fmt = sanitizePhone(String(tel2));
 
         const errorMsg: string[] = [];
-        if (!rifFmt) errorMsg.push("RIF inválido");
-        if (!nombre) errorMsg.push("Nombre vacío");
-        if (!emailFmt || !emailOk) errorMsg.push("Correo inválido");
-        if (!tel1Fmt) errorMsg.push("Teléfono principal requerido");
-        if (tel1Fmt && !isValidPhone(tel1Fmt)) errorMsg.push("Teléfono principal inválido");
-        if (tel2Fmt && !isValidPhone(tel2Fmt)) errorMsg.push("Teléfono secundario inválido");
-        if (!estado || !ESTADOS_VENEZUELA.includes(String(estado))) errorMsg.push("Estado inválido");
-        if (!direccion) errorMsg.push("Dirección vacía");
+        if (!rifFmt) errorMsg.push("RIF invÃ¡lido");
+        if (!nombre) errorMsg.push("Nombre vacÃ­o");
+        if (!emailOk) errorMsg.push('Correo invalido');
+        if (!tel1Fmt) errorMsg.push("TelÃ©fono principal requerido");
+        if (tel1Fmt && !isValidPhone(tel1Fmt)) errorMsg.push("TelÃ©fono principal invÃ¡lido");
+        if (tel2Fmt && !isValidPhone(tel2Fmt)) errorMsg.push("TelÃ©fono secundario invÃ¡lido");
+        if (!estado || !ESTADOS_VENEZUELA.includes(String(estado))) errorMsg.push("Estado invÃ¡lido");
+        if (!direccion) errorMsg.push("DirecciÃ³n vacÃ­a");
 
         if (rifFmt) {
           if (seenRIFs.has(rifFmt)) { errorMsg.push("RIF duplicado en el archivo"); }
@@ -341,7 +341,7 @@ const Proveedores: React.FC<ProveedoresProps> = () => {
     if (loteErrors > 0) return alert("Por favor corrija los errores en el Excel antes de continuar.");
     const ok = await showConfirm({
       title: 'Importar proveedores',
-      message: `¿Está seguro de importar ${loteData.length} proveedores?`,
+      message: `Â¿EstÃ¡ seguro de importar ${loteData.length} proveedores?`,
       confirmText: 'Importar',
       cancelText: 'Cancelar',
       variant: 'warning',
@@ -376,11 +376,11 @@ const Proveedores: React.FC<ProveedoresProps> = () => {
         setIsUploadingLote(false); setUploadProgress(0); alert("Error: " + (data.error || data.message));
       }
     } catch (_err: unknown) {
-      clearInterval(progressInterval); setIsUploadingLote(false); setUploadProgress(0); alert("Error de conexión al cargar lote.");
+      clearInterval(progressInterval); setIsUploadingLote(false); setUploadProgress(0); alert("Error de conexiÃ³n al cargar lote.");
     }
   };
 
-  // 💡 LÓGICA DE FILTRADO Y PAGINACIÓN
+  // ðŸ’¡ LÃ“GICA DE FILTRADO Y PAGINACIÃ“N
   const filteredProveedores = proveedores.filter((p: Proveedor) =>
     p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.identificador.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -390,7 +390,7 @@ const Proveedores: React.FC<ProveedoresProps> = () => {
 
   const totalPages = Math.ceil(filteredProveedores.length / itemsPerPage);
 
-  // Extraemos solo los proveedores que corresponden a la página actual
+  // Extraemos solo los proveedores que corresponden a la pÃ¡gina actual
   const currentProveedores = filteredProveedores.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -402,16 +402,16 @@ const Proveedores: React.FC<ProveedoresProps> = () => {
     <div className="space-y-6 relative" onClick={() => setOpenDropdownId(null)}>
       {/* ENCABEZADO */}
       <div className="flex flex-col xl:flex-row justify-between items-center bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 gap-4">
-        <h3 className="text-xl font-bold text-gray-800 dark:text-white whitespace-nowrap">🏢 Directorio Proveedores</h3>
+        <h3 className="text-xl font-bold text-gray-800 dark:text-white whitespace-nowrap">ðŸ¢ Directorio Proveedores</h3>
 
         <div className="flex-1 w-full relative">
-          <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">🔍</span>
+          <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">ðŸ”</span>
           <input type="text" placeholder="Buscar por nombre, RIF, correo o rubro..." value={searchTerm} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)} className="w-full pl-10 p-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white transition-all"/>
         </div>
 
         <div className="flex gap-3 w-full xl:w-auto">
           <button onClick={() => setLoteModalOpen(true)} className="flex-1 xl:flex-none bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 dark:border-blue-800/50 dark:text-blue-400 font-bold py-2.5 px-5 rounded-xl transition-all shadow-sm text-sm flex items-center justify-center gap-2">
-            📦 Carga Masiva
+            ðŸ“¦ Carga Masiva
           </button>
           <button onClick={handleCreateNew} className="flex-1 xl:flex-none bg-donezo-primary hover:bg-blue-700 text-white font-bold py-2.5 px-5 rounded-xl transition-all shadow-md text-sm whitespace-nowrap">
             + Nuevo Proveedor
@@ -428,12 +428,12 @@ const Proveedores: React.FC<ProveedoresProps> = () => {
                   <tr className="border-b border-gray-200 dark:border-gray-800 text-gray-500 dark:text-gray-400 text-sm">
                     <th className="py-4 pr-3 pl-6">RIF / Identificador</th>
                     <th className="py-4 px-3">Nombre y Rubro</th>
-                    <th className="py-4 px-3">Teléfonos</th>
+                    <th className="py-4 px-3">TelÃ©fonos</th>
                     <th className="py-4 pl-3 pr-6 text-center">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {/* 💡 MAPEO SOBRE LOS PROVEEDORES DE LA PÁGINA ACTUAL */}
+                  {/* ðŸ’¡ MAPEO SOBRE LOS PROVEEDORES DE LA PÃGINA ACTUAL */}
                   {currentProveedores.map((p: Proveedor) => (
                     <tr key={p.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                       <td className="py-3 pr-3 pl-6 font-mono font-medium text-gray-600 dark:text-gray-400">{p.identificador}</td>
@@ -448,14 +448,14 @@ const Proveedores: React.FC<ProveedoresProps> = () => {
 
                       <td className="py-3 pl-3 pr-6 text-center relative">
                         <button onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); setOpenDropdownId(openDropdownId === p.id ? null : p.id); }} className="bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 px-4 py-2 rounded-xl text-xs font-bold transition-colors inline-flex items-center gap-2">
-                          Opciones <span className="text-[9px]">▼</span>
+                          Opciones <span className="text-[9px]">â–¼</span>
                         </button>
 
                         {openDropdownId === p.id && (
                           <div className="absolute right-0 top-12 w-48 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden text-left animate-fadeIn">
-                            <button onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); handleViewDetails(p); }} className="w-full text-left px-4 py-3 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-sm text-blue-600 dark:text-blue-400 font-bold transition-colors border-b border-gray-50 dark:border-gray-700">👁️ Ver Detalles</button>
-                            <button onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); handleEdit(p); }} className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 border-b border-gray-50 dark:border-gray-700 transition-colors">✏️ Editar Datos</button>
-                            <button onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); void handleDelete(p.id, p.nombre); }} className="w-full text-left px-4 py-3 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm text-red-600 dark:text-red-400 font-bold transition-colors">🗑️ Eliminar</button>
+                            <button onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); handleViewDetails(p); }} className="w-full text-left px-4 py-3 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-sm text-blue-600 dark:text-blue-400 font-bold transition-colors border-b border-gray-50 dark:border-gray-700">ðŸ‘ï¸ Ver Detalles</button>
+                            <button onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); handleEdit(p); }} className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 border-b border-gray-50 dark:border-gray-700 transition-colors">âœï¸ Editar Datos</button>
+                            <button onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); void handleDelete(p.id, p.nombre); }} className="w-full text-left px-4 py-3 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm text-red-600 dark:text-red-400 font-bold transition-colors">ðŸ—‘ï¸ Eliminar</button>
                           </div>
                         )}
                       </td>
@@ -465,15 +465,15 @@ const Proveedores: React.FC<ProveedoresProps> = () => {
               </table>
             </div>
 
-            {/* 💡 CONTROLES DE PAGINACIÓN */}
+            {/* ðŸ’¡ CONTROLES DE PAGINACIÃ“N */}
             {totalPages > 1 && (
               <div className="flex justify-between items-center px-6 py-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-800 rounded-b-2xl">
                 <button onClick={() => setCurrentPage((p: number) => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-5 py-2 rounded-xl text-sm font-bold bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 transition-all shadow-sm">
-                  ← Anterior
+                  â† Anterior
                 </button>
-                <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Página {currentPage} de {totalPages}</span>
+                <span className="text-sm font-bold text-gray-500 dark:text-gray-400">PÃ¡gina {currentPage} de {totalPages}</span>
                 <button onClick={() => setCurrentPage((p: number) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-5 py-2 rounded-xl text-sm font-bold bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 transition-all shadow-sm">
-                  Siguiente →
+                  Siguiente â†’
                 </button>
               </div>
             )}

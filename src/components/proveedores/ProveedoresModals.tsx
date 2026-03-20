@@ -64,14 +64,14 @@ const ESTADOS_VENEZUELA: string[] = [
 
 const CATEGORIAS_RUBROS: Record<string, string[]> = {
   'Administracion y gestion': ['Administracion de condominios', 'Contabilidad para condominios', 'Asesoria legal para condominios'],
-  'Mantenimiento general': ['Mantenimiento de edificios', 'Mantenimiento preventivo', 'Mantenimiento correctivo'],
-  'Aseo y limpieza': ['Limpieza de edificios', 'Limpieza de estacionamientos', 'Desinfeccion y sanitizacion'],
+  'Mantenimiento general': ['Mantenimiento de inmuebles', 'Mantenimiento preventivo', 'Mantenimiento correctivo'],
+  'Aseo y limpieza': ['Limpieza de areas comunes', 'Limpieza de estacionamientos', 'Desinfeccion y sanitizacion'],
   'Jardineria y areas verdes': ['Jardineria', 'Mantenimiento de areas verdes', 'Poda de arboles'],
   'Seguridad': ['Seguridad privada', 'Monitoreo de camaras', 'Control de acceso'],
   'Mantenimiento tecnico': ['Electricistas', 'Plomeria', 'Mantenimiento de ascensores', 'Aire acondicionado'],
-  'Infraestructura y construccion': ['Impermeabilizacion', 'Reparacion de fachadas', 'Pintura de edificios'],
+  'Infraestructura y construccion': ['Impermeabilizacion', 'Reparacion de fachadas', 'Pintura de inmuebles'],
   'Control de plagas': ['Fumigacion', 'Control de roedores', 'Control de termitas'],
-  'Otros': ['Ferreteria', 'Recoleccion de basura', 'Mantenimiento de portones electricos']
+  'Otros': ['Ferreteria', 'Recoleccion de desechos', 'Mantenimiento de portones electricos']
 };
 
 export const ModalProveedorForm: React.FC<ModalProveedorFormProps> = ({
@@ -120,7 +120,7 @@ export const ModalProveedorForm: React.FC<ModalProveedorFormProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Correo Electronico <span className="text-red-500">*</span></label>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Correo Electronico</label>
             <input
               type="email"
               name="email"
@@ -128,7 +128,6 @@ export const ModalProveedorForm: React.FC<ModalProveedorFormProps> = ({
               onChange={handleProvChange}
               placeholder="ejemplo@correo.com"
               className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-green dark:text-white"
-              required
             />
           </div>
 
