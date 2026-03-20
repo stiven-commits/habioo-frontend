@@ -98,7 +98,7 @@ export const ModalProveedorForm: React.FC<ModalProveedorFormProps> = ({
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Los campos marcados con (<span className="text-red-500 font-bold">*</span>) son obligatorios.</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-5" noValidate>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Identificador / RIF <span className="text-red-500">*</span></label>
@@ -123,7 +123,8 @@ export const ModalProveedorForm: React.FC<ModalProveedorFormProps> = ({
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Correo Electronico</label>
             <input
-              type="email"
+              type="text"
+              inputMode="email"
               name="email"
               value={formProv.email || ''}
               onChange={handleProvChange}
