@@ -159,6 +159,7 @@ const Bancos: FC<BancosProps> = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedBancoForFondos, setSelectedBancoForFondos] = useState<Banco | null>(null);
   const [fondoAEliminar, setFondoAEliminar] = useState<Fondo | null>(null);
+  const [fondosRefreshKey, setFondosRefreshKey] = useState<number>(0);
   const [showCuentaModal, setShowCuentaModal] = useState<boolean>(false);
   const [editingBanco, setEditingBanco] = useState<Banco | null>(null);
 
@@ -730,6 +731,7 @@ const Bancos: FC<BancosProps> = () => {
       {selectedBancoForFondos && (
         <ModalFondos
           cuenta={selectedBancoForFondos}
+          refreshKey={fondosRefreshKey}
           onDeleteFondo={handleDeleteFondo}
           onClose={() => {
             setSelectedBancoForFondos(null);
@@ -744,7 +746,12 @@ const Bancos: FC<BancosProps> = () => {
           fondosDisponibles={fondos}
           onClose={() => setFondoAEliminar(null)}
           onSuccess={() => {
+            const fondoEliminadoId = fondoAEliminar?.id;
             setFondoAEliminar(null);
+            if (fondoEliminadoId !== undefined && fondoEliminadoId !== null) {
+              setFondos((prev: Fondo[]) => prev.filter((f: Fondo) => String(f.id) !== String(fondoEliminadoId)));
+            }
+            setFondosRefreshKey((prev: number) => prev + 1);
             fetchData();
           }}
         />

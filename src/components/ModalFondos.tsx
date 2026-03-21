@@ -8,6 +8,7 @@ interface ModalFondosProps {
   cuenta: CuentaBancaria;
   onClose: () => void;
   onDeleteFondo?: (fondo: Fondo) => void;
+  refreshKey?: number;
 }
 
 interface CuentaBancaria {
@@ -105,7 +106,7 @@ const resolveTipoMoneda = (tipo: string): { moneda: 'BS' | 'USD' | null; blocked
   return { moneda: null, blocked: false };
 };
 
-const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo }) => {
+const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo, refreshKey = 0 }) => {
   const { showAlert, showConfirm } = useDialog() as DialogContextType;
 
   const [fondos, setFondos] = useState<Fondo[]>([]);
@@ -134,7 +135,7 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo }) =
 
   useEffect(() => {
     fetchFondos();
-  }, [cuenta.id]);
+  }, [cuenta.id, refreshKey]);
 
   useEffect(() => {
     const forcedMoneda = cuentaMonedaRule.moneda;
