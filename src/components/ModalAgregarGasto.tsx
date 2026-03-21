@@ -67,14 +67,12 @@ const dateToYmd = (date: Date | null): string => {
 };
 
 const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({ onClose, onSuccess, proveedores, zonas, propiedades }) => {
-  const todayString = new Date().toISOString().split('T')[0] ?? '';
-
   const [form, setForm] = useState<FormState>({
     proveedor_id: '', concepto: '', monto_bs: '', tasa_cambio: '', total_cuotas: '1', nota: '',
     clasificacion: 'Variable',
     asignacion_tipo: 'Comun',
     zona_id: '', propiedad_id: '',
-    fecha_gasto: todayString
+    fecha_gasto: ''
   });
 
   const [facturaFile, setFacturaFile] = useState<File | null>(null);
@@ -203,21 +201,20 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({ onClose, onSuccess, pro
               <input type="text" name="concepto" value={form.concepto} onChange={handleChange} placeholder="Ej: Reparación de tubería..." required className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha Factura <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha Factura</label>
               <DatePicker
                 selected={ymdToDate(form.fecha_gasto)}
                 onChange={(date: Date | null) => setForm((prev: FormState) => ({ ...prev, fecha_gasto: dateToYmd(date) }))}
-                maxDate={ymdToDate(todayString) || undefined}
+                maxDate={new Date()}
                 dateFormat="dd/MM/yyyy"
                 locale={es}
-                placeholderText="Fecha (dd/mm/yyyy)"
+                placeholderText="Opcional (dd/mm/yyyy)"
                 showIcon
                 toggleCalendarOnIconClick
                 wrapperClassName="w-full min-w-0"
                 popperClassName="habioo-datepicker-popper"
                 calendarClassName="habioo-datepicker-calendar"
                 className="h-[50px] w-full rounded-xl border border-gray-200 bg-gray-50 p-3 pr-10 outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                required
               />
             </div>
           </div>
