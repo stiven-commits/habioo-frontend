@@ -96,6 +96,19 @@ const CATEGORIAS_RUBROS: Record<string, string[]> = {
     'Impermeabilizacion de tanques',
     'Tratamiento y filtracion de agua'
   ],
+  'Agroindustria y derivados': [
+    'Agroindustria y derivados',
+    'Suministro agroindustrial',
+    'Productos biologicos y derivados',
+    'Fertilizantes y acondicionadores de suelo'
+  ],
+  'Electronica e iluminacion': [
+    'Electronica residencial y comercial',
+    'Iluminacion de interiores',
+    'Iluminacion de exteriores',
+    'Sistemas de iluminacion LED',
+    'Automatizacion de iluminacion'
+  ],
   'Mantenimiento tecnico': ['Electricistas', 'Mantenimiento de ascensores', 'Aire acondicionado'],
   'Infraestructura y construccion': ['Impermeabilizacion', 'Reparacion de fachadas', 'Pintura de inmuebles'],
   'Control de plagas': ['Fumigacion', 'Control de roedores', 'Control de termitas'],
