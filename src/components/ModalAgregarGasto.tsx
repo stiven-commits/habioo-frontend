@@ -35,6 +35,7 @@ type ClasificacionGasto = 'Fijo' | 'Variable';
 interface FormState {
   proveedor_id: string;
   concepto: string;
+  numero_documento: string;
   monto_bs: string;
   tasa_cambio: string;
   total_cuotas: string;
@@ -68,7 +69,7 @@ const dateToYmd = (date: Date | null): string => {
 
 const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({ onClose, onSuccess, proveedores, zonas, propiedades }) => {
   const [form, setForm] = useState<FormState>({
-    proveedor_id: '', concepto: '', monto_bs: '', tasa_cambio: '', total_cuotas: '1', nota: '',
+    proveedor_id: '', concepto: '', numero_documento: '', monto_bs: '', tasa_cambio: '', total_cuotas: '1', nota: '',
     clasificacion: 'Variable',
     asignacion_tipo: 'Comun',
     zona_id: '', propiedad_id: '',
@@ -201,7 +202,7 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({ onClose, onSuccess, pro
               <input type="text" name="concepto" value={form.concepto} onChange={handleChange} placeholder="Ej: Reparación de tubería..." required className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha Factura</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha factura / recibo</label>
               <DatePicker
                 selected={ymdToDate(form.fecha_gasto)}
                 onChange={(date: Date | null) => setForm((prev: FormState) => ({ ...prev, fecha_gasto: dateToYmd(date) }))}
@@ -219,17 +220,30 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({ onClose, onSuccess, pro
             </div>
           </div>
 
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Etiqueta</label>
-            <select
-              name="clasificacion"
-              value={form.clasificacion}
-              onChange={handleChange}
-              className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
-            >
-              <option value="Fijo">Gasto fijo</option>
-              <option value="Variable">Gasto variable</option>
-            </select>
+          <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Etiqueta</label>
+              <select
+                name="clasificacion"
+                value={form.clasificacion}
+                onChange={handleChange}
+                className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
+              >
+                <option value="Fijo">Gasto fijo</option>
+                <option value="Variable">Gasto variable</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">N.º recibo / factura</label>
+              <input
+                type="text"
+                name="numero_documento"
+                value={form.numero_documento}
+                onChange={handleChange}
+                placeholder="Opcional"
+                className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
+              />
+            </div>
           </div>
           <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
