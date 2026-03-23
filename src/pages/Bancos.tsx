@@ -122,6 +122,19 @@ const formatNumeroCuenta = (value: string): string => {
   return digits.match(/.{1,4}/g)?.join('-') || digits;
 };
 
+const preserveBancosOrder = (next: Banco[], prev: Banco[]): Banco[] => {
+  if (prev.length === 0) return next;
+  const prevIndexById = new Map<number, number>(prev.map((item, index) => [item.id, index]));
+  return [...next].sort((a: Banco, b: Banco) => {
+    const ai = prevIndexById.get(a.id);
+    const bi = prevIndexById.get(b.id);
+    if (ai === undefined && bi === undefined) return 0;
+    if (ai === undefined) return 1;
+    if (bi === undefined) return -1;
+    return ai - bi;
+  });
+};
+
 const resolveTipoMoneda = (tipo: string): { moneda: 'BS' | 'USD' | null; blocked: boolean } => {
   const t = normalizeTipo(tipo);
   const isInternational = t.includes('zelle')
@@ -203,7 +216,9 @@ const Bancos: FC<BancosProps> = () => {
       const dataBancos: BancosResponse = await resBancos.json();
       const dataFondos: FondosResponse = await resFondos.json();
 
-      if (dataBancos.status === 'success') setBancos(dataBancos.bancos);
+      if (dataBancos.status === 'success') {
+        setBancos((prev: Banco[]) => preserveBancosOrder(dataBancos.bancos, prev));
+      }
       if (dataFondos.status === 'success') setFondos(dataFondos.fondos);
     } catch (error) {
       console.error(error);
