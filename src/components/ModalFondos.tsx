@@ -112,6 +112,9 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo, ref
   const [fondos, setFondos] = useState<Fondo[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [form, setForm] = useState<FormState>(initialForm);
+  const [renamingFondoId, setRenamingFondoId] = useState<number | null>(null);
+  const [renameValue, setRenameValue] = useState<string>('');
+  const [isSavingRename, setIsSavingRename] = useState<boolean>(false);
   const cuentaMonedaRule = resolveTipoMoneda(`${cuenta.tipo || ''} ${cuenta.nombre_banco || ''}`);
 
   const fetchFondos = async (): Promise<void> => {
@@ -229,6 +232,59 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo, ref
     }
   };
 
+  const handleStartRename = (fondo: Fondo): void => {
+    setRenamingFondoId(fondo.id);
+    setRenameValue(fondo.nombre);
+  };
+
+  const handleCancelRename = (): void => {
+    if (isSavingRename) return;
+    setRenamingFondoId(null);
+    setRenameValue('');
+  };
+
+  const handleSaveRename = async (fondoId: number): Promise<void> => {
+    const nombre = renameValue.trim();
+    if (!nombre) {
+      await showAlert({ title: 'Nombre requerido', message: 'Debe indicar un nombre para el fondo.', variant: 'warning' });
+      return;
+    }
+
+    const current = fondos.find((f) => f.id === fondoId);
+    if (current && current.nombre.trim() === nombre) {
+      setRenamingFondoId(null);
+      setRenameValue('');
+      return;
+    }
+
+    const token = localStorage.getItem('habioo_token');
+    setIsSavingRename(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/fondos/${fondoId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ nombre }),
+      });
+      const data: ApiActionResponse = await res.json();
+
+      if (!res.ok || data.status !== 'success') {
+        await showAlert({ title: 'Error', message: data.message || 'No se pudo renombrar el fondo.', variant: 'danger' });
+        return;
+      }
+
+      setFondos((prev: Fondo[]) => prev.map((f) => (f.id === fondoId ? { ...f, nombre } : f)));
+      setRenamingFondoId(null);
+      setRenameValue('');
+    } catch {
+      await showAlert({ title: 'Error de conexion', message: 'No se pudo renombrar el fondo.', variant: 'danger' });
+    } finally {
+      setIsSavingRename(false);
+    }
+  };
+
   const handleToggleVisiblePropietarios = async (fondo: Fondo, checked: boolean): Promise<void> => {
     const token = localStorage.getItem('habioo_token');
     try {
@@ -342,10 +398,41 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo, ref
                 <div key={f.id} className={`p-4 rounded-xl border flex flex-col gap-3 shadow-sm transition-all ${f.es_operativo ? 'border-donezo-primary bg-blue-50/50 dark:bg-blue-900/10' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'}`}>
                   <div className="flex justify-between items-start">
                     <div>
-                      <p className="font-bold text-sm text-gray-800 dark:text-white flex items-center gap-1.5">
-                        {f.nombre}
-                        {f.es_operativo && <span className="bg-donezo-primary text-white text-[9px] px-1.5 py-0.5 rounded uppercase font-black">Principal</span>}
-                      </p>
+                      {renamingFondoId === f.id ? (
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={renameValue}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) => setRenameValue(e.target.value)}
+                            className="w-full p-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-bold text-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-donezo-primary"
+                            placeholder="Nuevo nombre del fondo"
+                            maxLength={80}
+                          />
+                          <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
+                            <button
+                              type="button"
+                              onClick={() => { void handleSaveRename(f.id); }}
+                              disabled={isSavingRename}
+                              className="px-3 py-1.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors disabled:opacity-60"
+                            >
+                              {isSavingRename ? 'Guardando...' : 'Guardar'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleCancelRename}
+                              disabled={isSavingRename}
+                              className="px-3 py-1.5 text-[11px] font-bold text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-60"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="font-bold text-sm text-gray-800 dark:text-white flex items-center gap-1.5">
+                          {f.nombre}
+                          {f.es_operativo && <span className="bg-donezo-primary text-white text-[9px] px-1.5 py-0.5 rounded uppercase font-black">Principal</span>}
+                        </p>
+                      )}
                       <p className="text-xs text-gray-500 mt-0.5">Entrada: <strong className="text-gray-700 dark:text-gray-300">{f.es_operativo ? 'Remanente Automatico' : `${f.porcentaje_asignacion}%`}</strong></p>
                     </div>
                     <div className="text-right">
@@ -367,12 +454,24 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo, ref
                         />
                         Fondo Principal
                       </label>
-                      <button
-                        onClick={() => (onDeleteFondo ? onDeleteFondo(f) : handleDeleteFondoLocal(f.id))}
-                        className="text-[10px] uppercase font-bold text-red-600 hover:text-red-700 flex items-center gap-1 transition-colors"
-                      >
-                        Eliminar
-                      </button>
+                      <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => handleStartRename(f)}
+                          disabled={isSavingRename}
+                          className="px-2.5 py-1.5 text-[10px] uppercase font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors disabled:opacity-60"
+                        >
+                          Renombrar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => (onDeleteFondo ? onDeleteFondo(f) : handleDeleteFondoLocal(f.id))}
+                          disabled={isSavingRename}
+                          className="px-2.5 py-1.5 text-[10px] uppercase font-bold text-red-600 hover:text-red-700 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors disabled:opacity-60"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
                     </div>
                     <label 
                       className="inline-flex items-center gap-2 text-[11px] font-semibold text-gray-600 dark:text-gray-300 cursor-pointer"
