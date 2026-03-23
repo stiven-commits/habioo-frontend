@@ -50,6 +50,7 @@ interface IMovimiento extends IMovimientoDetalle {
   fondo_origen_id?: number | null;
   fondo_destino_id?: number | null;
   fondo_nombre?: string;
+  pago_id?: number | null;
 }
 
 interface BancosResponse {
@@ -188,6 +189,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [tasaBcv, setTasaBcv] = useState<string>('');
   const [loadingBcv, setLoadingBcv] = useState<boolean>(false);
+  const [rollbackingPagoId, setRollbackingPagoId] = useState<string>('');
   const itemsPerPage = 13;
 
   const fetchCuentas = async (): Promise<void> => {
@@ -329,6 +331,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
           fondo_nombre: (safeMov as { fondo_nombre?: unknown }).fondo_nombre
             ? String((safeMov as { fondo_nombre?: unknown }).fondo_nombre)
             : '',
+          pago_id: toNullableInt((safeMov as { pago_id?: unknown }).pago_id),
           ...(safeMov.saldo_acumulado !== undefined ? { saldo_acumulado: safeMov.saldo_acumulado } : {})
         };
       });
@@ -486,18 +489,24 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     const ingresosPorPago = new Map<string, IMovimiento[]>();
 
     movimientosFiltrados.forEach((mov) => {
-      const pagoMatch = String(mov.concepto || '').match(/Pago de Recibo #(\d+)/i);
-      if (mov.tipo === 'INGRESO' && pagoMatch && pagoMatch[1]) {
-        const pagoId = pagoMatch[1];
-        const grupo = ingresosPorPago.get(pagoId) || [];
+      const pagoId = mov.pago_id ? String(mov.pago_id) : '';
+      const concepto = String(mov.concepto || '');
+      const esDistribucionPorFondo = /-\s*Fondo:\s*/i.test(concepto);
+      const pagoMatchLegacy = concepto.match(/Pago de Recibo #(\d+)/i);
+      const pagoMatchRef = concepto.match(/Pago Ref:\s*([^\s|]+)/i);
+      const pagoClave = pagoId || (pagoMatchLegacy?.[1] || '') || (pagoMatchRef?.[1] || '');
+
+      if (mov.tipo === 'INGRESO' && esDistribucionPorFondo && pagoClave) {
+        const groupKey = `pago-${pagoClave}`;
+        const grupo = ingresosPorPago.get(groupKey) || [];
         grupo.push(mov);
-        ingresosPorPago.set(pagoId, grupo);
+        ingresosPorPago.set(groupKey, grupo);
         return;
       }
       movimientosDirectos.push(mov);
     });
 
-    const ingresosConsolidados: IMovimiento[] = Array.from(ingresosPorPago.entries()).map(([pagoId, grupo]) => {
+    const ingresosConsolidados: IMovimiento[] = Array.from(ingresosPorPago.entries()).map(([groupKey, grupo]) => {
       const base = grupo[0];
       const conceptoLimpio = String(base?.concepto || '').replace(/\s*-\s*Fondo:\s*.+$/i, '').trim();
       const montoUsdTotal = grupo.reduce((acc, item) => acc + toNumber(item.monto_usd), 0);
@@ -507,12 +516,14 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
         .find((valor) => valor > 0) || 0;
       const referencias = Array.from(new Set(grupo.map((item) => String(item.referencia || '').trim()).filter(Boolean)));
       const tasa = toNumber(base?.tasa_cambio);
+      const pagoId = base?.pago_id ?? null;
+      const fallbackKey = groupKey.replace(/^pago-/, '');
 
       return {
-        id: `ING-CONS-${pagoId}`,
+        id: `ING-CONS-${fallbackKey}`,
         fecha: String(base?.fecha ?? ''),
         referencia: referencias[0] || (base?.referencia || ''),
-        concepto: conceptoLimpio || `Pago de Recibo #${pagoId}`,
+        concepto: conceptoLimpio || `Pago Ref: ${fallbackKey}`,
         tipo: 'INGRESO',
         monto_usd: Number(montoUsdTotal.toFixed(2)),
         monto_bs: Number((montoBsOriginal > 0 ? montoBsOriginal : montoBsTotal).toFixed(2)),
@@ -523,7 +534,8 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
         fondo_id: null,
         fondo_origen_id: null,
         fondo_destino_id: null,
-        fondo_nombre: ''
+        fondo_nombre: '',
+        pago_id: pagoId
       };
     });
 
@@ -638,6 +650,49 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       return `${movimiento.concepto} | ${extras.join(' | ')}`;
     }
     return movimiento.concepto;
+  };
+
+  const extractPagoIdForRollback = (movimiento: IMovimiento): string | null => {
+    if (movimiento.tipo !== 'INGRESO') return null;
+    if (movimiento.pago_id && Number.isFinite(movimiento.pago_id)) return String(movimiento.pago_id);
+    const rawId = String(movimiento.id || '');
+    const consolidatedMatch = rawId.match(/^ING-CONS-(\d+)$/i);
+    if (consolidatedMatch?.[1]) return consolidatedMatch[1];
+    const directMatch = rawId.match(/^ING-(\d+)$/i);
+    if (directMatch?.[1]) return directMatch[1];
+    return null;
+  };
+
+  const handleRollbackPago = async (movimiento: IMovimiento): Promise<void> => {
+    if (mode !== 'admin') return;
+    const pagoId = extractPagoIdForRollback(movimiento);
+    if (!pagoId) {
+      alert('Este movimiento no corresponde a un pago reversible.');
+      return;
+    }
+
+    const ok = window.confirm('¿Deseas revertir este pago? Solo está permitido durante 48 horas y para pagos que no hayan impactado avisos/recibos.');
+    if (!ok) return;
+
+    const token = localStorage.getItem('habioo_token');
+    setRollbackingPagoId(pagoId);
+    try {
+      const res = await fetch(`${API_BASE_URL}/pagos/${pagoId}/rollback`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok || data?.status !== 'success') {
+        alert(data?.message || data?.error || 'No se pudo revertir el pago.');
+        return;
+      }
+      await Promise.all([fetchMovimientos(selectedCuenta), fetchFondos()]);
+      alert(data?.message || 'Pago revertido correctamente.');
+    } catch {
+      alert('No se pudo revertir el pago por un error de conexión.');
+    } finally {
+      setRollbackingPagoId('');
+    }
   };
 
   if (mode === 'admin' && userRole !== 'Administrador') return <p className="p-6">No tienes permisos.</p>;
@@ -1042,12 +1097,14 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                   <th className="p-4 font-bold text-right">Cargo ($)</th>
                   <th className="p-4 font-bold text-right">Abono ($)</th>
                   {!isCuentaUsd && <th className="p-4 font-bold text-right">Tasa (Bs.)</th>}
+                  {mode === 'admin' && <th className="p-4 font-bold text-center">Acciones</th>}
                 </tr>
               </thead>
               <tbody>
                 {movimientosPagina.map((movimiento) => {
                   const montoBsVista = getMontoBsVista(movimiento);
                   const mostrarBsEnUsd = isCuentaUsd && montoBsVista > 0;
+                  const pagoIdRollback = extractPagoIdForRollback(movimiento);
                   return (
                     <tr
                       key={String(movimiento.id)}
@@ -1079,6 +1136,26 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                       {!isCuentaUsd && (
                         <td className="p-4 text-right font-mono text-xs text-blue-600 dark:text-blue-400">
                           {movimiento.tasa_cambio ? formatCurrency(movimiento.tasa_cambio) : '-'}
+                        </td>
+                      )}
+                      {mode === 'admin' && (
+                        <td className="p-4 text-center">
+                          {pagoIdRollback ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleRollbackPago(movimiento);
+                              }}
+                              disabled={rollbackingPagoId === pagoIdRollback}
+                              className="px-2.5 py-1 rounded-lg text-[11px] font-bold border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                              title="Disponible por 48h después de registrar el pago (sujeto a validaciones contables)."
+                            >
+                              {rollbackingPagoId === pagoIdRollback ? 'Revirtiendo...' : 'Revertir (48h)'}
+                            </button>
+                          ) : (
+                            <span className="text-gray-300">-</span>
+                          )}
                         </td>
                       )}
                     </tr>

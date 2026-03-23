@@ -109,6 +109,11 @@ const dateToYmd = (date: Date | null): string => {
   return `${year}-${month}-${day}`;
 };
 
+const toSingleDate = (value: Date | Date[] | null): Date | null => {
+  if (!value) return null;
+  return Array.isArray(value) ? (value[0] ?? null) : value;
+};
+
 const initialFormPago = (): FormPagoState => ({
   cuenta_id: '',
   metodo_pago: 'Transferencia',
@@ -534,8 +539,11 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Fecha Pago</label>
                   <DatePicker
                     selected={ymdToDate(formPago.fecha_pago)}
-                    onChange={(date: Date | null) => setFormPago((prev: FormPagoState) => ({ ...prev, fecha_pago: dateToYmd(date) }))}
-                    maxDate={ymdToDate(getLocalYmd()) || undefined}
+                    onChange={(date: Date | Date[] | null) => {
+                      const nextDate = toSingleDate(date);
+                      setFormPago((prev: FormPagoState) => ({ ...prev, fecha_pago: dateToYmd(nextDate) }));
+                    }}
+                    {...(ymdToDate(getLocalYmd()) ? { maxDate: ymdToDate(getLocalYmd()) as Date } : {})}
                     dateFormat="dd/MM/yyyy"
                     locale={es}
                     placeholderText="Fecha (dd/mm/yyyy)"
