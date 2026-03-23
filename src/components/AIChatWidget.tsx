@@ -17,9 +17,15 @@ interface ChatAskApiResponse {
 }
 
 const CHAT_STORAGE_KEY = 'habioo_chat_history';
+const MAX_CHAT_MESSAGES = 13;
 const WELCOME_MESSAGE: ChatMessage = {
   role: 'ai',
   text: '¡Hola! Soy el asistente de Habioo. ¿En qué te puedo ayudar hoy?',
+};
+
+const clampMessages = (items: ChatMessage[]): ChatMessage[] => {
+  if (items.length <= MAX_CHAT_MESSAGES) return items;
+  return items.slice(items.length - MAX_CHAT_MESSAGES);
 };
 
 const isChatMessage = (value: unknown): value is ChatMessage => {
@@ -37,7 +43,7 @@ const AIChatWidget: FC = () => {
       const parsed = JSON.parse(raw) as unknown;
       if (!Array.isArray(parsed)) return [WELCOME_MESSAGE];
       const valid = parsed.filter(isChatMessage);
-      return valid.length > 0 ? valid : [WELCOME_MESSAGE];
+      return valid.length > 0 ? clampMessages(valid) : [WELCOME_MESSAGE];
     } catch {
       return [WELCOME_MESSAGE];
     }
@@ -47,8 +53,12 @@ const AIChatWidget: FC = () => {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [messages, isLoading]);
+    if (!isOpen) return;
+    const frame = window.requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [messages, isLoading, isOpen]);
 
   useEffect(() => {
     localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages));
@@ -67,7 +77,7 @@ const AIChatWidget: FC = () => {
 
     const token = localStorage.getItem('habioo_token');
 
-    setMessages((prev) => [...prev, { role: 'user', text: textoDelUsuario }]);
+    setMessages((prev) => clampMessages([...prev, { role: 'user', text: textoDelUsuario }]));
     setInput('');
     setIsLoading(true);
 
@@ -84,10 +94,12 @@ const AIChatWidget: FC = () => {
       const data = (await res.json()) as ChatAskApiResponse;
 
       if (!res.ok || data.status !== 'success') {
-        setMessages((prev) => [
-          ...prev,
-          { role: 'ai', text: String(data.message || 'No pude procesar tu solicitud en este momento.') },
-        ]);
+        setMessages((prev) =>
+          clampMessages([
+            ...prev,
+            { role: 'ai', text: String(data.message || 'No pude procesar tu solicitud en este momento.') },
+          ]),
+        );
         return;
       }
 
@@ -98,12 +110,11 @@ const AIChatWidget: FC = () => {
             ? JSON.stringify(data.respuesta)
             : 'Sin respuesta del asistente.';
 
-      setMessages((prev) => [...prev, { role: 'ai', text: respuestaTexto }]);
+      setMessages((prev) => clampMessages([...prev, { role: 'ai', text: respuestaTexto }]));
     } catch {
-      setMessages((prev) => [
-        ...prev,
-        { role: 'ai', text: 'Error de conexión con el asistente. Inténtalo nuevamente.' },
-      ]);
+      setMessages((prev) =>
+        clampMessages([...prev, { role: 'ai', text: 'Error de conexión con el asistente. Inténtalo nuevamente.' }]),
+      );
     } finally {
       setIsLoading(false);
     }
