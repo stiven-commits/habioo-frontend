@@ -91,6 +91,8 @@ const Layout: React.FC<LayoutProps> = () => {
   const notificacionesBootstrappedRef = useRef<boolean>(false);
   const seenPagosPendientesAdminRef = useRef<Set<number>>(new Set<number>());
   const pagosPendientesAdminBootstrappedRef = useRef<boolean>(false);
+  const buttonClickLockRef = useRef<WeakMap<HTMLButtonElement, number>>(new WeakMap<HTMLButtonElement, number>());
+  const formSubmitLockRef = useRef<WeakMap<HTMLFormElement, number>>(new WeakMap<HTMLFormElement, number>());
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -377,10 +379,60 @@ const Layout: React.FC<LayoutProps> = () => {
     return `${propiedadActiva.identificador} | ${propiedadActiva.nombre_condominio}`;
   }, [propiedadActiva]);
 
+  const isSensitiveActionLabel = (label: string): boolean =>
+    /\b(guardar|agregar|registrar|aplicar|procesar|confirmar)\b/i.test(label);
+
+  const resolveButtonLabel = (button: HTMLButtonElement): string =>
+    String(button.textContent || button.getAttribute('aria-label') || button.getAttribute('title') || '').trim();
+
+  const handleGlobalButtonClickCapture: React.MouseEventHandler<HTMLDivElement> = (event) => {
+    const target = event.target as HTMLElement | null;
+    const button = target?.closest('button') as HTMLButtonElement | null;
+    if (!button || button.disabled) return;
+    if (button.dataset.noDoubleClick === 'true') return;
+
+    const label = resolveButtonLabel(button);
+    if (!isSensitiveActionLabel(label)) return;
+
+    const now = Date.now();
+    const lastAt = buttonClickLockRef.current.get(button) || 0;
+    if (now - lastAt < 1500) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    buttonClickLockRef.current.set(button, now);
+  };
+
+  const handleGlobalFormSubmitCapture: React.FormEventHandler<HTMLDivElement> = (event) => {
+    const form = event.target as HTMLFormElement;
+    if (!form || form.tagName !== 'FORM') return;
+
+    const nativeEvent = event.nativeEvent as SubmitEvent;
+    const submitter = nativeEvent.submitter as HTMLButtonElement | HTMLInputElement | null;
+    const submitterLabel = String(
+      submitter?.textContent || submitter?.getAttribute?.('value') || submitter?.getAttribute?.('aria-label') || '',
+    ).trim();
+    if (!isSensitiveActionLabel(submitterLabel)) return;
+
+    const now = Date.now();
+    const lastAt = formSubmitLockRef.current.get(form) || 0;
+    if (now - lastAt < 1500) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    formSubmitLockRef.current.set(form, now);
+  };
+
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-[#0f111a] transition-colors duration-300 flex">
+    <div
+      className="min-h-screen bg-gray-50 dark:bg-[#0f111a] transition-colors duration-300 flex"
+      onClickCapture={handleGlobalButtonClickCapture}
+      onSubmitCapture={handleGlobalFormSubmitCapture}
+    >
       <aside className="w-64 bg-white dark:bg-[#161b22] border-r border-gray-100 dark:border-gray-800 hidden md:flex flex-col fixed h-full z-20">
         <div className="p-8">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-donezo-primary to-green-400 bg-clip-text text-transparent">Habioo</h1>
