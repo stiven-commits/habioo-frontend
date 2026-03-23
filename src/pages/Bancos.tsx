@@ -174,6 +174,7 @@ const Bancos: FC<BancosProps> = () => {
   const [fondoAEliminar, setFondoAEliminar] = useState<Fondo | null>(null);
   const [fondosRefreshKey, setFondosRefreshKey] = useState<number>(0);
   const [showCuentaModal, setShowCuentaModal] = useState<boolean>(false);
+  const [isSavingCuenta, setIsSavingCuenta] = useState<boolean>(false);
   const [editingBanco, setEditingBanco] = useState<Banco | null>(null);
 
   const [form, setForm] = useState<FormState>(initialForm);
@@ -271,6 +272,7 @@ const Bancos: FC<BancosProps> = () => {
   };
 
   const closeCuentaModal = (): void => {
+    if (isSavingCuenta) return;
     setShowCuentaModal(false);
     setEditingBanco(null);
     setForm(initialForm);
@@ -332,6 +334,7 @@ const Bancos: FC<BancosProps> = () => {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
+    if (isSavingCuenta) return;
     const token = localStorage.getItem('habioo_token');
     if (['Transferencia', 'Pago Movil'].includes(form.tipo) && !isValidCedulaRif(form.cedula_rif)) {
       await showAlert({ title: 'Dato invalido', message: 'La cédula/RIF debe iniciar con V, E, J o G y contener solo números.', variant: 'warning' });
@@ -357,6 +360,7 @@ const Bancos: FC<BancosProps> = () => {
     }
 
     try {
+      setIsSavingCuenta(true);
       const isEditing = Boolean(editingBanco?.id);
       const endpoint = isEditing ? `${API_BASE_URL}/bancos/${editingBanco?.id}` : `${API_BASE_URL}/bancos`;
       const res = await fetch(endpoint, {
@@ -380,6 +384,8 @@ const Bancos: FC<BancosProps> = () => {
       }
     } catch (error) {
       await showAlert({ title: 'Error de conexion', message: 'No se pudo guardar la cuenta.', variant: 'danger' });
+    } finally {
+      setIsSavingCuenta(false);
     }
   };
 
@@ -606,7 +612,8 @@ const Bancos: FC<BancosProps> = () => {
               <button
                 type="button"
                 onClick={closeCuentaModal}
-                className="text-gray-500 hover:text-red-500 font-bold text-xl"
+                disabled={isSavingCuenta}
+                className="text-gray-500 hover:text-red-500 font-bold text-xl disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 X
               </button>
@@ -730,12 +737,17 @@ const Bancos: FC<BancosProps> = () => {
                 <button
                   type="button"
                   onClick={closeCuentaModal}
+                  disabled={isSavingCuenta}
                   className="px-6 py-3 rounded-xl bg-gray-100 dark:bg-gray-800 font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200 transition-colors"
                 >
                   Cancelar
                 </button>
-                <button type="submit" className="bg-donezo-primary hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-lg">
-                  {editingBanco ? 'Guardar Cambios' : 'Guardar Configuracion'}
+                <button
+                  type="submit"
+                  disabled={isSavingCuenta}
+                  className="bg-donezo-primary hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isSavingCuenta ? 'Guardando...' : editingBanco ? 'Guardar Cambios' : 'Guardar Configuracion'}
                 </button>
               </div>
             </form>
