@@ -1,6 +1,7 @@
 ﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config/api';
+import AIChatWidget from './AIChatWidget';
 
 interface LayoutProps {}
 
@@ -536,6 +537,7 @@ const Layout: React.FC<LayoutProps> = () => {
           ))}
         </div>
       )}
+      <AIChatWidget />
     </div>
   );
 };

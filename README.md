@@ -210,17 +210,6 @@ Archivo de composicion: `habioo-auth/index.ts`
 
 ---
 
-## 7) Migraciones recientes
-
-- `2026-03-16_add_condominios_profile_fields.sql`
-- `2026-03-16_add_condominios_avisos_mensajes.sql`
-- `2026-03-16_add_recibos_snapshot_jsonb.sql`
-- `2026-03-16_add_gastos_clasificacion.sql`
-- `2026-03-16_backfill_recibos_snapshot_gastos_clasificacion.sql`
-- `2026-03-16_fondos_visibilidad_y_cortes_estado_cuenta.sql`
-
----
-
 ## 8) Convenciones de UI/UX implementadas
 
 1. Vistas separadas en Configuracion (Bancos, Zonas, Inmuebles) y Contabilidad (Gastos, Cierres, Avisos, Cobranza).
