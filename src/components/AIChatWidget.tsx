@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FC, type FormEvent } from 'react';
 import { MessageCircle, Send, Trash2, X } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { API_BASE_URL } from '../config/api';
 
 type ChatRole = 'user' | 'ai';
@@ -159,7 +160,9 @@ const AIChatWidget: FC = () => {
                   : 'bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-100 rounded-bl-md'
               }`}
             >
-              {message.text}
+              <div className="prose prose-sm dark:prose-invert break-words whitespace-pre-wrap">
+                <ReactMarkdown>{message.text}</ReactMarkdown>
+              </div>
             </div>
           </div>
         ))}
@@ -202,4 +205,3 @@ const AIChatWidget: FC = () => {
 };
 
 export default AIChatWidget;
-
