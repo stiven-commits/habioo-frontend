@@ -25,6 +25,8 @@ interface PropiedadPreseleccionada {
 
 interface BancoCuenta {
   id: number;
+  nombre?: string;
+  moneda?: string;
   nombre_banco?: string;
   apodo?: string;
   tipo?: string;
@@ -142,6 +144,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
   const isLoading: boolean = loadingCuentas;
 
   const [formPago, setFormPago] = useState<FormPagoState>(initialFormPago());
+  const [montoUsdDirecto, setMontoUsdDirecto] = useState<string>('');
   const isOpen = Boolean(propiedadPreseleccionada);
 
   useEffect(() => {
@@ -252,7 +255,8 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
 
     const banco = cuentasConFondos.find((b: BancoCuenta) => b.id.toString() === updatedForm.cuenta_id);
     const monto = parseInputNumber(updatedForm.monto_origen);
-    const isForeign = !!banco && ['Zelle', 'Efectivo'].includes(String(banco.tipo || ''));
+    const tipoCuenta = String(banco?.tipo || '').toUpperCase();
+    const isForeign = !!banco && (tipoCuenta.includes('ZELLE') || tipoCuenta.includes('EFECTIVO'));
     const tasaRaw = parseInputNumber(updatedForm.tasa_cambio);
 
     if (isForeign) return monto.toFixed(2);
@@ -318,6 +322,23 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
 
   const selectedBank = cuentasConFondos.find((b: BancoCuenta) => b.id.toString() === formPago.cuenta_id);
   const metodosCuentaSeleccionada = getMetodosCuenta(selectedBank);
+  const cuentaBancariaId = formPago.cuenta_id;
+  const cuentaSeleccionada =
+    cuentasConFondos.find((c: BancoCuenta) => c.id.toString() === cuentaBancariaId) ??
+    cuentasBancarias.find((c: BancoCuenta) => c.id.toString() === cuentaBancariaId);
+  const nombreCuentaSeleccionada = String(
+    cuentaSeleccionada?.nombre ||
+    cuentaSeleccionada?.apodo ||
+    cuentaSeleccionada?.nombre_banco ||
+    ''
+  ).toUpperCase();
+  const tipoCuentaSeleccionada = String(cuentaSeleccionada?.tipo || '').toUpperCase();
+  const esMetodoUsd = formPago.metodo_pago === 'Zelle' || (formPago.metodo_pago === 'Efectivo' && !tipoCuentaSeleccionada.includes('BS'));
+  const esCuentaUsd =
+    cuentaSeleccionada?.moneda === 'USD' ||
+    nombreCuentaSeleccionada.includes('USD') ||
+    tipoCuentaSeleccionada.includes('USD') ||
+    esMetodoUsd;
   const requiresTasa = formPago.metodo_pago === 'Transferencia' || formPago.metodo_pago === 'Pago Movil';
 
   useEffect(() => {
@@ -326,6 +347,21 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
     if (metodosCuentaSeleccionada.includes(formPago.metodo_pago)) return;
     setFormPago((prev: FormPagoState) => ({ ...prev, metodo_pago: metodosCuentaSeleccionada[0] || 'Transferencia' }));
   }, [selectedBank, metodosCuentaSeleccionada, formPago.metodo_pago]);
+
+  useEffect(() => {
+    if (esCuentaUsd) {
+      setConversionUSD(parseInputNumber(montoUsdDirecto).toFixed(2));
+      return;
+    }
+    setConversionUSD(getConversionUSD(formPago));
+  }, [esCuentaUsd, montoUsdDirecto, formPago, cuentasConFondos]);
+
+  useEffect(() => {
+    if (formPago.metodo_pago !== 'Efectivo' && !esCuentaUsd) return;
+    if (formPago.referencia.trim()) return;
+    const referenciaSugerida = nombreCuentaSeleccionada.includes('ZELLE') ? 'ZELLE' : 'EFECTIVO';
+    setFormPago((prev: FormPagoState) => ({ ...prev, referencia: referenciaSugerida }));
+  }, [esCuentaUsd, formPago.metodo_pago, formPago.referencia, nombreCuentaSeleccionada]);
 
   const handleSubmitPago = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
@@ -342,6 +378,10 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
       alert('Error: para Pago Movil debe indicar un telefono de origen valido.');
       return;
     }
+    if (esCuentaUsd && parseInputNumber(montoUsdDirecto) <= 0) {
+      alert('Error: ingrese un monto pagado (USD) válido.');
+      return;
+    }
     const ok = await showConfirm({
       title: 'Confirmar abono',
       message: `¿Confirmar abono por $${formatMoney(conversionUSD)} a la cuenta de ${propiedadPreseleccionada?.identificador}?`,
@@ -353,11 +393,12 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
 
     setIsSubmitting(true);
     try {
-      const monedaReal = requiresTasa ? 'BS' : 'USD';
+      const monedaReal = esCuentaUsd ? 'USD' : (requiresTasa ? 'BS' : 'USD');
       const token = localStorage.getItem('habioo_token');
-      const montoOrigenNum = parseInputNumber(formPago.monto_origen);
+      const montoUsdDirectoNum = parseInputNumber(montoUsdDirecto);
+      const montoOrigenNum = esCuentaUsd ? montoUsdDirectoNum : parseInputNumber(formPago.monto_origen);
       const tasaCambioNum = parseInputNumber(formPago.tasa_cambio);
-      const montoUsdNum = parseInputNumber(conversionUSD);
+      const montoUsdNum = esCuentaUsd ? montoUsdDirectoNum : parseInputNumber(conversionUSD);
 
       const payload = {
         ...formPago,
@@ -365,7 +406,8 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
         propiedad_id: propiedadPreseleccionada.id,
         moneda: monedaReal,
         monto_origen: montoOrigenNum,
-        tasa_cambio: requiresTasa ? tasaCambioNum : null,
+        tasa_cambio: esCuentaUsd ? 1 : (requiresTasa ? tasaCambioNum : null),
+        monto_bs_pagado: esCuentaUsd ? montoUsdDirectoNum : undefined,
         monto_usd: montoUsdNum,
         metodo: formPago.metodo_pago,
       };
@@ -470,7 +512,19 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                 </div>
               )}
 
-              {requiresTasa ? (
+              {esCuentaUsd ? (
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Monto Pagado (USD)</label>
+                  <input
+                    type="text"
+                    value={montoUsdDirecto}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setMontoUsdDirecto(formatCurrencyInput(e.target.value, 2))}
+                    placeholder="0,00"
+                    className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary"
+                    required
+                  />
+                </div>
+              ) : requiresTasa ? (
                 <div className="grid grid-cols-2 gap-3 items-stretch">
                   <div className="space-y-3">
                     <div>
@@ -525,15 +579,17 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                 </div>
               )}
 
-              <div className="flex justify-between items-center px-2 py-1 mt-1 mb-2 bg-green-50 dark:bg-green-900/10 rounded-lg">
-                <span className="text-xs text-green-700 dark:text-green-500 font-bold uppercase tracking-wider">Abono Equivalente:</span>
-                <span className="font-black text-green-600 dark:text-green-400 text-lg">+ ${formatMoney(conversionUSD)}</span>
-              </div>
+              {!esCuentaUsd && (
+                <div className="flex justify-between items-center px-2 py-1 mt-1 mb-2 bg-green-50 dark:bg-green-900/10 rounded-lg">
+                  <span className="text-xs text-green-700 dark:text-green-500 font-bold uppercase tracking-wider">Abono Equivalente:</span>
+                  <span className="font-black text-green-600 dark:text-green-400 text-lg">+ ${formatMoney(conversionUSD)}</span>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Referencia</label>
-                  <input type="text" name="referencia" value={formPago.referencia} onChange={handlePagoChange} placeholder="Ref / Comprobante" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
+                  <input type="text" name="referencia" value={formPago.referencia} onChange={handlePagoChange} placeholder={formPago.metodo_pago === 'Efectivo' ? 'EFECTIVO (opcional)' : 'Ref / Comprobante'} className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required={formPago.metodo_pago !== 'Efectivo'} />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Fecha Pago</label>

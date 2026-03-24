@@ -53,6 +53,11 @@ interface IMovimiento extends IMovimientoDetalle {
   pago_id?: number | null;
 }
 
+interface RollbackTarget {
+  kind: 'pago' | 'ajuste';
+  id: string;
+}
+
 interface BancosResponse {
   status: string;
   bancos?: CuentaBancaria[];
@@ -189,7 +194,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [tasaBcv, setTasaBcv] = useState<string>('');
   const [loadingBcv, setLoadingBcv] = useState<boolean>(false);
-  const [rollbackingPagoId, setRollbackingPagoId] = useState<string>('');
+  const [rollbackingKey, setRollbackingKey] = useState<string>('');
   const itemsPerPage = 13;
 
   const fetchCuentas = async (): Promise<void> => {
@@ -663,35 +668,60 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     return null;
   };
 
-  const handleRollbackPago = async (movimiento: IMovimiento): Promise<void> => {
-    if (mode !== 'admin') return;
+  const extractAjusteIdForRollback = (movimiento: IMovimiento): string | null => {
+    if (movimiento.tipo !== 'INGRESO') return null;
+    const rawId = String(movimiento.id || '');
+    const movimientoMatch = rawId.match(/^ING-MF-(\d+)$/i);
+    if (!movimientoMatch?.[1]) return null;
+    const concepto = String(movimiento.concepto || '');
+    if (!/ajuste/i.test(concepto)) return null;
+    return movimientoMatch[1];
+  };
+
+  const extractRollbackTarget = (movimiento: IMovimiento): RollbackTarget | null => {
     const pagoId = extractPagoIdForRollback(movimiento);
-    if (!pagoId) {
-      alert('Este movimiento no corresponde a un pago reversible.');
+    if (pagoId) return { kind: 'pago', id: pagoId };
+    const ajusteId = extractAjusteIdForRollback(movimiento);
+    if (ajusteId) return { kind: 'ajuste', id: ajusteId };
+    return null;
+  };
+
+  const handleRollbackMovimiento = async (movimiento: IMovimiento): Promise<void> => {
+    if (mode !== 'admin') return;
+    const target = extractRollbackTarget(movimiento);
+    if (!target) {
+      alert('Este movimiento no corresponde a un registro reversible.');
       return;
     }
 
-    const ok = window.confirm('¿Deseas revertir este pago? Solo está permitido durante 48 horas y para pagos que no hayan impactado avisos/recibos.');
+    const confirmMessage = target.kind === 'pago'
+      ? '¿Deseas revertir este pago? Solo está permitido durante 48 horas y para pagos que no hayan impactado avisos/recibos.'
+      : '¿Deseas revertir este ajuste? Solo está permitido durante 48 horas y sujeto a validaciones contables.';
+    const ok = window.confirm(confirmMessage);
     if (!ok) return;
 
     const token = localStorage.getItem('habioo_token');
-    setRollbackingPagoId(pagoId);
+    const rollbackKey = `${target.kind}-${target.id}`;
+    setRollbackingKey(rollbackKey);
     try {
-      const res = await fetch(`${API_BASE_URL}/pagos/${pagoId}/rollback`, {
+      const endpoint = target.kind === 'pago'
+        ? `${API_BASE_URL}/pagos/${target.id}/rollback`
+        : `${API_BASE_URL}/movimientos-fondos/${target.id}/rollback-ajuste`;
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       if (!res.ok || data?.status !== 'success') {
-        alert(data?.message || data?.error || 'No se pudo revertir el pago.');
+        alert(data?.message || data?.error || 'No se pudo revertir el movimiento.');
         return;
       }
       await Promise.all([fetchMovimientos(selectedCuenta), fetchFondos()]);
-      alert(data?.message || 'Pago revertido correctamente.');
+      alert(data?.message || (target.kind === 'pago' ? 'Pago revertido correctamente.' : 'Ajuste revertido correctamente.'));
     } catch {
-      alert('No se pudo revertir el pago por un error de conexión.');
+      alert('No se pudo revertir el movimiento por un error de conexión.');
     } finally {
-      setRollbackingPagoId('');
+      setRollbackingKey('');
     }
   };
 
@@ -1093,7 +1123,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                   <th className="p-4 font-bold">Fecha</th>
                   <th className="p-4 font-bold">Referencia</th>
                   <th className="p-4 font-bold">Descripción</th>
-                  <th className="p-4 font-bold text-right">Monto (Bs)</th>
+                  {!isCuentaUsd && <th className="p-4 font-bold text-right">Monto (Bs)</th>}
                   <th className="p-4 font-bold text-right">Cargo ($)</th>
                   <th className="p-4 font-bold text-right">Abono ($)</th>
                   {!isCuentaUsd && <th className="p-4 font-bold text-right">Tasa (Bs.)</th>}
@@ -1103,8 +1133,8 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
               <tbody>
                 {movimientosPagina.map((movimiento) => {
                   const montoBsVista = getMontoBsVista(movimiento);
-                  const mostrarBsEnUsd = isCuentaUsd && montoBsVista > 0;
-                  const pagoIdRollback = extractPagoIdForRollback(movimiento);
+                  const rollbackTarget = extractRollbackTarget(movimiento);
+                  const rollbackButtonKey = rollbackTarget ? `${rollbackTarget.kind}-${rollbackTarget.id}` : '';
                   return (
                     <tr
                       key={String(movimiento.id)}
@@ -1114,11 +1144,11 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                       <td className="p-4 font-mono text-gray-600 dark:text-gray-400 text-xs">{formatFecha(movimiento.fecha)}</td>
                       <td className="p-4 font-mono text-xs text-gray-500">{movimiento.referencia || '-'}</td>
                       <td className="p-4 font-medium text-gray-800 dark:text-gray-200">{getConceptoVista(movimiento)}</td>
-                      <td className="p-4 text-right font-black font-mono text-slate-700 dark:text-slate-200">
-                        {isCuentaUsd
-                          ? (mostrarBsEnUsd ? `Bs ${formatCurrency(montoBsVista)}` : 'N/A')
-                          : (montoBsVista > 0 ? `Bs ${formatCurrency(montoBsVista)}` : '-')}
-                      </td>
+                      {!isCuentaUsd && (
+                        <td className="p-4 text-right font-black font-mono text-slate-700 dark:text-slate-200">
+                          {montoBsVista > 0 ? `Bs ${formatCurrency(montoBsVista)}` : '-'}
+                        </td>
+                      )}
                       <td className="p-4 text-right font-black font-mono">
                         {movimiento.tipo === 'EGRESO' ? (
                           <span className="text-red-600 dark:text-red-400">-{formatCurrency(movimiento.monto_usd)}</span>
@@ -1140,18 +1170,20 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                       )}
                       {mode === 'admin' && (
                         <td className="p-4 text-center">
-                          {pagoIdRollback ? (
+                          {rollbackTarget ? (
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                void handleRollbackPago(movimiento);
+                                void handleRollbackMovimiento(movimiento);
                               }}
-                              disabled={rollbackingPagoId === pagoIdRollback}
+                              disabled={rollbackingKey === rollbackButtonKey}
                               className="px-2.5 py-1 rounded-lg text-[11px] font-bold border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                              title="Disponible por 48h después de registrar el pago (sujeto a validaciones contables)."
+                              title={rollbackTarget.kind === 'pago'
+                                ? 'Disponible por 48h después de registrar el pago (sujeto a validaciones contables).'
+                                : 'Disponible por 48h después de registrar el ajuste (sujeto a validaciones contables).'}
                             >
-                              {rollbackingPagoId === pagoIdRollback ? 'Revirtiendo...' : 'Revertir (48h)'}
+                              {rollbackingKey === rollbackButtonKey ? 'Revirtiendo...' : 'Revertir (48h)'}
                             </button>
                           ) : (
                             <span className="text-gray-300">-</span>

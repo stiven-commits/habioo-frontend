@@ -108,6 +108,21 @@ interface PendingCountMap {
 }
 
 const toNumber = (value: string | number | undefined | null): number => parseFloat(String(value ?? 0)) || 0;
+const getCuentaLabel = (cuenta: any): string => {
+  const nombreBanco = String(cuenta?.nombre_banco || cuenta?.nombre || '').trim();
+  const apodo = String(cuenta?.apodo || '').trim();
+  const tipo = String(cuenta?.tipo || '').trim();
+  const numeroCuenta = String(cuenta?.numero_cuenta || '').trim();
+  const moneda = String(cuenta?.moneda || '').trim().toUpperCase();
+
+  const tituloBase = nombreBanco || apodo || tipo || `Cuenta #${String(cuenta?.id || '')}`;
+  const descriptor = apodo && apodo !== tituloBase ? apodo : (tipo && tipo !== tituloBase ? tipo : '');
+  const detalle = numeroCuenta || (moneda ? `Moneda ${moneda}` : '');
+  const partes = [tituloBase, descriptor, detalle].filter(Boolean);
+
+  return partes.join(' - ');
+};
+
 const formatNumberInput = (value: string | number | undefined | null, maxDecimals = 2): string => {
   const strValue = String(value || '');
   const isNegative = strValue.trim().startsWith('-');
@@ -911,7 +926,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                       >
                         <option value="">Seleccione una cuenta...</option>
                         {cuentasBancarias.map((c: any) => (
-                          <option key={c.id} value={c.id}>{c.nombre_banco} - {c.numero_cuenta}</option>
+                          <option key={c.id} value={c.id}>{getCuentaLabel(c)}</option>
                         ))}
                       </select>
                     </div>
