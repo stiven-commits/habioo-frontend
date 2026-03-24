@@ -3,7 +3,7 @@
 Documento de referencia para la plataforma de gestion de condominios Habioo.
 Sirve como guia para agentes de IA que asisten a usuarios en navegar y operar el sistema.
 
-- Ultima actualizacion: 2026-03-22
+- Ultima actualizacion: 2026-03-23
 - Stack: React + Vite + Tailwind (frontend), Node/Express + PostgreSQL (backend)
 
 ---
@@ -218,6 +218,22 @@ El menu lateral organiza las secciones en dos grupos:
 2. Hacer clic en **"Transferencia entre fondos"**
 3. Seleccionar fondo origen, fondo destino y monto
 4. Confirmar la transferencia
+
+#### `[JUNTA]` Como revertir un pago registrado por error (boton "Revertir 48h")
+1. Ir al menu lateral -> **Estado de Cuentas**
+2. Seleccionar la cuenta bancaria donde aparece el ingreso erroneo
+3. En la tabla de movimientos, localizar la fila del pago a revertir
+4. Hacer clic en el boton **"Revertir (48h)"** (color ambar) en la columna de acciones
+5. Confirmar la accion en el dialogo de confirmacion
+> **El sistema deshace automaticamente**: el ingreso en los fondos, los movimientos registrados y el ajuste en el saldo del inmueble.
+
+> **Restricciones del boton Revertir**:
+> - Solo disponible para el rol Administrador (`[JUNTA]`)
+> - Solo aparece en movimientos de tipo INGRESO vinculados a un pago de propietario
+> - El pago debe estar en estado **Validado**
+> - Solo es posible dentro de las **48 horas** siguientes al registro del pago
+> - Si el pago tenia un `recibo_id` directo asignado, se bloquea (usar ajuste manual)
+> - Si el pago ya impacto avisos/recibos de cobro de ese inmueble, el sistema revierte tambien los recibos y gastos correspondientes de forma automatica
 
 ---
 
@@ -495,6 +511,13 @@ El menu lateral organiza las secciones en dos grupos:
 - La junta `[JUNTA]` debe aprobar o rechazar cada pago con trazabilidad
 - Al aprobar, el saldo del inmueble se actualiza y los fondos bancarios reciben el ingreso
 
+### Reversion de pagos (rollback) `[JUNTA]`
+- Un pago validado puede revertirse desde **Estado de Cuentas** usando el boton **"Revertir (48h)"**
+- La ventana de reversion es de exactamente **48 horas** desde el momento en que se registro el pago
+- El rollback deshace: fondos, movimientos de fondos, saldo del inmueble, y si el pago impacto recibos/gastos, los revierte tambien automaticamente mediante simulacion FIFO
+- No es posible revertir si: el pago tiene un recibo directamente asignado (`recibo_id`), o si la ventana de 48 horas ya expiro
+- Para pagos fuera de la ventana o con trazabilidad contable compleja, usar **ajuste manual de saldo**
+
 ### Zonas `[JUNTA]`
 - Si una zona ya tiene gastos asociados, no se pueden cambiar los inmuebles que la componen
 - Solo se puede cambiar el nombre o activar/desactivar la zona
@@ -555,6 +578,7 @@ Archivo de composicion del backend: `habioo-auth/index.ts`
 - `GET /pagos/pendientes-aprobacion` `[JUNTA]`
 - `POST /pagos/:id/validar` `[JUNTA]`
 - `POST /pagos/:id/rechazar` `[JUNTA]`
+- `POST /pagos/:id/rollback` `[JUNTA]` — revierte un pago validado (ventana de 48 horas)
 - `GET /pagos-proveedores/gasto/:gasto_id/detalles` `[JUNTA]`
 - `POST /pagos-proveedores` `[JUNTA]`
 

@@ -3,7 +3,7 @@
 Documento de referencia funcional y tecnica del estado actual de la app.
 Este README fusiona la base conceptual original con el inventario actualizado de modulos, endpoints y modelo de datos.
 
-- Ultima actualizacion: 2026-03-17
+- Ultima actualizacion: 2026-03-23
 - Stack: React + Vite + Tailwind (frontend), Node/Express + PostgreSQL (backend)
 
 ---
@@ -58,6 +58,7 @@ Archivo de referencia: `habioo-frontend/src/App.jsx`
 15. Visibilidad de fondos para inmuebles: la junta define con check que fondos pueden ver los propietarios; la vista de propietario solo muestra fondos marcados como visibles.
 16. Estados de cuenta por cortes (propietario): al emitir aviso de cobro se genera corte historico de fondos y el propietario puede filtrar por ano/mes.
 17. Notificaciones de pago (propietario -> junta): los pagos enviados por propietarios quedan pendientes de aprobacion y la junta puede aprobar o rechazar con trazabilidad.
+18. Reversion de pagos (rollback 48h): desde el Estado de Cuentas Bancarias, la junta puede revertir un pago validado dentro de las 48 horas siguientes usando el boton "Revertir (48h)". El sistema deshace fondos, movimientos, saldo del inmueble y, si el pago impacto recibos/gastos, los revierte tambien mediante simulacion FIFO.
 
 ### 3.3 Novedades recientes (inmuebles y cobros)
 
@@ -126,6 +127,7 @@ Archivo de composicion: `habioo-auth/index.ts`
 - `GET /pagos/pendientes-aprobacion`
 - `POST /pagos/:id/validar`
 - `POST /pagos/:id/rechazar`
+- `POST /pagos/:id/rollback` — reversion de pago validado (ventana 48h, solo admin)
 - `GET /pagos-proveedores/gasto/:gasto_id/detalles`
 - `POST /pagos-proveedores`
 
