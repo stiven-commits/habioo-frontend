@@ -194,6 +194,11 @@ const dateToYmd = (date: Date | null): string => {
   return `${year}-${month}-${day}`;
 };
 
+const toSingleDate = (value: Date | Date[] | null): Date | null => {
+  if (!value) return null;
+  return Array.isArray(value) ? (value[0] ?? null) : value;
+};
+
 const Gastos: FC<GastosProps> = () => {
   const { userRole } = useOutletContext<OutletContextType>();
   const { showConfirm } = useDialog() as DialogContextType;
@@ -460,7 +465,7 @@ const Gastos: FC<GastosProps> = () => {
               <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Desde</label>
               <DatePicker
                 selected={ymdToDate(fechaDesde)}
-                onChange={(date: Date | null) => setFechaDesde(dateToYmd(date))}
+                onChange={(date: Date | Date[] | null) => setFechaDesde(dateToYmd(toSingleDate(date)))}
                 selectsStart
                 startDate={ymdToDate(fechaDesde)}
                 endDate={ymdToDate(fechaHasta)}
@@ -479,11 +484,11 @@ const Gastos: FC<GastosProps> = () => {
               <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Hasta</label>
               <DatePicker
                 selected={ymdToDate(fechaHasta)}
-                onChange={(date: Date | null) => setFechaHasta(dateToYmd(date))}
+                onChange={(date: Date | Date[] | null) => setFechaHasta(dateToYmd(toSingleDate(date)))}
                 selectsEnd
                 startDate={ymdToDate(fechaDesde)}
                 endDate={ymdToDate(fechaHasta)}
-                {...(fechaDesde ? { minDate: ymdToDate(fechaDesde) || undefined } : {})}
+                {...(fechaDesde && ymdToDate(fechaDesde) ? { minDate: ymdToDate(fechaDesde) as Date } : {})}
                 dateFormat="dd/MM/yyyy"
                 locale={es}
                 placeholderText="Hasta (dd/mm/yyyy)"

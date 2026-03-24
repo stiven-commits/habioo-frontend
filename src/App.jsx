@@ -9,6 +9,7 @@ import Propiedades from './pages/Propiedades';
 import CuentasPorCobrar from './pages/CuentasPorCobrar';
 import Bancos from './pages/Bancos';
 import Zonas from './pages/Zonas';
+import VistaAlquileres from './pages/VistaAlquileres';
 import EncuestasAdmin from './pages/EncuestasAdmin';
 import HistorialAvisos from './pages/HistorialAvisos';
 import EstadoCuentasBancarias from './pages/EstadoCuentasBancarias';
@@ -21,6 +22,7 @@ import EstadoCuentaInmueblePropietario from './pages/propietario/EstadoCuentaInm
 import PerfilPropietario from './pages/propietario/PerfilPropietario';
 import NotificacionesPropietario from './pages/propietario/NotificacionesPropietario';
 import EncuestasPropietario from './pages/propietario/EncuestasPropietario';
+import AlquileresPropietario from './pages/propietario/AlquileresPropietario';
 import { DialogProvider } from './components/ui/DialogProvider';
 
 export default function App() {
@@ -41,6 +43,7 @@ export default function App() {
             <Route path="/bancos" element={<Bancos />} />
             <Route path="/estado-cuentas" element={<EstadoCuentasBancarias />} />
             <Route path="/zonas" element={<Zonas />} />
+            <Route path="/alquileres" element={<VistaAlquileres />} />
             <Route path="/carta-consulta" element={<EncuestasAdmin />} />
             <Route path="/avisos-cobro" element={<HistorialAvisos />} />
             <Route path="/aviso-cobro/:id" element={<VistaAvisoCobro />} />
@@ -48,6 +51,7 @@ export default function App() {
             <Route path="/propietario/recibos" element={<RecibosPropietario />} />
             <Route path="/propietario/estado-cuenta" element={<EstadoCuentaPropietario />} />
             <Route path="/propietario/estado-cuenta-inmueble" element={<EstadoCuentaInmueblePropietario />} />
+            <Route path="/propietario/alquileres" element={<AlquileresPropietario />} />
             <Route path="/propietario/perfil" element={<PerfilPropietario />} />
             <Route path="/propietario/notificaciones" element={<NotificacionesPropietario />} />
             <Route path="/mis-cartas-consulta" element={<EncuestasPropietario />} />

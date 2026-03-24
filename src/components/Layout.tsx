@@ -356,11 +356,13 @@ const Layout: React.FC<LayoutProps> = () => {
     '/zonas': 'Areas / Sectores',
     '/avisos-cobro': 'Avisos de cobro',
     '/estado-cuentas': 'Estado de Cuenta',
+    '/alquileres': 'Gestión de Alquileres',
     '/perfil': 'Mi Perfil',
     '/propietario/gastos': 'Cartelera de Gastos',
     '/propietario/recibos': 'Mis Recibos / Pagar',
     '/propietario/estado-cuenta': 'Tesorería',
     '/propietario/estado-cuenta-inmueble': 'Estado de Cuenta Inmueble',
+    '/propietario/alquileres': 'Alquiler de Espacios',
     '/propietario/notificaciones': 'Notificaciones',
     '/propietario/perfil': 'Mi Perfil',
     '/carta-consulta': 'Cartas Consulta',
@@ -477,6 +479,9 @@ const Layout: React.FC<LayoutProps> = () => {
               <Link to="/estado-cuentas" className={navClass('/estado-cuentas')}>
                 📊 Libro Mayor
               </Link>
+              <Link to="/alquileres" className={navClass('/alquileres')}>
+                🗓️ Alquileres
+              </Link>
               <Link to="/carta-consulta" className={navClass('/carta-consulta')}>
                 📋 Cartas Consulta
               </Link>
@@ -512,6 +517,9 @@ const Layout: React.FC<LayoutProps> = () => {
               </Link>
               <Link to="/propietario/estado-cuenta-inmueble" className={navClass('/propietario/estado-cuenta-inmueble')}>
                 📄 Estado Cuenta Inmueble
+              </Link>
+              <Link to="/propietario/alquileres" className={navClass('/propietario/alquileres')}>
+                🗓️ Alquilar
               </Link>
               <Link to="/propietario/notificaciones" className={navClass('/propietario/notificaciones')}>
                 🔔 Notificaciones
