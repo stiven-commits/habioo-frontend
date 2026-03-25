@@ -487,7 +487,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
         cuenta_bancaria_id: ajusteTipo === 'FAVOR' && destinoIngreso === 'CUENTA' ? Number(cuentaBancariaSeleccionada) : null,
         es_gasto_extra: ajusteTipo === 'FAVOR' && destinoIngreso === 'EXTRA',
         gasto_extra_id: ajusteTipo === 'FAVOR' && destinoIngreso === 'EXTRA' ? Number(gastoExtraSeleccionado) : null,
-        nota: `${(conceptoAjuste || 'Ajuste manual').trim()} | Ajuste desde Cuentas por Cobrar (${ajusteTipo}) - Bs ${montoBsAjuste} | Tasa ${tasaBcvAjuste}`
+        nota: `${(conceptoAjuste || 'Ajuste manual').trim()} | Inmueble: ${selectedPropAjuste.identificador || '-'} | Ajuste desde Cuentas por Cobrar (${ajusteTipo}) - Bs ${montoBsAjuste} | Tasa ${tasaBcvAjuste}`
       };
       const res = await fetch(`${API_BASE_URL}/propiedades-admin/${selectedPropAjuste.id}/ajustar-saldo`, {
         method: 'POST',

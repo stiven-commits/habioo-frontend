@@ -51,6 +51,7 @@ interface IMovimiento extends IMovimientoDetalle {
   fondo_destino_id?: number | null;
   fondo_nombre?: string;
   pago_id?: number | null;
+  inmueble?: string;
 }
 
 interface RollbackTarget {
@@ -105,6 +106,11 @@ const dateToYmd = (date: Date | null): string => {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+};
+
+const toSingleDate = (value: Date | Date[] | null): Date | null => {
+  if (!value) return null;
+  return Array.isArray(value) ? (value[0] ?? null) : value;
 };
 
 interface CortesResponse {
@@ -335,6 +341,9 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
           fondo_destino_id: toNullableInt((safeMov as { fondo_destino_id?: unknown }).fondo_destino_id),
           fondo_nombre: (safeMov as { fondo_nombre?: unknown }).fondo_nombre
             ? String((safeMov as { fondo_nombre?: unknown }).fondo_nombre)
+            : '',
+          inmueble: (safeMov as { inmueble?: unknown }).inmueble
+            ? String((safeMov as { inmueble?: unknown }).inmueble)
             : '',
           pago_id: toNullableInt((safeMov as { pago_id?: unknown }).pago_id),
           ...(safeMov.saldo_acumulado !== undefined ? { saldo_acumulado: safeMov.saldo_acumulado } : {})
@@ -655,6 +664,20 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       return `${movimiento.concepto} | ${extras.join(' | ')}`;
     }
     return movimiento.concepto;
+  };
+
+  const getInmuebleVista = (movimiento: IMovimiento): string => {
+    const inmuebleApi = String(movimiento.inmueble || '').trim();
+    if (inmuebleApi) return inmuebleApi;
+
+    const concepto = String(movimiento.concepto || '');
+    const matchConcepto = concepto.match(/Inmueble:\s*([^|]+)/i);
+    if (matchConcepto?.[1]) return matchConcepto[1].trim();
+
+    const matchNota = concepto.match(/Inmueble\s*[:\-]\s*([A-Za-z0-9\-_.\/ ]+)/i);
+    if (matchNota?.[1]) return matchNota[1].trim();
+
+    return '-';
   };
 
   const extractPagoIdForRollback = (movimiento: IMovimiento): string | null => {
@@ -1017,7 +1040,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                 <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Desde</label>
                 <DatePicker
                   selected={ymdToDate(fechaDesde)}
-                  onChange={(date: Date | null) => setFechaDesde(dateToYmd(date))}
+                  onChange={(date: Date | Date[] | null) => setFechaDesde(dateToYmd(toSingleDate(date)))}
                   selectsStart
                   startDate={ymdToDate(fechaDesde)}
                   endDate={ymdToDate(fechaHasta)}
@@ -1036,11 +1059,11 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                 <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Hasta</label>
                 <DatePicker
                   selected={ymdToDate(fechaHasta)}
-                  onChange={(date: Date | null) => setFechaHasta(dateToYmd(date))}
+                  onChange={(date: Date | Date[] | null) => setFechaHasta(dateToYmd(toSingleDate(date)))}
                   selectsEnd
                   startDate={ymdToDate(fechaDesde)}
                   endDate={ymdToDate(fechaHasta)}
-                  {...(fechaDesde ? { minDate: ymdToDate(fechaDesde) || undefined } : {})}
+                  {...(ymdToDate(fechaDesde) ? { minDate: ymdToDate(fechaDesde) as Date } : {})}
                   dateFormat="dd/MM/yyyy"
                   locale={es}
                   placeholderText="Hasta (dd/mm/yyyy)"
@@ -1122,6 +1145,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                 <tr className="bg-gray-50/50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400">
                   <th className="p-4 font-bold">Fecha</th>
                   <th className="p-4 font-bold">Referencia</th>
+                  <th className="p-4 font-bold">Inmueble</th>
                   <th className="p-4 font-bold">Descripción</th>
                   {!isCuentaUsd && <th className="p-4 font-bold text-right">Monto (Bs)</th>}
                   <th className="p-4 font-bold text-right">Cargo ($)</th>
@@ -1143,6 +1167,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                     >
                       <td className="p-4 font-mono text-gray-600 dark:text-gray-400 text-xs">{formatFecha(movimiento.fecha)}</td>
                       <td className="p-4 font-mono text-xs text-gray-500">{movimiento.referencia || '-'}</td>
+                      <td className="p-4 text-xs font-semibold text-gray-700 dark:text-gray-300">{getInmuebleVista(movimiento)}</td>
                       <td className="p-4 font-medium text-gray-800 dark:text-gray-200">{getConceptoVista(movimiento)}</td>
                       {!isCuentaUsd && (
                         <td className="p-4 text-right font-black font-mono text-slate-700 dark:text-slate-200">
