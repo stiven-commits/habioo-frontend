@@ -42,6 +42,24 @@ const formatBs = (value: number | string): string => {
   return safe.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
+const parseLocaleNumber = (value: number | string): number => {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  const raw = String(value ?? '').trim();
+  if (!raw) return 0;
+  if (raw.includes(',')) {
+    const normalized = raw.replace(/\./g, '').replace(',', '.');
+    const parsed = Number.parseFloat(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  const parsed = Number.parseFloat(raw);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const formatTasa = (value: number | string): string => {
+  const safe = parseLocaleNumber(value);
+  return safe.toLocaleString('es-VE', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+};
+
 const formatDateVe = (value: string): string => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
@@ -76,6 +94,12 @@ const ModalVerificarPagoAlquiler: FC<ModalVerificarPagoAlquilerProps> = ({
 
   const comprobanteUrl = useMemo<string>(() => resolveComprobanteUrl(solicitud?.comprobante_url), [solicitud?.comprobante_url]);
   const showPdf = useMemo<boolean>(() => isPdfFile(solicitud?.comprobante_url), [solicitud?.comprobante_url]);
+  const montoBsReportado = useMemo<number>(() => parseLocaleNumber(solicitud?.monto_bs_pagado ?? 0), [solicitud?.monto_bs_pagado]);
+  const tasaCambio = useMemo<number>(() => parseLocaleNumber(solicitud?.tasa_cambio ?? 0), [solicitud?.tasa_cambio]);
+  const equivalenteUsd = useMemo<number>(() => {
+    if (tasaCambio <= 0) return 0;
+    return montoBsReportado / tasaCambio;
+  }, [montoBsReportado, tasaCambio]);
 
   const copyReferencia = async (): Promise<void> => {
     if (!solicitud?.referencia) return;
@@ -93,14 +117,20 @@ const ModalVerificarPagoAlquiler: FC<ModalVerificarPagoAlquilerProps> = ({
     setIsLoading(true);
     try {
       const token = localStorage.getItem('habioo_token');
-      const response = await fetch(`${API_BASE_URL}/alquileres/reservaciones/${solicitud.id}/estado`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ estado: toApiEstado(estado) }),
-      });
+      const isConfirm = estado === 'CONFIRMADA';
+      const response = await fetch(
+        isConfirm
+          ? `${API_BASE_URL}/alquileres/reservaciones/${solicitud.id}/aprobar-pago`
+          : `${API_BASE_URL}/alquileres/reservaciones/${solicitud.id}/estado`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: isConfirm ? JSON.stringify({}) : JSON.stringify({ estado: toApiEstado(estado) }),
+        }
+      );
       const result = (await response.json()) as UpdateEstadoResponse;
 
       if (!response.ok || result.status !== 'success') {
@@ -167,7 +197,10 @@ const ModalVerificarPagoAlquiler: FC<ModalVerificarPagoAlquilerProps> = ({
               <div>
                 <p className="text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-gray-400">Monto reportado</p>
                 <p className="text-base font-bold text-gray-900 dark:text-white">
-                  Bs {formatBs(solicitud.monto_bs_pagado)} <span className="text-gray-500 dark:text-gray-400">(Tasa: {formatBs(solicitud.tasa_cambio)})</span>
+                  Bs {formatBs(montoBsReportado)} <span className="text-gray-500 dark:text-gray-400">(Tasa: {formatTasa(tasaCambio)})</span>
+                </p>
+                <p className="mt-1 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                  Equivalente: ${formatUsd(equivalenteUsd)} USD
                 </p>
               </div>
               <div>

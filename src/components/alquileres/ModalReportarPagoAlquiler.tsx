@@ -11,6 +11,7 @@ interface ReservacionPago {
   amenidad_nombre: string;
   condominio_id?: number;
   monto_total_usd: number | string;
+  monto_pagado_usd?: number | string | null;
   deposito_usd?: number | string;
 }
 
@@ -67,6 +68,11 @@ const dateToYmd = (date: Date | null): string => {
   return `${y}-${m}-${d}`;
 };
 
+const toSingleDate = (value: Date | Date[] | null): Date | null => {
+  if (!value) return null;
+  return Array.isArray(value) ? (value[0] ?? null) : value;
+};
+
 const parseInputNumber = (value: string): number => {
   if (!value) return 0;
   const normalized = value.replace(/\./g, '').replace(',', '.').trim();
@@ -90,6 +96,11 @@ const formatMoneyVe = (value: number | string): string => {
   return safe.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
+const toBackendLocaleNumber = (value: string): string => {
+  if (!value) return '0';
+  return value.replace(/\./g, '').trim();
+};
+
 const ModalReportarPagoAlquiler: FC<ModalReportarPagoAlquilerProps> = ({
   isOpen,
   onClose,
@@ -109,8 +120,15 @@ const ModalReportarPagoAlquiler: FC<ModalReportarPagoAlquilerProps> = ({
   const [error, setError] = useState<string>('');
 
   const montoUsdTotal = useMemo<number>(() => Number(reservacion?.monto_total_usd) || 0, [reservacion?.monto_total_usd]);
+  const montoPagadoUsd = useMemo<number>(() => Number(reservacion?.monto_pagado_usd) || 0, [reservacion?.monto_pagado_usd]);
+  const restanteUsd = useMemo<number>(() => Math.max(0, montoUsdTotal - montoPagadoUsd), [montoUsdTotal, montoPagadoUsd]);
   const depositoUsd = useMemo<number>(() => Number(reservacion?.deposito_usd) || 0, [reservacion?.deposito_usd]);
-  const minimoUsd = useMemo<number>(() => (depositoUsd > 0 ? depositoUsd : montoUsdTotal), [depositoUsd, montoUsdTotal]);
+  const esPrimerPago = useMemo<boolean>(() => montoPagadoUsd <= 0.000001, [montoPagadoUsd]);
+  const minimoUsd = useMemo<number>(() => {
+    if (!esPrimerPago) return 0;
+    if (depositoUsd > 0) return Math.min(depositoUsd, restanteUsd);
+    return 0;
+  }, [esPrimerPago, depositoUsd, restanteUsd]);
   const tasaNum = useMemo<number>(() => parseInputNumber(tasaCambio), [tasaCambio]);
   const montoBsNum = useMemo<number>(() => parseInputNumber(montoBs), [montoBs]);
   const minimoBs = useMemo<number>(() => (tasaNum > 0 ? minimoUsd * tasaNum : 0), [minimoUsd, tasaNum]);
@@ -167,10 +185,11 @@ const ModalReportarPagoAlquiler: FC<ModalReportarPagoAlquilerProps> = ({
         const json = (await response.json()) as BcvResponse;
         const promedio = Number.parseFloat(String(json.promedio ?? '').replace(',', '.'));
         if (!Number.isFinite(promedio) || promedio <= 0) throw new Error('BCV invalido');
-        const tasaFormatted = promedio.toFixed(3).replace('.', ',');
+        const tasaRedondeada = Number(promedio.toFixed(3));
+        const tasaFormatted = tasaRedondeada.toFixed(3).replace('.', ',');
         setTasaCambio(tasaFormatted);
-        const minimoBsAuto = minimoUsd * promedio;
-        setMontoBs(minimoBsAuto.toFixed(2).replace('.', ','));
+        const restanteBsAuto = restanteUsd * tasaRedondeada;
+        setMontoBs(restanteBsAuto.toFixed(2).replace('.', ','));
       } catch {
         setError('No se pudo obtener la tasa BCV automática. Intenta nuevamente en unos segundos.');
       } finally {
@@ -178,7 +197,7 @@ const ModalReportarPagoAlquiler: FC<ModalReportarPagoAlquilerProps> = ({
       }
     };
     void fetchBcv();
-  }, [isOpen, minimoUsd]);
+  }, [isOpen, restanteUsd]);
 
   const handleMontoBsChange = (e: ChangeEvent<HTMLInputElement>): void => {
     setMontoBs(formatInputNumber(e.target.value, 2));
@@ -232,8 +251,8 @@ const ModalReportarPagoAlquiler: FC<ModalReportarPagoAlquilerProps> = ({
     try {
       const token = localStorage.getItem('habioo_token');
       const formData = new FormData();
-      formData.append('monto_bs_pagado', String(montoBsNum));
-      formData.append('tasa_cambio', String(tasaNum));
+      formData.append('monto_bs_pagado', toBackendLocaleNumber(montoBs));
+      formData.append('tasa_cambio', toBackendLocaleNumber(tasaCambio));
       formData.append('referencia', referencia.trim());
       formData.append('fecha_pago', fechaPago);
       formData.append('banco_destino_id', bancoDestinoId);
@@ -295,9 +314,9 @@ const ModalReportarPagoAlquiler: FC<ModalReportarPagoAlquilerProps> = ({
             <div className="rounded-2xl border border-blue-100 dark:border-blue-900/40 bg-blue-50 dark:bg-blue-900/10 p-4">
               <p className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-300">Resumen</p>
               <p className="text-2xl font-black text-blue-700 dark:text-blue-300 mt-1">
-                Total a pagar: ${formatMoneyVe(montoUsdTotal)} USD
+                Monto Restante: ${formatMoneyVe(restanteUsd)} USD
               </p>
-              {depositoUsd > 0 && (
+              {esPrimerPago && depositoUsd > 0 && (
                 <p className="mt-2 text-sm font-semibold text-blue-700/90 dark:text-blue-200">
                   Primer pago mínimo: depósito ${formatMoneyVe(depositoUsd)} USD
                 </p>
@@ -368,7 +387,7 @@ const ModalReportarPagoAlquiler: FC<ModalReportarPagoAlquilerProps> = ({
                 </label>
                 <DatePicker
                   selected={ymdToDate(fechaPago)}
-                  onChange={(date: Date | null) => setFechaPago(dateToYmd(date))}
+                  onChange={(date: Date | Date[] | null) => setFechaPago(dateToYmd(toSingleDate(date)))}
                   dateFormat="dd/MM/yyyy"
                   locale={es}
                   maxDate={new Date()}

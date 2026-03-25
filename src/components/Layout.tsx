@@ -55,6 +55,19 @@ interface PagosPendientesAdminResponse {
   message?: string;
 }
 
+interface ReservacionAdmin {
+  id: number;
+  estado: string;
+  propiedad_identificador?: string;
+  amenidad_nombre?: string;
+}
+
+interface ReservacionesAdminResponse {
+  status: 'success' | 'error';
+  data?: ReservacionAdmin[];
+  message?: string;
+}
+
 interface FloatingNotification {
   key: string;
   title: string;
@@ -84,6 +97,7 @@ const Layout: React.FC<LayoutProps> = () => {
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [theme, setTheme] = useState<Theme>(() => (localStorage.theme === 'dark' ? 'dark' : 'light'));
+  const [systemNow, setSystemNow] = useState<Date>(() => new Date());
   const [misPropiedades, setMisPropiedades] = useState<MisPropiedad[]>([]);
   const [propiedadActiva, setPropiedadActiva] = useState<MisPropiedad | null>(null);
   const [floatingNotifications, setFloatingNotifications] = useState<FloatingNotification[]>([]);
@@ -91,6 +105,8 @@ const Layout: React.FC<LayoutProps> = () => {
   const notificacionesBootstrappedRef = useRef<boolean>(false);
   const seenPagosPendientesAdminRef = useRef<Set<number>>(new Set<number>());
   const pagosPendientesAdminBootstrappedRef = useRef<boolean>(false);
+  const seenReservacionesAdminRef = useRef<Record<number, string>>({});
+  const reservacionesAdminBootstrappedRef = useRef<boolean>(false);
   const buttonClickLockRef = useRef<WeakMap<HTMLButtonElement, number>>(new WeakMap<HTMLButtonElement, number>());
   const formSubmitLockRef = useRef<WeakMap<HTMLFormElement, number>>(new WeakMap<HTMLFormElement, number>());
   const location = useLocation();
@@ -151,6 +167,13 @@ const Layout: React.FC<LayoutProps> = () => {
     else document.documentElement.classList.remove('dark');
     localStorage.theme = theme;
   }, [theme]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setSystemNow(new Date());
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const fetchMisPropiedades = async (): Promise<void> => {
@@ -326,6 +349,85 @@ const Layout: React.FC<LayoutProps> = () => {
     };
   }, [userRole]);
 
+  useEffect(() => {
+    if (userRole !== 'Administrador') return;
+
+    let isActive = true;
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    const pollReservacionesPendientes = async (): Promise<void> => {
+      const token = localStorage.getItem('habioo_token');
+      if (!token) return;
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/alquileres/reservaciones`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data: ReservacionesAdminResponse = (await res.json()) as ReservacionesAdminResponse;
+        if (!isActive || !res.ok || data.status !== 'success') return;
+
+        const rows = (Array.isArray(data.data) ? data.data : []).filter((r) =>
+          r.estado === 'Pendiente' || r.estado === 'Pago_Reportado'
+        );
+        const currentMap: Record<number, string> = {};
+        rows.forEach((r) => {
+          currentMap[r.id] = `${r.estado}`;
+        });
+
+        if (!reservacionesAdminBootstrappedRef.current) {
+          seenReservacionesAdminRef.current = currentMap;
+          reservacionesAdminBootstrappedRef.current = true;
+          return;
+        }
+
+        rows.forEach((r) => {
+          const prevSignature = seenReservacionesAdminRef.current[r.id];
+          const currentSignature = currentMap[r.id];
+          if (prevSignature === currentSignature) return;
+
+          const title = r.propiedad_identificador
+            ? `Inmueble ${r.propiedad_identificador}`
+            : 'Nueva solicitud de alquiler';
+          if (r.estado === 'Pendiente' && !prevSignature) {
+            pushFloating({
+              key: `res-pend-${r.id}-${Date.now()}`,
+              title,
+              message: r.amenidad_nombre
+                ? `Nueva solicitud para ${r.amenidad_nombre}.`
+                : `Nueva solicitud de reservación #${r.id}.`,
+              tone: 'info',
+            });
+            return;
+          }
+          if (r.estado === 'Pago_Reportado') {
+            pushFloating({
+              key: `res-pay-${r.id}-${Date.now()}`,
+              title,
+              message: r.amenidad_nombre
+                ? `Pago reportado para ${r.amenidad_nombre}.`
+                : `Pago reportado para reservación #${r.id}.`,
+              tone: 'info',
+            });
+          }
+        });
+
+        seenReservacionesAdminRef.current = currentMap;
+      } catch {
+        // Sin bloqueo en UI por errores transitorios.
+      }
+    };
+
+    void pollReservacionesPendientes();
+    timer = setInterval(() => {
+      void pollReservacionesPendientes();
+    }, 15000);
+
+    return () => {
+      isActive = false;
+      if (timer) clearInterval(timer);
+    };
+  }, [userRole]);
+
   const toggleTheme: React.MouseEventHandler<HTMLButtonElement> = () => {
     setTheme((previousTheme: Theme) => (previousTheme === 'dark' ? 'light' : 'dark'));
   };
@@ -380,6 +482,17 @@ const Layout: React.FC<LayoutProps> = () => {
     if (!propiedadActiva) return 'Sin inmueble activo';
     return `${propiedadActiva.identificador} | ${propiedadActiva.nombre_condominio}`;
   }, [propiedadActiva]);
+
+  const systemDateTimeLabel = useMemo(() => {
+    return systemNow.toLocaleString('es-VE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  }, [systemNow]);
 
   const isSensitiveActionLabel = (label: string): boolean =>
     /\b(guardar|agregar|registrar|aplicar|procesar|confirmar)\b/i.test(label);
@@ -534,6 +647,11 @@ const Layout: React.FC<LayoutProps> = () => {
               </Link>
             </>
           )}
+
+          <div className="mx-1 mt-6 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/40">
+            <p className="text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-gray-400">Hora del sistema</p>
+            <p className="mt-1 text-xs font-semibold text-gray-700 dark:text-gray-200">{systemDateTimeLabel}</p>
+          </div>
         </nav>
 
         <div className="p-4 border-t border-gray-100 dark:border-gray-800">

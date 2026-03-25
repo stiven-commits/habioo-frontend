@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { API_BASE_URL } from '../../config/api';
 import ModalVerificarPagoAlquiler from './ModalVerificarPagoAlquiler';
 
-type EstadoSolicitud = 'Pendiente' | 'Aprobada' | 'Pago_Reportado' | 'Confirmada' | 'Rechazada' | string;
+type EstadoSolicitud = 'Pendiente' | 'Aprobada' | 'Pago_Reportado' | 'Pago_Parcial' | 'Confirmada' | 'Rechazada' | string;
 
 interface SolicitudAlquiler {
   id: number;
@@ -13,6 +13,7 @@ interface SolicitudAlquiler {
   propiedad_identificador?: string;
   fecha_reserva: string;
   monto_total_usd: string | number;
+  monto_pagado_usd?: string | number | null;
   monto_bs_pagado?: string | number;
   tasa_cambio?: string | number;
   referencia?: string;
@@ -54,6 +55,7 @@ const badgeClassByEstado = (estado: EstadoSolicitud): string => {
   if (estado === 'Pendiente') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300';
   if (estado === 'Aprobada') return 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300';
   if (estado === 'Pago_Reportado') return 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300';
+  if (estado === 'Pago_Parcial' || estado === 'PAGO_PARCIAL') return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300';
   if (estado === 'Confirmada') return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300';
   if (estado === 'Rechazada') return 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300';
   return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
@@ -183,6 +185,9 @@ const VistaSolicitudesAlquiler: FC = () => {
                   const inmueble = item.propiedad_identificador || item.inmueble_identificador || 'Sin inmueble';
                   const isRowUpdating = updatingId === item.id;
                   const estadoNormalizado = String(item.estado || '').trim().toUpperCase();
+                  const pagadoUsd = Number(item.monto_pagado_usd) || 0;
+                  const totalUsd = Number(item.monto_total_usd) || 0;
+                  const restanteUsd = Math.max(0, totalUsd - pagadoUsd);
                   return (
                     <tr key={item.id} className="border-b border-gray-50 dark:border-gray-800/60 hover:bg-gray-50/70 dark:hover:bg-gray-800/30">
                       <td className="p-3">
@@ -193,7 +198,12 @@ const VistaSolicitudesAlquiler: FC = () => {
                       <td className="p-3 text-sm font-bold text-gray-800 dark:text-gray-200">{inmueble}</td>
                       <td className="p-3 text-sm font-semibold text-gray-700 dark:text-gray-300">{item.amenidad_nombre}</td>
                       <td className="p-3 text-sm font-semibold text-gray-700 dark:text-gray-300">{formatDateVe(item.fecha_reserva)}</td>
-                      <td className="p-3 text-right text-sm font-black text-gray-900 dark:text-white">${formatUsd(item.monto_total_usd)}</td>
+                      <td className="p-3 text-right text-sm font-black text-gray-900 dark:text-white">
+                        <div>${formatUsd(pagadoUsd)} / ${formatUsd(totalUsd)} USD</div>
+                        <div className="text-xs font-semibold text-amber-600 dark:text-amber-300">
+                          Resta: ${formatUsd(restanteUsd)} USD
+                        </div>
+                      </td>
                       <td className="p-3 text-center">
                         {estadoNormalizado === 'PENDIENTE' ? (
                           <div className="inline-flex justify-center">

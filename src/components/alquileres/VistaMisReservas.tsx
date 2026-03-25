@@ -12,6 +12,7 @@ interface MisReserva {
   condominio_id?: number;
   fecha_reserva: string;
   monto_total_usd: number | string;
+  monto_pagado_usd?: number | string | null;
   deposito_usd?: number | string;
   monto_bs_pagado?: number | string | null;
   tasa_cambio?: number | string | null;
@@ -46,6 +47,7 @@ const badgeClassByEstado = (estado: EstadoReserva): string => {
   if (normalized === 'PENDIENTE') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300';
   if (normalized === 'RECHAZADA') return 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300';
   if (normalized === 'APROBADA') return 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300';
+  if (normalized === 'PAGO_PARCIAL') return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300';
   if (normalized === 'PAGO_REPORTADO') return 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300';
   if (normalized === 'CONFIRMADA') return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300';
   return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
@@ -54,6 +56,7 @@ const badgeClassByEstado = (estado: EstadoReserva): string => {
 const labelEstado = (estado: EstadoReserva): string => {
   const normalized = normalizeEstado(String(estado));
   if (normalized === 'PAGO_REPORTADO') return 'PAGO REPORTADO';
+  if (normalized === 'PAGO_PARCIAL') return 'PAGO PARCIAL';
   return normalized;
 };
 
@@ -136,8 +139,11 @@ const VistaMisReservas: FC = () => {
               <tbody>
                 {misReservas.map((reserva) => {
                   const normalized = normalizeEstado(String(reserva.estado));
-                  const canReport = normalized === 'APROBADA';
+                  const canReport = normalized === 'APROBADA' || normalized === 'PAGO_PARCIAL';
                   const canSeeDetails = normalized === 'PAGO_REPORTADO' || normalized === 'CONFIRMADA' || normalized === 'RECHAZADA';
+                  const pagadoUsd = Number(reserva.monto_pagado_usd) || 0;
+                  const totalUsd = Number(reserva.monto_total_usd) || 0;
+                  const restanteUsd = Math.max(0, totalUsd - pagadoUsd);
 
                   return (
                     <tr
@@ -151,7 +157,12 @@ const VistaMisReservas: FC = () => {
                       </td>
                       <td className="p-3 text-sm font-semibold text-gray-800 dark:text-gray-200">{reserva.amenidad_nombre}</td>
                       <td className="p-3 text-sm font-semibold text-gray-700 dark:text-gray-300">{formatDateVe(reserva.fecha_reserva)}</td>
-                      <td className="p-3 text-right text-sm font-black text-gray-900 dark:text-white">${formatUsd(reserva.monto_total_usd)}</td>
+                      <td className="p-3 text-right text-sm font-black text-gray-900 dark:text-white">
+                        <div>${formatUsd(pagadoUsd)} / ${formatUsd(totalUsd)} USD</div>
+                        <div className="text-xs font-semibold text-amber-600 dark:text-amber-300">
+                          Resta: ${formatUsd(restanteUsd)} USD
+                        </div>
+                      </td>
                       <td className="p-3 text-center">
                         {canReport ? (
                           <div className="inline-flex gap-2">
@@ -160,7 +171,7 @@ const VistaMisReservas: FC = () => {
                               onClick={() => setReservaAPagar(reserva)}
                               className="rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white transition-colors"
                             >
-                              Pagar
+                              Reportar Pago
                             </button>
                           </div>
                         ) : canSeeDetails ? (
