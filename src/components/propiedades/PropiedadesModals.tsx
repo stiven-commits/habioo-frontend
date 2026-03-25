@@ -104,6 +104,7 @@ interface AjusteSaldoFormData {
   tipo_ajuste: string;
   monto: string;
   nota: string;
+  subtipo_favor?: 'directo' | 'distribuido';
 }
 
 interface PropiedadAjuste {
@@ -826,11 +827,26 @@ export const ModalAjusteSaldo: FC<ModalAjusteSaldoProps> = ({
         <form onSubmit={handleSubmitAjuste} className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Acción a realizar</label>
-            <select value={formAjuste.tipo_ajuste} onChange={(e: ChangeEvent<HTMLSelectElement>) => setFormAjuste({ ...formAjuste, tipo_ajuste: e.target.value })} className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-bold outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white">
+            <select value={formAjuste.tipo_ajuste} onChange={(e: ChangeEvent<HTMLSelectElement>) => setFormAjuste({ ...formAjuste, tipo_ajuste: e.target.value, subtipo_favor: 'directo' })} className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-bold outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white">
               <option value="CARGAR_DEUDA">Cargar Deuda (+)</option>
               <option value="AGREGAR_FAVOR">Agregar a Favor (-)</option>
             </select>
           </div>
+          {formAjuste.tipo_ajuste === 'AGREGAR_FAVOR' && (
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Distribución en Fondos</label>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setFormAjuste({ ...formAjuste, subtipo_favor: 'directo' })}
+                  className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border transition-colors ${(formAjuste.subtipo_favor ?? 'directo') === 'directo' ? 'bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}>
+                  Directo<br /><span className="font-normal opacity-70">100% fondo principal</span>
+                </button>
+                <button type="button" onClick={() => setFormAjuste({ ...formAjuste, subtipo_favor: 'distribuido' })}
+                  className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border transition-colors ${formAjuste.subtipo_favor === 'distribuido' ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}>
+                  Distribuido<br /><span className="font-normal opacity-70">Por % de fondos</span>
+                </button>
+              </div>
+            </div>
+          )}
           <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Monto ($)</label><input type="text" value={formAjuste.monto} onChange={(e: ChangeEvent<HTMLInputElement>) => setFormAjuste({ ...formAjuste, monto: e.target.value.replace(/\./g, ',').replace(/[^0-9,]/g, '') })} placeholder="Ej: 50,00" className="w-full p-3 rounded-xl border font-mono text-lg dark:bg-gray-900 dark:border-gray-700 outline-none dark:text-white" required /></div>
           <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nota (Auditoría) *</label><textarea value={formAjuste.nota} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setFormAjuste({ ...formAjuste, nota: e.target.value })} placeholder="Ej: Cobro de multa" className="w-full p-3 rounded-xl border dark:bg-gray-900 dark:border-gray-700 outline-none dark:text-white text-sm min-h-[80px]" required /></div>
           <div className="pt-4 flex gap-3"><button type="button" onClick={() => setAjusteModalOpen(false)} className="flex-1 py-3 rounded-xl font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 transition-colors">Cancelar</button><button type="submit" className="flex-1 py-3 rounded-xl font-bold bg-yellow-500 text-white hover:bg-yellow-600 transition-all">Aplicar Ajuste</button></div>

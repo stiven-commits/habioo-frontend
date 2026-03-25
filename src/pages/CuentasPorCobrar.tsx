@@ -181,6 +181,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
   const [openOptionsFor, setOpenOptionsFor] = useState<number | null>(null);
 
   const [destinoIngreso, setDestinoIngreso] = useState<'CUENTA' | 'EXTRA'>('CUENTA');
+  const [subtipoFavor, setSubtipoFavor] = useState<'directo' | 'distribuido'>('directo');
   const [cuentaBancariaSeleccionada, setCuentaBancariaSeleccionada] = useState<string>('');
   const [cuentasBancarias, setCuentasBancarias] = useState<any[]>([]);
   const [gastosExtras, setGastosExtras] = useState<any[]>([]);
@@ -487,6 +488,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
         cuenta_bancaria_id: ajusteTipo === 'FAVOR' && destinoIngreso === 'CUENTA' ? Number(cuentaBancariaSeleccionada) : null,
         es_gasto_extra: ajusteTipo === 'FAVOR' && destinoIngreso === 'EXTRA',
         gasto_extra_id: ajusteTipo === 'FAVOR' && destinoIngreso === 'EXTRA' ? Number(gastoExtraSeleccionado) : null,
+        subtipo_favor: ajusteTipo === 'FAVOR' && destinoIngreso === 'CUENTA' ? subtipoFavor : undefined,
         nota: `${(conceptoAjuste || 'Ajuste manual').trim()} | Inmueble: ${selectedPropAjuste.identificador || '-'} | Ajuste desde Cuentas por Cobrar (${ajusteTipo}) - Bs ${montoBsAjuste} | Tasa ${tasaBcvAjuste}`
       };
       const res = await fetch(`${API_BASE_URL}/propiedades-admin/${selectedPropAjuste.id}/ajustar-saldo`, {
@@ -929,6 +931,27 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                           <option key={c.id} value={c.id}>{getCuentaLabel(c)}</option>
                         ))}
                       </select>
+                    </div>
+                  )}
+                  {destinoIngreso === 'CUENTA' && (
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-bold text-gray-500 mb-1">Distribución en Fondos</label>
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setSubtipoFavor('directo')}
+                          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border transition-colors ${subtipoFavor === 'directo' ? 'bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}
+                        >
+                          Directo<br /><span className="font-normal opacity-70">100% al fondo principal</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSubtipoFavor('distribuido')}
+                          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border transition-colors ${subtipoFavor === 'distribuido' ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}
+                        >
+                          Distribuido<br /><span className="font-normal opacity-70">Por % de fondos</span>
+                        </button>
+                      </div>
                     </div>
                   )}
                   {destinoIngreso === 'EXTRA' && (

@@ -10,6 +10,8 @@ import 'react-datepicker/dist/react-datepicker.css';
 
 type ViewMode = 'admin' | 'owner';
 type ActiveTab = 'cuenta' | 'sin-fondo' | `fondo-${number | string}`;
+type SortDirection = 'asc' | 'desc';
+type SortKey = 'ejecucion' | 'fecha' | 'referencia' | 'inmueble' | 'descripcion' | 'monto_bs' | 'cargo' | 'abono' | 'tasa';
 
 interface EstadoCuentaBancariaViewProps {
   mode: ViewMode;
@@ -57,6 +59,11 @@ interface IMovimiento extends IMovimientoDetalle {
 interface RollbackTarget {
   kind: 'pago' | 'ajuste';
   id: string;
+}
+
+interface SortConfig {
+  key: SortKey;
+  direction: SortDirection;
 }
 
 interface BancosResponse {
@@ -198,6 +205,8 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   const [fechaHasta, setFechaHasta] = useState<string>('');
   const [movimientoDetalle, setMovimientoDetalle] = useState<IMovimiento | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'ejecucion', direction: 'desc' });
   const [tasaBcv, setTasaBcv] = useState<string>('');
   const [loadingBcv, setLoadingBcv] = useState<boolean>(false);
   const [rollbackingKey, setRollbackingKey] = useState<string>('');
@@ -422,7 +431,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [fechaDesde, fechaHasta, selectedCuenta, movimientos.length, activeTab]);
+  }, [fechaDesde, fechaHasta, selectedCuenta, movimientos.length, activeTab, searchTerm, sortConfig.key, sortConfig.direction]);
 
   useEffect(() => {
     setActiveTab('cuenta');
@@ -501,6 +510,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   const movimientosCuentaConsolidados = useMemo(() => {
     const movimientosDirectos: IMovimiento[] = [];
     const ingresosPorPago = new Map<string, IMovimiento[]>();
+    const ingresosPorAjuste = new Map<string, IMovimiento[]>();
 
     movimientosFiltrados.forEach((mov) => {
       const pagoId = mov.pago_id ? String(mov.pago_id) : '';
@@ -517,6 +527,22 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
         ingresosPorPago.set(groupKey, grupo);
         return;
       }
+
+      const rawId = String(mov.id || '');
+      const referencia = String(mov.referencia || '').trim();
+      const esAjusteDistribuido = mov.tipo === 'INGRESO'
+        && /^ING-MF-\d+$/i.test(rawId)
+        && !mov.pago_id
+        && /ajuste/i.test(concepto)
+        && /^AJ-/i.test(referencia);
+      if (esAjusteDistribuido) {
+        const groupKey = `ajuste-${referencia.toUpperCase()}`;
+        const grupo = ingresosPorAjuste.get(groupKey) || [];
+        grupo.push(mov);
+        ingresosPorAjuste.set(groupKey, grupo);
+        return;
+      }
+
       movimientosDirectos.push(mov);
     });
 
@@ -553,7 +579,47 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       };
     });
 
-    return [...movimientosDirectos, ...ingresosConsolidados].sort((a, b) => {
+    const ajustesConsolidados: IMovimiento[] = Array.from(ingresosPorAjuste.entries()).map(([groupKey, grupo]) => {
+      const base = grupo[0];
+      const referencia = groupKey.replace(/^ajuste-/, '');
+      const conceptoLimpio = String(base?.concepto || '').replace(/\s*-\s*Fondo:\s*.+$/i, '').trim();
+      const montoUsdTotal = grupo.reduce((acc, item) => acc + toNumber(item.monto_usd), 0);
+      const montoBsTotal = grupo.reduce((acc, item) => acc + toNumber(item.monto_bs), 0);
+      const tasa = toNumber(base?.tasa_cambio);
+
+      return {
+        id: `AJ-CONS-${referencia}`,
+        fecha: String(base?.fecha ?? ''),
+        referencia,
+        concepto: conceptoLimpio || 'Ajuste de saldo',
+        tipo: 'INGRESO',
+        monto_usd: Number(montoUsdTotal.toFixed(2)),
+        monto_bs: Number(montoBsTotal.toFixed(2)),
+        tasa_cambio: tasa > 0 ? tasa : 0,
+        banco_origen: String(base?.banco_origen ?? ''),
+        cedula_origen: String(base?.cedula_origen ?? ''),
+        fondo_id: null,
+        fondo_origen_id: null,
+        fondo_destino_id: null,
+        fondo_nombre: '',
+        pago_id: null,
+        inmueble: String(base?.inmueble ?? ''),
+      };
+    });
+
+    const getExecutionOrder = (mov: IMovimiento): number => {
+      if (mov.pago_id && Number.isFinite(mov.pago_id)) return Number(mov.pago_id);
+      const refAjuste = String(mov.referencia || '').match(/^AJ-(\d+)$/i);
+      if (refAjuste?.[1]) return Number(refAjuste[1]);
+      const raw = String(mov.id || '');
+      const matchId = raw.match(/(\d+)/);
+      return matchId?.[1] ? Number(matchId[1]) : 0;
+    };
+
+    return [...movimientosDirectos, ...ingresosConsolidados, ...ajustesConsolidados].sort((a, b) => {
+      const ordenA = getExecutionOrder(a);
+      const ordenB = getExecutionOrder(b);
+      if (ordenA !== ordenB) return ordenB - ordenA;
       const fechaA = new Date(a.fecha || '').getTime();
       const fechaB = new Date(b.fecha || '').getTime();
       if (fechaA !== fechaB) return fechaB - fechaA;
@@ -561,7 +627,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     });
   }, [movimientosFiltrados]);
 
-  const movimientosPorVista = useMemo(() => {
+  const movimientosBasePorVista = useMemo(() => {
     if (activeTab === 'cuenta') return movimientosCuentaConsolidados;
     if (activeTab === 'sin-fondo') {
       return movimientosFiltrados.filter((movimiento) => {
@@ -586,8 +652,86 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     });
   }, [movimientosFiltrados, activeTab, fondosCuenta, movimientosCuentaConsolidados]);
 
-  const totalPages = Math.max(1, Math.ceil(movimientosPorVista.length / itemsPerPage));
-  const movimientosPagina = movimientosPorVista.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const movimientosPorVista = useMemo(() => {
+    const txt = searchTerm.trim().toLowerCase();
+    if (!txt) return movimientosBasePorVista;
+    const getInmuebleTexto = (mov: IMovimiento): string => {
+      const inmuebleApi = String(mov.inmueble || '').trim();
+      if (inmuebleApi) return inmuebleApi;
+      const concepto = String(mov.concepto || '');
+      const matchConcepto = concepto.match(/Inmueble:\s*([^|]+)/i);
+      if (matchConcepto?.[1]) return matchConcepto[1].trim();
+      const matchNota = concepto.match(/Inmueble\s*[:\-]\s*([A-Za-z0-9\-_.\/ ]+)/i);
+      if (matchNota?.[1]) return matchNota[1].trim();
+      return '-';
+    };
+    return movimientosBasePorVista.filter((mov) => {
+      const inmueble = getInmuebleTexto(mov).toLowerCase();
+      const referencia = String(mov.referencia || '').toLowerCase();
+      const montoUsd = toNumber(mov.monto_usd);
+      const montoBs = toNumber(mov.monto_bs);
+      const montoRaw = `${montoUsd.toFixed(2)} ${montoBs.toFixed(2)}`.toLowerCase();
+      const montoFmt = `${formatCurrency(montoUsd)} ${formatCurrency(montoBs)}`.toLowerCase();
+      return inmueble.includes(txt) || referencia.includes(txt) || montoRaw.includes(txt) || montoFmt.includes(txt);
+    });
+  }, [movimientosBasePorVista, searchTerm]);
+
+  const sortedMovimientosPorVista = useMemo(() => {
+    const getInmuebleTexto = (mov: IMovimiento): string => {
+      const inmuebleApi = String(mov.inmueble || '').trim();
+      if (inmuebleApi) return inmuebleApi;
+      const concepto = String(mov.concepto || '');
+      const matchConcepto = concepto.match(/Inmueble:\s*([^|]+)/i);
+      if (matchConcepto?.[1]) return matchConcepto[1].trim();
+      const matchNota = concepto.match(/Inmueble\s*[:\-]\s*([A-Za-z0-9\-_.\/ ]+)/i);
+      if (matchNota?.[1]) return matchNota[1].trim();
+      return '-';
+    };
+    const getConceptoTexto = (mov: IMovimiento): string => {
+      const banco = mov.banco_origen?.trim();
+      const cedula = mov.cedula_origen?.trim();
+      if (mov.tipo === 'INGRESO' && (banco || cedula)) {
+        const extras = [banco ? `Banco: ${banco}` : '', cedula ? `Cédula/RIF: ${cedula}` : ''].filter(Boolean);
+        return `${mov.concepto} | ${extras.join(' | ')}`;
+      }
+      return mov.concepto;
+    };
+
+    const getExecutionOrder = (mov: IMovimiento): number => {
+      if (mov.pago_id && Number.isFinite(mov.pago_id)) return Number(mov.pago_id);
+      const refAjuste = String(mov.referencia || '').match(/^AJ-(\d+)$/i);
+      if (refAjuste?.[1]) return Number(refAjuste[1]);
+      const raw = String(mov.id || '');
+      const matchId = raw.match(/(\d+)/);
+      return matchId?.[1] ? Number(matchId[1]) : 0;
+    };
+
+    const getSortValue = (mov: IMovimiento, key: SortKey): string | number => {
+      if (key === 'ejecucion') return getExecutionOrder(mov);
+      if (key === 'fecha') return new Date(mov.fecha || '').getTime() || 0;
+      if (key === 'referencia') return String(mov.referencia || '').toLowerCase();
+      if (key === 'inmueble') return getInmuebleTexto(mov).toLowerCase();
+      if (key === 'descripcion') return getConceptoTexto(mov).toLowerCase();
+      if (key === 'monto_bs') return getMontoBsVista(mov);
+      if (key === 'cargo') return mov.tipo === 'EGRESO' ? toNumber(mov.monto_usd) : 0;
+      if (key === 'abono') return mov.tipo === 'INGRESO' ? toNumber(mov.monto_usd) : 0;
+      if (key === 'tasa') return toNumber(mov.tasa_cambio);
+      return 0;
+    };
+
+    return [...movimientosPorVista].sort((a, b) => {
+      const av = getSortValue(a, sortConfig.key);
+      const bv = getSortValue(b, sortConfig.key);
+      if (typeof av === 'number' && typeof bv === 'number') {
+        return sortConfig.direction === 'asc' ? av - bv : bv - av;
+      }
+      const comp = String(av).localeCompare(String(bv), 'es', { numeric: true, sensitivity: 'base' });
+      return sortConfig.direction === 'asc' ? comp : -comp;
+    });
+  }, [movimientosPorVista, sortConfig]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedMovimientosPorVista.length / itemsPerPage));
+  const movimientosPagina = sortedMovimientosPorVista.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   const cuentaActual = cuentas.find((c) => String(c.id) === selectedCuenta);
   const isCuentaUsd = String(cuentaActual?.moneda || '').toUpperCase() === 'USD';
   const saldoUsdEnBs = tasaBcvNum > 0 ? saldoCuentaUsdActual * tasaBcvNum : 0;
@@ -678,6 +822,20 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     if (matchNota?.[1]) return matchNota[1].trim();
 
     return '-';
+  };
+
+  const handleSort = (key: SortKey): void => {
+    setSortConfig((prev) => {
+      if (prev.key === key) {
+        return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+      }
+      return { key, direction: key === 'fecha' || key === 'ejecucion' ? 'desc' : 'asc' };
+    });
+  };
+
+  const getSortArrow = (key: SortKey): string => {
+    if (sortConfig.key !== key) return '↕';
+    return sortConfig.direction === 'asc' ? '↑' : '↓';
   };
 
   const extractPagoIdForRollback = (movimiento: IMovimiento): string | null => {
@@ -1035,7 +1193,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
               Libro mayor
               {cuentaActual ? ` - ${cuentaActual.nombre_banco || 'Banco'} (${cuentaActual.apodo || 'Cuenta'})` : ''}
             </h3>
-            <div className="flex items-end gap-2">
+            <div className="flex flex-wrap items-end gap-2">
               <div>
                 <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Desde</label>
                 <DatePicker
@@ -1075,11 +1233,22 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                   className="h-10 w-full rounded-lg border border-gray-200 bg-gray-50 p-2 pr-10 text-xs outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                 />
               </div>
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Buscar</label>
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
+                  placeholder="Inmueble, referencia o monto"
+                  className="h-10 w-56 rounded-lg border border-gray-200 bg-gray-50 px-3 text-xs outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                />
+              </div>
               <button
                 type="button"
                 onClick={() => {
                   setFechaDesde('');
                   setFechaHasta('');
+                  setSearchTerm('');
                 }}
                 className="px-3 py-2 rounded-lg text-xs font-bold bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300"
               >
@@ -1143,14 +1312,50 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
             <table className="w-full text-left border-collapse text-sm">
               <thead>
                 <tr className="bg-gray-50/50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400">
-                  <th className="p-4 font-bold">Fecha</th>
-                  <th className="p-4 font-bold">Referencia</th>
-                  <th className="p-4 font-bold">Inmueble</th>
-                  <th className="p-4 font-bold">Descripción</th>
-                  {!isCuentaUsd && <th className="p-4 font-bold text-right">Monto (Bs)</th>}
-                  <th className="p-4 font-bold text-right">Cargo ($)</th>
-                  <th className="p-4 font-bold text-right">Abono ($)</th>
-                  {!isCuentaUsd && <th className="p-4 font-bold text-right">Tasa (Bs.)</th>}
+                  <th className="p-4 font-bold">
+                    <button type="button" onClick={() => handleSort('fecha')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
+                      Fecha <span className="text-[10px]">{getSortArrow('fecha')}</span>
+                    </button>
+                  </th>
+                  <th className="p-4 font-bold">
+                    <button type="button" onClick={() => handleSort('referencia')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
+                      Referencia <span className="text-[10px]">{getSortArrow('referencia')}</span>
+                    </button>
+                  </th>
+                  <th className="p-4 font-bold">
+                    <button type="button" onClick={() => handleSort('inmueble')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
+                      Inmueble <span className="text-[10px]">{getSortArrow('inmueble')}</span>
+                    </button>
+                  </th>
+                  <th className="p-4 font-bold">
+                    <button type="button" onClick={() => handleSort('descripcion')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
+                      Descripción <span className="text-[10px]">{getSortArrow('descripcion')}</span>
+                    </button>
+                  </th>
+                  {!isCuentaUsd && (
+                    <th className="p-4 font-bold text-right">
+                      <button type="button" onClick={() => handleSort('monto_bs')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
+                        Monto (Bs) <span className="text-[10px]">{getSortArrow('monto_bs')}</span>
+                      </button>
+                    </th>
+                  )}
+                  <th className="p-4 font-bold text-right">
+                    <button type="button" onClick={() => handleSort('cargo')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
+                      Cargo ($) <span className="text-[10px]">{getSortArrow('cargo')}</span>
+                    </button>
+                  </th>
+                  <th className="p-4 font-bold text-right">
+                    <button type="button" onClick={() => handleSort('abono')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
+                      Abono ($) <span className="text-[10px]">{getSortArrow('abono')}</span>
+                    </button>
+                  </th>
+                  {!isCuentaUsd && (
+                    <th className="p-4 font-bold text-right">
+                      <button type="button" onClick={() => handleSort('tasa')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
+                        Tasa (Bs.) <span className="text-[10px]">{getSortArrow('tasa')}</span>
+                      </button>
+                    </th>
+                  )}
                   {mode === 'admin' && <th className="p-4 font-bold text-center">Acciones</th>}
                 </tr>
               </thead>

@@ -93,6 +93,7 @@ interface FormAjusteState {
   monto: string;
   tipo_ajuste: string;
   nota: string;
+  subtipo_favor?: 'directo' | 'distribuido';
 }
 
 interface LoteDataRow {
@@ -281,7 +282,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
 
   const [ajusteModalOpen, setAjusteModalOpen] = useState<boolean>(false);
   const [selectedPropAjuste, setSelectedPropAjuste] = useState<PropiedadAjuste | null>(null);
-  const [formAjuste, setFormAjuste] = useState<FormAjusteState>({ monto: '', tipo_ajuste: 'CARGAR_DEUDA', nota: '' });
+  const [formAjuste, setFormAjuste] = useState<FormAjusteState>({ monto: '', tipo_ajuste: 'CARGAR_DEUDA', nota: '', subtipo_favor: 'directo' });
 
   const [estadoCuentaModalOpen, setEstadoCuentaModalOpen] = useState<boolean>(false);
   const [selectedPropCuenta, setSelectedPropCuenta] = useState<EstadoCuentaPropiedad | null>(null);
@@ -452,7 +453,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
   void handleOpenEstadoCuenta;
 
   const handleOpenAjuste = (prop: Propiedad): void => {
-    setSelectedPropAjuste(prop); setFormAjuste({ monto: '', tipo_ajuste: 'CARGAR_DEUDA', nota: '' }); setAjusteModalOpen(true);
+    setSelectedPropAjuste(prop); setFormAjuste({ monto: '', tipo_ajuste: 'CARGAR_DEUDA', nota: '', subtipo_favor: 'directo' }); setAjusteModalOpen(true);
   };
 
   const formatAlicuotaDisplay = (value: string | number): string => {
