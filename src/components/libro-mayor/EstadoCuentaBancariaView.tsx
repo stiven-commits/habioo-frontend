@@ -4,7 +4,7 @@ import DatePicker from 'react-datepicker';
 import { es } from 'date-fns/locale/es';
 import { useOutletContext } from 'react-router-dom';
 import { API_BASE_URL } from '../../config/api';
-import { ModalTransferencia } from '../BancosModals';
+import { ModalRegistrarEgreso, ModalTransferencia } from '../BancosModals';
 import ModalDetalleMovimiento, { type IMovimientoDetalle } from './ModalDetalleMovimiento';
 import 'react-datepicker/dist/react-datepicker.css';
 
@@ -201,6 +201,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   const [ownerFondoSeleccionado, setOwnerFondoSeleccionado] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [showTransfModal, setShowTransfModal] = useState<boolean>(false);
+  const [showEgresoModal, setShowEgresoModal] = useState<boolean>(false);
   const [fechaDesde, setFechaDesde] = useState<string>('');
   const [fechaHasta, setFechaHasta] = useState<string>('');
   const [movimientoDetalle, setMovimientoDetalle] = useState<IMovimiento | null>(null);
@@ -311,18 +312,19 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       const normalizados: IMovimiento[] = rawMovimientos.map((mov, index): IMovimiento => {
         const safeMov: Partial<IMovimiento> = mov ?? {};
         const tipoRaw = String(safeMov.tipo || '').toUpperCase();
-        const tipo: 'INGRESO' | 'EGRESO' = tipoRaw === 'EGRESO' ? 'EGRESO' : 'INGRESO';
-        const montoOrigenRaw = (safeMov as { monto_origen_pago?: unknown }).monto_origen_pago;
-        const montoOrigenPago = (montoOrigenRaw === null || montoOrigenRaw === undefined || montoOrigenRaw === '')
-          ? null
-          : toNumber(String(montoOrigenRaw));
-
         const concepto = String(
           safeMov.concepto
           || (safeMov as { fondo_nombre?: string }).fondo_nombre
           || (safeMov as { nota?: unknown }).nota
           || '-'
         );
+        const esEgresoPorTipo = ['EGRESO', 'SALIDA', 'DEBITO', 'DESCUENTO', 'PAGO_PROVEEDOR', 'EGRESO_PAGO'].includes(tipoRaw);
+        const esEgresoPorConcepto = /egreso manual libro mayor/i.test(concepto);
+        const tipo: 'INGRESO' | 'EGRESO' = (esEgresoPorTipo || esEgresoPorConcepto) ? 'EGRESO' : 'INGRESO';
+        const montoOrigenRaw = (safeMov as { monto_origen_pago?: unknown }).monto_origen_pago;
+        const montoOrigenPago = (montoOrigenRaw === null || montoOrigenRaw === undefined || montoOrigenRaw === '')
+          ? null
+          : toNumber(String(montoOrigenRaw));
 
         const montoRaw = (safeMov as { monto?: unknown }).monto;
         const montoBs = toNumber((safeMov as { monto_bs?: unknown }).monto_bs ?? montoRaw ?? 0);
@@ -462,9 +464,14 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       setOwnerFondoSeleccionado('');
       return;
     }
+    if (!ownerFondoSeleccionado) {
+      setOwnerFondoSeleccionado('ALL');
+      return;
+    }
+    if (ownerFondoSeleccionado === 'ALL') return;
     const exists = fondosCuenta.some((f) => String(f.id) === ownerFondoSeleccionado);
     if (!exists) {
-      setOwnerFondoSeleccionado(String(fondosCuenta[0]?.id || ''));
+      setOwnerFondoSeleccionado('ALL');
     }
   }, [mode, fondosCuenta, ownerFondoSeleccionado]);
 
@@ -778,6 +785,9 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
 
   const ownerEgresosFondo = useMemo(() => {
     if (!ownerFondoSeleccionado) return [] as IMovimiento[];
+    if (ownerFondoSeleccionado === 'ALL') {
+      return movimientosFiltrados.filter((mov) => mov.tipo === 'EGRESO');
+    }
     const fondoId = parseInt(ownerFondoSeleccionado, 10);
     const fondoSeleccionado = fondosCuenta.find((f) => String(f.id) === ownerFondoSeleccionado);
     const fondoNombreNorm = String(fondoSeleccionado?.nombre || '').trim().toLowerCase();
@@ -965,6 +975,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                   className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:text-white outline-none focus:ring-2 focus:ring-donezo-primary font-bold text-gray-800"
                   disabled={fondosCuenta.length === 0}
                 >
+                  <option value="ALL">Todos los fondos</option>
                   {fondosCuenta.map((f) => (
                     <option key={String(f.id)} value={String(f.id)}>
                       {f.nombre || `Fondo ${f.id}`}
@@ -1152,6 +1163,12 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
               className="flex-1 md:flex-none bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold py-3 px-5 rounded-xl transition-all text-sm border border-blue-200 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-400"
             >
               Transferir
+            </button>
+            <button
+              onClick={() => setShowEgresoModal(true)}
+              className="flex-1 md:flex-none bg-red-50 hover:bg-red-100 text-red-600 font-bold py-3 px-5 rounded-xl transition-all text-sm border border-red-200 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300"
+            >
+              Registrar Egreso
             </button>
           </div>
         )}
@@ -1454,6 +1471,18 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
           onClose={() => setShowTransfModal(false)}
           onSuccess={() => {
             setShowTransfModal(false);
+            fetchMovimientos(selectedCuenta);
+            fetchFondos();
+          }}
+        />
+      )}
+
+      {mode === 'admin' && showEgresoModal && (
+        <ModalRegistrarEgreso
+          initialCuentaId={selectedCuenta}
+          onClose={() => setShowEgresoModal(false)}
+          onSuccess={() => {
+            setShowEgresoModal(false);
             fetchMovimientos(selectedCuenta);
             fetchFondos();
           }}

@@ -26,6 +26,7 @@ interface CuentaBancaria {
   nombre_banco?: string;
   apodo?: string;
   tipo?: string;
+  moneda?: string;
 }
 
 interface GastoPendiente {
@@ -78,6 +79,20 @@ interface BcvResponse {
 interface ModalEliminarFondoProps extends ModalBaseProps {
   fondo: Fondo | null;
   fondosDisponibles: Fondo[];
+}
+
+interface ModalRegistrarEgresoProps extends ModalBaseProps {
+  initialCuentaId?: string;
+}
+
+interface RegistrarEgresoForm {
+  cuenta_id: string;
+  fondo_id: string;
+  monto_origen: string;
+  tasa_cambio: string;
+  referencia: string;
+  concepto: string;
+  fecha: string;
 }
 
 function parseNumber(val: unknown): number {
@@ -161,7 +176,9 @@ export const ModalPagoProveedor: React.FC<ModalBaseProps> = ({ onClose, onSucces
       const json: BcvResponse = (await response.json()) as BcvResponse;
       if (json?.promedio) {
         const rateNumber = parseFloat(String(json.promedio));
-        const formattedRate = Number.isFinite(rateNumber) ? rateNumber.toFixed(3) : String(json.promedio);
+        const formattedRate = Number.isFinite(rateNumber)
+          ? formatNumberInput(rateNumber.toFixed(3).replace('.', ','), 3)
+          : formatNumberInput(String(json.promedio).replace('.', ','), 3);
         setForm((prev: PagoProveedorForm) => ({ ...prev, tasa_cambio: formattedRate }));
       }
     } catch {
@@ -172,8 +189,8 @@ export const ModalPagoProveedor: React.FC<ModalBaseProps> = ({ onClose, onSucces
   };
 
   const montoUsd = useMemo(() => {
-    const monto = parseFloat(form.monto_origen) || 0;
-    const tasa = parseFloat(form.tasa_cambio) || 1;
+    const monto = parseNumber(form.monto_origen);
+    const tasa = parseNumber(form.tasa_cambio) || 1;
     return isBs ? monto / tasa : monto;
   }, [form.monto_origen, form.tasa_cambio, isBs]);
 
@@ -197,7 +214,7 @@ export const ModalPagoProveedor: React.FC<ModalBaseProps> = ({ onClose, onSucces
         body: JSON.stringify({
           ...form,
           monto_usd: montoUsd.toFixed(2),
-          monto_bs: isBs ? form.monto_origen : null,
+          monto_bs: isBs ? parseNumber(form.monto_origen) : null,
         }),
       });
       const result: ApiResult = (await res.json()) as ApiResult;
@@ -245,14 +262,14 @@ export const ModalPagoProveedor: React.FC<ModalBaseProps> = ({ onClose, onSucces
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Monto Pagado ({selectedFondo ? selectedFondo.moneda : '?'}) *</label>
-                <input required type="number" step="0.01" value={form.monto_origen} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, monto_origen: e.target.value })} placeholder="0.00" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
+                <input required type="text" value={form.monto_origen} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, monto_origen: formatNumberInput(e.target.value, 2) })} placeholder="0,00" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
               </div>
 
               {isBs && (
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tasa BCV *</label>
                   <div className="flex gap-2">
-                    <input required type="number" step="0.001" value={form.tasa_cambio} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, tasa_cambio: e.target.value })} placeholder="Ej: 36.500" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
+                    <input required type="text" value={form.tasa_cambio} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, tasa_cambio: formatNumberInput(e.target.value, 3) })} placeholder="Ej: 36,500" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
                     <button type="button" onClick={fetchBCV} disabled={isFetchingBCV} className="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200 px-3 rounded-xl font-bold border border-blue-300 dark:border-blue-700">
                       {isFetchingBCV ? '...' : 'BCV'}
                     </button>
@@ -558,6 +575,284 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
                 </button>
               </div>
             )}
+          </form>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onClose, onSuccess, initialCuentaId = '' }) => {
+  const { showAlert, showConfirm } = useDialog();
+  const [fondos, setFondos] = useState<Fondo[]>([]);
+  const [cuentas, setCuentas] = useState<CuentaBancaria[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [isFetchingBCV, setIsFetchingBCV] = useState<boolean>(false);
+  const [form, setForm] = useState<RegistrarEgresoForm>({
+    cuenta_id: initialCuentaId || '',
+    fondo_id: '',
+    monto_origen: '',
+    tasa_cambio: '',
+    referencia: '',
+    concepto: '',
+    fecha: new Date().toISOString().split('T')[0] ?? '',
+  });
+
+  useEffect(() => {
+    const fetchData = async (): Promise<void> => {
+      const token = localStorage.getItem('habioo_token');
+      try {
+        const headers = { Authorization: `Bearer ${token}` };
+        const [resFondos, resBancos] = await Promise.all([
+          fetch(`${API_BASE_URL}/fondos`, { headers }),
+          fetch(`${API_BASE_URL}/bancos`, { headers }),
+        ]);
+        const dataFondos: FondosResponse = (await resFondos.json()) as FondosResponse;
+        const dataBancos: BancosResponse = (await resBancos.json()) as BancosResponse;
+        if (dataFondos.status === 'success' && Array.isArray(dataFondos.fondos)) setFondos(dataFondos.fondos);
+        if (dataBancos.status === 'success' && Array.isArray(dataBancos.bancos)) setCuentas(dataBancos.bancos);
+      } catch {
+        await showAlert({ title: 'Error', message: 'No se pudieron cargar cuentas y fondos.', variant: 'danger' });
+      } finally {
+        setLoading(false);
+      }
+    };
+    void fetchData();
+  }, []);
+
+  const cuentaSeleccionada = cuentas.find((c) => String(c.id) === form.cuenta_id);
+  const cuentaEsUsd = String(cuentaSeleccionada?.moneda || '').toUpperCase() === 'USD';
+  const fondosCuenta = useMemo(
+    () => fondos.filter((f) => String(f.cuenta_bancaria_id) === form.cuenta_id),
+    [fondos, form.cuenta_id]
+  );
+  const montoOrigenNum = parseNumber(form.monto_origen);
+  const tasaNum = parseNumber(form.tasa_cambio);
+  const equivalenteUsd = useMemo(() => {
+    if (!montoOrigenNum) return 0;
+    if (cuentaEsUsd) return montoOrigenNum;
+    if (tasaNum > 0) return montoOrigenNum / tasaNum;
+    return 0;
+  }, [montoOrigenNum, tasaNum, cuentaEsUsd]);
+
+  useEffect(() => {
+    if (!form.cuenta_id) {
+      if (form.fondo_id !== '') {
+        setForm((prev: RegistrarEgresoForm) => ({ ...prev, fondo_id: '' }));
+      }
+      return;
+    }
+    const exists = fondosCuenta.some((f) => String(f.id) === form.fondo_id);
+    if (!exists) {
+      const nextFondoId = String(fondosCuenta[0]?.id || '');
+      if (nextFondoId !== form.fondo_id) {
+        setForm((prev: RegistrarEgresoForm) => ({ ...prev, fondo_id: nextFondoId }));
+      }
+    }
+  }, [form.cuenta_id, form.fondo_id, fondosCuenta]);
+
+  const fetchBCV = async (): Promise<void> => {
+    setIsFetchingBCV(true);
+    try {
+      const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
+      const json: BcvResponse = (await response.json()) as BcvResponse;
+      if (json?.promedio) {
+        const rateNumber = parseFloat(String(json.promedio));
+        const formattedRate = Number.isFinite(rateNumber)
+          ? formatNumberInput(rateNumber.toFixed(3).replace('.', ','), 3)
+          : formatNumberInput(String(json.promedio).replace('.', ','), 3);
+        setForm((prev: RegistrarEgresoForm) => ({ ...prev, tasa_cambio: formattedRate }));
+      }
+    } catch {
+      await showAlert({ title: 'BCV no disponible', message: 'No se pudo obtener la tasa BCV.', variant: 'warning' });
+    } finally {
+      setIsFetchingBCV(false);
+    }
+  };
+
+  const isValid = Boolean(
+    form.cuenta_id &&
+    form.fondo_id &&
+    montoOrigenNum > 0 &&
+    form.referencia.trim() &&
+    form.concepto.trim() &&
+    form.fecha &&
+    (cuentaEsUsd || tasaNum > 0)
+  );
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
+    e.preventDefault();
+    if (!isValid) return;
+
+    const ok = await showConfirm({
+      title: 'Confirmar egreso',
+      message: `Se registrará un egreso de ${cuentaEsUsd ? '$' : 'Bs '}${formatMoney(montoOrigenNum)}.`,
+      confirmText: 'Registrar',
+      cancelText: 'Cancelar',
+      variant: 'warning',
+    });
+    if (!ok) return;
+
+    const token = localStorage.getItem('habioo_token');
+    try {
+      const res = await fetch(`${API_BASE_URL}/egresos-manuales`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          cuenta_id: Number(form.cuenta_id),
+          fondo_id: Number(form.fondo_id),
+          monto_origen: montoOrigenNum,
+          tasa_cambio: cuentaEsUsd ? null : tasaNum,
+          referencia: form.referencia.trim(),
+          concepto: form.concepto.trim(),
+          fecha: form.fecha,
+        }),
+      });
+      const result: ApiResult = (await res.json()) as ApiResult;
+      if (!res.ok || result.status !== 'success') {
+        await showAlert({ title: 'Error', message: result.message || result.error || 'No se pudo registrar el egreso.', variant: 'danger' });
+        return;
+      }
+      await showAlert({ title: 'Egreso registrado', message: result.message || 'Egreso registrado correctamente.', variant: 'success' });
+      onSuccess();
+    } catch {
+      await showAlert({ title: 'Error de red', message: 'No se pudo registrar el egreso.', variant: 'danger' });
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
+      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 custom-scrollbar max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-bold text-gray-800 dark:text-white">Registrar Egreso</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-red-500 font-bold text-xl">X</button>
+        </div>
+
+        {loading ? (
+          <p className="text-center text-gray-500">Cargando...</p>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Desde cuenta *</label>
+              <select
+                required
+                value={form.cuenta_id}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setForm((prev: RegistrarEgresoForm) => ({ ...prev, cuenta_id: e.target.value, fondo_id: '' }))}
+                className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary"
+              >
+                <option value="">Seleccione...</option>
+                {cuentas.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {(c.nombre_banco || 'Banco')} ({c.apodo || 'Cuenta'}){String(c.moneda || '').toUpperCase() === 'USD' ? ' - USD' : ' - Bs'}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Desde fondo *</label>
+              <select
+                required
+                value={form.fondo_id}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setForm((prev: RegistrarEgresoForm) => ({ ...prev, fondo_id: e.target.value }))}
+                disabled={!form.cuenta_id}
+                className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary disabled:opacity-60"
+              >
+                <option value="">{form.cuenta_id ? 'Seleccione...' : 'Seleccione cuenta primero'}</option>
+                {fondosCuenta.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.nombre} ({String(f.moneda || '').toUpperCase()}) - Disp: {String(f.moneda || '').toUpperCase() === 'USD' ? '$' : 'Bs '}{formatMoney(f.saldo_actual)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                  Monto {cuentaEsUsd ? '(USD)' : '(Bs)'} *
+                </label>
+                <input
+                  required
+                  type="text"
+                  value={form.monto_origen}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((prev: RegistrarEgresoForm) => ({ ...prev, monto_origen: formatNumberInput(e.target.value, 2) }))}
+                  placeholder="0,00"
+                  className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary"
+                />
+              </div>
+              {!cuentaEsUsd && (
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tasa BCV *</label>
+                  <div className="flex gap-2">
+                    <input
+                      required
+                      type="text"
+                      value={form.tasa_cambio}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((prev: RegistrarEgresoForm) => ({ ...prev, tasa_cambio: formatNumberInput(e.target.value, 3) }))}
+                      placeholder="0,000"
+                      className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary"
+                    />
+                    <button type="button" onClick={fetchBCV} disabled={isFetchingBCV} className="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200 px-3 rounded-xl font-bold border border-blue-300 dark:border-blue-700">
+                      {isFetchingBCV ? '...' : 'BCV'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {!cuentaEsUsd && (
+              <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-100 dark:border-amber-800/50 flex justify-between items-center">
+                <span className="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase">Equivalente USD:</span>
+                <span className="font-black text-amber-700 dark:text-amber-200 text-lg">${formatMoney(equivalenteUsd)}</span>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Referencia *</label>
+                <input
+                  required
+                  type="text"
+                  value={form.referencia}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((prev: RegistrarEgresoForm) => ({ ...prev, referencia: e.target.value }))}
+                  className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Fecha *</label>
+                <DatePicker
+                  selected={ymdToDate(form.fecha)}
+                  onChange={(date: Date | null) => setForm((prev: RegistrarEgresoForm) => ({ ...prev, fecha: dateToYmd(date) }))}
+                  maxDate={new Date()}
+                  dateFormat="dd/MM/yyyy"
+                  locale={es}
+                  placeholderText="Fecha (dd/mm/yyyy)"
+                  showIcon
+                  toggleCalendarOnIconClick
+                  wrapperClassName="w-full min-w-0"
+                  popperClassName="habioo-datepicker-popper"
+                  calendarClassName="habioo-datepicker-calendar"
+                  className="h-[50px] w-full rounded-xl border border-gray-300 bg-white p-3 pr-10 text-gray-900 outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Concepto *</label>
+              <textarea
+                required
+                rows={2}
+                value={form.concepto}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setForm((prev: RegistrarEgresoForm) => ({ ...prev, concepto: e.target.value }))}
+                className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary resize-none"
+              />
+            </div>
+
+            <button type="submit" disabled={!isValid} className="w-full py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+              Registrar Egreso
+            </button>
           </form>
         )}
       </div>
