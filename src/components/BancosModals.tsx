@@ -23,6 +23,7 @@ interface Fondo {
 
 interface CuentaBancaria {
   id: number | string;
+  numero_cuenta?: string;
   nombre_banco?: string;
   apodo?: string;
   tipo?: string;
@@ -122,6 +123,12 @@ function formatNumberInput(value: unknown, maxDecimals = 2): string {
   const integerPart = parts[0] ?? '';
   const decimalPart = (parts[1] || '').slice(0, maxDecimals);
   return decimalPart ? `${integerPart},${decimalPart}` : integerPart;
+}
+
+function formatCuentaDestinoLabel(cuenta: CuentaBancaria): string {
+  const nombreCuenta = String(cuenta.apodo || cuenta.nombre_banco || cuenta.tipo || `Cuenta ${cuenta.id}`).trim();
+  const ultimos4 = String(cuenta.numero_cuenta || '').replace(/\D/g, '').slice(-4);
+  return ultimos4.length === 4 ? `${nombreCuenta} - ****${ultimos4}` : nombreCuenta;
 }
 
 export const ModalPagoProveedor: React.FC<ModalBaseProps> = ({ onClose, onSuccess }) => {
@@ -499,7 +506,7 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
                   <option value="">Seleccione cuenta destino...</option>
                   {cuentasDestinoDisponibles.map((cuenta: CuentaBancaria) => (
                     <option key={cuenta.id} value={cuenta.id}>
-                      {(cuenta.nombre_banco || 'Cuenta')} - {(cuenta.tipo || cuenta.apodo || `ID ${cuenta.id}`)}
+                      {formatCuentaDestinoLabel(cuenta)}
                     </option>
                   ))}
                 </select>
