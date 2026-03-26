@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import type { FC, ChangeEvent } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { formatMoney } from '../utils/currency';
+import { toYmdVE } from '../utils/datetime';
 import { API_BASE_URL } from '../config/api';
 import ModalRegistrarPago from '../components/ModalRegistrarPago';
 import { ModalEstadoCuenta } from '../components/propiedades/PropiedadesModals';
@@ -227,15 +228,6 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
   const montoUsdAjuste = parseNumberInput(tasaBcvAjuste) > 0
     ? (parseNumberInput(montoBsAjuste) / parseNumberInput(tasaBcvAjuste))
     : 0;
-
-  const toLocalYmd = (dateLike: string | number | Date | undefined): string => {
-    const d = new Date(dateLike ?? '');
-    if (Number.isNaN(d.getTime())) return '';
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  };
 
   const fetchData = async (): Promise<void> => {
     const token = localStorage.getItem('habioo_token');
@@ -550,7 +542,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
 
   const estadoCuentaFiltrado: EstadoCuentaMovimientoConSaldo[] = dataConSaldo.filter((m: EstadoCuentaMovimientoConSaldo) => {
     if (!fechaDesde && !fechaHasta) return true;
-    const movYmd = toLocalYmd((m.fecha_registro as string) || (m.fecha_operacion as string));
+    const movYmd = toYmdVE((m.fecha_registro as string) || (m.fecha_operacion as string));
     if (!movYmd) return false;
     if (fechaDesde && movYmd < fechaDesde) return false;
     if (fechaHasta && movYmd > fechaHasta) return false;

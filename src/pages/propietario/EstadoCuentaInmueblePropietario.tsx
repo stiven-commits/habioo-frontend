@@ -5,7 +5,7 @@ import { useOutletContext } from 'react-router-dom';
 import ModalRegistrarPago from '../../components/ModalRegistrarPago';
 import { API_BASE_URL } from '../../config/api';
 import { formatMoney } from '../../utils/currency';
-import { formatDateTimeVE, formatDateVE } from '../../utils/datetime';
+import { formatDateTimeVE, formatDateVE, parseDateVE } from '../../utils/datetime';
 import 'react-datepicker/dist/react-datepicker.css';
 
 interface PropiedadActiva {
@@ -174,7 +174,7 @@ const EstadoCuentaInmueblePropietario: FC = () => {
 
   const movimientosConSaldo = useMemo<EstadoCuentaMovimiento[]>(() => {
     const sortedByRegistro = [...movimientosRaw].sort(
-      (a, b) => new Date(a.fecha_registro).getTime() - new Date(b.fecha_registro).getTime(),
+      (a, b) => (parseDateVE(a.fecha_registro)?.getTime() ?? 0) - (parseDateVE(b.fecha_registro)?.getTime() ?? 0),
     );
 
     let saldo = 0;
@@ -192,7 +192,8 @@ const EstadoCuentaInmueblePropietario: FC = () => {
     const hasta = fechaHasta ? endOfDay(fechaHasta) : null;
 
     const filtered = movimientosConSaldo.filter((mov) => {
-      const opDate = new Date(mov.fecha_operacion);
+      const opDate = parseDateVE(mov.fecha_operacion);
+      if (!opDate) return false;
       if (desde && opDate < desde) return false;
       if (hasta && opDate > hasta) return false;
       if (!search) return true;
@@ -203,7 +204,7 @@ const EstadoCuentaInmueblePropietario: FC = () => {
     });
 
     return [...filtered].sort((a, b) => {
-      const cmp = new Date(a.fecha_registro).getTime() - new Date(b.fecha_registro).getTime();
+      const cmp = (parseDateVE(a.fecha_registro)?.getTime() ?? 0) - (parseDateVE(b.fecha_registro)?.getTime() ?? 0);
       return sortDirection === 'asc' ? cmp : -cmp;
     });
   }, [movimientosConSaldo, searchTerm, fechaDesde, fechaHasta, sortDirection]);

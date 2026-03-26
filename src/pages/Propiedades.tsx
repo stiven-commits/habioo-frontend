@@ -3,6 +3,7 @@ import type { FC, ChangeEvent, FormEvent, Dispatch, SetStateAction } from 'react
 import { useOutletContext } from 'react-router-dom';
 import { ChevronDown, Pencil, UserPlus, Users, Trash2 } from 'lucide-react';
 import { formatMoney } from '../utils/currency';
+import { toYmdVE } from '../utils/datetime';
 import { sanitizeCedulaRif, sanitizePhone, sanitizeEmail, isValidEmail, isValidPhone, isValidCedulaRif } from '../utils/validators';
 import { API_BASE_URL } from '../config/api';
 import * as XLSX from 'xlsx';
@@ -1356,9 +1357,10 @@ const Propiedades: FC<PropiedadesProps> = () => {
   });
   const estadoCuentaFiltrado: EstadoCuentaMovimientoConSaldo[] = dataConSaldo.filter((m: EstadoCuentaMovimientoConSaldo) => {
     if (!fechaDesde && !fechaHasta) return true;
-    const f = new Date(m.fecha_registro);
-    if (fechaDesde && f < new Date(fechaDesde)) return false;
-    if (fechaHasta && f > new Date(fechaHasta)) return false;
+    const movYmd = toYmdVE(m.fecha_registro || m.fecha_operacion);
+    if (!movYmd) return false;
+    if (fechaDesde && movYmd < fechaDesde) return false;
+    if (fechaHasta && movYmd > fechaHasta) return false;
     return true;
   });
   const totalCargo = estadoCuentaFiltrado.reduce((acc: number, m: EstadoCuentaMovimientoConSaldo) => acc + toNumber(m.cargo), 0);
