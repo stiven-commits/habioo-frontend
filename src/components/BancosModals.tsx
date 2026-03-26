@@ -117,12 +117,37 @@ const dateToYmd = (date: Date | null): string => {
 };
 
 function formatNumberInput(value: unknown, maxDecimals = 2): string {
-  const cleanedRaw = String(value || '').replace(/[^0-9,]/g, '');
-  const parts = cleanedRaw.split(',');
-  parts[0] = (parts[0] ?? '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  const integerPart = parts[0] ?? '';
-  const decimalPart = (parts[1] || '').slice(0, maxDecimals);
-  return decimalPart ? `${integerPart},${decimalPart}` : integerPart;
+  const raw = String(value || '').replace(/[^0-9.,]/g, '');
+  if (!raw) return '';
+
+  const commaCount = (raw.match(/,/g) || []).length;
+  const dotCount = (raw.match(/\./g) || []).length;
+
+  let decimalSeparator: ',' | '.' | '' = '';
+  if (commaCount > 0 && dotCount > 0) {
+    decimalSeparator = raw.lastIndexOf(',') > raw.lastIndexOf('.') ? ',' : '.';
+  } else if (commaCount > 0) {
+    decimalSeparator = ',';
+  } else if (dotCount > 0) {
+    const lastDot = raw.lastIndexOf('.');
+    const digitsAfterDot = raw.slice(lastDot + 1).replace(/\D/g, '').length;
+    if (dotCount === 1 && digitsAfterDot !== 3) {
+      decimalSeparator = '.';
+    }
+  }
+
+  if (decimalSeparator) {
+    const sepIndex = raw.lastIndexOf(decimalSeparator);
+    const integerDigits = raw.slice(0, sepIndex).replace(/\D/g, '');
+    const decimalDigits = raw.slice(sepIndex + 1).replace(/\D/g, '').slice(0, maxDecimals);
+    const integerPart = integerDigits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+    if (sepIndex === raw.length - 1) return `${integerPart},`;
+    return decimalDigits ? `${integerPart},${decimalDigits}` : integerPart;
+  }
+
+  const integerDigits = raw.replace(/\D/g, '');
+  return integerDigits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
 function formatCuentaDestinoLabel(cuenta: CuentaBancaria): string {
