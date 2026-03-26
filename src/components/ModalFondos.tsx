@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { FC, ChangeEvent, FormEvent } from 'react';
 import { formatMoney } from '../utils/currency';
 import { API_BASE_URL } from '../config/api';
@@ -111,6 +111,8 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo, ref
 
   const [fondos, setFondos] = useState<Fondo[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [isCreatingFondo, setIsCreatingFondo] = useState<boolean>(false);
+  const createFondoLockRef = useRef<boolean>(false);
   const [form, setForm] = useState<FormState>(initialForm);
   const [renamingFondoId, setRenamingFondoId] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState<string>('');
@@ -182,11 +184,14 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo, ref
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
+    if (isCreatingFondo || createFondoLockRef.current) return;
     const token = localStorage.getItem('habioo_token');
     
     const isFirstFondo = fondos.length === 0;
 
     try {
+      createFondoLockRef.current = true;
+      setIsCreatingFondo(true);
       const res = await fetch(`${API_BASE_URL}/fondos`, {
         method: 'POST',
         headers: {
@@ -205,6 +210,9 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo, ref
       }
     } catch (error) {
       await showAlert({ title: 'Error de conexion', message: 'No se pudo crear el fondo.', variant: 'danger' });
+    } finally {
+      setIsCreatingFondo(false);
+      createFondoLockRef.current = false;
     }
   };
 
@@ -353,7 +361,13 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo, ref
   return (
     <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
       <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-2xl shadow-2xl border border-gray-100 dark:border-gray-800 relative my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
-        <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-red-500 font-bold text-xl">X</button>
+        <button
+          onClick={onClose}
+          disabled={isCreatingFondo}
+          className="absolute top-4 right-4 text-gray-500 hover:text-red-500 font-bold text-xl disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          X
+        </button>
 
         <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-1">Configuracion de Fondos</h3>
         <p className="text-sm text-gray-500 mb-6">Cuenta bancaria: <strong className="text-donezo-primary">{cuenta.nombre_banco} ({cuenta.apodo})</strong></p>
@@ -537,8 +551,12 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo, ref
           </div>
 
           <div className="mt-4 flex justify-end">
-            <button type="submit" className="bg-gray-800 hover:bg-gray-900 text-white dark:bg-donezo-primary dark:hover:bg-blue-600 px-8 py-3 rounded-xl text-sm font-bold shadow-md transition-all">
-              Crear Fondo Virtual
+            <button
+              type="submit"
+              disabled={isCreatingFondo}
+              className="bg-gray-800 hover:bg-gray-900 text-white dark:bg-donezo-primary dark:hover:bg-blue-600 px-8 py-3 rounded-xl text-sm font-bold shadow-md transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {isCreatingFondo ? 'Creando...' : 'Crear Fondo Virtual'}
             </button>
           </div>
         </form>

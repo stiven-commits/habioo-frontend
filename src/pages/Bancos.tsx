@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { FC, ChangeEvent, FormEvent } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import ModalFondos from '../components/ModalFondos';
@@ -175,6 +175,7 @@ const Bancos: FC<BancosProps> = () => {
   const [fondosRefreshKey, setFondosRefreshKey] = useState<number>(0);
   const [showCuentaModal, setShowCuentaModal] = useState<boolean>(false);
   const [isSavingCuenta, setIsSavingCuenta] = useState<boolean>(false);
+  const cuentaSubmitLockRef = useRef<boolean>(false);
   const [editingBanco, setEditingBanco] = useState<Banco | null>(null);
 
   const [form, setForm] = useState<FormState>(initialForm);
@@ -334,7 +335,7 @@ const Bancos: FC<BancosProps> = () => {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
-    if (isSavingCuenta) return;
+    if (isSavingCuenta || cuentaSubmitLockRef.current) return;
     const token = localStorage.getItem('habioo_token');
     if (['Transferencia', 'Pago Movil'].includes(form.tipo) && !isValidCedulaRif(form.cedula_rif)) {
       await showAlert({ title: 'Dato invalido', message: 'La cédula/RIF debe iniciar con V, E, J o G y contener solo números.', variant: 'warning' });
@@ -360,6 +361,7 @@ const Bancos: FC<BancosProps> = () => {
     }
 
     try {
+      cuentaSubmitLockRef.current = true;
       setIsSavingCuenta(true);
       const isEditing = Boolean(editingBanco?.id);
       const endpoint = isEditing ? `${API_BASE_URL}/bancos/${editingBanco?.id}` : `${API_BASE_URL}/bancos`;
@@ -386,6 +388,7 @@ const Bancos: FC<BancosProps> = () => {
       await showAlert({ title: 'Error de conexion', message: 'No se pudo guardar la cuenta.', variant: 'danger' });
     } finally {
       setIsSavingCuenta(false);
+      cuentaSubmitLockRef.current = false;
     }
   };
 
