@@ -120,34 +120,19 @@ function formatNumberInput(value: unknown, maxDecimals = 2): string {
   const raw = String(value || '').replace(/[^0-9.,]/g, '');
   if (!raw) return '';
 
-  const commaCount = (raw.match(/,/g) || []).length;
-  const dotCount = (raw.match(/\./g) || []).length;
+  // Regla de mascara: punto para miles y coma para decimales.
+  const hasComma = raw.includes(',');
+  const commaIndex = hasComma ? raw.lastIndexOf(',') : -1;
 
-  let decimalSeparator: ',' | '.' | '' = '';
-  if (commaCount > 0 && dotCount > 0) {
-    decimalSeparator = raw.lastIndexOf(',') > raw.lastIndexOf('.') ? ',' : '.';
-  } else if (commaCount > 0) {
-    decimalSeparator = ',';
-  } else if (dotCount > 0) {
-    const lastDot = raw.lastIndexOf('.');
-    const digitsAfterDot = raw.slice(lastDot + 1).replace(/\D/g, '').length;
-    if (dotCount === 1 && digitsAfterDot !== 3) {
-      decimalSeparator = '.';
-    }
-  }
+  const integerSection = hasComma ? raw.slice(0, commaIndex) : raw;
+  const integerDigits = integerSection.replace(/\D/g, '');
+  const integerPart = integerDigits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
-  if (decimalSeparator) {
-    const sepIndex = raw.lastIndexOf(decimalSeparator);
-    const integerDigits = raw.slice(0, sepIndex).replace(/\D/g, '');
-    const decimalDigits = raw.slice(sepIndex + 1).replace(/\D/g, '').slice(0, maxDecimals);
-    const integerPart = integerDigits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  if (!hasComma) return integerPart;
 
-    if (sepIndex === raw.length - 1) return `${integerPart},`;
-    return decimalDigits ? `${integerPart},${decimalDigits}` : integerPart;
-  }
-
-  const integerDigits = raw.replace(/\D/g, '');
-  return integerDigits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const decimalDigits = raw.slice(commaIndex + 1).replace(/\D/g, '').slice(0, maxDecimals);
+  if (raw.endsWith(',')) return `${integerPart},`;
+  return `${integerPart},${decimalDigits}`;
 }
 
 function formatCuentaDestinoLabel(cuenta: CuentaBancaria): string {
