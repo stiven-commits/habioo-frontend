@@ -211,7 +211,12 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   const [tasaBcv, setTasaBcv] = useState<string>('');
   const [loadingBcv, setLoadingBcv] = useState<boolean>(false);
   const [rollbackingKey, setRollbackingKey] = useState<string>('');
+  const [tableFontBoost, setTableFontBoost] = useState<number>(0);
   const itemsPerPage = 13;
+  const tableFontSizePx = 14 + tableFontBoost;
+  const tableMetaFontPx = 10 + tableFontBoost;
+  const tableTagFontPx = 9 + tableFontBoost;
+  const tableCompactFontPx = 12 + tableFontBoost;
 
   const fetchCuentas = async (): Promise<void> => {
     const token = localStorage.getItem('habioo_token');
@@ -331,9 +336,16 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
         const montoUsd = toNumber((safeMov as { monto_usd?: unknown }).monto_usd ?? montoRaw ?? 0);
         const tasaCambio = toNumber((safeMov as { tasa_cambio?: unknown }).tasa_cambio ?? 0);
 
+        const fechaPago = String((safeMov as { fecha_pago?: unknown }).fecha_pago ?? safeMov.fecha ?? '');
+        const fechaRegistro = String(
+          (safeMov as { fecha_registro?: unknown }).fecha_registro
+          ?? (safeMov as { created_at?: unknown }).created_at
+          ?? ''
+        );
+
         return {
           id: safeMov.id ?? `mov-${index}`,
-          fecha: String(safeMov.fecha ?? ''),
+          fecha: fechaPago,
           referencia: String(safeMov.referencia ?? (safeMov as { referencia_id?: unknown }).referencia_id ?? ''),
           concepto,
           tipo,
@@ -357,6 +369,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
             ? String((safeMov as { inmueble?: unknown }).inmueble)
             : '',
           pago_id: toNullableInt((safeMov as { pago_id?: unknown }).pago_id),
+          fecha_registro: fechaRegistro,
           ...(safeMov.saldo_acumulado !== undefined ? { saldo_acumulado: safeMov.saldo_acumulado } : {})
         };
       });
@@ -518,6 +531,13 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     const movimientosDirectos: IMovimiento[] = [];
     const ingresosPorPago = new Map<string, IMovimiento[]>();
     const ingresosPorAjuste = new Map<string, IMovimiento[]>();
+    const getFechaRegistroGrupo = (grupo: IMovimiento[]): string => {
+      const candidatas = grupo
+        .map((item) => String(item.fecha_registro ?? '').trim())
+        .filter(Boolean);
+      if (candidatas.length === 0) return '';
+      return candidatas.sort((a, b) => (new Date(b).getTime() || 0) - (new Date(a).getTime() || 0))[0] || '';
+    };
 
     movimientosFiltrados.forEach((mov) => {
       const pagoId = mov.pago_id ? String(mov.pago_id) : '';
@@ -565,10 +585,12 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       const tasa = toNumber(base?.tasa_cambio);
       const pagoId = base?.pago_id ?? null;
       const fallbackKey = groupKey.replace(/^pago-/, '');
+      const fechaRegistro = getFechaRegistroGrupo(grupo);
 
       return {
         id: `ING-CONS-${fallbackKey}`,
         fecha: String(base?.fecha ?? ''),
+        fecha_registro: fechaRegistro,
         referencia: referencias[0] || (base?.referencia || ''),
         concepto: conceptoLimpio || `Pago Ref: ${fallbackKey}`,
         tipo: 'INGRESO',
@@ -593,10 +615,12 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       const montoUsdTotal = grupo.reduce((acc, item) => acc + toNumber(item.monto_usd), 0);
       const montoBsTotal = grupo.reduce((acc, item) => acc + toNumber(item.monto_bs), 0);
       const tasa = toNumber(base?.tasa_cambio);
+      const fechaRegistro = getFechaRegistroGrupo(grupo);
 
       return {
         id: `AJ-CONS-${referencia}`,
         fecha: String(base?.fecha ?? ''),
+        fecha_registro: fechaRegistro,
         referencia,
         concepto: conceptoLimpio || 'Ajuste de saldo',
         tipo: 'INGRESO',
@@ -1174,33 +1198,51 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-2xl border border-blue-100 dark:border-blue-800/50 flex flex-col justify-center items-center">
-          <p className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-1">Saldo en banco (equivalente USD)</p>
-          <h2 className="text-4xl font-black text-blue-700 dark:text-blue-300">${formatCurrency(saldoCuentaUsdActual)}</h2>
-          {tasaBcvNum > 0 && (
-            <p className="text-xs text-blue-700 dark:text-blue-300 mt-2">
-              Equivalente del saldo USD a Bs: <span className="font-bold">Bs {formatCurrency(saldoUsdEnBs)}</span>
-            </p>
-          )}
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-2xl border border-blue-100 dark:border-blue-800/50 flex flex-col justify-center items-center">
+            <p className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-1">Saldo en banco (equivalente USD)</p>
+            <h2 className="text-4xl font-black text-blue-700 dark:text-blue-300">${formatCurrency(saldoCuentaUsdActual)}</h2>
+            {tasaBcvNum > 0 && (
+              <p className="text-xs text-blue-700 dark:text-blue-300 mt-2">
+                Equivalente del saldo USD a Bs: <span className="font-bold">Bs {formatCurrency(saldoUsdEnBs)}</span>
+              </p>
+            )}
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 flex flex-col justify-center items-center opacity-80 gap-2">
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Saldo original Bs (si aplica)</p>
+            <h2 className="text-3xl font-black text-gray-700 dark:text-gray-300">Bs {formatCurrency(saldoCuentaBsActual)}</h2>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={fetchBCV}
+                disabled={loadingBcv}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800 disabled:opacity-60"
+              >
+                {loadingBcv ? 'Consultando BCV...' : 'Obtener BCV'}
+              </button>
+              {tasaBcvNum > 0 && <span className="text-xs font-bold text-gray-500">Tasa: {formatRate(tasaBcvNum)}</span>}
+            </div>
+            {cuentaActual?.moneda === 'USD' && <p className="text-xs text-red-400 font-bold mt-1">Cuenta en divisas</p>}
+          </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 flex flex-col justify-center items-center opacity-80 gap-2">
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Saldo original Bs (si aplica)</p>
-          <h2 className="text-3xl font-black text-gray-700 dark:text-gray-300">Bs {formatCurrency(saldoCuentaBsActual)}</h2>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={fetchBCV}
-              disabled={loadingBcv}
-              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800 disabled:opacity-60"
-            >
-              {loadingBcv ? 'Consultando BCV...' : 'Obtener BCV'}
-            </button>
-            {tasaBcvNum > 0 && <span className="text-xs font-bold text-gray-500">Tasa: {formatRate(tasaBcvNum)}</span>}
+        {resumenFondos.length > 0 && (
+          <div className={`grid gap-3 ${resumenFondos.length === 1 ? 'grid-cols-1' : resumenFondos.length === 2 ? 'grid-cols-2' : resumenFondos.length === 3 ? 'grid-cols-3' : 'grid-cols-2 md:grid-cols-4'}`}>
+            {resumenFondos.map((fondo) => (
+              <div key={fondo.id} className="bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex flex-col items-center justify-center gap-1">
+                <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">{fondo.nombre}</p>
+                <p className="text-lg font-black text-gray-700 dark:text-gray-200">
+                  {fondo.moneda === 'USD' ? '$' : 'Bs'} {formatCurrency(fondo.saldo)}
+                </p>
+                {fondo.moneda === 'BS' && tasaBcvNum > 0 && (
+                  <p className="text-[17px] font-semibold text-gray-500">${formatCurrency(fondo.equivalenteUsd)}</p>
+                )}
+              </div>
+            ))}
           </div>
-          {cuentaActual?.moneda === 'USD' && <p className="text-xs text-red-400 font-bold mt-1">Cuenta en divisas</p>}
-        </div>
+        )}
       </div>
 
       <div className="bg-white dark:bg-donezo-card-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
@@ -1271,6 +1313,14 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
               >
                 Limpiar
               </button>
+              <button
+                type="button"
+                onClick={() => setTableFontBoost((prev) => (prev >= 4 ? 0 : prev + 1))}
+                className="px-3 py-2 rounded-lg text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800"
+                title="Aumentar tamaño de fuente de la tabla"
+              >
+                A+
+              </button>
             </div>
           </div>
 
@@ -1326,50 +1376,50 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
           <p className="text-center text-gray-400 py-10 font-medium">No hay movimientos registrados en esta cuenta.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-sm">
+            <table className="w-full text-left border-collapse" style={{ fontSize: `${tableFontSizePx}px` }}>
               <thead>
                 <tr className="bg-gray-50/50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400">
                   <th className="p-4 font-bold">
                     <button type="button" onClick={() => handleSort('fecha')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
-                      Fecha <span className="text-[10px]">{getSortArrow('fecha')}</span>
+                      Fecha <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('fecha')}</span>
                     </button>
                   </th>
                   <th className="p-4 font-bold">
                     <button type="button" onClick={() => handleSort('referencia')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
-                      Referencia <span className="text-[10px]">{getSortArrow('referencia')}</span>
+                      Referencia <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('referencia')}</span>
                     </button>
                   </th>
                   <th className="p-4 font-bold">
                     <button type="button" onClick={() => handleSort('inmueble')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
-                      Inmueble <span className="text-[10px]">{getSortArrow('inmueble')}</span>
+                      Inmueble <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('inmueble')}</span>
                     </button>
                   </th>
                   <th className="p-4 font-bold">
                     <button type="button" onClick={() => handleSort('descripcion')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
-                      Descripción <span className="text-[10px]">{getSortArrow('descripcion')}</span>
+                      Descripción <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('descripcion')}</span>
                     </button>
                   </th>
                   {!isCuentaUsd && (
                     <th className="p-4 font-bold text-right">
                       <button type="button" onClick={() => handleSort('monto_bs')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
-                        Monto (Bs) <span className="text-[10px]">{getSortArrow('monto_bs')}</span>
+                        Monto (Bs) <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('monto_bs')}</span>
                       </button>
                     </th>
                   )}
                   <th className="p-4 font-bold text-right">
                     <button type="button" onClick={() => handleSort('cargo')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
-                      Cargo ($) <span className="text-[10px]">{getSortArrow('cargo')}</span>
+                      Cargo ($) <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('cargo')}</span>
                     </button>
                   </th>
                   <th className="p-4 font-bold text-right">
                     <button type="button" onClick={() => handleSort('abono')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
-                      Abono ($) <span className="text-[10px]">{getSortArrow('abono')}</span>
+                      Abono ($) <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('abono')}</span>
                     </button>
                   </th>
                   {!isCuentaUsd && (
                     <th className="p-4 font-bold text-right">
                       <button type="button" onClick={() => handleSort('tasa')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
-                        Tasa (Bs.) <span className="text-[10px]">{getSortArrow('tasa')}</span>
+                        Tasa (Bs.) <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('tasa')}</span>
                       </button>
                     </th>
                   )}
@@ -1387,9 +1437,18 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                       onDoubleClick={() => setMovimientoDetalle(movimiento)}
                       className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors cursor-pointer"
                     >
-                      <td className="p-4 font-mono text-gray-600 dark:text-gray-400 text-xs">{formatFecha(movimiento.fecha)}</td>
-                      <td className="p-4 font-mono text-xs text-gray-500">{movimiento.referencia || '-'}</td>
-                      <td className="p-4 text-xs font-semibold text-gray-700 dark:text-gray-300">{getInmuebleVista(movimiento)}</td>
+                      <td className="p-4">
+                        <span className="block font-mono font-bold text-gray-800 dark:text-gray-200" style={{ fontSize: `${tableCompactFontPx}px` }}>
+                          <span className="font-bold text-gray-400 uppercase mr-1" style={{ fontSize: `${tableTagFontPx}px` }}>pago</span>{formatFecha(movimiento.fecha)}
+                        </span>
+                        {movimiento.fecha_registro && (
+                          <span className="block font-mono text-gray-400 mt-0.5" style={{ fontSize: `${tableMetaFontPx}px` }}>
+                            <span className="font-bold text-gray-400 uppercase mr-1" style={{ fontSize: `${tableTagFontPx}px` }}>sistema</span>{formatFecha(movimiento.fecha_registro)}
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-4 font-mono text-gray-500" style={{ fontSize: `${tableCompactFontPx}px` }}>{movimiento.referencia || '-'}</td>
+                      <td className="p-4 font-semibold text-gray-700 dark:text-gray-300" style={{ fontSize: `${tableCompactFontPx}px` }}>{getInmuebleVista(movimiento)}</td>
                       <td className="p-4 font-medium text-gray-800 dark:text-gray-200">{getConceptoVista(movimiento)}</td>
                       {!isCuentaUsd && (
                         <td className="p-4 text-right font-black font-mono text-slate-700 dark:text-slate-200">
@@ -1411,7 +1470,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                         )}
                       </td>
                       {!isCuentaUsd && (
-                        <td className="p-4 text-right font-mono text-xs text-blue-600 dark:text-blue-400">
+                        <td className="p-4 text-right font-mono text-blue-600 dark:text-blue-400" style={{ fontSize: `${tableCompactFontPx}px` }}>
                           {movimiento.tasa_cambio ? formatCurrency(movimiento.tasa_cambio) : '-'}
                         </td>
                       )}

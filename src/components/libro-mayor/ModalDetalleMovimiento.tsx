@@ -3,6 +3,7 @@ import type { FC } from 'react';
 export interface IMovimientoDetalle {
   id: string | number;
   fecha: string;
+  fecha_registro?: string;
   referencia: string;
   concepto: string;
   tipo: 'INGRESO' | 'EGRESO';
