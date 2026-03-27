@@ -2,6 +2,27 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config/api';
 import AIChatWidget from './AIChatWidget';
+import {
+  Bell,
+  BookOpen,
+  Building2,
+  CalendarDays,
+  ClipboardList,
+  CreditCard,
+  FileCheck2,
+  FileText,
+  Handshake,
+  Landmark,
+  LayoutDashboard,
+  LogOut,
+  MapPin,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Receipt,
+  Settings,
+  UserCircle2,
+  WalletCards,
+} from 'lucide-react';
 
 interface LayoutProps {}
 
@@ -13,6 +34,18 @@ interface User {
 
 interface MeResponse {
   user?: User;
+}
+
+interface PerfilCondominioHeaderData {
+  admin_nombre?: string | null;
+  admin_representante?: string | null;
+  nombre_legal?: string | null;
+  nombre?: string | null;
+}
+
+interface PerfilCondominioHeaderResponse {
+  status?: 'success' | 'error';
+  data?: PerfilCondominioHeaderData;
 }
 
 interface MisPropiedad {
@@ -96,6 +129,8 @@ const toNumber = (value: unknown): number => Number.parseInt(String(value ?? 0),
 const Layout: React.FC<LayoutProps> = () => {
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [headerDisplayName, setHeaderDisplayName] = useState<string>('');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [theme, setTheme] = useState<Theme>(() => (localStorage.theme === 'dark' ? 'dark' : 'light'));
   const [systemNow, setSystemNow] = useState<Date>(() => new Date());
   const [misPropiedades, setMisPropiedades] = useState<MisPropiedad[]>([]);
@@ -213,6 +248,41 @@ const Layout: React.FC<LayoutProps> = () => {
 
     void fetchMisPropiedades();
   }, [userRole]);
+
+  useEffect(() => {
+    const loadHeaderDisplayName = async (): Promise<void> => {
+      if (!user) return;
+      if (userRole !== 'Administrador') {
+        setHeaderDisplayName(String(user.nombre || '').trim());
+        return;
+      }
+
+      const token = localStorage.getItem('habioo_token');
+      if (!token) {
+        setHeaderDisplayName(String(user.nombre || '').trim());
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/perfil`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data: PerfilCondominioHeaderResponse = await res.json();
+        const profile = data?.data || {};
+        const adminNombre = String(profile.admin_nombre || '').trim();
+        const adminRepresentante = String(profile.admin_representante || '').trim();
+        const nombreJunta = String(profile.nombre_legal || profile.nombre || '').trim();
+        const fallbackUser = String(user.nombre || '').trim();
+        const nombreAdmin = adminNombre || adminRepresentante || fallbackUser;
+        const nombreCompuesto = nombreAdmin && nombreJunta ? `${nombreAdmin} / ${nombreJunta}` : (nombreAdmin || nombreJunta);
+        setHeaderDisplayName(nombreCompuesto || 'Usuario');
+      } catch {
+        setHeaderDisplayName(String(user.nombre || '').trim() || 'Usuario');
+      }
+    };
+
+    void loadHeaderDisplayName();
+  }, [userRole, user]);
 
   useEffect(() => {
     if (userRole !== 'Propietario') return;
@@ -472,11 +542,17 @@ const Layout: React.FC<LayoutProps> = () => {
   };
 
   const navClass = (path: string): string =>
-    `block py-3 px-4 rounded-xl transition-all duration-200 font-medium ${
+    `group flex items-center rounded-xl transition-all duration-200 font-semibold ${
+      sidebarCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'
+    } ${
       location.pathname === path
-        ? 'bg-donezo-primary text-white shadow-lg shadow-green-500/30'
-        : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'
+        ? 'bg-[#0b472a] text-white shadow-[inset_0_0_0_1px_rgba(110,231,183,0.15)]'
+        : 'text-emerald-50/90 hover:bg-[#0c5331] hover:text-white'
     }`;
+
+  const sectionTitleClass = `px-1 text-[11px] font-black uppercase tracking-[0.14em] text-emerald-200/55 ${
+    sidebarCollapsed ? 'hidden' : ''
+  }`;
 
   const propiedadResumen = useMemo(() => {
     if (!propiedadActiva) return 'Sin inmueble activo';
@@ -542,146 +618,204 @@ const Layout: React.FC<LayoutProps> = () => {
 
   if (!user) return null;
 
+  const displayName = String(headerDisplayName || user.nombre || 'Usuario').trim() || 'Usuario';
+
   return (
     <div
       className="min-h-screen bg-gray-50 dark:bg-[#0f111a] transition-colors duration-300 flex"
       onClickCapture={handleGlobalButtonClickCapture}
       onSubmitCapture={handleGlobalFormSubmitCapture}
     >
-      <aside className="w-64 bg-white dark:bg-[#161b22] border-r border-gray-100 dark:border-gray-800 hidden md:flex flex-col fixed h-full z-20">
-        <div className="p-8">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-donezo-primary to-green-400 bg-clip-text text-transparent">Habioo</h1>
+      <aside className={`hidden md:flex fixed h-full z-20 flex-col border-r border-emerald-900/70 bg-[#0f5e37] transition-all duration-300 ${sidebarCollapsed ? 'w-20' : 'w-64'}`}>
+        <div className={`px-3 py-4 border-b border-emerald-900/60 ${sidebarCollapsed ? 'flex justify-center' : ''}`}>
+          <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
+            <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-100">
+              <Building2 size={17} />
+            </div>
+            {!sidebarCollapsed && <span className="text-2xl font-black tracking-tight text-emerald-50">Habioo</span>}
+          </div>
         </div>
 
-        <nav className="flex-1 px-4 space-y-2 overflow-y-auto">
-          <Link to="/dashboard" className={navClass('/dashboard')}>
-            📊 Dashboard
+        <nav className={`flex-1 px-3 py-4 space-y-1.5 overflow-y-auto ${sidebarCollapsed ? 'items-center' : ''}`}>
+          <p className={sectionTitleClass}>Principal</p>
+          <Link to="/dashboard" className={navClass('/dashboard')} title="Dashboard">
+            <LayoutDashboard size={18} />
+            {!sidebarCollapsed && <span>Dashboard</span>}
           </Link>
 
           {userRole === 'Administrador' && (
             <>
-              <Link to="/perfil" className={navClass('/perfil')}>
-                ⚙️ Perfil Condominio
+              <Link to="/inmuebles" className={navClass('/inmuebles')} title="Inmuebles">
+                <Building2 size={18} />
+                {!sidebarCollapsed && <span>Inmuebles</span>}
               </Link>
-              <p className="px-4 text-xs font-bold text-gray-400 uppercase mt-6 mb-2">Configuración</p>
-              <Link to="/bancos" className={navClass('/bancos')}>
-                💳 Cuentas Bancarias
+              <Link to="/proveedores" className={navClass('/proveedores')} title="Proveedores">
+                <Handshake size={18} />
+                {!sidebarCollapsed && <span>Proveedores</span>}
               </Link>
-              <Link to="/zonas" className={navClass('/zonas')}>
-                🏢 Areas / Sectores
+              <Link to="/gastos" className={navClass('/gastos')} title="Gastos">
+                <Receipt size={18} />
+                {!sidebarCollapsed && <span>Gastos</span>}
               </Link>
-              <Link to="/inmuebles" className={navClass('/inmuebles')}>
-                🏠 Inmuebles
+              <Link to="/cierres" className={navClass('/cierres')} title="Cierres">
+                <FileCheck2 size={18} />
+                {!sidebarCollapsed && <span>Cierres</span>}
               </Link>
-              <Link to="/proveedores" className={navClass('/proveedores')}>
-                🤝 Proveedores
+
+              <p className={`mt-6 ${sectionTitleClass}`}>Finanzas</p>
+              <Link to="/cuentas-cobrar" className={navClass('/cuentas-cobrar')} title="Cuentas por Cobrar">
+                <WalletCards size={18} />
+                {!sidebarCollapsed && <span>Cuentas por Cobrar</span>}
               </Link>
-              <p className="px-4 text-xs font-bold text-gray-400 uppercase mt-6 mb-2">Contabilidad</p>
-              <Link to="/gastos" className={navClass('/gastos')}>
-                🧾 Gastos
+              <Link to="/bancos" className={navClass('/bancos')} title="Bancos">
+                <Landmark size={18} />
+                {!sidebarCollapsed && <span>Bancos</span>}
               </Link>
-              <Link to="/cierres" className={navClass('/cierres')}>
-                🔒 Cierres Preliminares
+              <Link to="/estado-cuentas" className={navClass('/estado-cuentas')} title="Estado de Cuentas">
+                <BookOpen size={18} />
+                {!sidebarCollapsed && <span>Estado de Cuentas</span>}
               </Link>
-              <Link to="/avisos-cobro" className={navClass('/avisos-cobro')}>
-                🗂️ Avisos de cobro
+              <Link to="/avisos-cobro" className={navClass('/avisos-cobro')} title="Avisos de Cobro">
+                <Bell size={18} />
+                {!sidebarCollapsed && <span>Avisos de Cobro</span>}
               </Link>
-              <Link to="/cuentas-cobrar" className={navClass('/cuentas-cobrar')}>
-                💰 Cobranza
+
+              <p className={`mt-6 ${sectionTitleClass}`}>Configuracion</p>
+              <Link to="/zonas" className={navClass('/zonas')} title="Zonas">
+                <MapPin size={18} />
+                {!sidebarCollapsed && <span>Zonas</span>}
               </Link>
-              <Link to="/estado-cuentas" className={navClass('/estado-cuentas')}>
-                📊 Libro Mayor
+              <Link to="/perfil" className={navClass('/perfil')} title="Perfil Condominio">
+                <Settings size={18} />
+                {!sidebarCollapsed && <span>Perfil</span>}
               </Link>
-              <Link to="/alquileres" className={navClass('/alquileres')}>
-                🗓️ Alquileres
+              <Link to="/alquileres" className={navClass('/alquileres')} title="Alquileres">
+                <CalendarDays size={18} />
+                {!sidebarCollapsed && <span>Alquileres</span>}
               </Link>
-              <Link to="/carta-consulta" className={navClass('/carta-consulta')}>
-                📋 Cartas Consulta
+              <Link to="/carta-consulta" className={navClass('/carta-consulta')} title="Cartas Consulta">
+                <ClipboardList size={18} />
+                {!sidebarCollapsed && <span>Cartas Consulta</span>}
               </Link>
             </>
           )}
 
           {userRole === 'Propietario' && (
             <>
-              <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/40">
-                <p className="text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-gray-400">Cambiando a:</p>
-                <select
-                  value={propiedadActiva?.id_propiedad ?? ''}
-                  onChange={handlePropiedadChange}
-                  className="mt-2 w-full rounded-lg border border-gray-200 bg-white px-2 py-2 text-xs font-semibold text-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
-                >
-                  {misPropiedades.map((item) => (
-                    <option key={item.id_propiedad} value={item.id_propiedad}>
-                      {item.identificador} | {item.nombre_condominio}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {!sidebarCollapsed && (
+                <div className="mt-3 rounded-xl border border-emerald-900/70 bg-[#0d4f2f] p-3">
+                  <p className="text-[11px] font-black uppercase tracking-wider text-emerald-100/70">Cambiando a:</p>
+                  <select
+                    value={propiedadActiva?.id_propiedad ?? ''}
+                    onChange={handlePropiedadChange}
+                    className="mt-2 w-full rounded-lg border border-emerald-900/80 bg-[#0f5e37] px-2 py-2 text-xs font-semibold text-emerald-50 outline-none focus:ring-2 focus:ring-emerald-300/40"
+                  >
+                    {misPropiedades.map((item) => (
+                      <option key={item.id_propiedad} value={item.id_propiedad}>
+                        {item.identificador} | {item.nombre_condominio}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-              <p className="px-4 text-xs font-bold text-gray-400 uppercase mt-6 mb-2">Contabilidad</p>
-              <Link to="/propietario/gastos" className={navClass('/propietario/gastos')}>
-                🏢 Cartelera de Gastos
+              <p className={`mt-6 ${sectionTitleClass}`}>Finanzas</p>
+              <Link to="/propietario/gastos" className={navClass('/propietario/gastos')} title="Cartelera de Gastos">
+                <Building2 size={18} />
+                {!sidebarCollapsed && <span>Cartelera de Gastos</span>}
               </Link>
-              <Link to="/propietario/recibos" className={navClass('/propietario/recibos')}>
-                💳 Mis Recibos / Pagar
+              <Link to="/propietario/recibos" className={navClass('/propietario/recibos')} title="Mis Recibos">
+                <CreditCard size={18} />
+                {!sidebarCollapsed && <span>Mis Recibos / Pagar</span>}
               </Link>
-              <Link to="/propietario/estado-cuenta" className={navClass('/propietario/estado-cuenta')}>
-                📊 Tesorería
+              <Link to="/propietario/estado-cuenta" className={navClass('/propietario/estado-cuenta')} title="Tesoreria">
+                <BookOpen size={18} />
+                {!sidebarCollapsed && <span>Tesoreria</span>}
               </Link>
-              <Link to="/propietario/estado-cuenta-inmueble" className={navClass('/propietario/estado-cuenta-inmueble')}>
-                📄 Estado Cuenta Inmueble
+              <Link to="/propietario/estado-cuenta-inmueble" className={navClass('/propietario/estado-cuenta-inmueble')} title="Estado de Cuenta Inmueble">
+                <FileText size={18} />
+                {!sidebarCollapsed && <span>Estado Cuenta Inmueble</span>}
               </Link>
-              <Link to="/propietario/alquileres" className={navClass('/propietario/alquileres')}>
-                🗓️ Alquilar
+              <Link to="/propietario/alquileres" className={navClass('/propietario/alquileres')} title="Alquileres">
+                <CalendarDays size={18} />
+                {!sidebarCollapsed && <span>Alquileres</span>}
               </Link>
-              <Link to="/propietario/notificaciones" className={navClass('/propietario/notificaciones')}>
-                🔔 Notificaciones
+              <Link to="/propietario/notificaciones" className={navClass('/propietario/notificaciones')} title="Notificaciones">
+                <Bell size={18} />
+                {!sidebarCollapsed && <span>Notificaciones</span>}
               </Link>
-              <Link to="/mis-cartas-consulta" className={navClass('/mis-cartas-consulta')}>
-                📋 Cartas Consulta
+              <Link to="/mis-cartas-consulta" className={navClass('/mis-cartas-consulta')} title="Cartas Consulta">
+                <ClipboardList size={18} />
+                {!sidebarCollapsed && <span>Cartas Consulta</span>}
               </Link>
 
-              <p className="px-4 text-xs font-bold text-gray-400 uppercase mt-6 mb-2">Configuración</p>
-              <Link to="/propietario/perfil" className={navClass('/propietario/perfil')}>
-                ⚙️ Mi Perfil
+              <p className={`mt-6 ${sectionTitleClass}`}>Configuracion</p>
+              <Link to="/propietario/perfil" className={navClass('/propietario/perfil')} title="Mi Perfil">
+                <UserCircle2 size={18} />
+                {!sidebarCollapsed && <span>Mi Perfil</span>}
               </Link>
             </>
           )}
 
-          <div className="mx-1 mt-6 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/40">
-            <p className="text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-gray-400">Hora del sistema</p>
-            <p className="mt-1 text-xs font-semibold text-gray-700 dark:text-gray-200">{systemDateTimeLabel}</p>
-          </div>
+          {!sidebarCollapsed && (
+            <div className="mx-1 mt-6 rounded-xl border border-emerald-900/70 bg-[#0d4f2f] p-3">
+              <p className="text-[11px] font-black uppercase tracking-wider text-emerald-100/70">Hora del sistema</p>
+              <p className="mt-1 text-xs font-semibold text-emerald-50">{systemDateTimeLabel}</p>
+            </div>
+          )}
         </nav>
 
-        <div className="p-4 border-t border-gray-100 dark:border-gray-800">
-          <button onClick={handleLogout} className="flex items-center gap-3 text-gray-500 hover:text-red-500 w-full p-2 rounded-lg dark:text-gray-400">
-            <span>🚪</span> Salir
+        <div className="p-3 border-t border-emerald-900/60">
+          <button
+            onClick={handleLogout}
+            className={`w-full rounded-xl text-emerald-100/85 hover:text-white hover:bg-[#0d4f2f] transition-colors ${sidebarCollapsed ? 'p-2.5 flex items-center justify-center' : 'p-2.5 flex items-center gap-3'}`}
+            title="Cerrar sesion"
+          >
+            <LogOut size={18} />
+            {!sidebarCollapsed && <span className="font-medium">Cerrar Sesion</span>}
           </button>
         </div>
       </aside>
 
-      <main className="flex-1 md:ml-64 p-4 md:p-8">
-        <header className="flex justify-between items-center mb-8">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{pageTitles[location.pathname] || 'Bienvenido'}</h2>
-            <p className="text-gray-500 text-sm dark:text-gray-400">
-              Hola, {user.nombre}
-              {userRole === 'Propietario' && propiedadActiva ? ` · ${propiedadResumen}` : ''}
+      <main className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'md:ml-20' : 'md:ml-64'}`}>
+        <header className="h-14 md:h-16 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161b22] px-4 md:px-6 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed((prev) => !prev)}
+            className="h-9 w-9 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center justify-center"
+            title={sidebarCollapsed ? 'Expandir menu lateral' : 'Colapsar menu lateral'}
+          >
+            {sidebarCollapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
+          </button>
+          <div className="flex items-center gap-3">
+            <p className="text-sm text-gray-500 dark:text-gray-300">
+              Hola, <span className="font-semibold text-gray-900 dark:text-white">{displayName}</span>
             </p>
-          </div>
-          <div className="flex items-center gap-4">
             <button
               onClick={toggleTheme}
-              className="p-3 rounded-xl bg-white dark:bg-[#161b22] border border-gray-100 dark:border-gray-800 shadow-sm text-xl transition-transform active:scale-90"
+              className="h-9 w-9 rounded-xl bg-gray-100 dark:bg-[#0f111a] border border-gray-200 dark:border-gray-700 text-lg transition-transform active:scale-90"
+              title={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
             >
               {theme === 'dark' ? '☀️' : '🌙'}
             </button>
-            <div className="w-10 h-10 rounded-full bg-donezo-primary flex items-center justify-center text-white font-bold">{user.nombre.charAt(0)}</div>
+            <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-100 flex items-center justify-center text-xs font-black">
+              {String(displayName || 'U').slice(0, 2).toUpperCase()}
+            </div>
           </div>
         </header>
 
-        <Outlet context={{ user, userRole, misPropiedades, propiedadActiva }} />
+        <div className="p-4 md:p-8">
+          {location.pathname !== '/dashboard' && (
+            <header className="mb-8">
+              <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{pageTitles[location.pathname] || 'Bienvenido'}</h2>
+              <p className="text-gray-500 text-sm dark:text-gray-400">
+                {userRole === 'Propietario' && propiedadActiva ? propiedadResumen : 'Gestion central del condominio'}
+              </p>
+            </header>
+          )}
+
+          <Outlet context={{ user, userRole, misPropiedades, propiedadActiva }} />
+        </div>
       </main>
 
       {floatingNotifications.length > 0 && (
