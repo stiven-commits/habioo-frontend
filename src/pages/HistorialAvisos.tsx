@@ -332,21 +332,22 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
       </div>
 
       <div className="bg-white dark:bg-donezo-card-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
-        <div className="flex border-b border-gray-100 dark:border-gray-800 px-6 pt-4 gap-6 overflow-x-auto">
+        <div className="px-6 pt-5 pb-3 border-b border-gray-100 dark:border-gray-800">
+          <div className="inline-flex flex-wrap gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
           {(['Todos', 'Pagados', 'Abonado', 'Pendiente'] as EstadoFiltro[]).map((estado: EstadoFiltro) => (
             <button
               key={estado}
               onClick={() => setFiltroEstado(estado)}
-              className={`pb-3 font-bold text-sm transition-all relative whitespace-nowrap ${
+              className={`px-3 py-2 rounded-lg font-bold text-sm transition-all whitespace-nowrap ${
                 filtroEstado === estado
-                  ? 'text-donezo-primary dark:text-white'
+                  ? 'bg-white text-gray-800 shadow-sm dark:bg-gray-700 dark:text-white'
                   : 'text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white'
               }`}
             >
               {estado === 'Abonado' ? 'Abonados' : estado}
-              {filtroEstado === estado && <span className="absolute bottom-0 left-0 w-full h-1 bg-donezo-primary dark:bg-white rounded-t-full"></span>}
             </button>
           ))}
+          </div>
         </div>
 
         <div className="p-6">
@@ -356,16 +357,16 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
             <p className="text-gray-500 text-center py-4 dark:text-gray-400">No hay recibos para esos filtros.</p>
           ) : (
             <>
-              <div className="w-full">
+              <div className="w-full rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden">
                 <table className="w-full text-left border-collapse select-none">
-                  <thead className="sticky top-0 bg-white dark:bg-donezo-card-dark z-20 shadow-sm">
-                    <tr className="border-b border-gray-200 dark:border-gray-800 text-gray-500 text-sm dark:text-gray-400">
-                      <th className="p-3 pl-6">Recibo</th>
-                      <th className="p-3">Inmueble</th>
-                      <th className="p-3">Propietario</th>
-                      <th className="p-3 text-center">Estado</th>
-                      <th className="p-3 text-right text-red-500">Deuda</th>
-                      <th className="p-3 pr-6 text-center">Acciones</th>
+                  <thead className="sticky top-0 z-20">
+                    <tr className="bg-gray-50 dark:bg-gray-800/60 border-y border-gray-100 dark:border-gray-700 text-gray-500 text-sm dark:text-gray-400">
+                      <th className="p-4 pl-6 font-black uppercase tracking-wide">Recibo</th>
+                      <th className="p-4 font-black uppercase tracking-wide">Inmueble</th>
+                      <th className="p-4 font-black uppercase tracking-wide">Propietario</th>
+                      <th className="p-4 text-center font-black uppercase tracking-wide">Estado</th>
+                      <th className="p-4 text-right font-black uppercase tracking-wide text-red-500">Deuda</th>
+                      <th className="p-4 pr-6 text-center font-black uppercase tracking-wide">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>

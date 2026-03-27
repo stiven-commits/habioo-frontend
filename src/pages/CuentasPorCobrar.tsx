@@ -566,8 +566,13 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
     <div className="space-y-6">
       <div className="bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
 
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
-          <h3 className="text-xl font-bold text-gray-800 dark:text-white">Cobranza de Inmuebles</h3>
+        <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 mb-4">
+          <div className="flex items-center gap-2">
+            <h3 className="text-2xl font-black text-gray-800 dark:text-white">Cuentas por Cobrar</h3>
+            <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-gray-600 dark:bg-gray-700 dark:text-gray-200">
+              Cobranza de Inmuebles
+            </span>
+          </div>
           <div className="flex-1 w-full max-w-md relative">
             <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">🔍</span>
             <input
@@ -580,22 +585,21 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
           </div>
         </div>
 
-        {/* Pestañas de navegación */}
-        <div className="flex gap-6 border-b border-gray-100 dark:border-gray-800 mb-6">
+        <div className="rounded-xl bg-gray-100 p-1 dark:bg-gray-800 mb-6 inline-flex flex-wrap gap-1">
           <button
             onClick={() => setActiveTab('Deudores')}
-            className={`py-3 px-2 font-bold text-sm border-b-2 transition-all ${activeTab === 'Deudores'
-              ? 'border-donezo-primary text-donezo-primary dark:text-blue-400 dark:border-blue-400'
-              : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+            className={`py-2.5 px-3 font-bold text-sm rounded-lg transition-all ${activeTab === 'Deudores'
+              ? 'bg-white text-gray-800 shadow-sm dark:bg-gray-700 dark:text-white'
+              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
               }`}
           >
             ⚠️ Con Deuda Pendiente
           </button>
           <button
             onClick={() => setActiveTab('Todos')}
-            className={`py-3 px-2 font-bold text-sm border-b-2 transition-all ${activeTab === 'Todos'
-              ? 'border-donezo-primary text-donezo-primary dark:text-blue-400 dark:border-blue-400'
-              : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+            className={`py-2.5 px-3 font-bold text-sm rounded-lg transition-all ${activeTab === 'Todos'
+              ? 'bg-white text-gray-800 shadow-sm dark:bg-gray-700 dark:text-white'
+              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
               }`}
           >
             🏢 Todos los Inmuebles
@@ -609,15 +613,15 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
             </p>
           </div>
         ) : (
-          <div className="w-full">
+          <div className="w-full rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden">
             <table className="w-full text-left border-collapse">
-              <thead className="sticky top-0 bg-white dark:bg-donezo-card-dark z-20 shadow-sm">
-                <tr className="border-b border-gray-200 dark:border-gray-800 text-gray-500 dark:text-gray-400 text-sm">
-                  <th className="p-3 pl-6">Inmueble</th>
-                  <th className="p-3 text-right">Alícuota</th>
-                  <th className="p-3">Propietario</th>
-                  <th className="p-3 text-right">Saldo Actual</th>
-                  <th className="p-3 pr-6 text-center">Acciones</th>
+              <thead className="sticky top-0 z-20">
+                <tr className="bg-gray-50 dark:bg-gray-800/60 border-y border-gray-100 dark:border-gray-700 text-gray-500 dark:text-gray-400 text-sm">
+                  <th className="p-4 pl-6 font-black uppercase tracking-wide">Inmueble</th>
+                  <th className="p-4 text-right font-black uppercase tracking-wide">Alícuota</th>
+                  <th className="p-4 font-black uppercase tracking-wide">Propietario</th>
+                  <th className="p-4 text-right font-black uppercase tracking-wide">Saldo Actual</th>
+                  <th className="p-4 pr-6 text-center font-black uppercase tracking-wide">Acciones</th>
                 </tr>
               </thead>
               <tbody>

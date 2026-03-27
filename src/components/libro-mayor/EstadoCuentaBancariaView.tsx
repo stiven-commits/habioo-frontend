@@ -766,18 +766,61 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   const cuentaActual = cuentas.find((c) => String(c.id) === selectedCuenta);
   const isCuentaUsd = String(cuentaActual?.moneda || '').toUpperCase() === 'USD';
   const saldoUsdEnBs = tasaBcvNum > 0 ? saldoCuentaUsdActual * tasaBcvNum : 0;
+  const hasFullDateRange = Boolean(fechaDesde && fechaHasta);
 
   const resumenFondos = useMemo(
-    () =>
-      fondosCuenta.map((fondo) => {
-        const moneda = String(fondo.moneda || '').toUpperCase();
+    () => fondosCuenta.map((fondo) => {
+      const moneda = String(fondo.moneda || '').toUpperCase();
+      const fondoId = toNullableInt(fondo.id);
+      const fondoNombreNorm = String(fondo.nombre || '').trim().toLowerCase();
+
+      if (!hasFullDateRange) {
         const saldo = toNumber(fondo.saldo_actual);
         const equivalenteUsd = moneda === 'USD'
           ? saldo
           : (moneda === 'BS' && tasaBcvNum > 0 ? (saldo / tasaBcvNum) : 0);
         return { id: String(fondo.id), nombre: fondo.nombre || `Fondo ${fondo.id}`, moneda, saldo, equivalenteUsd };
-      }),
-    [fondosCuenta, tasaBcvNum]
+      }
+
+      const movimientosFondo = movimientosFiltrados.filter((mov) => {
+        const movFondo = toNullableInt((mov as { fondo_id?: unknown }).fondo_id);
+        const movOrigen = toNullableInt((mov as { fondo_origen_id?: unknown }).fondo_origen_id);
+        const movDestino = toNullableInt((mov as { fondo_destino_id?: unknown }).fondo_destino_id);
+        if (fondoId !== null && (movFondo === fondoId || movOrigen === fondoId || movDestino === fondoId)) return true;
+        const movFondoNombre = String((mov as { fondo_nombre?: unknown }).fondo_nombre || '').trim().toLowerCase();
+        return Boolean(fondoNombreNorm) && Boolean(movFondoNombre) && movFondoNombre === fondoNombreNorm;
+      });
+
+      const ingresoUsd = movimientosFondo.reduce((acc, mov) => (
+        mov.tipo === 'INGRESO' ? acc + toNumber(mov.monto_usd) : acc
+      ), 0);
+      const egresoUsd = movimientosFondo.reduce((acc, mov) => (
+        mov.tipo === 'EGRESO' ? acc + toNumber(mov.monto_usd) : acc
+      ), 0);
+      const netoUsd = ingresoUsd - egresoUsd;
+
+      const ingresoBs = movimientosFondo.reduce((acc, mov) => (
+        mov.tipo === 'INGRESO' ? acc + toNumber(mov.monto_bs) : acc
+      ), 0);
+      const egresoBs = movimientosFondo.reduce((acc, mov) => (
+        mov.tipo === 'EGRESO' ? acc + toNumber(mov.monto_bs) : acc
+      ), 0);
+      const netoBs = ingresoBs - egresoBs;
+
+      const saldo = moneda === 'USD' ? netoUsd : netoBs;
+      const equivalenteUsd = moneda === 'USD'
+        ? saldo
+        : (tasaBcvNum > 0 ? (saldo / tasaBcvNum) : 0);
+
+      return {
+        id: String(fondo.id),
+        nombre: fondo.nombre || `Fondo ${fondo.id}`,
+        moneda,
+        saldo,
+        equivalenteUsd,
+      };
+    }),
+    [fondosCuenta, hasFullDateRange, movimientosFiltrados, tasaBcvNum]
   );
 
   const ownerResumenActual = useMemo(
@@ -1278,6 +1321,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                   selectsStart
                   startDate={ymdToDate(fechaDesde)}
                   endDate={ymdToDate(fechaHasta)}
+                  maxDate={new Date()}
                   dateFormat="dd/MM/yyyy"
                   locale={es}
                   placeholderText="Desde (dd/mm/yyyy)"
@@ -1298,6 +1342,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                   startDate={ymdToDate(fechaDesde)}
                   endDate={ymdToDate(fechaHasta)}
                   {...(ymdToDate(fechaDesde) ? { minDate: ymdToDate(fechaDesde) as Date } : {})}
+                  maxDate={new Date()}
                   dateFormat="dd/MM/yyyy"
                   locale={es}
                   placeholderText="Hasta (dd/mm/yyyy)"

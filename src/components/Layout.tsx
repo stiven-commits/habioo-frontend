@@ -541,6 +541,12 @@ const Layout: React.FC<LayoutProps> = () => {
     '/mis-cartas-consulta': 'Cartas Consulta',
   };
 
+  const hideOuterPageHeader =
+    location.pathname === '/estado-cuentas'
+    || location.pathname === '/cuentas-cobrar'
+    || location.pathname === '/gastos'
+    || location.pathname === '/proveedores';
+
   const navClass = (path: string): string =>
     `group flex items-center rounded-xl transition-all duration-200 font-semibold ${
       sidebarCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'
@@ -805,7 +811,7 @@ const Layout: React.FC<LayoutProps> = () => {
         </header>
 
         <div className="p-4 md:p-8">
-          {location.pathname !== '/dashboard' && (
+          {location.pathname !== '/dashboard' && !hideOuterPageHeader && (
             <header className="mb-8">
               <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{pageTitles[location.pathname] || 'Bienvenido'}</h2>
               <p className="text-gray-500 text-sm dark:text-gray-400">
