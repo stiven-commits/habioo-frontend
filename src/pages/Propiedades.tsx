@@ -92,7 +92,9 @@ interface DeudaInicialManualForm {
 
 interface FormAjusteState {
   monto: string;
-  tipo_ajuste: string;
+  monto_bs?: string;
+  tasa_cambio?: string;
+  tipo_ajuste: 'DEUDA' | 'FAVOR';
   nota: string;
   subtipo_favor?: 'directo' | 'distribuido';
 }
@@ -153,9 +155,12 @@ interface PropiedadFormData {
 }
 
 interface AjusteSaldoFormData {
-  tipo_ajuste: string;
+  tipo_ajuste: 'DEUDA' | 'FAVOR';
   monto: string;
+  monto_bs?: string;
+  tasa_cambio?: string;
   nota: string;
+  subtipo_favor?: 'directo' | 'distribuido';
 }
 
 interface PropiedadAjuste {
@@ -283,7 +288,14 @@ const Propiedades: FC<PropiedadesProps> = () => {
 
   const [ajusteModalOpen, setAjusteModalOpen] = useState<boolean>(false);
   const [selectedPropAjuste, setSelectedPropAjuste] = useState<PropiedadAjuste | null>(null);
-  const [formAjuste, setFormAjuste] = useState<FormAjusteState>({ monto: '', tipo_ajuste: 'CARGAR_DEUDA', nota: '', subtipo_favor: 'directo' });
+  const [formAjuste, setFormAjuste] = useState<FormAjusteState>({
+    monto: '',
+    monto_bs: '',
+    tasa_cambio: '',
+    tipo_ajuste: 'DEUDA',
+    nota: '',
+    subtipo_favor: 'directo'
+  });
 
   const [estadoCuentaModalOpen, setEstadoCuentaModalOpen] = useState<boolean>(false);
   const [selectedPropCuenta, setSelectedPropCuenta] = useState<EstadoCuentaPropiedad | null>(null);
@@ -454,7 +466,16 @@ const Propiedades: FC<PropiedadesProps> = () => {
   void handleOpenEstadoCuenta;
 
   const handleOpenAjuste = (prop: Propiedad): void => {
-    setSelectedPropAjuste(prop); setFormAjuste({ monto: '', tipo_ajuste: 'CARGAR_DEUDA', nota: '', subtipo_favor: 'directo' }); setAjusteModalOpen(true);
+    setSelectedPropAjuste(prop);
+    setFormAjuste({
+      monto: '',
+      monto_bs: '',
+      tasa_cambio: '',
+      tipo_ajuste: 'DEUDA',
+      nota: '',
+      subtipo_favor: 'directo'
+    });
+    setAjusteModalOpen(true);
   };
 
   const formatAlicuotaDisplay = (value: string | number): string => {
@@ -832,6 +853,21 @@ const Propiedades: FC<PropiedadesProps> = () => {
   const handleSubmitAjuste = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     if (!selectedPropAjuste?.id) return;
+    const montoBsNum = parseFloat(String(formAjuste.monto_bs || '').replace(',', '.')) || 0;
+    const tasaNum = parseFloat(String(formAjuste.tasa_cambio || '').replace(',', '.')) || 0;
+    const montoUsdCalculado = montoBsNum > 0 && tasaNum > 0 ? (montoBsNum / tasaNum) : 0;
+    if (montoBsNum <= 0) {
+      alert('Ingrese un monto en Bs válido.');
+      return;
+    }
+    if (tasaNum <= 0) {
+      alert('Ingrese una tasa BCV válida.');
+      return;
+    }
+    if (montoUsdCalculado <= 0) {
+      alert('No se pudo calcular el equivalente en USD.');
+      return;
+    }
     const ok = await showConfirm({
       title: 'Registrar ajuste',
       message: `Registrar ajuste para ${selectedPropAjuste.identificador}?`,
@@ -841,8 +877,17 @@ const Propiedades: FC<PropiedadesProps> = () => {
     });
     if (!ok) return;
     const token = localStorage.getItem('habioo_token');
+    const payload = {
+      tipo_ajuste: formAjuste.tipo_ajuste === 'DEUDA' ? 'CARGAR_DEUDA' : 'AGREGAR_FAVOR',
+      monto: montoUsdCalculado.toFixed(2),
+      monto_bs: montoBsNum.toFixed(2),
+      tasa_cambio: tasaNum.toFixed(6),
+      nota: formAjuste.nota,
+      cuenta_bancaria_id: null,
+      es_gasto_extra: false
+    };
     const res = await fetch(`${API_BASE_URL}/propiedades-admin/${selectedPropAjuste.id}/ajustar-saldo`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(formAjuste)
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(payload)
     });
     const data: ApiActionResponse = await res.json();
     if (data.status === 'success') {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import type { FC, ChangeEvent } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { formatMoney } from '../utils/currency';
@@ -148,7 +148,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
 
-  // Nuevo estado para las pestañas
+  // Nuevo estado para las pestanas
   const [activeTab, setActiveTab] = useState<ActiveTab>('Deudores');
 
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -164,6 +164,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
   const [fechaDesde, setFechaDesde] = useState<string>('');
   const [fechaHasta, setFechaHasta] = useState<string>('');
   const [showAjusteModal, setShowAjusteModal] = useState<boolean>(false);
+  const [ajusteModo, setAjusteModo] = useState<'COMPLETO' | 'SOLO_INMUEBLE'>('COMPLETO');
   const [selectedPropAjuste, setSelectedPropAjuste] = useState<Propiedad | null>(null);
   const [ajusteTipo, setAjusteTipo] = useState<'DEUDA' | 'FAVOR'>('DEUDA');
   const [montoBsAjuste, setMontoBsAjuste] = useState<string>('');
@@ -288,7 +289,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, activeTab]); // Resetea la paginación si cambia el buscador o la pestaña
+  }, [searchTerm, activeTab]); // Resetea la paginacion si cambia el buscador o la pestana
 
   const handleOpenRegistrarPago = (prop: Propiedad): void => {
     setSelectedPropPago({
@@ -329,8 +330,9 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
     setEstadoCuentaModalOpen(true);
   };
 
-  const handleOpenAjuste = (prop: Propiedad): void => {
+  const handleOpenAjuste = (prop: Propiedad, mode: 'COMPLETO' | 'SOLO_INMUEBLE' = 'COMPLETO'): void => {
     setSelectedPropAjuste(prop);
+    setAjusteModo(mode);
     setAjusteTipo('DEUDA');
     setMontoBsAjuste('');
     setTasaBcvAjuste('');
@@ -458,14 +460,14 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
     if (!selectedPropAjuste?.id) return;
     const montoUsd = montoUsdAjuste;
     if (montoUsd <= 0) {
-      alert('Debe ingresar un monto en Bs y una tasa BCV válida.');
+      alert('Debe ingresar un monto en Bs y una tasa BCV valida.');
       return;
     }
-    if (ajusteTipo === 'FAVOR' && destinoIngreso === 'CUENTA' && !cuentaBancariaSeleccionada) {
+    if (ajusteModo === 'COMPLETO' && ajusteTipo === 'FAVOR' && destinoIngreso === 'CUENTA' && !cuentaBancariaSeleccionada) {
       alert('Debe seleccionar una cuenta bancaria de destino para el ingreso.');
       return;
     }
-    if (ajusteTipo === 'FAVOR' && destinoIngreso === 'EXTRA' && !gastoExtraSeleccionado) {
+    if (ajusteModo === 'COMPLETO' && ajusteTipo === 'FAVOR' && destinoIngreso === 'EXTRA' && !gastoExtraSeleccionado) {
       alert('Debe seleccionar el Gasto Extra procesado.');
       return;
     }
@@ -477,11 +479,11 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
         monto: Number(montoUsd.toFixed(2)),
         monto_bs: parseNumberInput(montoBsAjuste),
         tasa_cambio: parseNumberInput(tasaBcvAjuste),
-        cuenta_bancaria_id: ajusteTipo === 'FAVOR' && destinoIngreso === 'CUENTA' ? Number(cuentaBancariaSeleccionada) : null,
-        es_gasto_extra: ajusteTipo === 'FAVOR' && destinoIngreso === 'EXTRA',
-        gasto_extra_id: ajusteTipo === 'FAVOR' && destinoIngreso === 'EXTRA' ? Number(gastoExtraSeleccionado) : null,
-        subtipo_favor: ajusteTipo === 'FAVOR' && destinoIngreso === 'CUENTA' ? subtipoFavor : undefined,
-        nota: `${(conceptoAjuste || 'Ajuste manual').trim()} | Inmueble: ${selectedPropAjuste.identificador || '-'} | Ajuste desde Cuentas por Cobrar (${ajusteTipo}) - Bs ${montoBsAjuste} | Tasa ${tasaBcvAjuste}`
+        cuenta_bancaria_id: ajusteModo === 'SOLO_INMUEBLE' ? null : (ajusteTipo === 'FAVOR' && destinoIngreso === 'CUENTA' ? Number(cuentaBancariaSeleccionada) : null),
+        es_gasto_extra: ajusteModo === 'SOLO_INMUEBLE' ? false : (ajusteTipo === 'FAVOR' && destinoIngreso === 'EXTRA'),
+        gasto_extra_id: ajusteModo === 'SOLO_INMUEBLE' ? null : (ajusteTipo === 'FAVOR' && destinoIngreso === 'EXTRA' ? Number(gastoExtraSeleccionado) : null),
+        subtipo_favor: ajusteModo === 'SOLO_INMUEBLE' ? undefined : (ajusteTipo === 'FAVOR' && destinoIngreso === 'CUENTA' ? subtipoFavor : undefined),
+        nota: `${(conceptoAjuste || 'Ajuste manual').trim()} | [bs_raw:${parseNumberInput(montoBsAjuste).toFixed(2)}] | [tasa_raw:${parseNumberInput(tasaBcvAjuste).toFixed(6)}]`
       };
       const res = await fetch(`${API_BASE_URL}/propiedades-admin/${selectedPropAjuste.id}/ajustar-saldo`, {
         method: 'POST',
@@ -493,20 +495,25 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
       });
       const data: ApiActionResponse = await res.json();
       if (res.ok && data.status === 'success') {
+        const ajustePropId = selectedPropAjuste.id;
         setShowAjusteModal(false);
         setSelectedPropAjuste(null);
-        fetchData();
+        await fetchData();
+        await fetchPendingCounts();
+        if (selectedPropCuenta?.id === ajustePropId) {
+          await fetchEstadoCuenta(ajustePropId);
+        }
       } else {
         alert(data.error || data.message || 'No se pudo guardar el ajuste.');
       }
     } catch {
-      alert('Error de conexión al guardar ajuste.');
+      alert('Error de conexion al guardar ajuste.');
     } finally {
       setIsSavingAjuste(false);
     }
   };
 
-  // Lógica de filtrado por pestañas
+  // Logica de filtrado por pestanas
   const baseProperties = activeTab === 'Deudores'
     ? propiedades.filter((p: Propiedad) => toNumber(p.saldo_actual) > 0)
     : propiedades;
@@ -618,7 +625,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                   const saldo = toNumber(p.saldo_actual);
                   const abrirHaciaArriba = index >= paginatedProperties.length - 4;
 
-                  // Lógica de colores dinámicos para el saldo
+                  // Logica de colores dinamicos para el saldo
                   const isDeuda = saldo > 0;
                   const isFavor = saldo < 0;
                   const colorClass = isDeuda ? 'text-red-500' : isFavor ? 'text-green-500' : 'text-gray-500 dark:text-gray-400';
@@ -754,10 +761,21 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
         setFechaDesde={setFechaDesde}
         fechaHasta={fechaHasta}
         setFechaHasta={setFechaHasta}
-        handleOpenAjuste={(_prop) => { }}
+        handleOpenAjuste={(prop) => {
+          const propId = Number((prop as { id?: unknown }).id || 0);
+          if (!propId) return;
+          handleOpenAjuste({
+            id: propId,
+            identificador: String(prop.identificador || ''),
+            prop_nombre: String(prop.prop_nombre || ''),
+            saldo_actual: 0,
+            alicuota: 0,
+            prop_cedula: '',
+          } as Propiedad, 'SOLO_INMUEBLE');
+        }}
         loadingCuenta={loadingCuenta}
         estadoCuentaFiltrado={estadoCuentaFiltrado}
-        showAjuste={false}
+        showAjuste={true}
       />
 
       {showAprobacionModal && selectedPropAprobacion && (
@@ -885,7 +903,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                 </button>
               </div>
 
-              {ajusteTipo === 'FAVOR' && (
+              {ajusteTipo === 'FAVOR' && ajusteModo === 'COMPLETO' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pb-3 border-b border-gray-100 dark:border-gray-800">
                   <div className="md:col-span-2">
                     <label className="block text-xs font-bold text-gray-500 mb-2">Destino del Ingreso</label>
@@ -927,7 +945,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                   )}
                   {destinoIngreso === 'CUENTA' && (
                     <div className="md:col-span-2">
-                      <label className="block text-xs font-bold text-gray-500 mb-1">Distribución en Fondos</label>
+                      <label className="block text-xs font-bold text-gray-500 mb-1">Distribucion en Fondos</label>
                       <div className="flex gap-3">
                         <button
                           type="button"
@@ -950,7 +968,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                     <div className="md:col-span-2">
                       <label className="block text-xs font-bold text-gray-500 mb-1">Gasto Extra a Rebajar</label>
                       {gastosExtras.length === 0 ? (
-                        <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">No hay gastos extras disponibles. Asegúrese que hayan sido generados en recibos/avisos.</p>
+                        <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">No hay gastos extras disponibles. Asegurese que hayan sido generados en recibos o avisos.</p>
                       ) : (
                         <select
                           value={gastoExtraSeleccionado}
@@ -969,7 +987,11 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                   )}
                 </div>
               )}
-
+              {ajusteTipo === 'FAVOR' && ajusteModo === 'SOLO_INMUEBLE' && (
+                <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs font-semibold text-blue-700 dark:border-blue-900/50 dark:bg-blue-900/20 dark:text-blue-300">
+                  El saldo a favor se aplicara solo al estado de cuenta del inmueble. No afectara cuentas bancarias ni fondos.
+                </div>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="md:col-span-3">
                   <label className="block text-xs font-bold text-gray-500 mb-1">Concepto</label>

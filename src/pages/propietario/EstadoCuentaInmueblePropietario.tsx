@@ -80,19 +80,46 @@ const EstadoCuentaInmueblePropietario: FC = () => {
   const [selectedPropPago, setSelectedPropPago] = useState<PropiedadPreseleccionada | null>(null);
   const [tasaBcvActual, setTasaBcvActual] = useState<number | null>(null);
 
+  const fetchBcvRate = async (): Promise<number | null> => {
+    try {
+      const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
+      if (!response.ok) return null;
+      const json: BcvApiResponse = (await response.json()) as BcvApiResponse;
+      const rate = toNumber(json?.promedio);
+      return rate > 0 ? rate : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const fetchEstadoCuentaInmueble = async (propiedadId: number): Promise<void> => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('habioo_token');
+      const res = await fetch(`${API_BASE_URL}/api/propietario/estado-cuenta-inmueble/${propiedadId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data: EstadoCuentaResponse = (await res.json()) as EstadoCuentaResponse;
+      if (!res.ok || data.status !== 'success') {
+        setMovimientosRaw([]);
+        return;
+      }
+      setMovimientosRaw(Array.isArray(data.data) ? data.data : []);
+    } catch {
+      setMovimientosRaw([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
     let intervalId: ReturnType<typeof setInterval> | null = null;
 
     const fetchTasaBcvActual = async (): Promise<void> => {
-      try {
-        const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
-        if (!response.ok) return;
-        const json: BcvApiResponse = (await response.json()) as BcvApiResponse;
-        const rate = toNumber(json?.promedio);
-        if (isMounted && rate > 0) setTasaBcvActual(rate);
-      } catch {
-        // no-op
+      const rate = await fetchBcvRate();
+      if (isMounted && rate && rate > 0) {
+        setTasaBcvActual(rate);
       }
     };
 
@@ -114,25 +141,7 @@ const EstadoCuentaInmueblePropietario: FC = () => {
         setLoading(false);
         return;
       }
-
-      setLoading(true);
-      try {
-        const token = localStorage.getItem('habioo_token');
-        const res = await fetch(`${API_BASE_URL}/api/propietario/estado-cuenta-inmueble/${propiedadActiva.id_propiedad}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data: EstadoCuentaResponse = (await res.json()) as EstadoCuentaResponse;
-        if (!res.ok || data.status !== 'success') {
-          setMovimientosRaw([]);
-          return;
-        }
-
-        setMovimientosRaw(Array.isArray(data.data) ? data.data : []);
-      } catch {
-        setMovimientosRaw([]);
-      } finally {
-        setLoading(false);
-      }
+      await fetchEstadoCuentaInmueble(propiedadActiva.id_propiedad);
     };
 
     void fetchEstadoCuenta();
@@ -412,23 +421,7 @@ const EstadoCuentaInmueblePropietario: FC = () => {
             setSelectedPropPago(null);
             if (!propiedadActiva?.id_propiedad) return;
             void (async () => {
-              setLoading(true);
-              try {
-                const token = localStorage.getItem('habioo_token');
-                const res = await fetch(`${API_BASE_URL}/api/propietario/estado-cuenta-inmueble/${propiedadActiva.id_propiedad}`, {
-                  headers: { Authorization: `Bearer ${token}` },
-                });
-                const data: EstadoCuentaResponse = (await res.json()) as EstadoCuentaResponse;
-                if (!res.ok || data.status !== 'success') {
-                  setMovimientosRaw([]);
-                  return;
-                }
-                setMovimientosRaw(Array.isArray(data.data) ? data.data : []);
-              } catch {
-                setMovimientosRaw([]);
-              } finally {
-                setLoading(false);
-              }
+              await fetchEstadoCuentaInmueble(propiedadActiva.id_propiedad);
             })();
           }}
         />
