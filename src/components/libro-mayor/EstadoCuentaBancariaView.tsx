@@ -886,8 +886,8 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     }
 
     const confirmMessage = target.kind === 'pago'
-      ? '¿Deseas revertir este pago? Solo está permitido durante 48 horas y para pagos que no hayan impactado avisos/recibos.'
-      : '¿Deseas revertir este ajuste? Solo está permitido durante 48 horas y sujeto a validaciones contables.';
+      ? '¿Deseas revertir este pago? Se aplicarán las validaciones contables correspondientes.'
+      : '¿Deseas revertir este ajuste? Se aplicarán las validaciones contables correspondientes.';
     const ok = window.confirm(confirmMessage);
     if (!ok) return;
 
@@ -1427,10 +1427,10 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                               disabled={rollbackingKey === rollbackButtonKey}
                               className="px-2.5 py-1 rounded-lg text-[11px] font-bold border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                               title={rollbackTarget.kind === 'pago'
-                                ? 'Disponible por 48h después de registrar el pago (sujeto a validaciones contables).'
-                                : 'Disponible por 48h después de registrar el ajuste (sujeto a validaciones contables).'}
+                                ? 'Disponible para reversión (sujeto a validaciones contables).'
+                                : 'Disponible para reversión (sujeto a validaciones contables).'}
                             >
-                              {rollbackingKey === rollbackButtonKey ? 'Revirtiendo...' : 'Revertir (48h)'}
+                              {rollbackingKey === rollbackButtonKey ? 'Revirtiendo...' : 'Revertir'}
                             </button>
                           ) : (
                             <span className="text-gray-300">-</span>
