@@ -807,6 +807,21 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     [ownerCortesFiltrados],
   );
 
+  const totalIngresosUsd = useMemo(
+    () => movimientosPorVista.reduce((acc, mov) => (mov.tipo === 'INGRESO' ? acc + toNumber(mov.monto_usd) : acc), 0),
+    [movimientosPorVista],
+  );
+
+  const totalEgresosUsd = useMemo(
+    () => movimientosPorVista.reduce((acc, mov) => (mov.tipo === 'EGRESO' ? acc + toNumber(mov.monto_usd) : acc), 0),
+    [movimientosPorVista],
+  );
+
+  const fondosDestacados = useMemo(
+    () => resumenFondos.slice(0, 2),
+    [resumenFondos],
+  );
+
   const ownerEgresosFondo = useMemo(() => {
     if (!ownerFondoSeleccionado) return [] as IMovimiento[];
     if (ownerFondoSeleccionado === 'ALL') {
@@ -1163,14 +1178,17 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   }
 
   return (
-    <div className="space-y-6 animate-fadeIn">
-      <div className="bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col md:flex-row justify-between items-center gap-6">
-        <div className="w-full md:w-1/3">
-          <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Cuenta a inspeccionar</label>
+    <div className="space-y-5 animate-fadeIn">
+      <section className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Estado de Cuentas</h1>
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Libro mayor y movimientos bancarios del condominio</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
           <select
             value={selectedCuenta}
             onChange={(e: ChangeEvent<HTMLSelectElement>) => setSelectedCuenta(e.target.value)}
-            className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:text-white outline-none focus:ring-2 focus:ring-donezo-primary font-bold text-gray-800"
+            className="h-11 min-w-[260px] rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-700 outline-none focus:ring-2 focus:ring-emerald-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
           >
             {cuentas.map((c) => (
               <option key={c.id} value={c.id}>
@@ -1178,83 +1196,82 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
               </option>
             ))}
           </select>
-        </div>
-
-        {mode === 'admin' && (
-          <div className="flex gap-3 w-full md:w-auto">
-            <button
-              onClick={() => setShowTransfModal(true)}
-              className="flex-1 md:flex-none bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold py-3 px-5 rounded-xl transition-all text-sm border border-blue-200 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-400"
-            >
-              Transferir
-            </button>
-            <button
-              onClick={() => setShowEgresoModal(true)}
-              className="flex-1 md:flex-none bg-red-50 hover:bg-red-100 text-red-600 font-bold py-3 px-5 rounded-xl transition-all text-sm border border-red-200 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300"
-            >
-              Registrar Egreso
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-2xl border border-blue-100 dark:border-blue-800/50 flex flex-col justify-center items-center">
-            <p className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-1">Saldo en banco (equivalente USD)</p>
-            <h2 className="text-4xl font-black text-blue-700 dark:text-blue-300">${formatCurrency(saldoCuentaUsdActual)}</h2>
-            {tasaBcvNum > 0 && (
-              <p className="text-xs text-blue-700 dark:text-blue-300 mt-2">
-                Equivalente del saldo USD a Bs: <span className="font-bold">Bs {formatCurrency(saldoUsdEnBs)}</span>
-              </p>
-            )}
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 flex flex-col justify-center items-center opacity-80 gap-2">
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Saldo original Bs (si aplica)</p>
-            <h2 className="text-3xl font-black text-gray-700 dark:text-gray-300">Bs {formatCurrency(saldoCuentaBsActual)}</h2>
-            <div className="flex items-center gap-2">
+          {mode === 'admin' && (
+            <>
               <button
-                type="button"
-                onClick={fetchBCV}
-                disabled={loadingBcv}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800 disabled:opacity-60"
+                onClick={() => setShowTransfModal(true)}
+                className="h-11 rounded-xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
               >
-                {loadingBcv ? 'Consultando BCV...' : 'Obtener BCV'}
+                Transferir
               </button>
-              {tasaBcvNum > 0 && <span className="text-xs font-bold text-gray-500">Tasa: {formatRate(tasaBcvNum)}</span>}
-            </div>
-            {cuentaActual?.moneda === 'USD' && <p className="text-xs text-red-400 font-bold mt-1">Cuenta en divisas</p>}
-          </div>
+              <button
+                onClick={() => setShowEgresoModal(true)}
+                className="h-11 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-bold text-red-600 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300"
+              >
+                Egreso
+              </button>
+            </>
+          )}
         </div>
+      </section>
 
-        {resumenFondos.length > 0 && (
-          <div className={`grid gap-3 ${resumenFondos.length === 1 ? 'grid-cols-1' : resumenFondos.length === 2 ? 'grid-cols-2' : resumenFondos.length === 3 ? 'grid-cols-3' : 'grid-cols-2 md:grid-cols-4'}`}>
-            {resumenFondos.map((fondo) => (
-              <div key={fondo.id} className="bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex flex-col items-center justify-center gap-1">
-                <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">{fondo.nombre}</p>
-                <p className="text-lg font-black text-gray-700 dark:text-gray-200">
-                  {fondo.moneda === 'USD' ? '$' : 'Bs'} {formatCurrency(fondo.saldo)}
-                </p>
-                {fondo.moneda === 'BS' && tasaBcvNum > 0 && (
-                  <p className="text-[17px] font-semibold text-gray-500">${formatCurrency(fondo.equivalenteUsd)}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <p className="text-xs font-black uppercase tracking-wider text-gray-400">Saldo equivalente USD</p>
+          <p className="mt-2 text-4xl font-black text-gray-900 dark:text-white">${formatCurrency(saldoCuentaUsdActual)}</p>
+        </article>
+        <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <p className="text-xs font-black uppercase tracking-wider text-gray-400">Saldo en bolívares</p>
+          <p className="mt-2 text-4xl font-black text-gray-900 dark:text-white">Bs {formatCurrency(saldoCuentaBsActual)}</p>
+        </article>
+        <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <p className="text-xs font-black uppercase tracking-wider text-gray-400">Total ingresos</p>
+          <p className="mt-2 text-4xl font-black text-emerald-600 dark:text-emerald-400">+${formatCurrency(totalIngresosUsd)}</p>
+        </article>
+        <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <p className="text-xs font-black uppercase tracking-wider text-gray-400">Total egresos</p>
+          <p className="mt-2 text-4xl font-black text-red-600 dark:text-red-400">-${formatCurrency(totalEgresosUsd)}</p>
+        </article>
+      </section>
+
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <p className="text-xs font-black uppercase tracking-wider text-gray-400">Tasa BCV</p>
+          <p className="mt-1 text-4xl font-black text-gray-900 dark:text-white">{tasaBcvNum > 0 ? formatRate(tasaBcvNum) : '-'}</p>
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Bs por USD</p>
+          <button
+            type="button"
+            onClick={fetchBCV}
+            disabled={loadingBcv}
+            className="mt-4 h-10 rounded-xl bg-emerald-700 px-4 text-sm font-bold text-white hover:bg-emerald-800 disabled:opacity-60"
+          >
+            {loadingBcv ? 'Actualizando...' : 'Actualizar'}
+          </button>
+        </article>
+
+        {fondosDestacados.map((fondo) => (
+          <article key={fondo.id} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <p className="text-xs font-black uppercase tracking-wider text-gray-400">{fondo.nombre}</p>
+            <p className="mt-1 text-4xl font-black text-gray-900 dark:text-white">
+              {fondo.moneda === 'USD' ? '$' : 'Bs'} {formatCurrency(fondo.saldo)}
+            </p>
+            <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">≈ ${formatCurrency(fondo.equivalenteUsd)} USD</p>
+          </article>
+        ))}
+      </section>
 
       <div className="bg-white dark:bg-donezo-card-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
-        <div className="p-5 border-b border-gray-100 dark:border-gray-800 space-y-3">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-            <h3 className="text-lg font-bold text-gray-800 dark:text-white">
-              Libro mayor
-              {cuentaActual ? ` - ${cuentaActual.nombre_banco || 'Banco'} (${cuentaActual.apodo || 'Cuenta'})` : ''}
-            </h3>
-            <div className="flex flex-wrap items-end gap-2">
+        <div className="p-5 border-b border-gray-100 dark:border-gray-800 space-y-4">
+          <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <h3 className="text-2xl font-black text-gray-800 dark:text-white">Libro Mayor</h3>
+              <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-gray-600 dark:bg-gray-700 dark:text-gray-200">
+                {cuentaActual ? `${cuentaActual.nombre_banco || 'Banco'} (${cuentaActual.apodo || 'Cuenta'})` : 'Sin cuenta'}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-end gap-2 xl:justify-end">
               <div>
-                <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Desde</label>
+                <label className="block text-[10px] uppercase font-black tracking-wider text-gray-400 mb-1">Desde</label>
                 <DatePicker
                   selected={ymdToDate(fechaDesde)}
                   onChange={(date: Date | Date[] | null) => setFechaDesde(dateToYmd(toSingleDate(date)))}
@@ -1273,7 +1290,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                 />
               </div>
               <div>
-                <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Hasta</label>
+                <label className="block text-[10px] uppercase font-black tracking-wider text-gray-400 mb-1">Hasta</label>
                 <DatePicker
                   selected={ymdToDate(fechaHasta)}
                   onChange={(date: Date | Date[] | null) => setFechaHasta(dateToYmd(toSingleDate(date)))}
@@ -1293,7 +1310,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                 />
               </div>
               <div>
-                <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Buscar</label>
+                <label className="block text-[10px] uppercase font-black tracking-wider text-gray-400 mb-1">Buscar</label>
                 <input
                   type="text"
                   value={searchTerm}
@@ -1324,15 +1341,15 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
             </div>
           </div>
 
-          <div className="border-b border-gray-200 dark:border-gray-700">
-            <div className="flex flex-wrap gap-1 -mb-px">
+          <div className="rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
+            <div className="flex flex-wrap gap-1">
               <button
                 type="button"
                 onClick={() => setActiveTab('cuenta')}
-                className={`px-3 py-2 text-sm font-bold border-b-2 transition-colors ${
+                className={`px-3 py-2 text-sm font-bold rounded-lg transition-colors ${
                   activeTab === 'cuenta'
-                    ? 'text-gray-800 border-donezo-primary dark:text-white dark:border-white'
-                    : 'text-gray-500 border-transparent hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                    ? 'bg-white text-gray-800 shadow-sm dark:bg-gray-700 dark:text-white'
+                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                 }`}
               >
                 Cuenta bancaria
@@ -1342,10 +1359,10 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                   key={String(fondo.id)}
                   type="button"
                   onClick={() => setActiveTab(`fondo-${fondo.id}`)}
-                  className={`px-3 py-2 text-sm font-bold border-b-2 transition-colors ${
+                  className={`px-3 py-2 text-sm font-bold rounded-lg transition-colors ${
                     activeTab === `fondo-${fondo.id}`
-                      ? 'text-gray-800 border-donezo-primary dark:text-white dark:border-white'
-                      : 'text-gray-500 border-transparent hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                      ? 'bg-white text-gray-800 shadow-sm dark:bg-gray-700 dark:text-white'
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                   }`}
                 >
                   {fondo.nombre || `Fondo ${fondo.id}`}
@@ -1354,10 +1371,10 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
               <button
                 type="button"
                 onClick={() => setActiveTab('sin-fondo')}
-                className={`px-3 py-2 text-sm font-bold border-b-2 transition-colors ${
+                className={`px-3 py-2 text-sm font-bold rounded-lg transition-colors ${
                   activeTab === 'sin-fondo'
-                    ? 'text-amber-300 border-amber-300'
-                    : 'text-gray-500 border-transparent hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                    ? 'bg-amber-50 text-amber-700 shadow-sm dark:bg-amber-900/20 dark:text-amber-300'
+                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                 }`}
               >
                 Tránsito / Extra

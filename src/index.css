@@ -123,6 +123,13 @@
     height: 1rem;
   }
 
+  /* react-datepicker agrega padding-left para icono izquierdo por defecto.
+     Lo normalizamos porque en Habioo el icono va a la derecha. */
+  .react-datepicker__view-calendar-icon input {
+    padding-left: 0.75rem !important;
+    padding-right: 2.25rem !important;
+  }
+
   .react-datepicker__close-icon {
     right: 1.9rem;
   }
