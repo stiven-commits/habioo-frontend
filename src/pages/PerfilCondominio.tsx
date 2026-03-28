@@ -15,7 +15,7 @@ import type { LexicalCommand } from 'lexical';
 import { $convertFromMarkdownString, $convertToMarkdownString, TRANSFORMERS } from '@lexical/markdown';
 import { API_BASE_URL } from '../config/api';
 
-type UploadTipo = 'logo' | 'firma';
+type UploadTipo = 'logo' | 'logo-condominio' | 'firma';
 
 interface PerfilCondominioFormData {
   nombre_legal: string;
@@ -28,6 +28,7 @@ interface PerfilCondominioFormData {
   admin_telefono: string;
   admin_correo: string;
   logo_url: string;
+  logo_condominio_url: string;
   firma_url: string;
   aviso_msg_1: string;
   aviso_msg_2: string;
@@ -48,6 +49,7 @@ interface PerfilCondominioApiData {
   admin_telefono?: string | null;
   admin_correo?: string | null;
   logo_url?: string | null;
+  logo_condominio_url?: string | null;
   firma_url?: string | null;
   aviso_msg_1?: string | null;
   aviso_msg_2?: string | null;
@@ -84,6 +86,7 @@ const initialPerfil: PerfilCondominioFormData = {
   admin_telefono: '',
   admin_correo: '',
   logo_url: '',
+  logo_condominio_url: '',
   firma_url: '',
   aviso_msg_1: '',
   aviso_msg_2: '',
@@ -220,7 +223,15 @@ const PerfilCondominio: FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
   const [changingPassword, setChangingPassword] = useState<boolean>(false);
-  const [uploading, setUploading] = useState<{ logo: boolean; firma: boolean }>({ logo: false, firma: false });
+  const [uploading, setUploading] = useState<{ logo: boolean; logoCondominio: boolean; firma: boolean }>({
+    logo: false,
+    logoCondominio: false,
+    firma: false,
+  });
+  const [deleting, setDeleting] = useState<{ logo: boolean; logoCondominio: boolean }>({
+    logo: false,
+    logoCondominio: false,
+  });
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [successMessage, setSuccessMessage] = useState<string>('');
 
@@ -254,6 +265,7 @@ const PerfilCondominio: FC = () => {
           admin_telefono: String(profile.admin_telefono ?? ''),
           admin_correo: String(profile.admin_correo ?? ''),
           logo_url: String(profile.logo_url ?? ''),
+          logo_condominio_url: String(profile.logo_condominio_url ?? ''),
           firma_url: String(profile.firma_url ?? ''),
           aviso_msg_1: String(profile.aviso_msg_1 ?? ''),
           aviso_msg_2: String(profile.aviso_msg_2 ?? ''),
@@ -326,7 +338,6 @@ const PerfilCondominio: FC = () => {
 
   const handleUpload = async (tipo: UploadTipo, file: File): Promise<void> => {
     try {
-      setUploading((prev) => ({ ...prev, [tipo]: true }));
       setErrorMessage('');
       setSuccessMessage('');
 
@@ -349,6 +360,7 @@ const PerfilCondominio: FC = () => {
       setForm((prev) => ({
         ...prev,
         logo_url: tipo === 'logo' ? newUrl : prev.logo_url,
+        logo_condominio_url: tipo === 'logo-condominio' ? newUrl : prev.logo_condominio_url,
         firma_url: tipo === 'firma' ? newUrl : prev.firma_url,
       }));
       setSuccessMessage(data.message || 'Imagen actualizada correctamente.');
@@ -356,15 +368,65 @@ const PerfilCondominio: FC = () => {
       const msg = error instanceof Error ? error.message : 'Error al subir la imagen.';
       setErrorMessage(msg);
     } finally {
-      setUploading((prev) => ({ ...prev, [tipo]: false }));
+      setUploading((prev) => ({
+        ...prev,
+        logo: tipo === 'logo' ? false : prev.logo,
+        logoCondominio: tipo === 'logo-condominio' ? false : prev.logoCondominio,
+        firma: tipo === 'firma' ? false : prev.firma,
+      }));
     }
   };
 
   const onUploadChange = (tipo: UploadTipo) => (e: ChangeEvent<HTMLInputElement>): void => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setUploading((prev) => ({
+      ...prev,
+      logo: tipo === 'logo' ? true : prev.logo,
+      logoCondominio: tipo === 'logo-condominio' ? true : prev.logoCondominio,
+      firma: tipo === 'firma' ? true : prev.firma,
+    }));
     void handleUpload(tipo, file);
     e.target.value = '';
+  };
+
+  const handleDeleteUpload = async (tipo: 'logo' | 'logo-condominio'): Promise<void> => {
+    try {
+      setDeleting((prev) => ({
+        ...prev,
+        logo: tipo === 'logo' ? true : prev.logo,
+        logoCondominio: tipo === 'logo-condominio' ? true : prev.logoCondominio,
+      }));
+      setErrorMessage('');
+      setSuccessMessage('');
+
+      const res = await fetch(`${API_BASE_URL}/api/perfil/upload/${tipo}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data: ApiResponse<Record<string, unknown>> = await res.json();
+      if (!res.ok || data.status !== 'success') {
+        setErrorMessage(data.status === 'error' ? data.message : 'No se pudo eliminar la imagen.');
+        return;
+      }
+
+      setForm((prev) => ({
+        ...prev,
+        logo_url: tipo === 'logo' ? '' : prev.logo_url,
+        logo_condominio_url: tipo === 'logo-condominio' ? '' : prev.logo_condominio_url,
+      }));
+      setSuccessMessage(data.message || 'Imagen eliminada correctamente.');
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Error al eliminar la imagen.';
+      setErrorMessage(msg);
+    } finally {
+      setDeleting((prev) => ({
+        ...prev,
+        logo: tipo === 'logo' ? false : prev.logo,
+        logoCondominio: tipo === 'logo-condominio' ? false : prev.logoCondominio,
+      }));
+    }
   };
 
   const handleCambiarPassword = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
@@ -461,6 +523,35 @@ const PerfilCondominio: FC = () => {
                 <textarea rows={4} className={inputClass} value={form.direccion} onChange={handleInputChange('direccion')} />
               </div>
             </div>
+            <div className="mt-5 border-t border-gray-200 pt-5 dark:border-gray-700">
+              <h3 className="mb-4 text-base font-black text-gray-900 dark:text-white">Identidad Visual del Condominio</h3>
+              <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+                <p className="mb-2 text-sm font-bold text-gray-700 dark:text-gray-200">Logo de la Junta de Condominio</p>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <label className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700">
+                    {uploading.logoCondominio ? 'Subiendo...' : 'Subir Logo Junta'}
+                    <input type="file" accept="image/*" className="hidden" onChange={onUploadChange('logo-condominio')} />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => void handleDeleteUpload('logo-condominio')}
+                    disabled={!form.logo_condominio_url || deleting.logoCondominio}
+                    className="inline-flex items-center justify-center rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {deleting.logoCondominio ? 'Eliminando...' : 'Eliminar Logo'}
+                  </button>
+                  {form.logo_condominio_url ? (
+                    <img
+                      src={buildAssetUrl(form.logo_condominio_url)}
+                      alt="Logo Junta"
+                      className="h-20 w-auto rounded-lg border border-gray-200 bg-white p-1 dark:border-gray-700"
+                    />
+                  ) : (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">Sin imagen cargada.</span>
+                  )}
+                </div>
+              </div>
+            </div>
           </section>
 
           <section className={cardClass}>
@@ -497,6 +588,14 @@ const PerfilCondominio: FC = () => {
                       {uploading.logo ? 'Subiendo...' : 'Subir Logo'}
                       <input type="file" accept="image/*" className="hidden" onChange={onUploadChange('logo')} />
                     </label>
+                    <button
+                      type="button"
+                      onClick={() => void handleDeleteUpload('logo')}
+                      disabled={!form.logo_url || deleting.logo}
+                      className="inline-flex items-center justify-center rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {deleting.logo ? 'Eliminando...' : 'Eliminar Logo'}
+                    </button>
                     {form.logo_url ? (
                       <img src={buildAssetUrl(form.logo_url)} alt="Logo" className="h-20 w-auto rounded-lg border border-gray-200 bg-white p-1 dark:border-gray-700" />
                     ) : (
@@ -591,7 +690,3 @@ const PerfilCondominio: FC = () => {
 };
 
 export default PerfilCondominio;
-
-
-
-

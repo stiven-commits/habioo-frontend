@@ -31,13 +31,24 @@ interface IAvisoSaldoCuenta {
   con_aviso_usd: number;
 }
 
+interface IAvisoCuentaPrincipal {
+  nombre_banco: string;
+  numero_cuenta: string;
+  cedula_rif: string;
+  telefono: string;
+  acepta_pago_movil: boolean;
+  pago_movil_telefono: string;
+  pago_movil_cedula_rif: string;
+}
+
 interface IAvisoData {
   mes_correspondiente: string;
   estado_recibo?: string;
   administradora: { nombre: string; rif: string; correo: string; logo_url: string | null };
-  condominio: { nombre: string; rif: string; correo: string };
+  condominio: { nombre: string; rif: string; correo: string; logo_url?: string | null };
   inmueble: IAvisoInmueble;
   saldo_cuenta: IAvisoSaldoCuenta;
+  cuenta_principal: IAvisoCuentaPrincipal;
   gastos: IAvisoGasto[];
   fondos: { id: number; banco_fondo: string; saldo_actual_bs: number; saldo_actual_usd: number; proyeccion_bs: number; proyeccion_usd: number }[];
   mensajes: string[];
@@ -74,6 +85,7 @@ const fallbackAvisoData: IAvisoData = {
     nombre: 'Condominio Residencias Altavista',
     rif: 'J098765432',
     correo: 'junta@altavista.org',
+    logo_url: null,
   },
   inmueble: {
     identificador: 'A-12',
@@ -87,6 +99,15 @@ const fallbackAvisoData: IAvisoData = {
     antes_aviso_usd: -0.7,
     con_aviso_bs: 349.6,
     con_aviso_usd: 9.63,
+  },
+  cuenta_principal: {
+    nombre_banco: '',
+    numero_cuenta: '',
+    cedula_rif: '',
+    telefono: '',
+    acepta_pago_movil: false,
+    pago_movil_telefono: '',
+    pago_movil_cedula_rif: '',
   },
   gastos: [
     {
@@ -222,6 +243,15 @@ const toNumber = (value: unknown): number => parseFloat(String(value ?? 0)) || 0
 const normalizeTipo = (tipo: string | undefined): string => String(tipo || '').trim().toLowerCase();
 const normalizeClasificacion = (clasificacion: string | undefined): string => String(clasificacion || '').trim().toLowerCase();
 const isFixedClasificacion = (clasificacion: string | undefined): boolean => normalizeClasificacion(clasificacion).startsWith('fij');
+const resolveAssetUrl = (url: string | null | undefined): string | null => {
+  const raw = String(url || '').trim();
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw) || raw.startsWith('data:')) return raw;
+  const base = String(API_BASE_URL || '').replace(/\/+$/, '');
+  if (!base) return raw;
+  if (raw.startsWith('/')) return `${base}${raw}`;
+  return `${base}/${raw}`;
+};
 
 const isNonCommonGasto = (tipo: string | undefined): boolean => {
   const t = normalizeTipo(tipo);
@@ -295,6 +325,7 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
             nombre: String(raw.condominio?.nombre || ''),
             rif: String(raw.condominio?.rif || ''),
             correo: String(raw.condominio?.correo || ''),
+            logo_url: raw.condominio?.logo_url || null,
           },
           inmueble: {
             identificador: String(raw.inmueble?.identificador || ''),
@@ -308,6 +339,15 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
             antes_aviso_usd: toNumber(raw.saldo_cuenta?.antes_aviso_usd),
             con_aviso_bs: toNumber(raw.saldo_cuenta?.con_aviso_bs),
             con_aviso_usd: toNumber(raw.saldo_cuenta?.con_aviso_usd),
+          },
+          cuenta_principal: {
+            nombre_banco: String(raw.cuenta_principal?.nombre_banco || ''),
+            numero_cuenta: String(raw.cuenta_principal?.numero_cuenta || ''),
+            cedula_rif: String(raw.cuenta_principal?.cedula_rif || ''),
+            telefono: String(raw.cuenta_principal?.telefono || ''),
+            acepta_pago_movil: Boolean(raw.cuenta_principal?.acepta_pago_movil),
+            pago_movil_telefono: String(raw.cuenta_principal?.pago_movil_telefono || ''),
+            pago_movil_cedula_rif: String(raw.cuenta_principal?.pago_movil_cedula_rif || ''),
           },
           gastos: Array.isArray(raw.gastos)
             ? raw.gastos.map((g) => ({
@@ -376,6 +416,14 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
   );
 
   const estadoRecibo = normalizeEstado(avisoData.estado_recibo);
+  const adminLogoUrl = resolveAssetUrl(avisoData.administradora.logo_url);
+  const condoLogoUrl = resolveAssetUrl(avisoData.condominio.logo_url || null);
+  const hasCondoLogo = Boolean(condoLogoUrl);
+  const hasAdminLogo = Boolean(adminLogoUrl);
+  const showLeftHabioo = !hasCondoLogo;
+  const showRightHabioo = !hasAdminLogo && hasCondoLogo;
+  const showFooterHabioo = hasCondoLogo && hasAdminLogo;
+  const hasCuentaPrincipal = Boolean(avisoData.cuenta_principal.nombre_banco || avisoData.cuenta_principal.numero_cuenta);
 
   if (loadingSnapshot) {
     return (
@@ -396,15 +444,14 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
       <div className="mx-auto max-w-4xl rounded-lg bg-white p-8 shadow-2xl md:p-12">
         <header className="aviso-header mb-6 flex flex-col gap-6 border-b border-gray-200 pb-6 md:flex-row md:items-start md:justify-between">
           <div className="aviso-header-left min-w-0 md:w-1/4">
-            {avisoData.administradora.logo_url ? (
-              <img src={avisoData.administradora.logo_url} alt="Logo administradora" className="h-16 w-auto object-contain" />
-            ) : (
+            {hasCondoLogo ? (
+              <img src={condoLogoUrl} alt="Logo junta de condominio" className="h-16 w-auto object-contain" />
+            ) : showLeftHabioo ? (
               <div className="inline-block rounded-md bg-gray-100 px-3 py-2 text-xl font-black tracking-wide text-gray-700">HABIOO</div>
-            )}
+            ) : null}
             <div className="mt-3 space-y-0.5 text-xs text-gray-500">
-              <p className="font-semibold text-gray-700">{avisoData.administradora.nombre}</p>
-              <p>RIF: {avisoData.administradora.rif}</p>
-              <p>{avisoData.administradora.correo}</p>
+              <p className="font-semibold text-gray-700">{avisoData.condominio.nombre || ''}</p>
+              <p>RIF: {avisoData.condominio.rif || ''}</p>
             </div>
           </div>
 
@@ -417,10 +464,13 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
           </div>
 
           <div className="aviso-header-right text-left md:w-1/4 md:text-right">
-            <h2 className="text-sm font-black uppercase tracking-wide text-gray-900">Condominio</h2>
-            <p className="mt-1 text-sm font-bold text-gray-800">{avisoData.condominio.nombre}</p>
-            <p className="text-xs text-gray-500">RIF: {avisoData.condominio.rif}</p>
-            <p className="text-xs text-gray-500">{avisoData.condominio.correo}</p>
+            {hasAdminLogo ? (
+              <img src={adminLogoUrl} alt="Logo administradora" className="ml-auto h-16 w-auto object-contain" />
+            ) : showRightHabioo ? (
+              <div className="inline-block rounded-md bg-gray-100 px-3 py-2 text-xl font-black tracking-wide text-gray-700">HABIOO</div>
+            ) : null}
+            <p className="mt-3 text-sm font-bold text-gray-800">{avisoData.administradora.nombre || 'HABIOO'}</p>
+            <p className="text-xs text-gray-500">RIF: {avisoData.administradora.rif || ''}</p>
           </div>
         </header>
 
@@ -554,6 +604,35 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
           </div>
         </section>
 
+        {hasCuentaPrincipal ? (
+          <section className="mb-8">
+            <h3 className="mb-3 text-lg font-black text-gray-900">Datos Bancarios para Pago</h3>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="rounded-xl border border-gray-200 bg-white p-4">
+                <p className="text-[11px] font-black uppercase tracking-wider text-gray-500">Cuenta Principal</p>
+                <p className="mt-1 text-sm font-bold text-gray-800">{avisoData.cuenta_principal.nombre_banco || 'N/A'}</p>
+                <p className="text-sm text-gray-700">Cuenta: {avisoData.cuenta_principal.numero_cuenta || 'N/A'}</p>
+                <p className="text-sm text-gray-700">RIF: {avisoData.cuenta_principal.cedula_rif || ''}</p>
+                {avisoData.cuenta_principal.telefono ? (
+                  <p className="text-sm text-gray-700">Teléfono: {avisoData.cuenta_principal.telefono}</p>
+                ) : null}
+              </div>
+              {avisoData.cuenta_principal.acepta_pago_movil ? (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                  <p className="text-[11px] font-black uppercase tracking-wider text-emerald-700">Pago Móvil</p>
+                  <p className="mt-1 text-sm font-bold text-emerald-800">{avisoData.cuenta_principal.nombre_banco || 'N/A'}</p>
+                  <p className="text-sm text-emerald-800">Teléfono: {avisoData.cuenta_principal.pago_movil_telefono || avisoData.cuenta_principal.telefono || 'N/A'}</p>
+                  <p className="text-sm text-emerald-800">RIF: {avisoData.cuenta_principal.pago_movil_cedula_rif || avisoData.cuenta_principal.cedula_rif || ''}</p>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
+                  Esta cuenta no tiene Pago Móvil habilitado.
+                </div>
+              )}
+            </div>
+          </section>
+        ) : null}
+
         <section>
           <h3 className="mb-3 text-lg font-black text-gray-900">Mensajes Importantes</h3>
           <div className="aviso-mensajes-grid grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -564,6 +643,12 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
             ))}
           </div>
         </section>
+
+        {showFooterHabioo ? (
+          <div className="mt-8 text-center">
+            <span className="inline-block rounded-md bg-gray-100 px-4 py-2 text-xl font-black tracking-wide text-gray-700">HABIOO</span>
+          </div>
+        ) : null}
       </div>
     </div>
   );
