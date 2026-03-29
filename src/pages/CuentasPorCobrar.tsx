@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect } from 'react';
-import type { FC, ChangeEvent } from 'react';
+import type { FC, ChangeEvent, MouseEvent as ReactMouseEvent } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { formatMoney } from '../utils/currency';
 import { toYmdVE } from '../utils/datetime';
@@ -108,6 +108,12 @@ interface PendingCountMap {
   [propiedadId: number]: number;
 }
 
+interface OptionsMenuState {
+  prop: Propiedad;
+  top: number;
+  left: number;
+}
+
 const toNumber = (value: string | number | undefined | null): number => parseFloat(String(value ?? 0)) || 0;
 const getCuentaLabel = (cuenta: any): string => {
   const nombreBanco = String(cuenta?.nombre_banco || cuenta?.nombre || '').trim();
@@ -181,6 +187,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
   const [pendingByPropiedad, setPendingByPropiedad] = useState<PendingCountMap>({});
   const [rejectingPagoId, setRejectingPagoId] = useState<number | null>(null);
   const [openOptionsFor, setOpenOptionsFor] = useState<number | null>(null);
+  const [optionsMenuState, setOptionsMenuState] = useState<OptionsMenuState | null>(null);
 
   const [destinoIngreso, setDestinoIngreso] = useState<'CUENTA' | 'EXTRA'>('CUENTA');
   const [subtipoFavor, setSubtipoFavor] = useState<'directo' | 'distribuido'>('directo');
@@ -281,10 +288,24 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
       const target = event.target as HTMLElement | null;
       if (target?.closest('[data-options-menu]')) return;
       setOpenOptionsFor(null);
+      setOptionsMenuState(null);
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const closeMenu = (): void => {
+      setOpenOptionsFor(null);
+      setOptionsMenuState(null);
+    };
+    window.addEventListener('resize', closeMenu);
+    window.addEventListener('scroll', closeMenu, true);
+    return () => {
+      window.removeEventListener('resize', closeMenu);
+      window.removeEventListener('scroll', closeMenu, true);
+    };
   }, []);
 
   useEffect(() => {
@@ -529,6 +550,32 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
   const totalPages = Math.ceil(filteredProperties.length / ITEMS_PER_PAGE);
   const paginatedProperties = filteredProperties.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
+  const handleToggleOptionsMenu = (prop: Propiedad, event: ReactMouseEvent<HTMLButtonElement>): void => {
+    if (openOptionsFor === prop.id) {
+      setOpenOptionsFor(null);
+      setOptionsMenuState(null);
+      return;
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const menuWidth = 208;
+    const menuHeight = 220;
+    const padding = 8;
+    const viewportW = window.innerWidth;
+    const viewportH = window.innerHeight;
+    const openUp = rect.bottom + menuHeight > viewportH - padding;
+    const top = openUp
+      ? Math.max(padding, rect.top - menuHeight - 6)
+      : Math.min(viewportH - menuHeight - padding, rect.bottom + 6);
+    const left = Math.min(
+      viewportW - menuWidth - padding,
+      Math.max(padding, rect.right - menuWidth),
+    );
+
+    setOptionsMenuState({ prop, top, left });
+    setOpenOptionsFor(prop.id);
+  };
+
   let saldoAcumulado = 0;
   const dataConSaldo: EstadoCuentaMovimientoConSaldo[] = estadoCuentaData.map((mov: EstadoCuentaMovimientoRaw) => {
     const cargo = toNumber(mov.cargo as string | number | undefined);
@@ -625,9 +672,8 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                 </tr>
               </thead>
               <tbody>
-                {paginatedProperties.map((p: Propiedad, index: number) => {
+                {paginatedProperties.map((p: Propiedad) => {
                   const saldo = toNumber(p.saldo_actual);
-                  const abrirHaciaArriba = index >= paginatedProperties.length - 4;
 
                   // Logica de colores dinamicos para el saldo
                   const isDeuda = saldo > 0;
@@ -655,59 +701,12 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                         <div className="relative inline-block text-left" data-options-menu>
                           <button
                             type="button"
-                            onClick={() => setOpenOptionsFor((prev) => (prev === p.id ? null : p.id))}
+                            onClick={(e: ReactMouseEvent<HTMLButtonElement>) => handleToggleOptionsMenu(p, e)}
                             className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                           >
                             Opciones
                             <span className="text-[10px]">▼</span>
                           </button>
-
-                          {openOptionsFor === p.id && (
-                            <div className={`absolute right-0 z-50 w-52 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800 ${abrirHaciaArriba ? 'bottom-12' : 'top-12'} animate-fadeIn`}>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  handleOpenEstadoCuenta(p);
-                                  setOpenOptionsFor(null);
-                                }}
-                                className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors"
-                              >
-                                📄 Estado de Cuenta
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  handleOpenRegistrarPago(p);
-                                  setOpenOptionsFor(null);
-                                }}
-                                className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors"
-                              >
-                                💵 Registrar Pago
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  handleOpenAjuste(p);
-                                  setOpenOptionsFor(null);
-                                }}
-                                className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors"
-                              >
-                                ⚙️ Ajuste
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (!pendingByPropiedad[p.id]) return;
-                                  handleOpenAprobaciones(p);
-                                  setOpenOptionsFor(null);
-                                }}
-                                disabled={!pendingByPropiedad[p.id]}
-                                className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                              >
-                                ⏳ Aprobar pagos{pendingByPropiedad[p.id] ? ` (${pendingByPropiedad[p.id]})` : ''}
-                              </button>
-                            </div>
-                          )}
                         </div>
                       </td>
                     </tr>
@@ -740,6 +739,61 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
           </div>
         )}
       </div>
+
+      {optionsMenuState && openOptionsFor === optionsMenuState.prop.id && (
+        <div
+          data-options-menu
+          className="fixed z-[120] w-52 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800 animate-fadeIn"
+          style={{ top: optionsMenuState.top, left: optionsMenuState.left }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              handleOpenEstadoCuenta(optionsMenuState.prop);
+              setOpenOptionsFor(null);
+              setOptionsMenuState(null);
+            }}
+            className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors"
+          >
+            📄 Estado de Cuenta
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              handleOpenRegistrarPago(optionsMenuState.prop);
+              setOpenOptionsFor(null);
+              setOptionsMenuState(null);
+            }}
+            className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors"
+          >
+            💵 Registrar Pago
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              handleOpenAjuste(optionsMenuState.prop);
+              setOpenOptionsFor(null);
+              setOptionsMenuState(null);
+            }}
+            className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors"
+          >
+            ⚙️ Ajuste
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!pendingByPropiedad[optionsMenuState.prop.id]) return;
+              handleOpenAprobaciones(optionsMenuState.prop);
+              setOpenOptionsFor(null);
+              setOptionsMenuState(null);
+            }}
+            disabled={!pendingByPropiedad[optionsMenuState.prop.id]}
+            className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            ⏳ Aprobar pagos{pendingByPropiedad[optionsMenuState.prop.id] ? ` (${pendingByPropiedad[optionsMenuState.prop.id]})` : ''}
+          </button>
+        </div>
+      )}
 
       {showPayModal && (
         <ModalRegistrarPago
@@ -1069,3 +1123,4 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
 };
 
 export default CuentasPorCobrar;
+

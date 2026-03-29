@@ -69,7 +69,7 @@ const CATEGORIAS_RUBROS: Record<string, string[]> = {
     'Limpieza de areas comunes',
     'Limpieza de estacionamientos',
     'Desinfeccion y sanitizacion',
-    'Compra de productos de limpieza',
+    'Productos de limpieza',
     'Suministro de insumos de limpieza'
   ],
   'Jardineria y areas verdes': ['Jardineria', 'Mantenimiento de areas verdes', 'Poda de arboles'],
@@ -116,6 +116,15 @@ const CATEGORIAS_RUBROS: Record<string, string[]> = {
   'Otros': ['Ferreteria', 'Recoleccion de desechos']
 };
 
+const RUBROS_VALIDOS: string[] = Object.values(CATEGORIAS_RUBROS).flat();
+
+const findRubroValido = (value: string): string | null => {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return null;
+  const match = RUBROS_VALIDOS.find((rubro) => rubro.toLowerCase() === normalized);
+  return match || null;
+};
+
 export const ModalProveedorForm: React.FC<ModalProveedorFormProps> = ({
   isOpen,
   setIsModalOpen,
@@ -126,6 +135,28 @@ export const ModalProveedorForm: React.FC<ModalProveedorFormProps> = ({
   handleSubmit
 }) => {
   const [isRubroOpen, setIsRubroOpen] = useState<boolean>(false);
+  const [rubroError, setRubroError] = useState<string>('');
+
+  const validateRubro = (): boolean => {
+    const match = findRubroValido(formProv.rubro);
+    if (!match) {
+      setRubroError('Debe seleccionar una especialidad válida del listado.');
+      return false;
+    }
+    if (match !== formProv.rubro) {
+      setFormProv((prev) => ({ ...prev, rubro: match }));
+    }
+    setRubroError('');
+    return true;
+  };
+
+  const handleSubmitValidated = (e: React.FormEvent<HTMLFormElement>): void => {
+    if (!validateRubro()) {
+      e.preventDefault();
+      return;
+    }
+    void handleSubmit(e);
+  };
 
   if (!isOpen) return null;
 
@@ -139,7 +170,7 @@ export const ModalProveedorForm: React.FC<ModalProveedorFormProps> = ({
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Los campos marcados con (<span className="text-red-500 font-bold">*</span>) son obligatorios.</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+        <form onSubmit={handleSubmitValidated} className="space-y-5" noValidate>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Identificador / RIF <span className="text-red-500">*</span></label>
@@ -180,14 +211,26 @@ export const ModalProveedorForm: React.FC<ModalProveedorFormProps> = ({
               type="text"
               name="rubro"
               value={formProv.rubro}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => { handleProvChange(e); setIsRubroOpen(true); }}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                handleProvChange(e);
+                setIsRubroOpen(true);
+                if (rubroError) setRubroError('');
+              }}
               onFocus={() => setIsRubroOpen(true)}
-              onBlur={() => setTimeout(() => setIsRubroOpen(false), 200)}
+              onBlur={() => {
+                setTimeout(() => setIsRubroOpen(false), 200);
+                validateRubro();
+              }}
               placeholder="Ej: Plomeria, Ferreteria..."
-              className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-green dark:text-white"
+              className={`w-full p-3 bg-gray-50 dark:bg-gray-800 border rounded-xl outline-none focus:ring-2 focus:ring-donezo-green dark:text-white ${
+                rubroError ? 'border-red-400 dark:border-red-500' : 'border-gray-200 dark:border-gray-700'
+              }`}
               required
               autoComplete="off"
             />
+            {rubroError && (
+              <p className="mt-1 text-xs font-bold text-red-500">{rubroError}</p>
+            )}
 
             {isRubroOpen && (
               <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl max-h-64 overflow-y-auto custom-scrollbar animate-fadeIn">
@@ -207,6 +250,7 @@ export const ModalProveedorForm: React.FC<ModalProveedorFormProps> = ({
                           onMouseDown={(e: React.MouseEvent<HTMLDivElement>) => {
                             e.preventDefault();
                             setFormProv({ ...formProv, rubro: sub });
+                            setRubroError('');
                             setIsRubroOpen(false);
                           }}
                           className="px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-green-50 dark:hover:bg-green-900/30 hover:text-green-700 dark:hover:text-green-400 cursor-pointer transition-colors"
@@ -425,4 +469,3 @@ export const ModalCargaMasivaProveedores: React.FC<ModalCargaMasivaProveedoresPr
     </div>
   );
 };
-

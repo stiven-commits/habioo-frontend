@@ -508,7 +508,7 @@ const Layout: React.FC<LayoutProps> = () => {
   };
 
   const handleSidebarToggle: React.MouseEventHandler<HTMLButtonElement> = () => {
-    const isMobile = window.matchMedia('(max-width: 767px)').matches;
+    const isMobile = window.matchMedia('(max-width: 1023px)').matches;
     if (isMobile) {
       setSidebarCollapsed(false);
       setMobileSidebarOpen((prev) => !prev);
@@ -658,9 +658,9 @@ const Layout: React.FC<LayoutProps> = () => {
 
       <aside
         className={`fixed z-30 h-full flex flex-col border-r border-emerald-900/70 bg-[#0f5e37] transition-all duration-300 ${
-          sidebarCollapsed ? 'md:w-20' : 'md:w-64'
+          sidebarCollapsed ? 'lg:w-20' : 'lg:w-64'
         } w-72 ${
-          mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+          mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
         <div className={`px-3 py-4 border-b border-emerald-900/60 ${sidebarCollapsed ? 'flex justify-center' : ''}`}>
@@ -717,9 +717,9 @@ const Layout: React.FC<LayoutProps> = () => {
               </Link>
 
               <p className={`mt-6 ${sectionTitleClass}`}>Configuracion</p>
-              <Link to="/zonas" className={navClass('/zonas')} title="Zonas">
+              <Link to="/zonas" className={navClass('/zonas')} title="Áreas">
                 <MapPin size={18} />
-                {!sidebarCollapsed && <span>Zonas</span>}
+                {!sidebarCollapsed && <span>Áreas</span>}
               </Link>
               <Link to="/perfil" className={navClass('/perfil')} title="Perfil Condominio">
                 <Settings size={18} />
@@ -813,7 +813,7 @@ const Layout: React.FC<LayoutProps> = () => {
         </div>
       </aside>
 
-      <main className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'md:ml-20' : 'md:ml-64'}`}>
+      <main className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
         <header className="h-14 md:h-16 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161b22] px-4 md:px-6 flex items-center justify-between">
           <button
             type="button"

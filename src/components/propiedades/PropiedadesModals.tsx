@@ -754,8 +754,8 @@ export const ModalEstadoCuenta: FC<ModalEstadoCuentaProps> = ({
                     <td className="p-3 font-medium text-gray-800 dark:text-gray-200">
                       {m.tipo === 'RECIBO' ? m.concepto : `${m.tipo === 'PAGO' ? 'PAGO' : 'AJUSTE'} ${m.concepto}`}
                     </td>
-                    <td className="p-3 text-right font-mono text-gray-700 dark:text-gray-300">{m.monto_bs && (m.tipo !== 'PAGO' || m.tasa_cambio > 1) ? `Bs ${formatMoney(m.monto_bs)}` : '-'}</td>
-                    <td className="p-3 text-right font-mono text-gray-700 dark:text-gray-300">{m.tasa_cambio && m.tasa_cambio > 1 ? formatMoney(m.tasa_cambio) : '-'}</td>
+                    <td className="p-3 text-right font-mono text-gray-700 dark:text-gray-300">{m.monto_bs > 0 ? `Bs ${formatMoney(m.monto_bs)}` : '-'}</td>
+                    <td className="p-3 text-right font-mono text-gray-700 dark:text-gray-300">{m.tasa_cambio > 0 ? formatMoney(m.tasa_cambio) : '-'}</td>
                     <td className="p-3 text-right text-red-500 font-mono font-medium">{m.cargo > 0 ? `$${formatMoney(m.cargo)}` : '-'}</td>
                     <td className="p-3 text-right text-green-500 font-mono font-medium">{m.abono > 0 ? `$${formatMoney(m.abono)}` : '-'}</td>
                     <td className="p-3 text-right font-mono font-black text-gray-800 dark:text-white">${formatMoney(m.saldoFila)}</td>

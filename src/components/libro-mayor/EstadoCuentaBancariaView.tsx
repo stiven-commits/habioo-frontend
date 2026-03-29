@@ -31,6 +31,7 @@ interface CuentaBancaria {
   nombre_banco?: string;
   apodo?: string;
   moneda?: string;
+  tipo?: string;
   es_predeterminada?: boolean;
 }
 
@@ -175,6 +176,29 @@ const formatFecha = (dateString?: string): string => {
   } catch {
     return dateString;
   }
+};
+
+const getCuentaLabel = (cuenta: CuentaBancaria): string => {
+  const banco = String(cuenta.nombre_banco || '').trim();
+  const apodo = String(cuenta.apodo || '').trim();
+  const moneda = String(cuenta.moneda || '').trim().toUpperCase();
+  const tipo = String(cuenta.tipo || '').trim().toUpperCase();
+  const inferSource = `${banco} ${apodo} ${tipo}`.toUpperCase();
+  const isUsd =
+    moneda === 'USD'
+    || tipo.includes('USD')
+    || tipo.includes('ZELLE')
+    || tipo.includes('DOLAR')
+    || tipo.includes('DIVISA')
+    || inferSource.includes('USD')
+    || inferSource.includes('ZELLE');
+
+  if (isUsd) {
+    const base = banco ? `Cuenta USD - ${banco}` : 'Cuenta USD';
+    return `${base} (${apodo || 'Cuenta'})`;
+  }
+
+  return `${banco || 'Banco'} (${apodo || 'Cuenta'})`;
 };
 
 const parseFilterDate = (value: string): Date | null => {
@@ -861,7 +885,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   );
 
   const fondosDestacados = useMemo(
-    () => resumenFondos.slice(0, 2),
+    () => resumenFondos,
     [resumenFondos],
   );
 
@@ -1030,7 +1054,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
               >
                 {cuentas.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.nombre_banco || 'Banco'} ({c.apodo || 'Cuenta'})
+                    {getCuentaLabel(c)}
                   </option>
                 ))}
               </select>
@@ -1235,7 +1259,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
           >
             {cuentas.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.nombre_banco || 'Banco'} ({c.apodo || 'Cuenta'})
+                {getCuentaLabel(c)}
               </option>
             ))}
           </select>
@@ -1258,15 +1282,34 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
         </div>
       </section>
 
-      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <p className="text-xs font-black uppercase tracking-wider text-gray-400">Saldo equivalente USD</p>
-          <p className="mt-2 text-4xl font-black text-gray-900 dark:text-white">${formatCurrency(saldoCuentaUsdActual)}</p>
-        </article>
+      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <p className="text-xs font-black uppercase tracking-wider text-gray-400">Saldo en bolívares</p>
           <p className="mt-2 text-4xl font-black text-gray-900 dark:text-white">Bs {formatCurrency(saldoCuentaBsActual)}</p>
         </article>
+        <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <p className="text-xs font-black uppercase tracking-wider text-gray-400">Tasa BCV</p>
+          <div className="mt-1 flex items-center gap-2">
+            <p className="text-4xl font-black text-gray-900 dark:text-white">{tasaBcvNum > 0 ? formatRate(tasaBcvNum) : '-'}</p>
+            <button
+              type="button"
+              onClick={fetchBCV}
+              disabled={loadingBcv}
+              title={loadingBcv ? 'Actualizando tasa BCV...' : 'Actualizar tasa BCV'}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-lg font-black text-emerald-700 hover:bg-emerald-100 disabled:opacity-60 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
+            >
+              <span className={loadingBcv ? 'animate-spin' : ''}>↻</span>
+            </button>
+          </div>
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Bs por USD</p>
+        </article>
+        <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <p className="text-xs font-black uppercase tracking-wider text-gray-400">Saldo equivalente USD</p>
+          <p className="mt-2 text-4xl font-black text-gray-900 dark:text-white">${formatCurrency(saldoCuentaUsdActual)}</p>
+        </article>
+      </section>
+
+      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <p className="text-xs font-black uppercase tracking-wider text-gray-400">Total ingresos</p>
           <p className="mt-2 text-4xl font-black text-emerald-600 dark:text-emerald-400">+${formatCurrency(totalIngresosUsd)}</p>
@@ -1275,23 +1318,6 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
           <p className="text-xs font-black uppercase tracking-wider text-gray-400">Total egresos</p>
           <p className="mt-2 text-4xl font-black text-red-600 dark:text-red-400">-${formatCurrency(totalEgresosUsd)}</p>
         </article>
-      </section>
-
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <p className="text-xs font-black uppercase tracking-wider text-gray-400">Tasa BCV</p>
-          <p className="mt-1 text-4xl font-black text-gray-900 dark:text-white">{tasaBcvNum > 0 ? formatRate(tasaBcvNum) : '-'}</p>
-          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Bs por USD</p>
-          <button
-            type="button"
-            onClick={fetchBCV}
-            disabled={loadingBcv}
-            className="mt-4 h-10 rounded-xl bg-emerald-700 px-4 text-sm font-bold text-white hover:bg-emerald-800 disabled:opacity-60"
-          >
-            {loadingBcv ? 'Actualizando...' : 'Actualizar'}
-          </button>
-        </article>
-
         {fondosDestacados.map((fondo) => (
           <article key={fondo.id} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <p className="text-xs font-black uppercase tracking-wider text-gray-400">{fondo.nombre}</p>
@@ -1309,7 +1335,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
             <div className="flex items-center gap-2">
               <h3 className="text-2xl font-black text-gray-800 dark:text-white">Libro Mayor</h3>
               <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-gray-600 dark:bg-gray-700 dark:text-gray-200">
-                {cuentaActual ? `${cuentaActual.nombre_banco || 'Banco'} (${cuentaActual.apodo || 'Cuenta'})` : 'Sin cuenta'}
+                {cuentaActual ? getCuentaLabel(cuentaActual) : 'Sin cuenta'}
               </span>
             </div>
             <div className="flex flex-wrap items-end gap-2 xl:justify-end">
@@ -1501,11 +1527,11 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                     >
                       <td className="p-4">
                         <span className="block font-mono font-bold text-gray-800 dark:text-gray-200" style={{ fontSize: `${tableCompactFontPx}px` }}>
-                          <span className="font-bold text-gray-400 uppercase mr-1" style={{ fontSize: `${tableTagFontPx}px` }}>pago</span>{formatFecha(movimiento.fecha)}
+                          <span className="font-bold text-gray-500 dark:text-gray-300 uppercase mr-1" style={{ fontSize: `${tableTagFontPx}px` }}>pago</span>{formatFecha(movimiento.fecha)}
                         </span>
                         {movimiento.fecha_registro && (
-                          <span className="block font-mono text-gray-400 mt-0.5" style={{ fontSize: `${tableMetaFontPx}px` }}>
-                            <span className="font-bold text-gray-400 uppercase mr-1" style={{ fontSize: `${tableTagFontPx}px` }}>sistema</span>{formatFecha(movimiento.fecha_registro)}
+                          <span className="block font-mono text-gray-600 dark:text-gray-200 mt-0.5" style={{ fontSize: `${tableMetaFontPx}px` }}>
+                            <span className="font-bold text-gray-600 dark:text-gray-200 uppercase mr-1" style={{ fontSize: `${tableTagFontPx}px` }}>sistema</span>{formatFecha(movimiento.fecha_registro)}
                           </span>
                         )}
                       </td>

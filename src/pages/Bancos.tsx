@@ -630,8 +630,8 @@ const Bancos: FC<BancosProps> = () => {
                     <option value="Transferencia" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Transferencia (Bs)</option>
                     <option value="Pago Movil" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Pago Movil (Bs)</option>
                     <option value="Zelle" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Zelle (USD)</option>
-                    <option value="Efectivo BS" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Efectivo / Caja Fuerte (Bs)</option>
-                    <option value="Efectivo USD" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Efectivo / Caja Fuerte (USD)</option>
+                    <option value="Efectivo BS" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Efectivo / Caja Chica (Bs)</option>
+                    <option value="Efectivo USD" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Efectivo / Caja Chica (USD)</option>
                   </select>
                 </div>
 
