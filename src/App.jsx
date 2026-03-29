@@ -23,6 +23,7 @@ import PerfilPropietario from './pages/propietario/PerfilPropietario';
 import NotificacionesPropietario from './pages/propietario/NotificacionesPropietario';
 import EncuestasPropietario from './pages/propietario/EncuestasPropietario';
 import AlquileresPropietario from './pages/propietario/AlquileresPropietario';
+import SoporteSuperUsuario from './pages/SoporteSuperUsuario';
 import { DialogProvider } from './components/ui/DialogProvider';
 
 export default function App() {
@@ -55,6 +56,7 @@ export default function App() {
             <Route path="/propietario/perfil" element={<PerfilPropietario />} />
             <Route path="/propietario/notificaciones" element={<NotificacionesPropietario />} />
             <Route path="/mis-cartas-consulta" element={<EncuestasPropietario />} />
+            <Route path="/soporte/condominios" element={<SoporteSuperUsuario />} />
           </Route>
         </Routes>
       </BrowserRouter>

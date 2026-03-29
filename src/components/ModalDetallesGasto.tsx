@@ -1,6 +1,7 @@
 import React from 'react';
 import type { FC } from 'react';
 import { formatMoney } from '../utils/currency';
+import { API_BASE_URL } from '../config/api';
 
 interface GastoDetalle {
   proveedor: string;
@@ -23,6 +24,8 @@ interface ModalDetallesGastoProps {
 
 const ModalDetallesGasto: FC<ModalDetallesGastoProps> = ({ gasto, onClose }) => {
   if (!gasto) return null;
+  const isPdf = (path: string): boolean => /\.pdf($|\?)/i.test(path);
+  const getFileUrl = (path: string): string => `${API_BASE_URL}${path}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
@@ -66,9 +69,15 @@ const ModalDetallesGasto: FC<ModalDetallesGastoProps> = ({ gasto, onClose }) => 
         <div className="mt-4 space-y-4">
           {gasto.factura_img && (
             <div>
-              <p className="text-xs font-bold text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider">Factura Original</p>
-              <a href={`https://auth.habioo.cloud${gasto.factura_img}`} target="_blank" rel="noreferrer">
-                <img src={`https://auth.habioo.cloud${gasto.factura_img}`} alt="Factura" className="w-full h-32 object-cover rounded-xl border border-blue-200 shadow-sm"/>
+              <p className="text-xs font-bold text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider">Factura o recibo</p>
+              <a href={getFileUrl(gasto.factura_img)} target="_blank" rel="noreferrer" className="block">
+                {isPdf(gasto.factura_img) ? (
+                  <div className="w-full rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 shadow-sm dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-300">
+                    Ver PDF adjunto
+                  </div>
+                ) : (
+                  <img src={getFileUrl(gasto.factura_img)} alt="Factura" className="w-full h-32 object-cover rounded-xl border border-blue-200 shadow-sm"/>
+                )}
               </a>
             </div>
           )}
@@ -77,8 +86,14 @@ const ModalDetallesGasto: FC<ModalDetallesGastoProps> = ({ gasto, onClose }) => 
               <p className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider dark:text-gray-400">Soportes Adjuntos</p>
               <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
                 {gasto.imagenes.map((img: string, idx: number) => (
-                  <a key={idx} href={`https://auth.habioo.cloud${img}`} target="_blank" rel="noreferrer" className="flex-shrink-0">
-                    <img src={`https://auth.habioo.cloud${img}`} alt={`Soporte`} className="w-20 h-20 object-cover rounded-lg border border-gray-200 shadow-sm"/>
+                  <a key={idx} href={getFileUrl(img)} target="_blank" rel="noreferrer" className="flex-shrink-0">
+                    {isPdf(img) ? (
+                      <div className="w-20 h-20 rounded-lg border border-gray-200 bg-gray-50 text-[11px] font-bold text-gray-600 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 flex items-center justify-center text-center px-1">
+                        PDF
+                      </div>
+                    ) : (
+                      <img src={getFileUrl(img)} alt={`Soporte`} className="w-20 h-20 object-cover rounded-lg border border-gray-200 shadow-sm"/>
+                    )}
                   </a>
                 ))}
               </div>

@@ -34,6 +34,17 @@ interface User {
 
 interface MeResponse {
   user?: User;
+  session?: SessionData;
+}
+
+interface SessionData {
+  role?: 'Administrador' | 'Propietario' | 'SuperUsuario';
+  is_support_session?: boolean;
+  support_superuser_id?: number | null;
+  support_superuser_nombre?: string | null;
+  support_condominio_id?: number | null;
+  expires_at?: string | null;
+  [key: string]: unknown;
 }
 
 interface PerfilCondominioHeaderData {
@@ -108,7 +119,7 @@ interface FloatingNotification {
   tone: 'success' | 'danger' | 'info';
 }
 
-type UserRole = 'Administrador' | 'Propietario';
+type UserRole = 'Administrador' | 'Propietario' | 'SuperUsuario';
 type Theme = 'light' | 'dark';
 
 const parseStoredUser = (rawUser: string): User | null => {
@@ -124,11 +135,22 @@ const parseStoredUser = (rawUser: string): User | null => {
   }
 };
 
+const parseStoredSession = (rawSession: string): SessionData | null => {
+  try {
+    const parsed: unknown = JSON.parse(rawSession);
+    if (typeof parsed === 'object' && parsed !== null) return parsed as SessionData;
+    return null;
+  } catch {
+    return null;
+  }
+};
+
 const toNumber = (value: unknown): number => Number.parseInt(String(value ?? 0), 10) || 0;
 
 const Layout: React.FC<LayoutProps> = () => {
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [headerDisplayName, setHeaderDisplayName] = useState<string>('');
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
@@ -157,8 +179,32 @@ const Layout: React.FC<LayoutProps> = () => {
 
   useEffect(() => {
     const validateSession = async (): Promise<void> => {
+      const readBackup = (): { token: string | null; user: string | null; session: string | null } => {
+        const token = localStorage.getItem('habioo_super_token_backup') || sessionStorage.getItem('habioo_super_token_backup');
+        const user = localStorage.getItem('habioo_super_user_backup') || sessionStorage.getItem('habioo_super_user_backup');
+        const session = localStorage.getItem('habioo_super_session_backup') || sessionStorage.getItem('habioo_super_session_backup');
+        return { token, user, session };
+      };
+
+      const tryRestoreSuperBackup = (): boolean => {
+        const { token: backupToken, user: backupUser, session: backupSession } = readBackup();
+        if (!backupToken || !backupUser) return false;
+        localStorage.setItem('habioo_token', backupToken);
+        localStorage.setItem('habioo_user', backupUser);
+        localStorage.setItem('habioo_session', backupSession || '{}');
+        localStorage.removeItem('habioo_super_token_backup');
+        localStorage.removeItem('habioo_super_user_backup');
+        localStorage.removeItem('habioo_super_session_backup');
+        sessionStorage.removeItem('habioo_super_token_backup');
+        sessionStorage.removeItem('habioo_super_user_backup');
+        sessionStorage.removeItem('habioo_super_session_backup');
+        navigate('/soporte/condominios');
+        return true;
+      };
+
       const token = localStorage.getItem('habioo_token');
       const userData = localStorage.getItem('habioo_user');
+      const storedSessionRaw = localStorage.getItem('habioo_session');
       if (!token || !userData) {
         navigate('/');
         return;
@@ -170,27 +216,40 @@ const Layout: React.FC<LayoutProps> = () => {
         });
 
         if (!res.ok) {
+          if (tryRestoreSuperBackup()) return;
           localStorage.removeItem('habioo_token');
           localStorage.removeItem('habioo_user');
+          localStorage.removeItem('habioo_session');
           navigate('/');
           return;
         }
 
         const data: MeResponse = (await res.json()) as MeResponse;
         const currentUser = data.user ?? parseStoredUser(userData);
+        const currentSession = (data.session || (storedSessionRaw ? parseStoredSession(storedSessionRaw) : null)) as SessionData | null;
         if (!currentUser) {
           localStorage.removeItem('habioo_token');
           localStorage.removeItem('habioo_user');
+          localStorage.removeItem('habioo_session');
           navigate('/');
           return;
         }
 
         setUser(currentUser);
-        const isAdmin = ['J', 'G'].includes(String(currentUser.cedula || '').charAt(0).toUpperCase());
-        setUserRole(isAdmin ? 'Administrador' : 'Propietario');
+        const role = String(currentSession?.role || '').trim();
+        const normalizedRole: UserRole = role === 'SuperUsuario'
+          ? 'SuperUsuario'
+          : role === 'Administrador'
+            ? 'Administrador'
+            : 'Propietario';
+        setSessionData(currentSession);
+        setUserRole(normalizedRole);
+        localStorage.setItem('habioo_session', JSON.stringify(currentSession || {}));
       } catch {
+        if (tryRestoreSuperBackup()) return;
         localStorage.removeItem('habioo_token');
         localStorage.removeItem('habioo_user');
+        localStorage.removeItem('habioo_session');
         navigate('/');
       }
     };
@@ -517,9 +576,49 @@ const Layout: React.FC<LayoutProps> = () => {
     setSidebarCollapsed((prev) => !prev);
   };
 
-  const handleLogout: React.MouseEventHandler<HTMLButtonElement> = () => {
+  const handleLogout = (): void => {
     localStorage.clear();
     navigate('/');
+  };
+
+  const isSupportSession = Boolean(sessionData?.is_support_session);
+
+  const handleExitSupport = async (): Promise<void> => {
+    const readBackup = (): { token: string | null; user: string | null; session: string | null } => {
+      const token = localStorage.getItem('habioo_super_token_backup') || sessionStorage.getItem('habioo_super_token_backup');
+      const user = localStorage.getItem('habioo_super_user_backup') || sessionStorage.getItem('habioo_super_user_backup');
+      const session = localStorage.getItem('habioo_super_session_backup') || sessionStorage.getItem('habioo_super_session_backup');
+      return { token, user, session };
+    };
+
+    try {
+      const supportToken = localStorage.getItem('habioo_token');
+      if (supportToken && isSupportSession) {
+        await fetch(`${API_BASE_URL}/support/salir`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${supportToken}` },
+        });
+      }
+    } catch {
+      // cierre best-effort
+    }
+
+    const { token: backupToken, user: backupUser, session: backupSession } = readBackup();
+    if (!backupToken || !backupUser) {
+      navigate('/soporte/condominios');
+      return;
+    }
+
+    localStorage.setItem('habioo_token', backupToken);
+    localStorage.setItem('habioo_user', backupUser);
+    localStorage.setItem('habioo_session', backupSession || '{}');
+    localStorage.removeItem('habioo_super_token_backup');
+    localStorage.removeItem('habioo_super_user_backup');
+    localStorage.removeItem('habioo_super_session_backup');
+    sessionStorage.removeItem('habioo_super_token_backup');
+    sessionStorage.removeItem('habioo_super_user_backup');
+    sessionStorage.removeItem('habioo_super_session_backup');
+    window.location.assign('/soporte/condominios');
   };
 
   const handlePropiedadChange: React.ChangeEventHandler<HTMLSelectElement> = (e) => {
@@ -554,6 +653,7 @@ const Layout: React.FC<LayoutProps> = () => {
     '/propietario/perfil': 'Mi Perfil',
     '/carta-consulta': 'Cartas Consulta',
     '/mis-cartas-consulta': 'Cartas Consulta',
+    '/soporte/condominios': 'Soporte Habioo',
   };
 
   const hideOuterPageHeader =
@@ -674,10 +774,20 @@ const Layout: React.FC<LayoutProps> = () => {
 
         <nav className={`flex-1 px-3 py-4 space-y-1.5 overflow-y-auto ${sidebarCollapsed ? 'items-center' : ''}`}>
           <p className={sectionTitleClass}>Principal</p>
-          <Link to="/dashboard" className={navClass('/dashboard')} title="Dashboard">
+          <Link to={userRole === 'SuperUsuario' ? '/soporte/condominios' : '/dashboard'} className={navClass(userRole === 'SuperUsuario' ? '/soporte/condominios' : '/dashboard')} title={userRole === 'SuperUsuario' ? 'Soporte' : 'Dashboard'}>
             <LayoutDashboard size={18} />
-            {!sidebarCollapsed && <span>Dashboard</span>}
+            {!sidebarCollapsed && <span>{userRole === 'SuperUsuario' ? 'Soporte' : 'Dashboard'}</span>}
           </Link>
+
+          {userRole === 'SuperUsuario' && (
+            <>
+              <p className={`mt-6 ${sectionTitleClass}`}>Accesos</p>
+              <Link to="/soporte/condominios" className={navClass('/soporte/condominios')} title="Juntas">
+                <Building2 size={18} />
+                {!sidebarCollapsed && <span>Juntas Habioo</span>}
+              </Link>
+            </>
+          )}
 
           {userRole === 'Administrador' && (
             <>
@@ -824,6 +934,16 @@ const Layout: React.FC<LayoutProps> = () => {
             {mobileSidebarOpen ? <PanelLeftClose size={17} /> : sidebarCollapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
           </button>
           <div className="flex items-center gap-3">
+            {isSupportSession && (
+              <button
+                type="button"
+                onClick={() => { void handleExitSupport(); }}
+                className="h-9 rounded-lg border border-amber-300 bg-amber-50 px-3 text-xs font-black text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200 dark:hover:bg-amber-900/40"
+                title="Salir del modo soporte"
+              >
+                Modo Soporte
+              </button>
+            )}
             <p className="max-w-[52vw] truncate text-xs sm:text-sm text-gray-500 dark:text-gray-300">
               Hola, <span className="font-semibold text-gray-900 dark:text-white">{displayName}</span>
             </p>

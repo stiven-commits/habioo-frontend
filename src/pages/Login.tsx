@@ -14,6 +14,10 @@ interface LoginResponse {
   status: string;
   token?: string;
   user?: LoginUser;
+  session?: {
+    role?: 'Administrador' | 'Propietario' | 'SuperUsuario';
+    [key: string]: unknown;
+  };
   message?: string;
 }
 
@@ -47,9 +51,10 @@ const Login: FC<LoginProps> = () => {
 
       if (data.status === 'success') {
         localStorage.setItem('habioo_token', data.token ?? '');
-        // Guardamos datos del usuario para usarlos en el Dashboard
         localStorage.setItem('habioo_user', JSON.stringify(data.user ?? {}));
-        navigate('/dashboard');
+        localStorage.setItem('habioo_session', JSON.stringify(data.session ?? {}));
+        const role = String(data.session?.role || '').trim();
+        navigate(role === 'SuperUsuario' ? '/soporte/condominios' : '/dashboard');
       } else {
         setMessage('Error: ' + (data.message ?? 'Credenciales inválidas.'));
       }

@@ -103,7 +103,7 @@ const VistaAlquileres: FC = () => {
     setIsModalOpen(true);
   };
 
-  const renderEspacios = (): JSX.Element => (
+  const renderEspacios = (): React.ReactElement => (
     <>
       {isLoading && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">

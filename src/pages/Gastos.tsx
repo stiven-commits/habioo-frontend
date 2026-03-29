@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import type { FC, MouseEvent, ChangeEvent } from 'react';
+import type { FC, MouseEvent as ReactMouseEvent, ChangeEvent } from 'react';
 import DatePicker from 'react-datepicker';
 import { es } from 'date-fns/locale/es';
 import { useOutletContext } from 'react-router-dom';
+import { ChevronDown } from 'lucide-react';
 import ModalAgregarGasto from '../components/ModalAgregarGasto';
 import ModalDetallesGasto from '../components/ModalDetallesGasto';
 import ModalPagarProveedor from '../components/gastos/ModalPagarProveedor';
@@ -25,6 +26,7 @@ type SortDirection = 'asc' | 'desc';
 interface GastoCuota {
   cuota_id: number | string;
   gasto_id: number | string;
+  proveedor_id?: number | string;
   proveedor: string;
   concepto: string;
   fecha_factura?: string;
@@ -39,6 +41,8 @@ interface GastoCuota {
   nota?: string;
   clasificacion?: string;
   tipo?: string;
+  zona_id?: number | string | null;
+  propiedad_id?: number | string | null;
   zona_nombre?: string;
   propiedad_identificador?: string;
   estado: string;
@@ -50,6 +54,7 @@ interface GastoCuota {
 
 interface GastoAgrupado {
   gasto_id: number | string;
+  proveedor_id?: number | string;
   proveedor: string;
   concepto: string;
   fecha_factura: string;
@@ -68,6 +73,7 @@ interface GastoAgrupado {
   propiedad_identificador?: string;
   cuotas: GastoCuota[];
   canDelete: boolean;
+  canEdit: boolean;
 }
 
 type IGasto = GastoAgrupado;
@@ -155,12 +161,29 @@ interface ExpandedRows {
   [key: string]: boolean;
 }
 
+interface OptionsMenuState {
+  gasto: GastoAgrupado;
+  top: number;
+  left: number;
+}
+
 interface SortConfig {
   column: SortColumn;
   direction: SortDirection;
 }
 
 const toNumber = (value: string | number | undefined | null): number => parseFloat(String(value ?? 0)) || 0;
+
+const parseNotaToFields = (nota?: string): { numero_documento: string; nota: string } => {
+  const raw = String(nota || '').trim();
+  if (!raw) return { numero_documento: '', nota: '' };
+  const match = raw.match(/^Nro\.\s*recibo\/factura:\s*([^|]+?)(?:\s*\|\s*(.*))?$/i);
+  if (!match) return { numero_documento: '', nota: raw };
+  return {
+    numero_documento: String(match[1] || '').trim(),
+    nota: String(match[2] || '').trim(),
+  };
+};
 
 const formatMonthText = (yyyyMm: string | undefined): string => {
   if (!yyyyMm) return '';
@@ -220,8 +243,11 @@ const Gastos: FC<GastosProps> = () => {
   const ITEMS_PER_PAGE = 13;
 
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [gastoEnEdicion, setGastoEnEdicion] = useState<GastoAgrupado | null>(null);
   const [selectedGasto, setSelectedGasto] = useState<GastoAgrupado | null>(null);
   const [expandedRows, setExpandedRows] = useState<ExpandedRows>({});
+  const [openOptionsFor, setOpenOptionsFor] = useState<number | string | null>(null);
+  const [optionsMenuState, setOptionsMenuState] = useState<OptionsMenuState | null>(null);
   const [isModalPagarOpen, setIsModalPagarOpen] = useState<boolean>(false);
   const [gastoPagar, setGastoPagar] = useState<IGasto | null>(null);
   const [isModalVerPagosOpen, setIsModalVerPagosOpen] = useState<boolean>(false);
@@ -266,6 +292,7 @@ const Gastos: FC<GastosProps> = () => {
               clasificacion: curr.clasificacion || 'Variable',
               cuotas: [],
               canDelete: true,
+              canEdit: true,
             };
             if (curr.factura_img) nuevo.factura_img = curr.factura_img;
             if (curr.nota) nuevo.nota = curr.nota;
@@ -275,12 +302,18 @@ const Gastos: FC<GastosProps> = () => {
           }
           const gastoActual = acc[key];
           if (!gastoActual) return acc;
+          if (curr.proveedor_id !== undefined && curr.proveedor_id !== null && String(curr.proveedor_id) !== '') {
+            gastoActual.proveedor_id = curr.proveedor_id;
+          }
           gastoActual.monto_pagado_usd = Math.max(
             toNumber(gastoActual.monto_pagado_usd),
             toNumber(curr.monto_pagado_usd)
           );
           gastoActual.cuotas.push(curr);
-          if (curr.estado !== 'Pendiente') gastoActual.canDelete = false;
+          if (curr.estado !== 'Pendiente') {
+            gastoActual.canDelete = false;
+            gastoActual.canEdit = false;
+          }
           return acc;
         }, {});
         setGastosAgrupados(Object.values(agrupados));
@@ -301,6 +334,30 @@ const Gastos: FC<GastosProps> = () => {
   useEffect(() => {
     if (userRole === 'Administrador') fetchData();
   }, [userRole]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: globalThis.MouseEvent): void => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('[data-options-menu]')) return;
+      setOpenOptionsFor(null);
+      setOptionsMenuState(null);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const closeMenu = (): void => {
+      setOpenOptionsFor(null);
+      setOptionsMenuState(null);
+    };
+    window.addEventListener('resize', closeMenu);
+    window.addEventListener('scroll', closeMenu, true);
+    return () => {
+      window.removeEventListener('resize', closeMenu);
+      window.removeEventListener('scroll', closeMenu, true);
+    };
+  }, []);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -394,7 +451,7 @@ const Gastos: FC<GastosProps> = () => {
   const paginatedGastos = sortedGastos.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
   const totalPagesSorted = Math.ceil(sortedGastos.length / ITEMS_PER_PAGE);
 
-  const toggleRow = (id: number | string, e: MouseEvent<HTMLElement>): void => {
+  const toggleRow = (id: number | string, e: ReactMouseEvent<HTMLElement>): void => {
     e.stopPropagation();
     const key = String(id);
     setExpandedRows((prev: ExpandedRows) => ({ ...prev, [key]: !prev[key] }));
@@ -424,7 +481,7 @@ const Gastos: FC<GastosProps> = () => {
     return { pagado: safePagado, total: safeTotal, pct, isComplete: safePagado >= safeTotal };
   };
 
-  const handleDelete = async (gastoId: number | string, e: MouseEvent<HTMLButtonElement>): Promise<void> => {
+  const handleDelete = async (gastoId: number | string, e: ReactMouseEvent<HTMLButtonElement>): Promise<void> => {
     e.stopPropagation();
     const ok = await showConfirm({
       title: 'Eliminar gasto',
@@ -442,6 +499,44 @@ const Gastos: FC<GastosProps> = () => {
     });
     if (res.ok) fetchData();
     else alert('No se pudo eliminar');
+  };
+
+  const handleToggleOptionsMenu = (gasto: GastoAgrupado, event: ReactMouseEvent<HTMLButtonElement>): void => {
+    event.stopPropagation();
+    if (openOptionsFor === gasto.gasto_id) {
+      setOpenOptionsFor(null);
+      setOptionsMenuState(null);
+      return;
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const menuWidth = 224;
+    const menuHeight = 210;
+    const padding = 8;
+    const viewportW = window.innerWidth;
+    const viewportH = window.innerHeight;
+    const openUp = rect.bottom + menuHeight > viewportH - padding;
+    const top = openUp
+      ? Math.max(padding, rect.top - menuHeight - 6)
+      : Math.min(viewportH - menuHeight - padding, rect.bottom + 6);
+    const left = Math.min(
+      viewportW - menuWidth - padding,
+      Math.max(padding, rect.right - menuWidth),
+    );
+
+    setOptionsMenuState({ gasto, top, left });
+    setOpenOptionsFor(gasto.gasto_id);
+  };
+
+  const handleEditGasto = (gasto: GastoAgrupado): void => {
+    if (!gasto.canEdit) {
+      alert('Este gasto ya fue incluido en aviso(s) de cobro y no puede editarse.');
+      return;
+    }
+    setOpenOptionsFor(null);
+    setOptionsMenuState(null);
+    setGastoEnEdicion(gasto);
+    setIsModalOpen(true);
   };
 
   if (userRole !== 'Administrador') return <p className="p-6">No tienes permisos.</p>;
@@ -512,7 +607,10 @@ const Gastos: FC<GastosProps> = () => {
           </button>
         </div>
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setGastoEnEdicion(null);
+            setIsModalOpen(true);
+          }}
           className="bg-donezo-primary hover:bg-green-700 text-white font-bold py-2 px-6 rounded-xl transition-all whitespace-nowrap shadow-md"
         >
           + Nuevo Gasto
@@ -610,7 +708,6 @@ const Gastos: FC<GastosProps> = () => {
                       const montoTotal = toNumber(g.monto_total_usd);
                       const montoPagado = toNumber(g.monto_pagado_usd);
                       const progresoPago = montoTotal > 0 ? Math.min(100, (montoPagado / montoTotal) * 100) : 0;
-                      const incluidoEnAvisoCobro = g.cuotas.some((c: GastoCuota) => String(c.estado || '').toLowerCase() !== 'pendiente');
                       const estadoPago: 'Pendiente' | 'Abonado' | 'Pagado' =
                         montoPagado <= 0 ? 'Pendiente' : montoPagado < montoTotal ? 'Abonado' : 'Pagado';
                       const estadoPagoClass =
@@ -625,7 +722,7 @@ const Gastos: FC<GastosProps> = () => {
                           onDoubleClick={() => setSelectedGasto(g)}
                           className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors"
                         >
-                          <td className="p-3 text-center" onClick={(e: MouseEvent<HTMLElement>) => toggleRow(g.gasto_id, e)}>
+                          <td className="p-3 text-center" onClick={(e: ReactMouseEvent<HTMLElement>) => toggleRow(g.gasto_id, e)}>
                             <button className="text-gray-400 hover:text-donezo-primary transition-colors text-lg">
                               {expandedRows[String(g.gasto_id)] ? '▼' : '▶'}
                             </button>
@@ -700,47 +797,15 @@ const Gastos: FC<GastosProps> = () => {
                             </div>
                           </td>
                           <td className="p-3 pr-6 text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              <div className="inline-flex overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
-                                <button
-                                  type="button"
-                                  onClick={(e: MouseEvent<HTMLButtonElement>) => {
-                                    e.stopPropagation();
-                                    setGastoVerPagos(g);
-                                    setIsModalVerPagosOpen(true);
-                                  }}
-                                  className="px-2.5 py-1.5 text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-                                  title="Ver pagos registrados de este gasto"
-                                >
-                                  📄 Ver pagos
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={estadoPago === 'Pagado' || !incluidoEnAvisoCobro}
-                                  onClick={(e: MouseEvent<HTMLButtonElement>) => {
-                                    e.stopPropagation();
-                                    setGastoPagar(g);
-                                    setIsModalPagarOpen(true);
-                                  }}
-                                  className="border-l border-slate-200 px-2.5 py-1.5 text-xs font-bold bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:border-slate-700 dark:bg-emerald-900/50 dark:text-emerald-200 dark:hover:bg-emerald-800 dark:hover:text-emerald-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                                  title={
-                                    estadoPago === 'Pagado'
-                                      ? 'Gasto pagado completamente'
-                                      : !incluidoEnAvisoCobro
-                                        ? 'Debe incluirse primero en un aviso de cobro'
-                                        : 'Registrar pago al proveedor'
-                                  }
-                                >
-                                  💳 Registrar Pago
-                                </button>
-                              </div>
-                              {g.canDelete ? (
-                                <button onClick={(e: MouseEvent<HTMLButtonElement>) => handleDelete(g.gasto_id, e)} className="text-red-400 hover:text-red-600 p-2">
-                                  🗑️
-                                </button>
-                              ) : (
-                                <span className="text-gray-300">🔒</span>
-                              )}
+                            <div className="relative inline-block text-left" data-options-menu>
+                              <button
+                                type="button"
+                                onClick={(e: ReactMouseEvent<HTMLButtonElement>) => handleToggleOptionsMenu(g, e)}
+                                className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              >
+                                Opciones
+                                <ChevronDown size={14} strokeWidth={2.25} aria-hidden="true" />
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -800,16 +865,99 @@ const Gastos: FC<GastosProps> = () => {
         </div>
       </div>
 
+      {optionsMenuState && openOptionsFor === optionsMenuState.gasto.gasto_id && (
+        <div
+          data-options-menu
+          className="fixed z-[120] w-56 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800 animate-fadeIn"
+          style={{ top: optionsMenuState.top, left: optionsMenuState.left }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setGastoVerPagos(optionsMenuState.gasto);
+              setIsModalVerPagosOpen(true);
+              setOpenOptionsFor(null);
+              setOptionsMenuState(null);
+            }}
+            className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors"
+          >
+            Ver pagos
+          </button>
+          <button
+            type="button"
+            disabled={toNumber(optionsMenuState.gasto.monto_pagado_usd) >= toNumber(optionsMenuState.gasto.monto_total_usd) || !optionsMenuState.gasto.cuotas.some((c: GastoCuota) => String(c.estado || '').toLowerCase() !== 'pendiente')}
+            onClick={() => {
+              setGastoPagar(optionsMenuState.gasto);
+              setIsModalPagarOpen(true);
+              setOpenOptionsFor(null);
+              setOptionsMenuState(null);
+            }}
+            className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Registrar pago
+          </button>
+          <button
+            type="button"
+            disabled={!optionsMenuState.gasto.canEdit}
+            onClick={() => handleEditGasto(optionsMenuState.gasto)}
+            className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Editar gasto
+          </button>
+          <button
+            type="button"
+            disabled={!optionsMenuState.gasto.canDelete}
+            onClick={(e: ReactMouseEvent<HTMLButtonElement>) => {
+              setOpenOptionsFor(null);
+              setOptionsMenuState(null);
+              void handleDelete(optionsMenuState.gasto.gasto_id, e);
+            }}
+            className="w-full text-left px-4 py-3 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm text-red-600 dark:text-red-400 font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Eliminar
+          </button>
+        </div>
+      )}
+
       {isModalOpen && (
         <ModalAgregarGasto
-          onClose={() => setIsModalOpen(false)}
+          onClose={() => {
+            setIsModalOpen(false);
+            setGastoEnEdicion(null);
+          }}
           onSuccess={() => {
             setIsModalOpen(false);
+            setGastoEnEdicion(null);
             fetchData();
           }}
           proveedores={proveedores}
           zonas={zonas}
           propiedades={propiedades}
+          mode={gastoEnEdicion ? 'edit' : 'create'}
+          gastoId={gastoEnEdicion?.gasto_id ?? null}
+          existingFacturaUrl={gastoEnEdicion?.factura_img || null}
+          existingSoportesUrls={Array.isArray(gastoEnEdicion?.imagenes) ? gastoEnEdicion.imagenes : []}
+          {...(gastoEnEdicion
+            ? {
+                initialValues: (() => {
+                  const notaFields = parseNotaToFields(gastoEnEdicion.nota);
+                  return {
+                    proveedor_id: String(gastoEnEdicion.proveedor_id || gastoEnEdicion.cuotas[0]?.proveedor_id || ''),
+                    concepto: String(gastoEnEdicion.concepto || ''),
+                    numero_documento: notaFields.numero_documento,
+                    monto_bs: formatMoney(toNumber(gastoEnEdicion.monto_bs)),
+                    tasa_cambio: formatMoney(toNumber(gastoEnEdicion.tasa_cambio), 3),
+                    total_cuotas: String(gastoEnEdicion.total_cuotas || 1),
+                    nota: notaFields.nota,
+                    clasificacion: String(gastoEnEdicion.clasificacion || 'Variable') === 'Fijo' ? 'Fijo' : 'Variable',
+                    asignacion_tipo: (gastoEnEdicion.tipo === 'No Comun' ? 'Zona' : (gastoEnEdicion.tipo || 'Comun')) as 'Comun' | 'Zona' | 'Individual' | 'Extra',
+                    zona_id: String(gastoEnEdicion.cuotas[0]?.zona_id || ''),
+                    propiedad_id: String(gastoEnEdicion.cuotas[0]?.propiedad_id || ''),
+                    fecha_gasto: parseDisplayDate(gastoEnEdicion.fecha_factura) ? dateToYmd(parseDisplayDate(gastoEnEdicion.fecha_factura)) : '',
+                  };
+                })(),
+              }
+            : {})}
         />
       )}
 

@@ -11,6 +11,11 @@ interface ModalAgregarGastoProps {
   proveedores: Proveedor[];
   zonas: Zona[];
   propiedades: Propiedad[];
+  mode?: 'create' | 'edit';
+  gastoId?: number | string | null;
+  initialValues?: Partial<FormState>;
+  existingFacturaUrl?: string | null;
+  existingSoportesUrls?: string[];
 }
 
 interface Proveedor {
@@ -31,6 +36,7 @@ interface Propiedad {
 
 type AsignacionTipo = 'Comun' | 'Zona' | 'Individual' | 'Extra';
 type ClasificacionGasto = 'Fijo' | 'Variable';
+const MAX_PDF_SIZE_BYTES = 1 * 1024 * 1024;
 
 interface FormState {
   proveedor_id: string;
@@ -67,7 +73,18 @@ const dateToYmd = (date: Date | null): string => {
   return `${year}-${month}-${day}`;
 };
 
-const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({ onClose, onSuccess, proveedores, zonas, propiedades }) => {
+const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
+  onClose,
+  onSuccess,
+  proveedores,
+  zonas,
+  propiedades,
+  mode = 'create',
+  gastoId = null,
+  initialValues = {},
+  existingFacturaUrl = null,
+  existingSoportesUrls = [],
+}) => {
   const [form, setForm] = useState<FormState>({
     proveedor_id: '', concepto: '', numero_documento: '', monto_bs: '', tasa_cambio: '', total_cuotas: '1', nota: '',
     clasificacion: 'Variable',
@@ -78,9 +95,26 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({ onClose, onSuccess, pro
 
   const [facturaFile, setFacturaFile] = useState<File | null>(null);
   const [soportesFiles, setSoportesFiles] = useState<File[]>([]);
+  const [removeExistingFactura, setRemoveExistingFactura] = useState<boolean>(false);
+  const [existingSoportesEdit, setExistingSoportesEdit] = useState<string[]>([]);
   
   // NUEVO: Estado para el loading de la tasa BCV
   const [loadingBCV, setLoadingBCV] = useState<boolean>(false);
+
+  React.useEffect(() => {
+    if (mode !== 'edit') return;
+    setForm((prev: FormState) => ({
+      ...prev,
+      ...initialValues,
+    }));
+    setRemoveExistingFactura(false);
+    setFacturaFile(null);
+    setSoportesFiles([]);
+    setExistingSoportesEdit(Array.isArray(existingSoportesUrls) ? existingSoportesUrls : []);
+    // Importante: solo inicializamos al cambiar el gasto en edición.
+    // Evitamos depender de objetos/arrays recreados por re-renders del padre.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, gastoId]);
 
   const parseInputNumber = (txt: string): number => {
     const cleaned = String(txt || '').trim().replace(/\./g, '').replace(',', '.');
@@ -165,10 +199,14 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({ onClose, onSuccess, pro
     });
     
     if (facturaFile) formData.append('factura_img', facturaFile);
+    if (removeExistingFactura) formData.append('remove_factura_img', '1');
+    if (mode === 'edit') formData.append('keep_imagenes', JSON.stringify(existingSoportesEdit));
     soportesFiles.forEach((file: File) => formData.append('soportes', file));
 
-    const res = await fetch(`${API_BASE_URL}/gastos`, {
-        method: 'POST',
+    const endpoint = mode === 'edit' && gastoId ? `${API_BASE_URL}/gastos/${gastoId}` : `${API_BASE_URL}/gastos`;
+    const method = mode === 'edit' ? 'PUT' : 'POST';
+    const res = await fetch(endpoint, {
+        method,
         headers: { Authorization: `Bearer ${token}` },
         body: formData
     });
@@ -185,7 +223,7 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({ onClose, onSuccess, pro
     <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
       <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-2xl shadow-2xl border border-gray-100 dark:border-gray-800 relative my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl">✕</button>
-        <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">Registrar Gasto</h3>
+        <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">{mode === 'edit' ? 'Editar Gasto' : 'Registrar Gasto'}</h3>
         
         <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-6">
           <div className="md:col-span-2">
@@ -348,22 +386,160 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({ onClose, onSuccess, pro
           </div>
 
           <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-5 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700 mt-2">
-            <div>
-              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">📸 Factura Principal (1 foto)</label>
-              <input type="file" accept="image/*" onChange={(e: ChangeEvent<HTMLInputElement>) => setFacturaFile(e.target.files?.[0] || null)} className="w-full p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl outline-none dark:text-white file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 dark:file:bg-blue-900/30 dark:file:text-blue-400 text-xs cursor-pointer"/>
+            <div className="md:col-span-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800 dark:border-blue-800/60 dark:bg-blue-900/20 dark:text-blue-200">
+              Archivos permitidos: Factura o recibo permite imagen o PDF. Soportes permiten imagen o PDF. Limites: maximo 4 soportes y cada PDF hasta 1 MB.
             </div>
             <div>
-              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">📎 Soportes (Máx 4)</label>
-              <input type="file" multiple accept="image/*" onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                  const sel = Array.from(e.target.files || []);
-                  if (sel.length > 4) { alert('Máximo 4 archivos de soporte permitidos.'); e.target.value = ''; setSoportesFiles([]); } else setSoportesFiles(sel);
-                }} className="w-full p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl outline-none dark:text-white file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-gray-100 file:text-gray-700 dark:file:bg-gray-700 dark:file:text-gray-300 text-xs cursor-pointer"/>
+              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">📸 Factura o recibo (1 archivo)</label>
+              {mode === 'edit' && existingFacturaUrl && !removeExistingFactura && (
+                <div className="mb-2 rounded-lg border border-gray-200 bg-white p-2 text-xs dark:border-gray-700 dark:bg-gray-800">
+                  <p className="mb-2 font-semibold text-gray-600 dark:text-gray-300">Archivo actual</p>
+                  {String(existingFacturaUrl).toLowerCase().endsWith('.pdf') ? (
+                    <a
+                      href={`${API_BASE_URL}${existingFacturaUrl}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-block rounded-md bg-blue-50 px-2 py-1 font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                    >
+                      Ver PDF actual
+                    </a>
+                  ) : (
+                    <a href={`${API_BASE_URL}${existingFacturaUrl}`} target="_blank" rel="noreferrer">
+                      <img
+                        src={`${API_BASE_URL}${existingFacturaUrl}`}
+                        alt="Factura actual"
+                        className="h-20 w-full max-w-[220px] rounded-md border border-gray-200 object-cover dark:border-gray-700"
+                      />
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRemoveExistingFactura(true);
+                      setFacturaFile(null);
+                    }}
+                    className="mt-2 rounded-md bg-red-50 px-2 py-1 text-[11px] font-bold text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/40"
+                  >
+                    Eliminar archivo actual
+                  </button>
+                </div>
+              )}
+
+              {mode === 'edit' && removeExistingFactura && (
+                <div className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+                  El archivo actual sera eliminado al guardar.
+                </div>
+              )}
+
+              {(mode !== 'edit' || !existingFacturaUrl || removeExistingFactura) && (
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                    const selected = e.target.files?.[0] || null;
+                    setFacturaFile(selected);
+                    if (selected) setRemoveExistingFactura(false);
+                  }}
+                  className="w-full p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl outline-none dark:text-white file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 dark:file:bg-blue-900/30 dark:file:text-blue-400 text-xs cursor-pointer"
+                />
+              )}
+              {mode === 'edit' && existingFacturaUrl && facturaFile && (
+                <p className="mt-1 text-[11px] font-semibold text-blue-700 dark:text-blue-300">
+                  El nuevo archivo reemplazara al archivo actual al guardar.
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">📎 Soportes (Máx 4, PDF hasta 1 MB)</label>
+              {(mode === 'edit' && existingSoportesEdit.length > 0) && (
+                <div className="mb-2 space-y-1 rounded-lg border border-gray-200 bg-white p-2 text-xs dark:border-gray-700 dark:bg-gray-800">
+                  <p className="font-semibold text-gray-600 dark:text-gray-300">Soportes actuales ({existingSoportesEdit.length}/4)</p>
+                  <div className="space-y-1">
+                    {existingSoportesEdit.map((path, idx) => (
+                      <div key={`${path}-${idx}`} className="flex items-center justify-between gap-2">
+                        <a
+                          href={`${API_BASE_URL}${path}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="truncate text-blue-700 hover:underline dark:text-blue-300"
+                          title={path}
+                        >
+                          {String(path).toLowerCase().endsWith('.pdf') ? `PDF ${idx + 1}` : `Imagen ${idx + 1}`}
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => setExistingSoportesEdit((prev) => prev.filter((_, i) => i !== idx))}
+                          className="rounded bg-red-50 px-2 py-1 text-[11px] font-bold text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-300"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {soportesFiles.length > 0 && (
+                <div className="mb-2 space-y-1 rounded-lg border border-gray-200 bg-white p-2 text-xs dark:border-gray-700 dark:bg-gray-800">
+                  <p className="font-semibold text-gray-600 dark:text-gray-300">Nuevos soportes ({soportesFiles.length})</p>
+                  {soportesFiles.map((file, idx) => (
+                    <div key={`${file.name}-${idx}`} className="flex items-center justify-between gap-2">
+                      <span className="truncate text-gray-700 dark:text-gray-300" title={file.name}>{file.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setSoportesFiles((prev) => prev.filter((_, i) => i !== idx))}
+                        className="rounded bg-red-50 px-2 py-1 text-[11px] font-bold text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-300"
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {(() => {
+                const ocupados = (mode === 'edit' ? existingSoportesEdit.length : 0) + soportesFiles.length;
+                const cupos = Math.max(0, 4 - ocupados);
+                if (cupos <= 0) {
+                  return (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+                      Ya tienes 4 soportes cargados. Elimina alguno para poder agregar otro.
+                    </div>
+                  );
+                }
+                return (
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*,application/pdf"
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                      const sel = Array.from(e.target.files || []);
+                      if (sel.length > cupos) {
+                        alert(`Solo puedes agregar ${cupos} soporte(s) adicional(es).`);
+                        e.target.value = '';
+                        return;
+                      }
+                      const pdfMayorA1Mb = sel.find((f) => f.type === 'application/pdf' && f.size > MAX_PDF_SIZE_BYTES);
+                      if (pdfMayorA1Mb) {
+                        alert(`El PDF "${pdfMayorA1Mb.name}" supera 1 MB.`);
+                        e.target.value = '';
+                        return;
+                      }
+                      setSoportesFiles((prev) => [...prev, ...sel]);
+                      e.target.value = '';
+                    }}
+                    className="w-full p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl outline-none dark:text-white file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-gray-100 file:text-gray-700 dark:file:bg-gray-700 dark:file:text-gray-300 text-xs cursor-pointer"
+                  />
+                );
+              })()}
             </div>
           </div>
 
           <div className="md:col-span-2 flex justify-end gap-3 mt-2 pt-4 border-t border-gray-100 dark:border-gray-800">
             <button type="button" onClick={onClose} className="px-6 py-3 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 font-bold transition-colors">Cancelar</button>
-            <button type="submit" className="px-6 py-3 rounded-xl font-bold bg-donezo-primary text-white hover:bg-blue-700 transition-all shadow-md">Guardar Gasto</button>
+            <button type="submit" className="px-6 py-3 rounded-xl font-bold bg-donezo-primary text-white hover:bg-blue-700 transition-all shadow-md">
+              {mode === 'edit' ? 'Guardar Cambios' : 'Guardar Gasto'}
+            </button>
           </div>
         </form>
       </div>

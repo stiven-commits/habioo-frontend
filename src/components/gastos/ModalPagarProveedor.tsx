@@ -79,6 +79,11 @@ const dateToYmd = (date: Date | null): string => {
   return `${year}-${month}-${day}`;
 };
 
+const toSingleDate = (value: Date | Date[] | null): Date | null => {
+  if (!value) return null;
+  return Array.isArray(value) ? (value[0] ?? null) : value;
+};
+
 const createFila = (): FilaOrigen => {
   const hasUUID = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function';
   return {
@@ -439,8 +444,11 @@ const ModalPagarProveedor: React.FC<ModalPagarProveedorProps> = ({ isOpen, onClo
               </label>
               <DatePicker
                 selected={ymdToDate(fecha)}
-                onChange={(date: Date | null) => setFecha(dateToYmd(date))}
-                maxDate={ymdToDate(getLocalYmd()) || undefined}
+                onChange={(date: Date | Date[] | null) => setFecha(dateToYmd(toSingleDate(date)))}
+                {...(() => {
+                  const maxDate = ymdToDate(getLocalYmd());
+                  return maxDate ? { maxDate } : {};
+                })()}
                 dateFormat="dd/MM/yyyy"
                 locale={es}
                 placeholderText="Fecha (dd/mm/yyyy)"

@@ -445,7 +445,7 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
         <header className="aviso-header mb-6 flex flex-col gap-6 border-b border-gray-200 pb-6 md:flex-row md:items-start md:justify-between">
           <div className="aviso-header-left min-w-0 md:w-1/4">
             {hasCondoLogo ? (
-              <img src={condoLogoUrl} alt="Logo junta de condominio" className="h-16 w-auto object-contain" />
+              <img src={condoLogoUrl || undefined} alt="Logo junta de condominio" className="h-16 w-auto object-contain" />
             ) : showLeftHabioo ? (
               <div className="inline-block rounded-md bg-gray-100 px-3 py-2 text-xl font-black tracking-wide text-gray-700">HABIOO</div>
             ) : null}
@@ -465,7 +465,7 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
 
           <div className="aviso-header-right text-left md:w-1/4 md:text-right">
             {hasAdminLogo ? (
-              <img src={adminLogoUrl} alt="Logo administradora" className="ml-auto h-16 w-auto object-contain" />
+              <img src={adminLogoUrl || undefined} alt="Logo administradora" className="ml-auto h-16 w-auto object-contain" />
             ) : showRightHabioo ? (
               <div className="inline-block rounded-md bg-gray-100 px-3 py-2 text-xl font-black tracking-wide text-gray-700">HABIOO</div>
             ) : null}
