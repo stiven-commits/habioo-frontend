@@ -58,7 +58,7 @@ interface IMovimiento extends IMovimientoDetalle {
 }
 
 interface RollbackTarget {
-  kind: 'pago' | 'ajuste';
+  kind: 'pago' | 'ajuste' | 'transferencia' | 'egreso';
   id: string;
 }
 
@@ -916,6 +916,17 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     return 0;
   };
 
+  const getMontoUsdVista = (movimiento: IMovimiento): number => {
+    const montoUsd = toNumber(movimiento.monto_usd);
+    if (montoUsd > 0) return montoUsd;
+    const montoBs = toNumber(movimiento.monto_bs);
+    if (montoBs <= 0) return 0;
+    const tasaMovimiento = toNumber(movimiento.tasa_cambio);
+    if (tasaMovimiento > 0) return montoBs / tasaMovimiento;
+    if (tasaBcvNum > 0) return montoBs / tasaBcvNum;
+    return 0;
+  };
+
   const getConceptoVista = (movimiento: IMovimiento): string => {
     const banco = movimiento.banco_origen?.trim();
     const cedula = movimiento.cedula_origen?.trim();
@@ -975,7 +986,27 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     return movimientoMatch[1];
   };
 
+  const extractTransferenciaIdForRollback = (movimiento: IMovimiento): string | null => {
+    const rawId = String(movimiento.id || '');
+    const match = rawId.match(/^TRF-(\d+)(?:-(?:IN|OUT|NA))?$/i);
+    return match?.[1] || null;
+  };
+
+  const extractEgresoManualIdForRollback = (movimiento: IMovimiento): string | null => {
+    if (movimiento.tipo !== 'EGRESO') return null;
+    const rawId = String(movimiento.id || '');
+    const match = rawId.match(/^EGR-MF-(\d+)$/i);
+    if (!match?.[1]) return null;
+    const concepto = String(movimiento.concepto || '');
+    if (!/egreso manual/i.test(concepto)) return null;
+    return match[1];
+  };
+
   const extractRollbackTarget = (movimiento: IMovimiento): RollbackTarget | null => {
+    const transferenciaId = extractTransferenciaIdForRollback(movimiento);
+    if (transferenciaId) return { kind: 'transferencia', id: transferenciaId };
+    const egresoId = extractEgresoManualIdForRollback(movimiento);
+    if (egresoId) return { kind: 'egreso', id: egresoId };
     const pagoId = extractPagoIdForRollback(movimiento);
     if (pagoId) return { kind: 'pago', id: pagoId };
     const ajusteId = extractAjusteIdForRollback(movimiento);
@@ -993,7 +1024,11 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
 
     const confirmMessage = target.kind === 'pago'
       ? '¿Deseas revertir este pago? Se aplicarán las validaciones contables correspondientes.'
-      : '¿Deseas revertir este ajuste? Se aplicarán las validaciones contables correspondientes.';
+      : target.kind === 'ajuste'
+        ? '¿Deseas revertir este ajuste? Se aplicarán las validaciones contables correspondientes.'
+        : target.kind === 'egreso'
+          ? '¿Deseas revertir este egreso manual? Se hará rollback del saldo del fondo.'
+          : '¿Deseas revertir esta transferencia? Se hará rollback de los saldos entre fondos.';
     const ok = window.confirm(confirmMessage);
     if (!ok) return;
 
@@ -1003,7 +1038,11 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     try {
       const endpoint = target.kind === 'pago'
         ? `${API_BASE_URL}/pagos/${target.id}/rollback`
-        : `${API_BASE_URL}/movimientos-fondos/${target.id}/rollback-ajuste`;
+        : target.kind === 'ajuste'
+          ? `${API_BASE_URL}/movimientos-fondos/${target.id}/rollback-ajuste`
+          : target.kind === 'egreso'
+            ? `${API_BASE_URL}/movimientos-fondos/${target.id}/rollback-egreso-manual`
+            : `${API_BASE_URL}/transferencias/${target.id}/rollback`;
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
@@ -1014,7 +1053,16 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
         return;
       }
       await Promise.all([fetchMovimientos(selectedCuenta), fetchFondos()]);
-      alert(data?.message || (target.kind === 'pago' ? 'Pago revertido correctamente.' : 'Ajuste revertido correctamente.'));
+      alert(
+        data?.message
+        || (target.kind === 'pago'
+          ? 'Pago revertido correctamente.'
+          : target.kind === 'ajuste'
+            ? 'Ajuste revertido correctamente.'
+            : target.kind === 'egreso'
+              ? 'Egreso manual revertido correctamente.'
+              : 'Transferencia revertida correctamente.')
+      );
     } catch {
       alert('No se pudo revertir el movimiento por un error de conexión.');
     } finally {
@@ -1517,6 +1565,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
               <tbody>
                 {movimientosPagina.map((movimiento) => {
                   const montoBsVista = getMontoBsVista(movimiento);
+                  const montoUsdVista = getMontoUsdVista(movimiento);
                   const rollbackTarget = extractRollbackTarget(movimiento);
                   const rollbackButtonKey = rollbackTarget ? `${rollbackTarget.kind}-${rollbackTarget.id}` : '';
                   return (
@@ -1545,14 +1594,22 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                       )}
                       <td className="p-4 text-right font-black font-mono">
                         {movimiento.tipo === 'EGRESO' ? (
-                          <span className="text-red-600 dark:text-red-400">-{formatCurrency(movimiento.monto_usd)}</span>
+                          montoUsdVista > 0 ? (
+                            <span className="text-red-600 dark:text-red-400">-{formatCurrency(montoUsdVista)}</span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )
                         ) : (
                           <span className="text-gray-400">-</span>
                         )}
                       </td>
                       <td className="p-4 text-right font-black font-mono">
                         {movimiento.tipo === 'INGRESO' ? (
-                          <span className="text-emerald-600 dark:text-emerald-400">+{formatCurrency(movimiento.monto_usd)}</span>
+                          montoUsdVista > 0 ? (
+                            <span className="text-emerald-600 dark:text-emerald-400">+{formatCurrency(montoUsdVista)}</span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )
                         ) : (
                           <span className="text-gray-400">-</span>
                         )}
@@ -1575,9 +1632,15 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                               className="px-2.5 py-1 rounded-lg text-[11px] font-bold border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                               title={rollbackTarget.kind === 'pago'
                                 ? 'Disponible para reversión (sujeto a validaciones contables).'
-                                : 'Disponible para reversión (sujeto a validaciones contables).'}
+                                : rollbackTarget.kind === 'ajuste'
+                                  ? 'Disponible para reversión (sujeto a validaciones contables).'
+                                  : rollbackTarget.kind === 'egreso'
+                                    ? 'Revertir egreso manual y restaurar saldo en el fondo.'
+                                    : 'Revertir transferencia y hacer rollback de saldos entre fondos.'}
                             >
-                              {rollbackingKey === rollbackButtonKey ? 'Revirtiendo...' : 'Revertir'}
+                              {rollbackingKey === rollbackButtonKey
+                                ? 'Revirtiendo...'
+                                : 'Revertir'}
                             </button>
                           ) : (
                             <span className="text-gray-300">-</span>
