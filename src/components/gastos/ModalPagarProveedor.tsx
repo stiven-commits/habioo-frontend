@@ -1,9 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import DatePicker from 'react-datepicker';
+﻿import React, { useEffect, useMemo, useState } from 'react';
+import DatePicker from '../ui/DatePicker';
 import { es } from 'date-fns/locale/es';
 import { API_BASE_URL } from '../../config/api';
 import { formatMoney } from '../../utils/currency';
-import 'react-datepicker/dist/react-datepicker.css';
 
 interface GastoPagoProveedor {
   gasto_id: number | string;
@@ -756,3 +755,5 @@ const ModalPagarProveedor: React.FC<ModalPagarProveedorProps> = ({ isOpen, onClo
 };
 
 export default ModalPagarProveedor;
+
+

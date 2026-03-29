@@ -1,12 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import type { FC } from 'react';
-import DatePicker from 'react-datepicker';
+import DateRangePicker from '../../components/ui/DateRangePicker';
 import { es } from 'date-fns/locale/es';
 import { useOutletContext } from 'react-router-dom';
 import { API_BASE_URL } from '../../config/api';
 import { formatMoney } from '../../utils/currency';
 import { formatDateVE } from '../../utils/datetime';
-import 'react-datepicker/dist/react-datepicker.css';
 
 interface PropiedadActiva {
   id_condominio: number;
@@ -112,8 +111,8 @@ const GastosPropietario: FC = () => {
   };
 
   const sortIndicator = (column: SortColumn): string => {
-    if (sortColumn !== column) return '↕';
-    return sortDirection === 'asc' ? '↑' : '↓';
+    if (sortColumn !== column) return 'â†•';
+    return sortDirection === 'asc' ? 'â†‘' : 'â†“';
   };
 
   const gastosFiltrados = useMemo(() => {
@@ -179,40 +178,17 @@ const GastosPropietario: FC = () => {
                 className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 p-2.5 pl-10 outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
               />
             </div>
-            <div className="lg:col-span-2 flex flex-col xl:flex-row xl:items-center gap-2">
-              <DatePicker
-                selected={fechaDesde}
-                onChange={(date: Date | Date[] | null) => setFechaDesde(Array.isArray(date) ? (date[0] ?? null) : date)}
-                selectsStart
-                startDate={fechaDesde}
-                endDate={fechaHasta}
-                {...(fechaHasta ? { maxDate: fechaHasta } : {})}
-                dateFormat="dd/MM/yyyy"
+            <div className="lg:col-span-2">
+              <DateRangePicker
+                from={fechaDesde}
+                to={fechaHasta}
+                onChange={({ from, to }) => {
+                  setFechaDesde(from);
+                  setFechaHasta(to);
+                }}
                 locale={es}
-                placeholderText="Desde (dd/mm/yyyy)"
-                showIcon
-                toggleCalendarOnIconClick
+                placeholderText="Rango (dd/mm/yyyy - dd/mm/yyyy)"
                 wrapperClassName="w-full min-w-0"
-                popperClassName="habioo-datepicker-popper"
-                calendarClassName="habioo-datepicker-calendar"
-                className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 p-2.5 pr-10 outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-              />
-              <span className="hidden xl:inline text-sm text-gray-500 dark:text-gray-400 px-1">a</span>
-              <DatePicker
-                selected={fechaHasta}
-                onChange={(date: Date | Date[] | null) => setFechaHasta(Array.isArray(date) ? (date[0] ?? null) : date)}
-                selectsEnd
-                startDate={fechaDesde}
-                endDate={fechaHasta}
-                {...(fechaDesde ? { minDate: fechaDesde } : {})}
-                dateFormat="dd/MM/yyyy"
-                locale={es}
-                placeholderText="Hasta (dd/mm/yyyy)"
-                showIcon
-                toggleCalendarOnIconClick
-                wrapperClassName="w-full min-w-0"
-                popperClassName="habioo-datepicker-popper"
-                calendarClassName="habioo-datepicker-calendar"
                 className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 p-2.5 pr-10 outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
               />
             </div>
@@ -304,3 +280,5 @@ const GastosPropietario: FC = () => {
 };
 
 export default GastosPropietario;
+
+

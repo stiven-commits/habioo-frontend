@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import type { FC, ChangeEvent, FormEvent } from 'react';
-import DatePicker from 'react-datepicker';
+import DatePicker from './ui/DatePicker';
 import { es } from 'date-fns/locale/es';
 import { formatMoney } from '../utils/currency';
 import { API_BASE_URL } from '../config/api';
 import { sanitizeCedulaRif, isValidCedulaRif, sanitizePhone, isValidPhone } from '../utils/validators';
 import { useDialog } from './ui/DialogProvider';
-import 'react-datepicker/dist/react-datepicker.css';
 
 interface ModalRegistrarPagoProps {
   propiedadPreseleccionada: PropiedadPreseleccionada | null;
@@ -447,7 +446,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
         )}
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-bold text-gray-800 dark:text-white">Registrar Pago</h3>
-          <button disabled={isSubmitting} onClick={onClose} className="text-gray-400 hover:text-red-500 text-xl font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed">✕</button>
+          <button disabled={isSubmitting} onClick={onClose} className="text-gray-400 hover:text-red-500 text-xl font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed">âœ•</button>
         </div>
 
         {isLoading ? (
@@ -537,7 +536,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                     </div>
                   </div>
                   <button type="button" onClick={fetchBCV} disabled={isFetchingBCV} className="h-full min-h-[118px] w-full bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/40 dark:text-blue-400 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-donezo-primary disabled:opacity-60" title="Consultar tasa actual del BCV">
-                    {isFetchingBCV ? '⌛...' : '🔄 BCV'}
+                    {isFetchingBCV ? '⌛...' : 'BCV'}
                   </button>
                 </div>
               ) : (
@@ -641,5 +640,7 @@ const parseInputNumber = (value: string | number | undefined | null): number => 
 };
 
 export default ModalRegistrarPago;
+
+
 
 

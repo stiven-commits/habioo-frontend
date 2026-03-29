@@ -1,11 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import type { FC, ChangeEvent } from 'react';
-import DatePicker from 'react-datepicker';
+import DateRangePicker from '../components/ui/DateRangePicker';
 import { es } from 'date-fns/locale/es';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { formatMoney } from '../utils/currency';
 import VistaAvisoCobro from '../components/recibos/VistaAvisoCobro';
-import 'react-datepicker/dist/react-datepicker.css';
 
 interface HistorialAvisosProps {}
 
@@ -257,63 +256,21 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
           </div>
 
           <div className="flex items-center gap-3 w-full xl:w-auto">
-            <div className="flex-1 xl:flex-none">
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1.5">Desde</label>
-              <DatePicker
-                selected={ymdToDate(fechaDesde)}
-                onChange={(value: Date | Date[] | null) => setFechaDesde(dateToYmd(toSingleDate(value)))}
-                selectsStart
-                startDate={ymdToDate(fechaDesde)}
-                endDate={ymdToDate(fechaHasta)}
-                dateFormat="dd/MM/yyyy"
+            <div className="flex-1 min-w-[320px]">
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1.5">Rango de fechas</label>
+              <DateRangePicker
+                from={ymdToDate(fechaDesde)}
+                to={ymdToDate(fechaHasta)}
+                onChange={({ from, to }) => {
+                  setFechaDesde(dateToYmd(from));
+                  setFechaHasta(dateToYmd(to));
+                }}
+                {...(minDateHasta ? { minDate: minDateHasta } : {})}
                 locale={es}
-                placeholderText="Desde (dd/mm/yyyy)"
-                showIcon
-                toggleCalendarOnIconClick
+                placeholderText="Rango (dd/mm/yyyy - dd/mm/yyyy)"
                 wrapperClassName="w-full min-w-0"
-                popperClassName="habioo-datepicker-popper"
-                calendarClassName="habioo-datepicker-calendar"
                 className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 p-2.5 pr-10 text-sm font-mono outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
               />
-            </div>
-            <div className="flex-1 xl:flex-none">
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1.5">Hasta</label>
-              {minDateHasta ? (
-                <DatePicker
-                  selected={ymdToDate(fechaHasta)}
-                  onChange={(value: Date | Date[] | null) => setFechaHasta(dateToYmd(toSingleDate(value)))}
-                  selectsEnd
-                  startDate={ymdToDate(fechaDesde)}
-                  endDate={ymdToDate(fechaHasta)}
-                  minDate={minDateHasta}
-                  dateFormat="dd/MM/yyyy"
-                  locale={es}
-                  placeholderText="Hasta (dd/mm/yyyy)"
-                  showIcon
-                  toggleCalendarOnIconClick
-                  wrapperClassName="w-full min-w-0"
-                  popperClassName="habioo-datepicker-popper"
-                  calendarClassName="habioo-datepicker-calendar"
-                  className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 p-2.5 pr-10 text-sm font-mono outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                />
-              ) : (
-                <DatePicker
-                  selected={ymdToDate(fechaHasta)}
-                  onChange={(value: Date | Date[] | null) => setFechaHasta(dateToYmd(toSingleDate(value)))}
-                  selectsEnd
-                  startDate={ymdToDate(fechaDesde)}
-                  endDate={ymdToDate(fechaHasta)}
-                  dateFormat="dd/MM/yyyy"
-                  locale={es}
-                  placeholderText="Hasta (dd/mm/yyyy)"
-                  showIcon
-                  toggleCalendarOnIconClick
-                  wrapperClassName="w-full min-w-0"
-                  popperClassName="habioo-datepicker-popper"
-                  calendarClassName="habioo-datepicker-calendar"
-                  className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 p-2.5 pr-10 text-sm font-mono outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                />
-              )}
             </div>
             {(fechaDesde || fechaHasta) && (
               <button
@@ -481,3 +438,5 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
 };
 
 export default HistorialAvisos;
+
+

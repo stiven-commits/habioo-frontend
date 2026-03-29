@@ -1,10 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import DatePicker from 'react-datepicker';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import DatePicker from './ui/DatePicker';
 import { es } from 'date-fns/locale/es';
 import { formatMoney } from '../utils/currency';
 import { API_BASE_URL } from '../config/api';
 import { useDialog } from './ui/DialogProvider';
-import 'react-datepicker/dist/react-datepicker.css';
 
 interface ModalBaseProps {
   onClose: () => void;
@@ -96,8 +96,23 @@ interface RegistrarEgresoForm {
   fecha: string;
 }
 
+interface ComboboxOption {
+  value: string;
+  label: string;
+}
+
 function parseNumber(val: unknown): number {
   return parseFloat(String(val || '').replace(/\./g, '').replace(',', '.')) || 0;
+}
+
+function isCuentaUsd(cuenta: CuentaBancaria): boolean {
+  const moneda = String(cuenta.moneda || '').trim().toUpperCase();
+  if (moneda === 'USD') return true;
+  const tipo = String(cuenta.tipo || '').trim().toUpperCase();
+  if (tipo.includes('USD')) return true;
+  const apodo = String(cuenta.apodo || '').trim().toUpperCase();
+  if (apodo.includes('USD')) return true;
+  return false;
 }
 
 const ymdToDate = (ymd: string): Date | null => {
@@ -136,10 +151,139 @@ function formatNumberInput(value: unknown, maxDecimals = 2): string {
 }
 
 function formatCuentaDestinoLabel(cuenta: CuentaBancaria): string {
-  const nombreCuenta = String(cuenta.apodo || cuenta.nombre_banco || cuenta.tipo || `Cuenta ${cuenta.id}`).trim();
+  const moneda = isCuentaUsd(cuenta) ? 'USD' : 'BS';
   const ultimos4 = String(cuenta.numero_cuenta || '').replace(/\D/g, '').slice(-4);
-  return ultimos4.length === 4 ? `${nombreCuenta} - ****${ultimos4}` : nombreCuenta;
+  const banco = String(cuenta.nombre_banco || '').trim();
+  const apodo = String(cuenta.apodo || '').trim();
+
+  if (moneda === 'USD') {
+    const nombreUsd = apodo || cuenta.tipo || cuenta.nombre_banco || `Cuenta ${cuenta.id}`;
+    return `${String(nombreUsd).trim()} (USD)`;
+  }
+
+  const baseBs = apodo ? `${banco || 'Banco'} (${apodo})` : (banco || 'Banco');
+  return ultimos4.length === 4 ? `${baseBs} - ****${ultimos4} - Bs` : `${baseBs} - Bs`;
 }
+
+function formatFondoOrigenLabel(fondo: Fondo, cuenta?: CuentaBancaria): string {
+  const moneda = String(fondo.moneda || '').toUpperCase() === 'USD' ? 'USD' : 'BS';
+  if (moneda === 'USD') {
+    return `${fondo.nombre} (USD) - Disp: $${formatMoney(fondo.saldo_actual)}`;
+  }
+  const cuentaLabel = cuenta ? formatCuentaDestinoLabel(cuenta) : (moneda === 'USD' ? 'Cuenta USD' : 'Cuenta Bs');
+  const saldoLabel = moneda === 'USD' ? '$' : 'Bs ';
+  return `${cuentaLabel} | ${fondo.nombre} (${moneda}) - Disp: ${saldoLabel}${formatMoney(fondo.saldo_actual)}`;
+}
+
+const SearchableCombobox: React.FC<{
+  options: ComboboxOption[];
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  required?: boolean;
+  disabled?: boolean;
+  className?: string;
+}> = ({ options, value, onChange, placeholder, required = false, disabled = false, className = '' }) => {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [menuStyle, setMenuStyle] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
+
+  useEffect(() => {
+    const selected = options.find((opt) => opt.value === value);
+    setQuery(selected?.label || '');
+  }, [value, options]);
+
+  useEffect(() => {
+    const onDocMouseDown = (ev: globalThis.MouseEvent): void => {
+      const target = ev.target as Node | null;
+      if (!target) return;
+      const clickInsideInput = rootRef.current?.contains(target);
+      const clickInsideMenu = menuRef.current?.contains(target);
+      if (!clickInsideInput && !clickInsideMenu) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDocMouseDown);
+    return () => document.removeEventListener('mousedown', onDocMouseDown);
+  }, []);
+
+  const filtered = useMemo(() => {
+    const txt = query.trim().toLowerCase();
+    if (!txt) return options;
+    return options.filter((opt) => opt.label.toLowerCase().includes(txt));
+  }, [options, query]);
+
+  useEffect(() => {
+    if (!open || !inputRef.current) return;
+
+    const updatePosition = (): void => {
+      if (!inputRef.current) return;
+      const rect = inputRef.current.getBoundingClientRect();
+      setMenuStyle({
+        top: rect.bottom + 6,
+        left: rect.left,
+        width: rect.width,
+      });
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className="relative">
+      <input
+        ref={inputRef}
+        type="text"
+        value={query}
+        onFocus={() => !disabled && setOpen(true)}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          onChange('');
+          if (!open) setOpen(true);
+        }}
+        placeholder={placeholder}
+        disabled={disabled}
+        className={className}
+      />
+      {required && <input type="hidden" required value={value} readOnly />}
+      {open && !disabled && createPortal(
+        <div
+          ref={menuRef}
+          className="fixed z-[260] max-h-56 overflow-auto rounded-xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900"
+          style={{ top: menuStyle.top, left: menuStyle.left, width: menuStyle.width }}
+        >
+          {filtered.length === 0 ? (
+            <div className="px-3 py-2 text-sm text-gray-500">Sin resultados</div>
+          ) : (
+            filtered.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  onChange(opt.value);
+                  setQuery(opt.label);
+                  setOpen(false);
+                }}
+                className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-800"
+              >
+                {opt.label}
+              </button>
+            ))
+          )}
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+};
 
 export const ModalPagoProveedor: React.FC<ModalBaseProps> = ({ onClose, onSuccess }) => {
   const { showAlert, showConfirm } = useDialog();
@@ -350,6 +494,20 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
     fecha: new Date().toISOString().split('T')[0] ?? '',
     nota: '',
   });
+  const resetTransferForm = (): void => {
+    setForm({
+      fondo_origen_id: '',
+      monto_origen: '',
+      referencia: '',
+      fecha: new Date().toISOString().split('T')[0] ?? '',
+      nota: '',
+    });
+    setCuentaDestinoId('');
+  };
+  const handleCloseTransferModal = (): void => {
+    resetTransferForm();
+    onClose();
+  };
 
   useEffect(() => {
     const fetchData = async (): Promise<void> => {
@@ -378,7 +536,21 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
 
   const fondoOrigen = fondos.find((f) => f.id.toString() === form.fondo_origen_id);
   const cuentaOrigenId = fondoOrigen?.cuenta_bancaria_id?.toString() || '';
-  const cuentasDestinoDisponibles = cuentas.filter((c) => c.id.toString() !== cuentaOrigenId);
+  const monedaOrigen = String(fondoOrigen?.moneda || '').toUpperCase();
+  const cuentaById = useMemo(() => {
+    const map = new Map<string, CuentaBancaria>();
+    cuentas.forEach((c) => map.set(String(c.id), c));
+    return map;
+  }, [cuentas]);
+  const cuentasDestinoDisponibles = cuentas.filter((c) => {
+    if (c.id.toString() === cuentaOrigenId) return false;
+    if (!fondoOrigen) return true;
+    return fondos.some(
+      (f) =>
+        String(f.cuenta_bancaria_id) === String(c.id)
+        && String(f.moneda || '').toUpperCase() === monedaOrigen,
+    );
+  });
   const fondosDestinoCuenta = fondos.filter((f) =>
     f.cuenta_bancaria_id?.toString() === cuentaDestinoId &&
     (!fondoOrigen || String(f.moneda || '').toUpperCase() === String(fondoOrigen.moneda || '').toUpperCase()) &&
@@ -386,6 +558,20 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
   );
   const cuentaDestinoSinFondos = Boolean(cuentaDestinoId) && fondosDestinoCuenta.length === 0;
   const montoOrigenNum = parseNumber(form.monto_origen);
+  const opcionesFondoOrigen = useMemo<ComboboxOption[]>(
+    () => fondos.map((f) => ({
+      value: String(f.id),
+      label: formatFondoOrigenLabel(f, cuentaById.get(String(f.cuenta_bancaria_id || ''))),
+    })),
+    [fondos, cuentaById],
+  );
+  const opcionesCuentaDestino = useMemo<ComboboxOption[]>(
+    () => cuentasDestinoDisponibles.map((cuenta) => ({
+      value: String(cuenta.id),
+      label: formatCuentaDestinoLabel(cuenta),
+    })),
+    [cuentasDestinoDisponibles],
+  );
 
   const distribucionPreview = useMemo(() => {
     if (!fondoOrigen || !cuentaDestinoId || cuentaDestinoSinFondos || montoOrigenNum <= 0) return [];
@@ -481,45 +667,37 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
       <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 custom-scrollbar max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-bold text-gray-800 dark:text-white">Transferir Dinero</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-red-500 font-bold text-xl">X</button>
+          <button onClick={handleCloseTransferModal} className="text-gray-500 hover:text-red-500 font-bold text-xl">X</button>
         </div>
 
         {loading ? <p className="text-center text-gray-500">Cargando fondos...</p> : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-blue-700 dark:text-blue-300 uppercase mb-1">Sale de (Origen) *</label>
-              <select
+              <SearchableCombobox
                 required
                 value={form.fondo_origen_id}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                  setForm({ ...form, fondo_origen_id: e.target.value });
+                onChange={(next) => {
+                  setForm({ ...form, fondo_origen_id: next });
                   setCuentaDestinoId('');
                 }}
+                options={opcionesFondoOrigen}
+                placeholder="Buscar fondo origen..."
                 className="w-full p-3 rounded-xl border border-blue-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-blue-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-400 font-semibold"
-              >
-                <option value="">Seleccione fondo origen...</option>
-                {fondos.map((f) => <option key={f.id} value={f.id}>{f.nombre} ({f.moneda}) - Disp: {f.moneda === 'USD' ? '$' : 'Bs'}{formatMoney(f.saldo_actual)}</option>)}
-              </select>
+              />
             </div>
 
             {fondoOrigen && (
               <div className="animate-fadeIn">
                 <label className="block text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase mb-1">Cuenta Destino *</label>
-                <select
+                <SearchableCombobox
                   required
                   value={cuentaDestinoId}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                    setCuentaDestinoId(e.target.value);
-                  }}
+                  onChange={setCuentaDestinoId}
+                  options={opcionesCuentaDestino}
+                  placeholder="Buscar cuenta destino..."
                   className="w-full p-3 rounded-xl border border-indigo-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-indigo-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-indigo-400 font-semibold"
-                >
-                  <option value="">Seleccione cuenta destino...</option>
-                  {cuentasDestinoDisponibles.map((cuenta: CuentaBancaria) => (
-                    <option key={cuenta.id} value={cuenta.id}>
-                      {formatCuentaDestinoLabel(cuenta)}
-                    </option>
-                  ))}
-                </select>
+                />
                 {cuentaDestinoSinFondos && (
                   <p className="mt-2 text-sm text-red-500">
                     Esta cuenta no tiene fondos creados. Debe crear un fondo primero en la configuración para poder recibir transferencias.
@@ -614,6 +792,21 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
     concepto: '',
     fecha: new Date().toISOString().split('T')[0] ?? '',
   });
+  const resetEgresoForm = (): void => {
+    setForm({
+      cuenta_id: initialCuentaId || '',
+      fondo_id: '',
+      monto_origen: '',
+      tasa_cambio: '',
+      referencia: '',
+      concepto: '',
+      fecha: new Date().toISOString().split('T')[0] ?? '',
+    });
+  };
+  const handleCloseEgresoModal = (): void => {
+    resetEgresoForm();
+    onClose();
+  };
 
   useEffect(() => {
     const fetchData = async (): Promise<void> => {
@@ -642,6 +835,17 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
   const fondosCuenta = useMemo(
     () => fondos.filter((f) => String(f.cuenta_bancaria_id) === form.cuenta_id),
     [fondos, form.cuenta_id]
+  );
+  const opcionesCuentaEgreso = useMemo<ComboboxOption[]>(
+    () => cuentas.map((c) => ({ value: String(c.id), label: formatCuentaDestinoLabel(c) })),
+    [cuentas],
+  );
+  const opcionesFondoEgreso = useMemo<ComboboxOption[]>(
+    () => fondosCuenta.map((f) => ({
+      value: String(f.id),
+      label: `${f.nombre} (${String(f.moneda || '').toUpperCase()}) - Disp: ${String(f.moneda || '').toUpperCase() === 'USD' ? '$' : 'Bs '}${formatMoney(f.saldo_actual)}`,
+    })),
+    [fondosCuenta],
   );
   const montoOrigenNum = parseNumber(form.monto_origen);
   const tasaNum = parseNumber(form.tasa_cambio);
@@ -742,7 +946,7 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
       <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 custom-scrollbar max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-bold text-gray-800 dark:text-white">Registrar Egreso</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-red-500 font-bold text-xl">X</button>
+          <button onClick={handleCloseEgresoModal} className="text-gray-500 hover:text-red-500 font-bold text-xl">X</button>
         </div>
 
         {loading ? (
@@ -751,37 +955,27 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Desde cuenta *</label>
-              <select
+              <SearchableCombobox
                 required
                 value={form.cuenta_id}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setForm((prev: RegistrarEgresoForm) => ({ ...prev, cuenta_id: e.target.value, fondo_id: '' }))}
+                onChange={(next) => setForm((prev: RegistrarEgresoForm) => ({ ...prev, cuenta_id: next, fondo_id: '' }))}
+                options={opcionesCuentaEgreso}
+                placeholder="Buscar cuenta..."
                 className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary"
-              >
-                <option value="">Seleccione...</option>
-                {cuentas.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {(c.nombre_banco || 'Banco')} ({c.apodo || 'Cuenta'}){String(c.moneda || '').toUpperCase() === 'USD' ? ' - USD' : ' - Bs'}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Desde fondo *</label>
-              <select
+              <SearchableCombobox
                 required
-                value={form.fondo_id}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setForm((prev: RegistrarEgresoForm) => ({ ...prev, fondo_id: e.target.value }))}
                 disabled={!form.cuenta_id}
+                value={form.fondo_id}
+                onChange={(next) => setForm((prev: RegistrarEgresoForm) => ({ ...prev, fondo_id: next }))}
+                options={opcionesFondoEgreso}
+                placeholder={form.cuenta_id ? 'Buscar fondo...' : 'Seleccione cuenta primero'}
                 className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary disabled:opacity-60"
-              >
-                <option value="">{form.cuenta_id ? 'Seleccione...' : 'Seleccione cuenta primero'}</option>
-                {fondosCuenta.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.nombre} ({String(f.moneda || '').toUpperCase()}) - Disp: {String(f.moneda || '').toUpperCase() === 'USD' ? '$' : 'Bs '}{formatMoney(f.saldo_actual)}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -964,3 +1158,8 @@ export const ModalEliminarFondo: React.FC<ModalEliminarFondoProps> = ({ fondo, f
     </div>
   );
 };
+
+
+
+
+

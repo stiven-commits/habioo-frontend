@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState, type ChangeEvent, type FC, type FormEvent } from 'react';
+﻿import { useEffect, useMemo, useState, type ChangeEvent, type FC, type FormEvent } from 'react';
 import { CalendarDays, UploadCloud } from 'lucide-react';
-import DatePicker from 'react-datepicker';
+import DatePicker from '../ui/DatePicker';
 import { es } from 'date-fns/locale/es';
 import { API_BASE_URL } from '../../config/api';
 import { useDialog } from '../ui/DialogProvider';
-import 'react-datepicker/dist/react-datepicker.css';
 
 interface ReservacionPago {
   id: number;
@@ -454,3 +453,5 @@ const ModalReportarPagoAlquiler: FC<ModalReportarPagoAlquilerProps> = ({
 };
 
 export default ModalReportarPagoAlquiler;
+
+

@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import type { FC, MouseEvent as ReactMouseEvent, ChangeEvent } from 'react';
-import DatePicker from 'react-datepicker';
+import DateRangePicker from '../components/ui/DateRangePicker';
 import { es } from 'date-fns/locale/es';
 import { useOutletContext } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
@@ -11,7 +11,6 @@ import ModalVerPagosGasto from '../components/gastos/ModalVerPagosGasto';
 import { formatMoney } from '../utils/currency';
 import { API_BASE_URL } from '../config/api';
 import { useDialog } from '../components/ui/DialogProvider';
-import 'react-datepicker/dist/react-datepicker.css';
 
 interface GastosProps {}
 
@@ -467,8 +466,8 @@ const Gastos: FC<GastosProps> = () => {
   };
 
   const sortIndicator = (column: SortColumn): string => {
-    if (sortConfig.column !== column) return '↕';
-    return sortConfig.direction === 'asc' ? '↑' : '↓';
+    if (sortConfig.column !== column) return 'â†•';
+    return sortConfig.direction === 'asc' ? 'â†‘' : 'â†“';
   };
 
   const getExtraProgress = (gasto: GastoAgrupado): ExtraProgress => {
@@ -544,7 +543,7 @@ const Gastos: FC<GastosProps> = () => {
   return (
     <div className="space-y-6 relative">
       <div className="flex flex-col sm:flex-row justify-between items-center bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 gap-4">
-        <h3 className="text-xl font-bold text-gray-800 dark:text-white">🗂️ Gestión de Gastos</h3>
+        <h3 className="text-xl font-bold text-gray-800 dark:text-white">Gestión de Gastos</h3>
         <div className="flex-1 max-w-md w-full relative">
           <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">🔍</span>
           <input
@@ -556,42 +555,18 @@ const Gastos: FC<GastosProps> = () => {
           />
         </div>
         <div className="flex items-end gap-2 w-full sm:w-auto">
-            <div>
-              <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Desde</label>
-              <DatePicker
-                selected={ymdToDate(fechaDesde)}
-                onChange={(date: Date | Date[] | null) => setFechaDesde(dateToYmd(toSingleDate(date)))}
-                selectsStart
-                startDate={ymdToDate(fechaDesde)}
-                endDate={ymdToDate(fechaHasta)}
-                dateFormat="dd/MM/yyyy"
+            <div className="min-w-[290px]">
+              <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Rango</label>
+              <DateRangePicker
+                from={ymdToDate(fechaDesde)}
+                to={ymdToDate(fechaHasta)}
+                onChange={({ from, to }) => {
+                  setFechaDesde(dateToYmd(from));
+                  setFechaHasta(dateToYmd(to));
+                }}
                 locale={es}
-                placeholderText="Desde (dd/mm/yyyy)"
-                showIcon
-                toggleCalendarOnIconClick
+                placeholderText="Rango (dd/mm/yyyy - dd/mm/yyyy)"
                 wrapperClassName="w-full min-w-0"
-                popperClassName="habioo-datepicker-popper"
-                calendarClassName="habioo-datepicker-calendar"
-                className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 p-2 pr-10 text-xs outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Hasta</label>
-              <DatePicker
-                selected={ymdToDate(fechaHasta)}
-                onChange={(date: Date | Date[] | null) => setFechaHasta(dateToYmd(toSingleDate(date)))}
-                selectsEnd
-                startDate={ymdToDate(fechaDesde)}
-                endDate={ymdToDate(fechaHasta)}
-                {...(fechaDesde && ymdToDate(fechaDesde) ? { minDate: ymdToDate(fechaDesde) as Date } : {})}
-                dateFormat="dd/MM/yyyy"
-                locale={es}
-                placeholderText="Hasta (dd/mm/yyyy)"
-                showIcon
-                toggleCalendarOnIconClick
-                wrapperClassName="w-full min-w-0"
-                popperClassName="habioo-datepicker-popper"
-                calendarClassName="habioo-datepicker-calendar"
                 className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 p-2 pr-10 text-xs outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               />
             </div>
@@ -724,7 +699,7 @@ const Gastos: FC<GastosProps> = () => {
                         >
                           <td className="p-3 text-center" onClick={(e: ReactMouseEvent<HTMLElement>) => toggleRow(g.gasto_id, e)}>
                             <button className="text-gray-400 hover:text-donezo-primary transition-colors text-lg">
-                              {expandedRows[String(g.gasto_id)] ? '▼' : '▶'}
+                              {expandedRows[String(g.gasto_id)] ? 'â–¼' : 'â–¶'}
                             </button>
                           </td>
                           <td className="p-3">
@@ -1000,3 +975,5 @@ const Gastos: FC<GastosProps> = () => {
 };
 
 export default Gastos;
+
+

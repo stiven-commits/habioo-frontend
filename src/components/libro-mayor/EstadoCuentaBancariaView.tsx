@@ -1,12 +1,11 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent, FC } from 'react';
-import DatePicker from 'react-datepicker';
+import DateRangePicker from '../ui/DateRangePicker';
 import { es } from 'date-fns/locale/es';
 import { useOutletContext } from 'react-router-dom';
 import { API_BASE_URL } from '../../config/api';
 import { ModalRegistrarEgreso, ModalTransferencia } from '../BancosModals';
 import ModalDetalleMovimiento, { type IMovimientoDetalle } from './ModalDetalleMovimiento';
-import 'react-datepicker/dist/react-datepicker.css';
 
 type ViewMode = 'admin' | 'owner';
 type ActiveTab = 'cuenta' | 'sin-fondo' | `fondo-${number | string}`;
@@ -1317,13 +1316,13 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                 onClick={() => setShowTransfModal(true)}
                 className="h-11 rounded-xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
               >
-                Transferir
+                Transf. Interbancaria
               </button>
               <button
                 onClick={() => setShowEgresoModal(true)}
                 className="h-11 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-bold text-red-600 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300"
               >
-                Egreso
+                Egreso Bancario
               </button>
             </>
           )}
@@ -1387,44 +1386,19 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
               </span>
             </div>
             <div className="flex flex-wrap items-end gap-2 xl:justify-end">
-              <div>
-                <label className="block text-[10px] uppercase font-black tracking-wider text-gray-400 mb-1">Desde</label>
-                <DatePicker
-                  selected={ymdToDate(fechaDesde)}
-                  onChange={(date: Date | Date[] | null) => setFechaDesde(dateToYmd(toSingleDate(date)))}
-                  selectsStart
-                  startDate={ymdToDate(fechaDesde)}
-                  endDate={ymdToDate(fechaHasta)}
+              <div className="min-w-[300px]">
+                <label className="block text-[10px] uppercase font-black tracking-wider text-gray-400 mb-1">Rango</label>
+                <DateRangePicker
+                  from={ymdToDate(fechaDesde)}
+                  to={ymdToDate(fechaHasta)}
+                  onChange={({ from, to }) => {
+                    setFechaDesde(dateToYmd(from));
+                    setFechaHasta(dateToYmd(to));
+                  }}
                   maxDate={new Date()}
-                  dateFormat="dd/MM/yyyy"
                   locale={es}
-                  placeholderText="Desde (dd/mm/yyyy)"
-                  showIcon
-                  toggleCalendarOnIconClick
+                  placeholderText="Rango (dd/mm/yyyy - dd/mm/yyyy)"
                   wrapperClassName="w-full min-w-0"
-                  popperClassName="habioo-datepicker-popper"
-                  calendarClassName="habioo-datepicker-calendar"
-                  className="h-10 w-full rounded-lg border border-gray-200 bg-gray-50 p-2 pr-10 text-xs outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] uppercase font-black tracking-wider text-gray-400 mb-1">Hasta</label>
-                <DatePicker
-                  selected={ymdToDate(fechaHasta)}
-                  onChange={(date: Date | Date[] | null) => setFechaHasta(dateToYmd(toSingleDate(date)))}
-                  selectsEnd
-                  startDate={ymdToDate(fechaDesde)}
-                  endDate={ymdToDate(fechaHasta)}
-                  {...(ymdToDate(fechaDesde) ? { minDate: ymdToDate(fechaDesde) as Date } : {})}
-                  maxDate={new Date()}
-                  dateFormat="dd/MM/yyyy"
-                  locale={es}
-                  placeholderText="Hasta (dd/mm/yyyy)"
-                  showIcon
-                  toggleCalendarOnIconClick
-                  wrapperClassName="w-full min-w-0"
-                  popperClassName="habioo-datepicker-popper"
-                  calendarClassName="habioo-datepicker-calendar"
                   className="h-10 w-full rounded-lg border border-gray-200 bg-gray-50 p-2 pr-10 text-xs outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                 />
               </div>
@@ -1713,3 +1687,5 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
 };
 
 export default EstadoCuentaBancariaView;
+
+

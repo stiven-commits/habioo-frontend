@@ -1,8 +1,8 @@
-﻿# Habioo - Plataforma de gestion de condominios
+# Habioo - Plataforma de gestion de condominios
 
 Documento tecnico y funcional del estado actual del sistema.
 
-- Ultima actualizacion: 2026-03-27
+- Ultima actualizacion: 2026-03-29
 - Frontend: React + Vite + Tailwind
 - Backend: Node.js + Express + PostgreSQL
 
@@ -26,30 +26,33 @@ Fuente: `habioo-frontend/src/App.jsx`
 - `/` -> Login
 
 ### Junta (admin)
-- `/dashboard` -> Dashboard principal
-- `/perfil` -> Perfil del condominio
+- `/dashboard` -> DashboardHome
+- `/perfil` -> PerfilCondominio
 - `/proveedores` -> Proveedores
 - `/gastos` -> Gastos
-- `/cierres` -> Cierres y avisos
+- `/cierres` -> Cierres
 - `/inmuebles` -> Propiedades
-- `/cuentas-cobrar` -> Cuentas por cobrar
-- `/bancos` -> Cuentas bancarias y fondos
-- `/estado-cuentas` -> Libro mayor bancario
-- `/zonas` -> Zonas / sectores
-- `/alquileres` -> Gestion de alquileres de amenidades
-- `/carta-consulta` -> Encuestas / cartas consulta
-- `/avisos-cobro` -> Historial de avisos
-- `/aviso-cobro/:id` -> Vista individual del aviso
+- `/cuentas-cobrar` -> CuentasPorCobrar
+- `/bancos` -> Bancos
+- `/estado-cuentas` -> EstadoCuentasBancarias
+- `/zonas` -> Zonas
+- `/alquileres` -> VistaAlquileres
+- `/carta-consulta` -> EncuestasAdmin
+- `/avisos-cobro` -> HistorialAvisos
+- `/aviso-cobro/:id` -> VistaAvisoCobro
 
 ### Propietario / residente
-- `/propietario/gastos` -> Gastos del condominio (solo lectura)
-- `/propietario/recibos` -> Recibos y pago
-- `/propietario/estado-cuenta` -> Tesoreria (fondos y libro)
-- `/propietario/estado-cuenta-inmueble` -> Estado de cuenta del inmueble
-- `/propietario/alquileres` -> Alquiler de espacios y reservas
-- `/propietario/perfil` -> Perfil propio
-- `/propietario/notificaciones` -> Notificaciones
-- `/mis-cartas-consulta` -> Encuestas del propietario
+- `/propietario/gastos` -> GastosPropietario (solo lectura)
+- `/propietario/recibos` -> RecibosPropietario
+- `/propietario/estado-cuenta` -> EstadoCuentaPropietario (tesoreria)
+- `/propietario/estado-cuenta-inmueble` -> EstadoCuentaInmueblePropietario
+- `/propietario/alquileres` -> AlquileresPropietario
+- `/propietario/perfil` -> PerfilPropietario
+- `/propietario/notificaciones` -> NotificacionesPropietario
+- `/mis-cartas-consulta` -> EncuestasPropietario
+
+### SuperUsuario (soporte)
+- `/soporte/condominios` -> SoporteSuperUsuario
 
 ---
 
@@ -57,17 +60,20 @@ Fuente: `habioo-frontend/src/App.jsx`
 
 ### 3.1 Contabilidad y cobranza
 - Registro de gastos (comun, zona, individual, extra) con soportes.
+- Tabs de gastos: Todos, Comunes, Por Areas/Sectores, Individuales, Extra.
+- Acciones por gasto: Ver Detalles, Editar, Pagar Proveedor, Ver Pagos, Eliminar.
 - Preliminar y cierre de ciclo para generar avisos/recibos.
-- Historial de avisos y vista imprimible.
-- Cuentas por cobrar por inmueble con registro y validacion de pagos.
-- Estado de cuenta por inmueble con filtros y saldo acumulado.
+- Historial de avisos con filtros de estado (Todos, Pagados, Abonado, Pendiente).
+- Cuentas por cobrar por inmueble con tabs Deudores / Todos.
+- Registro y validacion de pagos desde cuentas por cobrar.
+- Estado de cuenta por inmueble con filtros, orden y saldo acumulado.
 - Ajustes de saldo desde cobranza con dos modos:
   - `COMPLETO`: puede impactar cuenta bancaria/fondos o gasto extra.
   - `SOLO_INMUEBLE`: impacta solo el estado de cuenta del inmueble.
-- Ajuste desde modal de estado de cuenta del inmueble con leyenda explicita de no impacto bancario.
+- Leyenda explicita de no impacto bancario en modal de ajuste desde estado de cuenta.
 
 ### 3.2 Tesoreria bancaria
-- CRUD de cuentas bancarias.
+- CRUD de cuentas bancarias (tipos: Transferencia, Pago Movil, Zelle, Efectivo BS, Efectivo USD, Efectivo).
 - CRUD y configuracion de fondos (operativo, visibilidad, porcentaje, renombrar).
 - Libro mayor por cuenta/fondo con filtros, orden, consolidacion y detalle.
 - Registro de egresos manuales.
@@ -75,38 +81,51 @@ Fuente: `habioo-frontend/src/App.jsx`
 - Pago a proveedores desde fondos.
 - Rollback de pagos validados desde libro mayor.
 - Rollback de ajustes bancarios (`movimientos_fondos/:id/rollback-ajuste`).
+- Rollback de transferencias (`transferencias/:id/rollback`).
+- Rollback de egresos manuales (`movimientos-fondos/:id/rollback-egreso-manual`).
 
 ### 3.3 Gestion de inmuebles
-- CRUD de propiedades, copropietarios y residentes.
-- Carga masiva de propiedades.
+- CRUD de propiedades con carga masiva (Excel).
+- CRUD de copropietarios y residentes por propiedad.
 - Ajuste de saldo por inmueble.
 - Estado de cuenta de propiedad (admin y propietario).
+- Acciones por fila: Editar datos, Agregar Residente, Agregar Co-propietarios, Eliminar.
 
 ### 3.4 Modulos adicionales
 - Proveedores (individual y lote).
-- Zonas con reglas de bloqueo por historial contable.
-- Encuestas / cartas consulta (crear, votar, ver resultados).
+- Zonas con reglas de bloqueo por historial contable; presentadas como "Areas / Sectores" en UI.
+- Encuestas / cartas consulta (tipos: Si/No, Opcion Multiple, Respuesta Abierta).
+  - Admin: crear, cerrar, ver resultados, editar, eliminar.
+  - Propietario: votar, ver resultados.
 - Alquileres de amenidades:
-  - Definir alquileres (admin).
-  - Reservar (propietario).
-  - Reportar pago de reserva.
-  - Aprobar/rechazar solicitudes y pagos.
-- Notificaciones para propietario.
-- Perfil del condominio y perfil del propietario.
+  - Admin: definir espacios, tabs Espacios / Solicitudes, aprobar/rechazar pagos.
+  - Propietario: reservar, ver mis reservas, reportar pago.
+- Notificaciones para propietario con estados: En aprobacion, Aprobado, Rechazado.
+- Perfil del condominio (logos, mensajes de aviso, info legal).
+- Perfil del propietario (info personal, cambio de contrasena).
+- Dashboard admin: KPIs, graficos, alertas de pendientes, movimientos recientes.
+- Widget de chat AI (`AIChatWidget`).
+
+### 3.5 Soporte SuperUsuario
+- Vista de todos los condominios registrados.
+- Acceso como soporte a cualquier condominio mediante sesion controlada.
+- Endpoints dedicados: `GET /support/condominios`, `POST /support/entrar`, `POST /support/salir`.
 
 ---
 
 ## 4) Reglas de negocio relevantes
 
 - Multitenancy por condominio del usuario autenticado.
-- Aviso/recibo generado en cierre es inmutable (snapshot historico).
+- Aviso/recibo generado en cierre es inmutable (snapshot historico en `recibos.snapshot_jsonb`).
 - Ajustes tipo `SOLO_INMUEBLE` no crean movimientos bancarios.
-- Visibilidad de fondos para propietarios controlada por `visible_propietarios`.
+- Visibilidad de fondos para propietarios controlada por `fondos.visible_propietarios`.
 - Rollback de pago:
   - requiere pago en estado `Validado`.
   - bloqueado si el pago tiene `recibo_id` directo.
   - deshace efectos en movimientos, fondos y saldo segun trazabilidad.
   - **sin limite fijo de 48 horas en la logica actual**.
+- Zonas con historial contable no permiten cambios estructurales de inmuebles.
+- Fondos con movimientos no se eliminan sin cumplir validaciones.
 
 ---
 
@@ -125,6 +144,7 @@ Fuente: `habioo-auth/index.ts` + `habioo-auth/routes/*`
 - `PUT /api/perfil/`
 - `PUT /api/perfil/password`
 - `POST /api/perfil/upload/:tipo`
+- `DELETE /api/perfil/upload/:tipo`
 
 ### Proveedores
 - `GET /proveedores`
@@ -135,6 +155,7 @@ Fuente: `habioo-auth/index.ts` + `habioo-auth/routes/*`
 
 ### Gastos y cierres
 - `POST /gastos`
+- `PUT /gastos/:id`
 - `GET /gastos`
 - `DELETE /gastos/:id`
 - `GET /preliminar`
@@ -165,8 +186,10 @@ Fuente: `habioo-auth/index.ts` + `habioo-auth/routes/*`
 - `GET /bancos-admin/:id/estado-cuenta`
 - `POST /egresos-manuales`
 - `POST /transferencias`
+- `POST /transferencias/:id/rollback`
 - `GET /gastos-pendientes-pago`
 - `POST /movimientos-fondos/:id/rollback-ajuste`
+- `POST /movimientos-fondos/:id/rollback-egreso-manual`
 
 ### Fondos
 - `GET /fondos`
@@ -242,6 +265,11 @@ Fuente: `habioo-auth/index.ts` + `habioo-auth/routes/*`
 - `PUT /api/propietario/perfil`
 - `PUT /api/propietario/perfil/password`
 
+### Soporte / SuperUsuario
+- `GET /support/condominios`
+- `POST /support/entrar`
+- `POST /support/salir`
+
 ### Chat
 - `POST /chat/ask`
 
@@ -254,10 +282,9 @@ Fuente: `habioo-auth/index.ts` + `habioo-auth/routes/*`
 - `zonas`, `propiedades_zonas`
 - `proveedores`
 - `gastos`, `gastos_cuotas`
-- `recibos`
-- `pagos`
+- `recibos` (con `snapshot_jsonb`), `pagos`
 - `cuentas_bancarias`, `fondos`, `movimientos_fondos`
-- `cortes_estado_cuenta_fondos`
+- `cortes_estado_cuenta_fondos` (snapshots mensuales por aviso)
 - tablas de encuestas y respuestas
 - tablas de alquileres y reservaciones
 

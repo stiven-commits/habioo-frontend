@@ -8,11 +8,10 @@ import {
   type FormEvent,
   type SetStateAction,
 } from 'react';
-import DatePicker from 'react-datepicker';
+import DateRangePicker from '../ui/DateRangePicker';
 import { es } from 'date-fns/locale/es';
 import { formatMoney } from '../../utils/currency';
 import { formatDateTimeVE, formatDateVE } from '../../utils/datetime';
-import 'react-datepicker/dist/react-datepicker.css';
 
 interface PropiedadFormData {
   identificador: string;
@@ -674,44 +673,19 @@ export const ModalEstadoCuenta: FC<ModalEstadoCuentaProps> = ({
 
         <div className="px-6 py-4 flex flex-wrap justify-between items-end gap-4 bg-white dark:bg-donezo-card-dark border-b border-gray-100 dark:border-gray-800">
           <div className="flex gap-3 items-center">
-            <div>
-              <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Desde</label>
-              <DatePicker
-                selected={ymdToDate(fechaDesde)}
-                onChange={(date: Date | Date[] | null) => setFechaDesde(dateToYmd(Array.isArray(date) ? (date[0] ?? null) : date))}
-                selectsStart
-                startDate={ymdToDate(fechaDesde)}
-                endDate={ymdToDate(fechaHasta)}
+            <div className="min-w-[300px]">
+              <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Rango</label>
+              <DateRangePicker
+                from={ymdToDate(fechaDesde)}
+                to={ymdToDate(fechaHasta)}
+                onChange={({ from, to }) => {
+                  setFechaDesde(dateToYmd(from));
+                  setFechaHasta(dateToYmd(to));
+                }}
                 maxDate={ymdToDate(todayYmd) as Date}
-                dateFormat="dd/MM/yyyy"
                 locale={es}
-                placeholderText="Desde (dd/mm/yyyy)"
-                showIcon
-                toggleCalendarOnIconClick
+                placeholderText="Rango (dd/mm/yyyy - dd/mm/yyyy)"
                 wrapperClassName="w-full min-w-0"
-                popperClassName="habioo-datepicker-popper"
-                calendarClassName="habioo-datepicker-calendar"
-                className="h-10 w-full rounded-lg border border-gray-200 bg-gray-50 p-2 pr-10 text-sm outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Hasta</label>
-              <DatePicker
-                selected={ymdToDate(fechaHasta)}
-                onChange={(date: Date | Date[] | null) => setFechaHasta(dateToYmd(Array.isArray(date) ? (date[0] ?? null) : date))}
-                selectsEnd
-                startDate={ymdToDate(fechaDesde)}
-                endDate={ymdToDate(fechaHasta)}
-                {...(fechaDesde ? { minDate: ymdToDate(fechaDesde) as Date } : {})}
-                maxDate={ymdToDate(todayYmd) as Date}
-                dateFormat="dd/MM/yyyy"
-                locale={es}
-                placeholderText="Hasta (dd/mm/yyyy)"
-                showIcon
-                toggleCalendarOnIconClick
-                wrapperClassName="w-full min-w-0"
-                popperClassName="habioo-datepicker-popper"
-                calendarClassName="habioo-datepicker-calendar"
                 className="h-10 w-full rounded-lg border border-gray-200 bg-gray-50 p-2 pr-10 text-sm outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
               />
             </div>
@@ -1370,6 +1344,8 @@ export const ModalCargaMasiva: FC<ModalCargaMasivaProps> = ({
     </div>
   );
 };
+
+
 
 
 
