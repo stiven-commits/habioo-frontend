@@ -131,6 +131,7 @@ const Layout: React.FC<LayoutProps> = () => {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [headerDisplayName, setHeaderDisplayName] = useState<string>('');
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
   const [theme, setTheme] = useState<Theme>(() => (localStorage.theme === 'dark' ? 'dark' : 'light'));
   const [systemNow, setSystemNow] = useState<Date>(() => new Date());
   const [misPropiedades, setMisPropiedades] = useState<MisPropiedad[]>([]);
@@ -283,6 +284,10 @@ const Layout: React.FC<LayoutProps> = () => {
 
     void loadHeaderDisplayName();
   }, [userRole, user]);
+
+  useEffect(() => {
+    setMobileSidebarOpen(false);
+  }, [location.pathname]);
 
   useEffect(() => {
     if (userRole !== 'Propietario') return;
@@ -502,6 +507,16 @@ const Layout: React.FC<LayoutProps> = () => {
     setTheme((previousTheme: Theme) => (previousTheme === 'dark' ? 'light' : 'dark'));
   };
 
+  const handleSidebarToggle: React.MouseEventHandler<HTMLButtonElement> = () => {
+    const isMobile = window.matchMedia('(max-width: 767px)').matches;
+    if (isMobile) {
+      setSidebarCollapsed(false);
+      setMobileSidebarOpen((prev) => !prev);
+      return;
+    }
+    setSidebarCollapsed((prev) => !prev);
+  };
+
   const handleLogout: React.MouseEventHandler<HTMLButtonElement> = () => {
     localStorage.clear();
     navigate('/');
@@ -632,7 +647,22 @@ const Layout: React.FC<LayoutProps> = () => {
       onClickCapture={handleGlobalButtonClickCapture}
       onSubmitCapture={handleGlobalFormSubmitCapture}
     >
-      <aside className={`hidden md:flex fixed h-full z-20 flex-col border-r border-emerald-900/70 bg-[#0f5e37] transition-all duration-300 ${sidebarCollapsed ? 'w-20' : 'w-64'}`}>
+      {mobileSidebarOpen && (
+        <button
+          type="button"
+          aria-label="Cerrar menú lateral"
+          onClick={() => setMobileSidebarOpen(false)}
+          className="fixed inset-0 z-20 bg-black/45 md:hidden"
+        />
+      )}
+
+      <aside
+        className={`fixed z-30 h-full flex flex-col border-r border-emerald-900/70 bg-[#0f5e37] transition-all duration-300 ${
+          sidebarCollapsed ? 'md:w-20' : 'md:w-64'
+        } w-72 ${
+          mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}
+      >
         <div className={`px-3 py-4 border-b border-emerald-900/60 ${sidebarCollapsed ? 'flex justify-center' : ''}`}>
           <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
             <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-100">
@@ -787,14 +817,14 @@ const Layout: React.FC<LayoutProps> = () => {
         <header className="h-14 md:h-16 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161b22] px-4 md:px-6 flex items-center justify-between">
           <button
             type="button"
-            onClick={() => setSidebarCollapsed((prev) => !prev)}
+            onClick={handleSidebarToggle}
             className="h-9 w-9 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center justify-center"
-            title={sidebarCollapsed ? 'Expandir menu lateral' : 'Colapsar menu lateral'}
+            title={mobileSidebarOpen ? 'Cerrar menú lateral' : (sidebarCollapsed ? 'Expandir menu lateral' : 'Colapsar menu lateral')}
           >
-            {sidebarCollapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
+            {mobileSidebarOpen ? <PanelLeftClose size={17} /> : sidebarCollapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
           </button>
           <div className="flex items-center gap-3">
-            <p className="text-sm text-gray-500 dark:text-gray-300">
+            <p className="max-w-[52vw] truncate text-xs sm:text-sm text-gray-500 dark:text-gray-300">
               Hola, <span className="font-semibold text-gray-900 dark:text-white">{displayName}</span>
             </p>
             <button

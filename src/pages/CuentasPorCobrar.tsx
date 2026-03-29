@@ -613,7 +613,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
             </p>
           </div>
         ) : (
-          <div className="w-full rounded-xl border border-gray-100 dark:border-gray-800 overflow-visible">
+          <div className="w-full rounded-xl border border-gray-100 dark:border-gray-800 overflow-x-auto overflow-y-visible">
             <table className="w-full text-left border-collapse">
               <thead className="sticky top-0 z-20">
                 <tr className="bg-gray-50 dark:bg-gray-800/60 border-y border-gray-100 dark:border-gray-700 text-gray-500 dark:text-gray-400 text-sm">
