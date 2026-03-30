@@ -3,6 +3,7 @@ import type { FC, ChangeEvent, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config/api';
 import { sanitizeCedulaRif, isValidCedulaRif } from '../utils/validators';
+import habiooLogoColor from '../assets/brand/habioo_logo_color.svg';
 
 interface LoginProps {}
 
@@ -67,8 +68,7 @@ const Login: FC<LoginProps> = () => {
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4 transition-colors">
       <div className="bg-white dark:bg-donezo-card-dark p-8 rounded-3xl shadow-xl w-full max-w-md border border-gray-100 dark:border-gray-800">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 bg-gradient-to-br from-donezo-primary to-donezo-green rounded-2xl shadow-lg mb-4 transform rotate-3"></div>
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Portal Habioo</h1>
+          <img src={habiooLogoColor} alt="Habioo" className="h-20 w-auto mb-3 object-contain" />
           <p className="text-gray-500 dark:text-gray-400 mt-2 text-center">Gestión de Condominios</p>
         </div>
 
@@ -113,3 +113,4 @@ const Login: FC<LoginProps> = () => {
 };
 
 export default Login;
+

@@ -2,6 +2,7 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config/api';
 import AIChatWidget from './AIChatWidget';
+import habiooIsoHabioBlanco from '../assets/brand/habioo_iso_habio_blanco.svg';
 import {
   Bell,
   BookOpen,
@@ -766,9 +767,9 @@ const Layout: React.FC<LayoutProps> = () => {
         <div className={`px-3 py-4 border-b border-emerald-900/60 ${sidebarCollapsed ? 'flex justify-center' : ''}`}>
           <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
             <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-100">
-              <Building2 size={17} />
+              <img src={habiooIsoHabioBlanco} alt="Habioo" className="h-5 w-auto object-contain" />
             </div>
-            {!sidebarCollapsed && <span className="text-2xl font-black tracking-tight text-emerald-50">Habioo</span>}
+            {!sidebarCollapsed && <span className="font-cal-sans text-2xl font-normal tracking-tight text-emerald-50">Habioo</span>}
           </div>
         </div>
 

@@ -193,8 +193,8 @@ function formatFondoOrigenLabel(fondo: Fondo, cuenta?: CuentaBancaria, saldoActu
   if (moneda === 'USD') {
     return `${fondo.nombre} (USD) - Disp: $${formatMoney(saldoActual)}`;
   }
-  const cuentaLabel = cuenta ? formatCuentaDestinoLabel(cuenta) : (moneda === 'USD' ? 'Cuenta USD' : 'Cuenta Bs');
-  const saldoLabel = moneda === 'USD' ? '$' : 'Bs ';
+  const cuentaLabel = cuenta ? formatCuentaDestinoLabel(cuenta) : 'Cuenta Bs';
+  const saldoLabel = 'Bs ';
   return `${cuentaLabel} | ${fondo.nombre} (${moneda}) - Disp: ${saldoLabel}${formatMoney(saldoActual)}`;
 }
 
@@ -1291,5 +1291,4 @@ export const ModalEliminarFondo: React.FC<ModalEliminarFondoProps> = ({ fondo, f
     </ModalBase>
   );
 };
-
 

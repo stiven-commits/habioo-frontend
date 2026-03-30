@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=Cal+Sans&display=swap");
 @import "tailwindcss";
 
 /* Definimos tu paleta de colores personalizada */
@@ -41,5 +42,12 @@
   input[type="submit"]:disabled,
   input[type="reset"]:disabled {
     cursor: not-allowed;
+  }
+}
+
+@layer utilities {
+  .font-cal-sans {
+    font-family: "Cal Sans", sans-serif;
+    letter-spacing: -0.01em;
   }
 }
