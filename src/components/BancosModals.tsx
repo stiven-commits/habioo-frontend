@@ -246,13 +246,28 @@ const SearchableCombobox: React.FC<{
         onFocus={() => !disabled && setOpen(true)}
         onChange={(e) => {
           setQuery(e.target.value);
-          onChange('');
           if (!open) setOpen(true);
         }}
         placeholder={placeholder}
         disabled={disabled}
-        className={className}
+        className={`${className} ${!disabled ? 'pr-10' : ''}`}
       />
+      {!disabled && (
+        <button
+          type="button"
+          onClick={() => {
+            setQuery('');
+            onChange('');
+            setOpen(true);
+            inputRef.current?.focus();
+          }}
+          className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+          title="Limpiar selección"
+          aria-label="Limpiar selección"
+        >
+          ×
+        </button>
+      )}
       {required && <input type="hidden" required value={value} readOnly />}
       {open && !disabled && createPortal(
         <div
@@ -864,11 +879,8 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
       return;
     }
     const exists = fondosCuenta.some((f) => String(f.id) === form.fondo_id);
-    if (!exists) {
-      const nextFondoId = String(fondosCuenta[0]?.id || '');
-      if (nextFondoId !== form.fondo_id) {
-        setForm((prev: RegistrarEgresoForm) => ({ ...prev, fondo_id: nextFondoId }));
-      }
+    if (!exists && form.fondo_id !== '') {
+      setForm((prev: RegistrarEgresoForm) => ({ ...prev, fondo_id: '' }));
     }
   }, [form.cuenta_id, form.fondo_id, fondosCuenta]);
 
