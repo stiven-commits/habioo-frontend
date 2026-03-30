@@ -9,14 +9,9 @@ Guia operativa para asistentes IA y soporte funcional.
 
 ## 1) Contexto rapido
 
-Habioo es una plataforma de gestion de condominios con tres roles principales:
+Habioo es una plataforma de gestion de condominios con dos vistas principales:
 - Junta (admin): operacion contable y administrativa completa.
 - Propietario/residente: consulta, pagos, reservas y notificaciones de su alcance.
-- SuperUsuario: soporte tecnico con acceso de lectura/sesion a cualquier condominio.
-
-Sistema web:
-- Frontend: React + Vite.
-- Backend: Express + PostgreSQL.
 
 ---
 
@@ -48,9 +43,6 @@ Sistema web:
 - `/propietario/notificaciones`
 - `/mis-cartas-consulta`
 
-### SuperUsuario
-- `/soporte/condominios`
-
 ---
 
 ## 3) Que puede hacer cada rol
@@ -70,11 +62,6 @@ Sistema web:
 - Ver y participar en encuestas.
 - Reservar amenidades y reportar pago de reservaciones.
 - Editar su perfil.
-
-### SuperUsuario
-- Ver listado de todos los condominios.
-- Iniciar sesion de soporte en cualquier condominio (`/support/entrar`).
-- Cerrar sesion de soporte (`/support/salir`).
 
 ---
 
@@ -98,8 +85,7 @@ Usar esta guia cuando el usuario pida "donde hago X". El agente debe mencionar r
 
 - `Cierres` (`/cierres`):
   - Cierre mensual: boton principal `Cerrar Ciclo`.
-  - Metodo de division: boton `Cambiar metodo de division` (o `PUT /metodo-division`).
-  - Datos de prueba: boton `Generar Datos de Prueba` (solo desarrollo).
+  - Metodo de division: boton `Cambiar metodo de division`.
 
 - `Avisos` (`/avisos-cobro`):
   - Filtrar: campos de rango de fecha, estado (Todos, Pagados, Abonado, Pendiente), busqueda.
@@ -127,7 +113,7 @@ Usar esta guia cuando el usuario pida "donde hago X". El agente debe mencionar r
 - `Fondos` (modal desde Bancos):
   - Crear fondo: boton `+ Nuevo Fondo`.
   - Editar configuracion (nombre, operativo, visibilidad): acciones por fila dentro del modal.
-  - Eliminar: accion `Eliminar` por fila (si pasa validaciones).
+  - Eliminar: accion `Eliminar` por fila (si aplica).
 
 - `Inmuebles` (`/inmuebles`):
   - Crear: boton `+ Crear Inmueble`.
@@ -165,10 +151,6 @@ Usar esta guia cuando el usuario pida "donde hago X". El agente debe mencionar r
   - Configurar mensajes de avisos de cobro (4 mensajes).
   - Boton `Cambiar Contrasena`.
 
-- `Soporte` (`/soporte/condominios`, SuperUsuario):
-  - Buscar por nombre, RIF, admin o cedula.
-  - Ingresar a condominio: boton `Entrar` por fila.
-
 ### 4.1 Registrar gasto (Junta)
 1. Ir a `/gastos`.
 2. Crear gasto (tipo, distribucion, monto BS, tasa, soportes).
@@ -200,12 +182,12 @@ Existen 2 modos:
 ### 4.5 Reversiones (Junta)
 1. Desde libro mayor (`/estado-cuentas`) usar boton `Revertir`.
 2. Puede revertir:
-   - pagos (`/pagos/:id/rollback`),
-   - ajustes bancarios (`/movimientos-fondos/:id/rollback-ajuste`),
-   - transferencias (`/transferencias/:id/rollback`),
-   - egresos manuales (`/movimientos-fondos/:id/rollback-egreso-manual`).
+   - pagos,
+   - ajustes bancarios,
+   - transferencias,
+   - egresos manuales.
 3. Requiere validaciones de trazabilidad y permisos.
-4. No documentar limite fijo de 48h: la logica actual no aplica esa ventana en el backend.
+4. No documentar limite fijo de 48h: la logica actual no aplica esa ventana.
 
 ### 4.6 Alquileres
 1. Junta gestiona catalogo en `/alquileres`.
@@ -218,20 +200,14 @@ Existen 2 modos:
 2. Propietario responde (`/mis-cartas-consulta`).
 3. Junta y propietario pueden consultar resultados segun permisos.
 
-### 4.8 Acceso de soporte (SuperUsuario)
-1. Ingresar a `/soporte/condominios`.
-2. Buscar condominio por nombre, RIF, admin o cedula.
-3. Pulsar `Entrar` para iniciar sesion de soporte en ese condominio.
-4. Cerrar sesion de soporte con `POST /support/salir`.
-
 ---
 
 ## 5) Restricciones funcionales importantes
 
 - Datos aislados por condominio (multitenancy).
-- Avisos de cobro generados en cierre son snapshots inmutables (`recibos.snapshot_jsonb`).
+- Avisos de cobro generados en cierre son snapshots inmutables.
 - Ajustes `SOLO_INMUEBLE` no deben afectar libro mayor ni fondos.
-- Rollback de pago bloqueado si pago no esta `Validado` o si tiene `recibo_id` directo.
+- Rollback de pago bloqueado si pago no esta `Validado` o si tiene recibo asociado.
 - Zonas con historial contable no permiten cambios estructurales de inmuebles.
 - Fondos con movimientos no se eliminan sin cumplir validaciones.
 
@@ -243,7 +219,6 @@ Existen 2 modos:
 - `POST /login`, `GET /me`
 - `GET/PUT /api/perfil/`
 - `PUT /api/perfil/password`
-- `POST /api/perfil/upload/:tipo`, `DELETE /api/perfil/upload/:tipo`
 
 ### Cobranza y pagos
 - `GET /cuentas-por-cobrar`
@@ -266,15 +241,12 @@ Existen 2 modos:
 - `GET /bancos-admin/:id/estado-cuenta`
 - `POST /egresos-manuales`
 - `POST /transferencias`
-- `POST /transferencias/:id/rollback`
 - `POST /movimientos-fondos/:id/rollback-ajuste`
-- `POST /movimientos-fondos/:id/rollback-egreso-manual`
 - `GET/POST/PUT/DELETE /fondos...`
 
 ### Modulos adicionales
 - Encuestas: `POST /encuestas`, `GET /encuestas/:condominio_id`, `POST /encuestas/:id/votar`, `GET /encuestas/:id/resultados`
 - Alquileres: `GET/POST/PUT/PATCH /alquileres...`, `POST /alquileres/reservar`, `POST /alquileres/reservaciones/:id/pagar`, `PUT /alquileres/reservaciones/:id/aprobar-pago`
-- Soporte: `GET /support/condominios`, `POST /support/entrar`, `POST /support/salir`
 - Chat: `POST /chat/ask`
 
 ---
@@ -297,8 +269,6 @@ Existen 2 modos:
 ## 8) Notas de mantenimiento documental
 
 Actualizar este archivo cuando cambie cualquiera de estos puntos:
-- rutas frontend en `src/App.jsx`,
-- registro de rutas backend en `habioo-auth/index.ts`,
+- rutas frontend,
 - reglas de rollback/ajuste,
-- nuevos modulos visibles en menu,
-- cambios en roles o permisos.
+- nuevos modulos visibles en menu.
