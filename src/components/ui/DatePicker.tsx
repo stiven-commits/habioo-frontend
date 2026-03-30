@@ -80,15 +80,33 @@ const DatePicker: React.FC<DatePickerProps> = ({
     const updatePos = (): void => {
       if (!rootRef.current) return;
       const rect = rootRef.current.getBoundingClientRect();
+      const margin = 8;
+      const gap = 8;
+      const viewportW = window.innerWidth;
+      const viewportH = window.innerHeight;
+      const popoverW = popoverRef.current?.offsetWidth ?? 320;
+      const popoverH = popoverRef.current?.offsetHeight ?? 360;
+
+      const topBelow = rect.bottom + gap;
+      const topAbove = rect.top - gap - popoverH;
+      const top = topBelow + popoverH <= viewportH - margin
+        ? topBelow
+        : Math.max(margin, topAbove);
+
+      const maxLeft = Math.max(margin, viewportW - popoverW - margin);
+      const left = Math.min(Math.max(rect.left, margin), maxLeft);
+
       setPopoverPos({
-        top: rect.bottom + 8,
-        left: rect.left,
+        top,
+        left,
       });
     };
     updatePos();
+    const rafId = window.requestAnimationFrame(updatePos);
     window.addEventListener('resize', updatePos);
     window.addEventListener('scroll', updatePos, true);
     return () => {
+      window.cancelAnimationFrame(rafId);
       window.removeEventListener('resize', updatePos);
       window.removeEventListener('scroll', updatePos, true);
     };

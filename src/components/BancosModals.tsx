@@ -101,8 +101,27 @@ interface ComboboxOption {
   label: string;
 }
 
+interface EstadoCuentaMovimientoRow {
+  tipo?: string;
+  monto_bs?: number | string | null;
+  monto_usd?: number | string | null;
+  fondo_id?: number | string | null;
+  fondo_origen_id?: number | string | null;
+  fondo_destino_id?: number | string | null;
+}
+
+interface BancosEstadoCuentaResponse extends ApiResult {
+  movimientos?: EstadoCuentaMovimientoRow[];
+  data?: EstadoCuentaMovimientoRow[];
+}
+
 function parseNumber(val: unknown): number {
   return parseFloat(String(val || '').replace(/\./g, '').replace(',', '.')) || 0;
+}
+
+function toNumeric(val: unknown): number {
+  const n = parseFloat(String(val ?? 0));
+  return Number.isFinite(n) ? n : 0;
 }
 
 function isCuentaUsd(cuenta: CuentaBancaria): boolean {
@@ -165,14 +184,68 @@ function formatCuentaDestinoLabel(cuenta: CuentaBancaria): string {
   return ultimos4.length === 4 ? `${baseBs} - ****${ultimos4} - Bs` : `${baseBs} - Bs`;
 }
 
-function formatFondoOrigenLabel(fondo: Fondo, cuenta?: CuentaBancaria): string {
+function formatFondoOrigenLabel(fondo: Fondo, cuenta?: CuentaBancaria, saldoActualOverride?: number): string {
   const moneda = String(fondo.moneda || '').toUpperCase() === 'USD' ? 'USD' : 'BS';
+  const saldoActual = Number.isFinite(saldoActualOverride as number)
+    ? Number(saldoActualOverride)
+    : toNumeric(fondo.saldo_actual);
   if (moneda === 'USD') {
-    return `${fondo.nombre} (USD) - Disp: $${formatMoney(fondo.saldo_actual)}`;
+    return `${fondo.nombre} (USD) - Disp: $${formatMoney(saldoActual)}`;
   }
   const cuentaLabel = cuenta ? formatCuentaDestinoLabel(cuenta) : (moneda === 'USD' ? 'Cuenta USD' : 'Cuenta Bs');
   const saldoLabel = moneda === 'USD' ? '$' : 'Bs ';
-  return `${cuentaLabel} | ${fondo.nombre} (${moneda}) - Disp: ${saldoLabel}${formatMoney(fondo.saldo_actual)}`;
+  return `${cuentaLabel} | ${fondo.nombre} (${moneda}) - Disp: ${saldoLabel}${formatMoney(saldoActual)}`;
+}
+
+async function fetchSaldosFondosPorCuenta(
+  cuentaId: string,
+  token: string,
+  fondosCuenta: Fondo[],
+): Promise<Record<string, number>> {
+  if (!cuentaId || !token || fondosCuenta.length === 0) return {};
+
+  const fondoMoneda = new Map<string, string>();
+  fondosCuenta.forEach((f) => fondoMoneda.set(String(f.id), String(f.moneda || '').toUpperCase()));
+
+  const res = await fetch(`${API_BASE_URL}/bancos-admin/${encodeURIComponent(cuentaId)}/estado-cuenta`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data: BancosEstadoCuentaResponse = (await res.json()) as BancosEstadoCuentaResponse;
+  const raw = Array.isArray(data.movimientos)
+    ? data.movimientos
+    : Array.isArray(data.data)
+      ? data.data
+      : [];
+
+  const saldos: Record<string, number> = {};
+  raw.forEach((mov) => {
+    const tipo = String(mov.tipo || '').toUpperCase();
+    const sign = tipo === 'EGRESO' ? -1 : 1;
+    const montoBs = toNumeric(mov.monto_bs);
+    const montoUsd = toNumeric(mov.monto_usd);
+
+    const aplicar = (fondoIdRaw: unknown): void => {
+      if (fondoIdRaw === null || fondoIdRaw === undefined || fondoIdRaw === '') return;
+      const key = String(fondoIdRaw);
+      const moneda = fondoMoneda.get(key) || 'BS';
+      const monto = moneda === 'USD' ? montoUsd : montoBs;
+      saldos[key] = (saldos[key] || 0) + (sign * monto);
+    };
+
+    if (mov.fondo_id !== null && mov.fondo_id !== undefined && mov.fondo_id !== '') {
+      aplicar(mov.fondo_id);
+      return;
+    }
+    if (sign < 0 && mov.fondo_origen_id !== null && mov.fondo_origen_id !== undefined && mov.fondo_origen_id !== '') {
+      aplicar(mov.fondo_origen_id);
+      return;
+    }
+    if (sign > 0 && mov.fondo_destino_id !== null && mov.fondo_destino_id !== undefined && mov.fondo_destino_id !== '') {
+      aplicar(mov.fondo_destino_id);
+    }
+  });
+
+  return saldos;
 }
 
 const SearchableCombobox: React.FC<{
@@ -499,6 +572,7 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
 
   const [fondos, setFondos] = useState<Fondo[]>([]);
   const [cuentas, setCuentas] = useState<CuentaBancaria[]>([]);
+  const [saldosFondos, setSaldosFondos] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [cuentaDestinoId, setCuentaDestinoId] = useState<string>('');
 
@@ -549,6 +623,42 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
     fetchData();
   }, []);
 
+  useEffect(() => {
+    const token = localStorage.getItem('habioo_token') || '';
+    const cuentasUnicas = Array.from(new Set(
+      fondos
+        .map((f) => String(f.cuenta_bancaria_id || ''))
+        .filter((id) => id !== '')
+    ));
+    if (!token || cuentasUnicas.length === 0) {
+      setSaldosFondos({});
+      return;
+    }
+
+    let cancelled = false;
+    const loadSaldos = async (): Promise<void> => {
+      try {
+        const results = await Promise.all(
+          cuentasUnicas.map(async (cuentaId) => {
+            const fondosCuenta = fondos.filter((f) => String(f.cuenta_bancaria_id) === cuentaId);
+            const saldos = await fetchSaldosFondosPorCuenta(cuentaId, token, fondosCuenta);
+            return saldos;
+          })
+        );
+        if (cancelled) return;
+        const merged: Record<string, number> = {};
+        results.forEach((part) => {
+          Object.entries(part).forEach(([k, v]) => { merged[k] = v; });
+        });
+        setSaldosFondos(merged);
+      } catch {
+        if (!cancelled) setSaldosFondos({});
+      }
+    };
+    void loadSaldos();
+    return () => { cancelled = true; };
+  }, [fondos]);
+
   const fondoOrigen = fondos.find((f) => f.id.toString() === form.fondo_origen_id);
   const cuentaOrigenId = fondoOrigen?.cuenta_bancaria_id?.toString() || '';
   const monedaOrigen = String(fondoOrigen?.moneda || '').toUpperCase();
@@ -576,9 +686,13 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
   const opcionesFondoOrigen = useMemo<ComboboxOption[]>(
     () => fondos.map((f) => ({
       value: String(f.id),
-      label: formatFondoOrigenLabel(f, cuentaById.get(String(f.cuenta_bancaria_id || ''))),
+      label: formatFondoOrigenLabel(
+        f,
+        cuentaById.get(String(f.cuenta_bancaria_id || '')),
+        saldosFondos[String(f.id)]
+      ),
     })),
-    [fondos, cuentaById],
+    [fondos, cuentaById, saldosFondos],
   );
   const opcionesCuentaDestino = useMemo<ComboboxOption[]>(
     () => cuentasDestinoDisponibles.map((cuenta) => ({
@@ -796,6 +910,7 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
   const { showAlert, showConfirm } = useDialog();
   const [fondos, setFondos] = useState<Fondo[]>([]);
   const [cuentas, setCuentas] = useState<CuentaBancaria[]>([]);
+  const [saldosFondosCuenta, setSaldosFondosCuenta] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [isFetchingBCV, setIsFetchingBCV] = useState<boolean>(false);
   const [form, setForm] = useState<RegistrarEgresoForm>({
@@ -856,11 +971,15 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
     [cuentas],
   );
   const opcionesFondoEgreso = useMemo<ComboboxOption[]>(
-    () => fondosCuenta.map((f) => ({
-      value: String(f.id),
-      label: `${f.nombre} (${String(f.moneda || '').toUpperCase()}) - Disp: ${String(f.moneda || '').toUpperCase() === 'USD' ? '$' : 'Bs '}${formatMoney(f.saldo_actual)}`,
-    })),
-    [fondosCuenta],
+    () => fondosCuenta.map((f) => {
+      const saldoVista = saldosFondosCuenta[String(f.id)];
+      const saldo = typeof saldoVista === 'number' ? saldoVista : toNumeric(f.saldo_actual);
+      return {
+        value: String(f.id),
+        label: `${f.nombre} (${String(f.moneda || '').toUpperCase()}) - Disp: ${String(f.moneda || '').toUpperCase() === 'USD' ? '$' : 'Bs '}${formatMoney(saldo)}`,
+      };
+    }),
+    [fondosCuenta, saldosFondosCuenta],
   );
   const montoOrigenNum = parseNumber(form.monto_origen);
   const tasaNum = parseNumber(form.tasa_cambio);
@@ -873,6 +992,7 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
 
   useEffect(() => {
     if (!form.cuenta_id) {
+      setSaldosFondosCuenta({});
       if (form.fondo_id !== '') {
         setForm((prev: RegistrarEgresoForm) => ({ ...prev, fondo_id: '' }));
       }
@@ -883,6 +1003,26 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
       setForm((prev: RegistrarEgresoForm) => ({ ...prev, fondo_id: '' }));
     }
   }, [form.cuenta_id, form.fondo_id, fondosCuenta]);
+
+  useEffect(() => {
+    const token = localStorage.getItem('habioo_token') || '';
+    if (!form.cuenta_id || !token || fondosCuenta.length === 0) {
+      setSaldosFondosCuenta({});
+      return;
+    }
+
+    let cancelled = false;
+    const loadSaldos = async (): Promise<void> => {
+      try {
+        const saldos = await fetchSaldosFondosPorCuenta(form.cuenta_id, token, fondosCuenta);
+        if (!cancelled) setSaldosFondosCuenta(saldos);
+      } catch {
+        if (!cancelled) setSaldosFondosCuenta({});
+      }
+    };
+    void loadSaldos();
+    return () => { cancelled = true; };
+  }, [form.cuenta_id, fondosCuenta]);
 
   const fetchBCV = async (): Promise<void> => {
     setIsFetchingBCV(true);
