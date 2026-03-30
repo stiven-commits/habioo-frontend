@@ -3,6 +3,7 @@ import type { FC, ChangeEvent, FormEvent } from 'react';
 import { formatMoney } from '../utils/currency';
 import { API_BASE_URL } from '../config/api';
 import { useDialog } from './ui/DialogProvider';
+import DatePicker from './ui/DatePicker';
 
 interface ModalFondosProps {
   cuenta: CuentaBancaria;
@@ -28,6 +29,7 @@ interface Fondo {
   saldo_actual: string | number;
   moneda: string;
   visible_propietarios?: boolean;
+  fecha_saldo?: string | null;
 }
 
 interface FormState {
@@ -35,6 +37,7 @@ interface FormState {
   moneda: string;
   porcentaje: string;
   saldo_inicial: string;
+  fecha_saldo: string;
   es_operativo: boolean;
 }
 
@@ -70,6 +73,7 @@ const initialForm: FormState = {
   moneda: 'BS',
   porcentaje: '',
   saldo_inicial: '0',
+  fecha_saldo: '',
   es_operativo: false,
 };
 
@@ -104,6 +108,30 @@ const resolveTipoMoneda = (tipo: string): { moneda: 'BS' | 'USD' | null; blocked
   }
 
   return { moneda: null, blocked: false };
+};
+
+const ymdToDate = (ymd: string): Date | null => {
+  if (!ymd) return null;
+  const [year, month, day] = ymd.split('-').map((v) => Number(v));
+  if (!year || !month || !day) return null;
+  const parsed = new Date(year, month - 1, day);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const dateToYmd = (date: Date | null): string => {
+  if (!date) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const ymdToDisplay = (ymd?: string | null): string => {
+  if (!ymd) return '-';
+  const safeYmd = String(ymd).trim().slice(0, 10);
+  const [year, month, day] = safeYmd.split('-');
+  if (!year || !month || !day) return '-';
+  return `${day}/${month}/${year}`;
 };
 
 const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo, refreshKey = 0 }) => {
@@ -504,6 +532,14 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo, ref
                         <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
                       </svg>
                     </label>
+                    <div className="w-full text-right">
+                      <p className="text-[10px] uppercase font-bold tracking-wide text-gray-400 dark:text-gray-500">
+                        Fecha apertura del fondo
+                      </p>
+                      <p className="text-[11px] font-semibold text-gray-600 dark:text-gray-300">
+                        {ymdToDisplay(f.fecha_saldo)}
+                      </p>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -548,7 +584,23 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo, ref
               <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">Saldo de Apertura</label>
               <input type="text" name="saldo_inicial" value={form.saldo_inicial} onChange={handleMonedaChange} required placeholder="0,00" className="w-full p-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm dark:text-white font-mono" />
             </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">Fecha del saldo</label>
+              <DatePicker
+                selected={ymdToDate(form.fecha_saldo)}
+                onChange={(date) => setForm((prev: FormState) => ({ ...prev, fecha_saldo: dateToYmd(date) }))}
+                placeholderText="dd/mm/yyyy"
+                className="h-[42px] w-full rounded-lg border border-gray-200 bg-white p-2.5 pr-10 text-sm outline-none transition-all focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                wrapperClassName="w-full min-w-0"
+                maxDate={new Date()}
+              />
+            </div>
           </div>
+
+          <p className="mt-3 text-xs text-amber-700 dark:text-amber-300">
+            Los pagos registrados con fecha anterior a esta, entraran en cuarentena como Ajustes Historicos.
+          </p>
 
           <div className="mt-4 flex justify-end">
             <button

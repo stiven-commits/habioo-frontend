@@ -96,6 +96,7 @@ interface PagoPendienteAprobacion {
   fecha_pago?: string | null;
   estado: string;
   nota?: string | null;
+  es_ajuste_historico?: boolean;
 }
 
 interface PagosPendientesResponse {
@@ -867,8 +868,15 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                       <p><span className="font-bold">Pago:</span> #{pago.id}</p>
                       <p><span className="font-bold">Ref:</span> {pago.referencia || 'Sin referencia'}</p>
                       <p><span className="font-bold">Monto:</span> {String(pago.moneda || 'USD').toUpperCase() === 'USD' ? '$' : 'Bs '} {formatMoney(pago.moneda?.toUpperCase() === 'USD' ? toNumber(pago.monto_usd) : toNumber(pago.monto_origen))}</p>
-                      <p><span className="font-bold">Fecha:</span> {pago.fecha_pago ? String(pago.fecha_pago).slice(0, 10) : '-'}</p>
+                      <p className={pago.es_ajuste_historico ? 'text-red-600 dark:text-red-300 font-semibold' : ''}>
+                        <span className="font-bold">Fecha:</span> {pago.fecha_pago ? String(pago.fecha_pago).slice(0, 10) : '-'}
+                      </p>
                     </div>
+                    {pago.es_ajuste_historico && (
+                      <div className="mt-2 inline-flex items-center rounded-full border border-red-300 bg-red-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-red-700 dark:border-red-700 dark:bg-red-900/20 dark:text-red-300">
+                        SOLICITUD DE AJUSTE HISTORICO
+                      </div>
+                    )}
 
                     <div className="mt-3 flex gap-2 justify-end">
                       <button

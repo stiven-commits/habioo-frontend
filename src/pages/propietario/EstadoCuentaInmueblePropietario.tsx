@@ -5,7 +5,7 @@ import { useOutletContext } from 'react-router-dom';
 import ModalRegistrarPago from '../../components/ModalRegistrarPago';
 import { API_BASE_URL } from '../../config/api';
 import { formatMoney } from '../../utils/currency';
-import { formatDateTimeVE, formatDateVE, parseDateVE } from '../../utils/datetime';
+import { formatDateVE, parseDateVE } from '../../utils/datetime';
 
 interface PropiedadActiva {
   id_propiedad: number;
@@ -61,6 +61,7 @@ interface PropiedadPreseleccionada {
 }
 
 type SortDirection = 'asc' | 'desc';
+type SortColumn = 'fecha_operacion' | 'fecha_registro';
 
 const toNumber = (value: unknown): number => Number.parseFloat(String(value ?? 0)) || 0;
 const startOfDay = (date: Date): Date => new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
@@ -74,6 +75,7 @@ const EstadoCuentaInmueblePropietario: FC = () => {
   const [fechaDesde, setFechaDesde] = useState<Date | null>(null);
   const [fechaHasta, setFechaHasta] = useState<Date | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [sortColumn, setSortColumn] = useState<SortColumn>('fecha_operacion');
   const [pendingApprovals, setPendingApprovals] = useState<number>(0);
   const [showPayModal, setShowPayModal] = useState<boolean>(false);
   const [selectedPropPago, setSelectedPropPago] = useState<PropiedadPreseleccionada | null>(null);
@@ -172,11 +174,17 @@ const EstadoCuentaInmueblePropietario: FC = () => {
     void fetchNotificaciones();
   }, [propiedadActiva?.id_propiedad, showPayModal]);
 
-  const toggleSortIngreso = (): void => {
-    setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+  const toggleSort = (column: SortColumn): void => {
+    if (sortColumn === column) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+    setSortColumn(column);
+    setSortDirection('asc');
   };
 
-  const sortIndicator = (): string => {
+  const sortIndicator = (column: SortColumn): string => {
+    if (sortColumn !== column) return '↕';
     return sortDirection === 'asc' ? '↑' : '↓';
   };
 
@@ -212,10 +220,12 @@ const EstadoCuentaInmueblePropietario: FC = () => {
     });
 
     return [...filtered].sort((a, b) => {
-      const cmp = (parseDateVE(a.fecha_registro)?.getTime() ?? 0) - (parseDateVE(b.fecha_registro)?.getTime() ?? 0);
+      const aDate = sortColumn === 'fecha_operacion' ? a.fecha_operacion : a.fecha_registro;
+      const bDate = sortColumn === 'fecha_operacion' ? b.fecha_operacion : b.fecha_registro;
+      const cmp = (parseDateVE(aDate)?.getTime() ?? 0) - (parseDateVE(bDate)?.getTime() ?? 0);
       return sortDirection === 'asc' ? cmp : -cmp;
     });
-  }, [movimientosConSaldo, searchTerm, fechaDesde, fechaHasta, sortDirection]);
+  }, [movimientosConSaldo, searchTerm, fechaDesde, fechaHasta, sortDirection, sortColumn]);
 
   const totalCargo = useMemo(() => movimientosFiltrados.reduce((acc, m) => acc + toNumber(m.cargo), 0), [movimientosFiltrados]);
   const totalAbono = useMemo(() => movimientosFiltrados.reduce((acc, m) => acc + toNumber(m.abono), 0), [movimientosFiltrados]);
@@ -319,12 +329,14 @@ const EstadoCuentaInmueblePropietario: FC = () => {
               <thead className="bg-white dark:bg-donezo-card-dark">
                 <tr className="border-b border-gray-200 text-gray-500 dark:border-gray-700 dark:text-gray-400">
                   <th className="p-3 font-bold uppercase text-[11px]">
-                    <button type="button" onClick={toggleSortIngreso} className="font-bold hover:text-donezo-primary">
-                      Ingreso al Sistema {sortIndicator()}
+                    <button type="button" onClick={() => toggleSort('fecha_operacion')} className="font-bold hover:text-donezo-primary">
+                      Fecha Op. {sortIndicator('fecha_operacion')}
                     </button>
                   </th>
                   <th className="p-3 font-bold uppercase text-[11px]">
-                    Fecha Op.
+                    <button type="button" onClick={() => toggleSort('fecha_registro')} className="font-bold hover:text-donezo-primary">
+                      Ingreso al Sistema {sortIndicator('fecha_registro')}
+                    </button>
                   </th>
                   <th className="p-3 font-bold uppercase text-[11px]">
                     Concepto
@@ -345,8 +357,8 @@ const EstadoCuentaInmueblePropietario: FC = () => {
               <tbody>
                 {movimientosFiltrados.map((m, idx) => (
                   <tr key={`${m.tipo}-${m.fecha_registro}-${idx}`} className="border-b border-gray-50 hover:bg-gray-50 dark:border-gray-800/50 dark:hover:bg-gray-800/50">
-                    <td className="p-3 text-xs font-mono text-gray-600 dark:text-gray-300">{formatDateTimeVE(m.fecha_registro)}</td>
-                    <td className="p-3 text-[10px] font-mono text-gray-400">{formatDateVE(m.fecha_operacion)}</td>
+                    <td className="p-3 text-xs font-mono text-gray-600 dark:text-gray-300">{formatDateVE(m.fecha_operacion)}</td>
+                    <td className="p-3 text-[10px] font-mono text-gray-400">{formatDateVE(m.fecha_registro)}</td>
                     <td className="p-3 font-medium text-gray-800 dark:text-gray-200 break-words">
                       {m.tipo === 'RECIBO' ? m.concepto : `${m.tipo === 'PAGO' ? 'PAGO' : 'AJUSTE'} ${m.concepto}`}
                     </td>

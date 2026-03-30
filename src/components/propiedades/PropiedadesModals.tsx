@@ -11,7 +11,7 @@ import {
 import DateRangePicker from '../ui/DateRangePicker';
 import { es } from 'date-fns/locale/es';
 import { formatMoney } from '../../utils/currency';
-import { formatDateTimeVE, formatDateVE } from '../../utils/datetime';
+import { formatDateVE } from '../../utils/datetime';
 
 interface PropiedadFormData {
   identificador: string;
@@ -724,7 +724,7 @@ export const ModalEstadoCuenta: FC<ModalEstadoCuentaProps> = ({
                 {movimientosPagina.map((m, idx) => (
                   <tr key={idx} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                     <td className="p-3 text-gray-600 dark:text-gray-300 font-mono text-xs">{formatDateVE(m.fecha_operacion)}</td>
-                    <td className="p-3 text-gray-400 font-mono text-[10px]">{formatDateTimeVE(m.fecha_registro)}</td>
+                    <td className="p-3 text-gray-400 font-mono text-[10px]">{formatDateVE(m.fecha_registro)}</td>
                     <td className="p-3 font-medium text-gray-800 dark:text-gray-200">
                       {m.tipo === 'RECIBO' ? m.concepto : `${m.tipo === 'PAGO' ? 'PAGO' : 'AJUSTE'} ${m.concepto}`}
                     </td>

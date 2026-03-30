@@ -77,6 +77,28 @@ interface DialogContextType {
 
 const toNumber = (value: string | number | undefined | null): number => parseFloat(String(value ?? 0)) || 0;
 
+const normalizarAlicuota = (value: string): string => {
+  const raw = String(value ?? '').trim().replace(',', '.');
+  const n = parseFloat(raw);
+  if (!Number.isFinite(n)) return String(value ?? '').trim();
+  const normalized = n.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+  return normalized;
+};
+
+const formatearAlicuota = (value: string): string => String(value ?? '').trim().replace('.', ',');
+
+const dedupeAlicuotas = (values: string[] = []): string[] => {
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  values.forEach((value) => {
+    const key = normalizarAlicuota(value);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    unique.push(formatearAlicuota(value));
+  });
+  return unique;
+};
+
 const Cierres: FC<CierresProps> = () => {
   const { userRole } = useOutletContext<OutletContextType>();
   const { showConfirm } = useDialog() as DialogContextType;
@@ -117,16 +139,17 @@ const Cierres: FC<CierresProps> = () => {
       const dataBancos = await resBancos.json();
 
       if (result.status === 'success') {
+        const alicuotasUnicas = dedupeAlicuotas(result.alicuotas_disponibles || []);
         setData({
           mes_actual: result.mes_actual,
           mes_texto: result.mes_texto,
           total_usd: result.total_usd,
           gastos: result.gastos,
-          alicuotas_disponibles: result.alicuotas_disponibles,
+          alicuotas_disponibles: alicuotasUnicas,
           metodo_division: result.metodo_division
         });
-        if (result.alicuotas_disponibles.length > 0) {
-          const primeraAlicuota = result.alicuotas_disponibles[0];
+        if (alicuotasUnicas.length > 0) {
+          const primeraAlicuota = alicuotasUnicas[0];
           if (primeraAlicuota !== undefined) setSimulacionAlicuota(primeraAlicuota);
         }
       }
@@ -418,7 +441,7 @@ const Cierres: FC<CierresProps> = () => {
                 <div className="w-full sm:w-1/4">
                   <label className="text-xs text-blue-700 dark:text-blue-300 block mb-1 font-bold">Alicuota (%)</label>
                   <select value={simulacionAlicuota} onChange={(e: ChangeEvent<HTMLSelectElement>) => { setSimulacionAlicuota(e.target.value); setSearchProp(''); }} className="p-2.5 rounded-xl border border-blue-200 bg-white dark:bg-gray-800 dark:border-blue-800 outline-none w-full text-sm font-bold dark:text-white">
-                    {data.alicuotas_disponibles.map((a: string, i: number) => <option key={i} value={a}>{a}%</option>)}
+                    {data.alicuotas_disponibles.map((a: string) => <option key={a} value={a}>{a}%</option>)}
                   </select>
                 </div>
                 {/* RESULTADO ALICUOTA */}

@@ -446,7 +446,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
         )}
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xl font-bold text-gray-800 dark:text-white">Registrar Pago</h3>
-          <button disabled={isSubmitting} onClick={onClose} className="text-gray-400 hover:text-red-500 text-xl font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed">âœ•</button>
+          <button disabled={isSubmitting} onClick={onClose} className="text-gray-400 hover:text-red-500 text-xl font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed">✕</button>
         </div>
 
         {isLoading ? (

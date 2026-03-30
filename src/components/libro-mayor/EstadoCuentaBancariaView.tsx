@@ -54,6 +54,9 @@ interface IMovimiento extends IMovimientoDetalle {
   fondo_nombre?: string;
   pago_id?: number | null;
   inmueble?: string;
+  tipo_raw?: string;
+  es_apertura?: boolean;
+  apertura_sintetica?: boolean;
 }
 
 interface RollbackTarget {
@@ -340,12 +343,16 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       const normalizados: IMovimiento[] = rawMovimientos.map((mov, index): IMovimiento => {
         const safeMov: Partial<IMovimiento> = mov ?? {};
         const tipoRaw = String(safeMov.tipo || '').toUpperCase();
+        const notaRaw = String((safeMov as { nota?: unknown }).nota ?? '');
+        const referenciaRaw = String(safeMov.referencia ?? (safeMov as { referencia_id?: unknown }).referencia_id ?? '').trim();
         const concepto = String(
           safeMov.concepto
           || (safeMov as { fondo_nombre?: string }).fondo_nombre
-          || (safeMov as { nota?: unknown }).nota
+          || notaRaw
           || '-'
         );
+        const esApertura = /saldo\s+de\s+apertura|apertura\s+del\s+fondo/i.test(`${concepto} ${notaRaw}`)
+          || referenciaRaw.toUpperCase() === 'APERTURA';
         const esEgresoPorTipo = ['EGRESO', 'SALIDA', 'DEBITO', 'DESCUENTO', 'PAGO_PROVEEDOR', 'EGRESO_PAGO'].includes(tipoRaw);
         const esEgresoPorConcepto = /egreso manual libro mayor/i.test(concepto);
         const tipo: 'INGRESO' | 'EGRESO' = (esEgresoPorTipo || esEgresoPorConcepto) ? 'EGRESO' : 'INGRESO';
@@ -369,7 +376,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
         return {
           id: safeMov.id ?? `mov-${index}`,
           fecha: fechaPago,
-          referencia: String(safeMov.referencia ?? (safeMov as { referencia_id?: unknown }).referencia_id ?? ''),
+          referencia: referenciaRaw || (esApertura ? 'APERTURA' : ''),
           concepto,
           tipo,
           monto_bs: montoBs,
@@ -393,6 +400,8 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
             : '',
           pago_id: toNullableInt((safeMov as { pago_id?: unknown }).pago_id),
           fecha_registro: fechaRegistro,
+          tipo_raw: tipoRaw,
+          es_apertura: esApertura,
           ...(safeMov.saldo_acumulado !== undefined ? { saldo_acumulado: safeMov.saldo_acumulado } : {})
         };
       });
@@ -512,25 +521,6 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   }, [mode, fondosCuenta, ownerFondoSeleccionado]);
 
   const tasaBcvNum = toNumber(tasaBcv);
-  const saldoCuentaUsdActual = useMemo(
-    () =>
-      fondosCuenta.reduce((acc, f) => {
-        const saldo = toNumber(f.saldo_actual);
-        if (String(f.moneda).toUpperCase() === 'USD') return acc + saldo;
-        if (String(f.moneda).toUpperCase() === 'BS' && tasaBcvNum > 0) return acc + (saldo / tasaBcvNum);
-        return acc;
-      }, 0),
-    [fondosCuenta, tasaBcvNum]
-  );
-
-  const saldoCuentaBsActual = useMemo(
-    () =>
-      fondosCuenta.reduce((acc, f) => {
-        const saldo = toNumber(f.saldo_actual);
-        return String(f.moneda).toUpperCase() === 'BS' ? acc + saldo : acc;
-      }, 0),
-    [fondosCuenta]
-  );
 
   const movimientosFiltrados = useMemo(
     () =>
@@ -550,6 +540,11 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     [movimientos, fechaDesde, fechaHasta]
   );
 
+  const movimientosConApertura = useMemo(
+    () => movimientosFiltrados,
+    [movimientosFiltrados]
+  );
+
   const movimientosCuentaConsolidados = useMemo(() => {
     const movimientosDirectos: IMovimiento[] = [];
     const ingresosPorPago = new Map<string, IMovimiento[]>();
@@ -562,7 +557,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       return candidatas.sort((a, b) => (new Date(b).getTime() || 0) - (new Date(a).getTime() || 0))[0] || '';
     };
 
-    movimientosFiltrados.forEach((mov) => {
+    movimientosConApertura.forEach((mov) => {
       const pagoId = mov.pago_id ? String(mov.pago_id) : '';
       const concepto = String(mov.concepto || '');
       const esDistribucionPorFondo = /-\s*Fondo:\s*/i.test(concepto);
@@ -679,12 +674,12 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       if (fechaA !== fechaB) return fechaB - fechaA;
       return String(b.id).localeCompare(String(a.id));
     });
-  }, [movimientosFiltrados]);
+  }, [movimientosConApertura]);
 
   const movimientosBasePorVista = useMemo(() => {
     if (activeTab === 'cuenta') return movimientosCuentaConsolidados;
     if (activeTab === 'sin-fondo') {
-      return movimientosFiltrados.filter((movimiento) => {
+      return movimientosConApertura.filter((movimiento) => {
         const hasFondoId = toNullableInt((movimiento as { fondo_id?: unknown }).fondo_id) !== null;
         const hasFondoOrigen = toNullableInt((movimiento as { fondo_origen_id?: unknown }).fondo_origen_id) !== null;
         const hasFondoDestino = toNullableInt((movimiento as { fondo_destino_id?: unknown }).fondo_destino_id) !== null;
@@ -696,7 +691,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     if (!Number.isFinite(fondoId)) return [];
     const fondoActivo = fondosCuenta.find((f) => parseInt(String(f.id), 10) === fondoId);
     const fondoNombreNorm = String(fondoActivo?.nombre || '').trim().toLowerCase();
-    return movimientosFiltrados.filter((movimiento) => {
+    return movimientosConApertura.filter((movimiento) => {
       const movFondo = toNullableInt((movimiento as { fondo_id?: unknown }).fondo_id);
       const movOrigen = toNullableInt((movimiento as { fondo_origen_id?: unknown }).fondo_origen_id);
       const movDestino = toNullableInt((movimiento as { fondo_destino_id?: unknown }).fondo_destino_id);
@@ -704,7 +699,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       const movFondoNombre = String((movimiento as { fondo_nombre?: unknown }).fondo_nombre || '').trim().toLowerCase();
       return Boolean(fondoNombreNorm) && Boolean(movFondoNombre) && movFondoNombre === fondoNombreNorm;
     });
-  }, [movimientosFiltrados, activeTab, fondosCuenta, movimientosCuentaConsolidados]);
+  }, [movimientosConApertura, activeTab, fondosCuenta, movimientosCuentaConsolidados]);
 
   const movimientosPorVista = useMemo(() => {
     const txt = searchTerm.trim().toLowerCase();
@@ -720,13 +715,14 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       return '-';
     };
     return movimientosBasePorVista.filter((mov) => {
+      const concepto = String(mov.concepto || '').toLowerCase();
       const inmueble = getInmuebleTexto(mov).toLowerCase();
       const referencia = String(mov.referencia || '').toLowerCase();
       const montoUsd = toNumber(mov.monto_usd);
       const montoBs = toNumber(mov.monto_bs);
       const montoRaw = `${montoUsd.toFixed(2)} ${montoBs.toFixed(2)}`.toLowerCase();
       const montoFmt = `${formatCurrency(montoUsd)} ${formatCurrency(montoBs)}`.toLowerCase();
-      return inmueble.includes(txt) || referencia.includes(txt) || montoRaw.includes(txt) || montoFmt.includes(txt);
+      return concepto.includes(txt) || inmueble.includes(txt) || referencia.includes(txt) || montoRaw.includes(txt) || montoFmt.includes(txt);
     });
   }, [movimientosBasePorVista, searchTerm]);
 
@@ -774,6 +770,12 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     };
 
     return [...movimientosPorVista].sort((a, b) => {
+      const aperturaA = Boolean(a.es_apertura);
+      const aperturaB = Boolean(b.es_apertura);
+      if (aperturaA !== aperturaB) {
+        return aperturaA ? 1 : -1;
+      }
+
       const av = getSortValue(a, sortConfig.key);
       const bv = getSortValue(b, sortConfig.key);
       if (typeof av === 'number' && typeof bv === 'number') {
@@ -788,8 +790,6 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   const movimientosPagina = sortedMovimientosPorVista.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   const cuentaActual = cuentas.find((c) => String(c.id) === selectedCuenta);
   const isCuentaUsd = String(cuentaActual?.moneda || '').toUpperCase() === 'USD';
-  const saldoUsdEnBs = tasaBcvNum > 0 ? saldoCuentaUsdActual * tasaBcvNum : 0;
-  const hasFullDateRange = Boolean(fechaDesde && fechaHasta);
 
   const resumenFondos = useMemo(
     () => fondosCuenta.map((fondo) => {
@@ -797,15 +797,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       const fondoId = toNullableInt(fondo.id);
       const fondoNombreNorm = String(fondo.nombre || '').trim().toLowerCase();
 
-      if (!hasFullDateRange) {
-        const saldo = toNumber(fondo.saldo_actual);
-        const equivalenteUsd = moneda === 'USD'
-          ? saldo
-          : (moneda === 'BS' && tasaBcvNum > 0 ? (saldo / tasaBcvNum) : 0);
-        return { id: String(fondo.id), nombre: fondo.nombre || `Fondo ${fondo.id}`, moneda, saldo, equivalenteUsd };
-      }
-
-      const movimientosFondo = movimientosFiltrados.filter((mov) => {
+      const movimientosFondo = movimientosConApertura.filter((mov) => {
         const movFondo = toNullableInt((mov as { fondo_id?: unknown }).fondo_id);
         const movOrigen = toNullableInt((mov as { fondo_origen_id?: unknown }).fondo_origen_id);
         const movDestino = toNullableInt((mov as { fondo_destino_id?: unknown }).fondo_destino_id);
@@ -843,7 +835,24 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
         equivalenteUsd,
       };
     }),
-    [fondosCuenta, hasFullDateRange, movimientosFiltrados, tasaBcvNum]
+    [fondosCuenta, movimientosConApertura, tasaBcvNum]
+  );
+
+  const saldoCuentaBsActual = useMemo(
+    () => resumenFondos.reduce((acc, fondo) => (
+      fondo.moneda === 'BS' ? acc + toNumber(fondo.saldo) : acc
+    ), 0),
+    [resumenFondos]
+  );
+
+  const saldoCuentaUsdActual = useMemo(
+    () => resumenFondos.reduce((acc, fondo) => {
+      const saldo = toNumber(fondo.saldo);
+      if (fondo.moneda === 'USD') return acc + saldo;
+      if (fondo.moneda === 'BS' && tasaBcvNum > 0) return acc + (saldo / tasaBcvNum);
+      return acc;
+    }, 0),
+    [resumenFondos, tasaBcvNum]
   );
 
   const ownerResumenActual = useMemo(
@@ -926,7 +935,32 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     return 0;
   };
 
+  const totalesPagina = useMemo(() => (
+    movimientosPagina.reduce(
+      (acc, movimiento) => {
+        const montoBsVista = getMontoBsVista(movimiento);
+        const montoUsdVista = getMontoUsdVista(movimiento);
+        acc.montoBs += movimiento.tipo === 'EGRESO' ? -montoBsVista : montoBsVista;
+        if (movimiento.tipo === 'EGRESO') acc.cargoUsd += montoUsdVista;
+        if (movimiento.tipo === 'INGRESO') acc.abonoUsd += montoUsdVista;
+        return acc;
+      },
+      { montoBs: 0, cargoUsd: 0, abonoUsd: 0 }
+    )
+  ), [movimientosPagina, tasaBcvNum]);
+
   const getConceptoVista = (movimiento: IMovimiento): string => {
+    const fondoNombreMov = String(movimiento.fondo_nombre || '').trim();
+    const fondoNombrePorId = fondoNombreMov
+      || String(fondosCuenta.find((f) => toNullableInt(f.id) === toNullableInt(movimiento.fondo_id))?.nombre || '').trim();
+    const etiquetaFondo = fondoNombrePorId ? ` (${fondoNombrePorId})` : '';
+
+    if (movimiento.es_apertura && movimiento.apertura_sintetica) {
+      return `Saldo de apertura del fondo${etiquetaFondo} (reconstruido)`;
+    }
+    if (movimiento.es_apertura) {
+      return `Saldo de apertura del fondo${etiquetaFondo}`;
+    }
     const banco = movimiento.banco_origen?.trim();
     const cedula = movimiento.cedula_origen?.trim();
     if (movimiento.tipo === 'INGRESO' && (banco || cedula)) {
@@ -1563,7 +1597,13 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                       <td className="p-4 font-medium text-gray-800 dark:text-gray-200">{getConceptoVista(movimiento)}</td>
                       {!isCuentaUsd && (
                         <td className="p-4 text-right font-black font-mono text-slate-700 dark:text-slate-200">
-                          {montoBsVista > 0 ? `Bs ${formatCurrency(montoBsVista)}` : '-'}
+                          {montoBsVista > 0 ? (
+                            movimiento.tipo === 'EGRESO' ? (
+                              <span className="text-red-600 dark:text-red-400">-Bs {formatCurrency(montoBsVista)}</span>
+                            ) : (
+                              <span>Bs {formatCurrency(montoBsVista)}</span>
+                            )
+                          ) : '-'}
                         </td>
                       )}
                       <td className="p-4 text-right font-black font-mono">
@@ -1625,6 +1665,30 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                   );
                 })}
               </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/40">
+                  <td colSpan={4} className="p-4 font-black text-gray-700 dark:text-gray-200">
+                    Total página
+                  </td>
+                  {!isCuentaUsd && (
+                    <td className="p-4 text-right font-black font-mono text-slate-700 dark:text-slate-200">
+                      {totalesPagina.montoBs < 0
+                        ? `-Bs ${formatCurrency(Math.abs(totalesPagina.montoBs))}`
+                        : `Bs ${formatCurrency(totalesPagina.montoBs)}`}
+                    </td>
+                  )}
+                  <td className="p-4 text-right font-black font-mono text-red-600 dark:text-red-400">
+                    {`-${formatCurrency(totalesPagina.cargoUsd)}`}
+                  </td>
+                  <td className="p-4 text-right font-black font-mono text-emerald-600 dark:text-emerald-400">
+                    {`+${formatCurrency(totalesPagina.abonoUsd)}`}
+                  </td>
+                  {!isCuentaUsd && (
+                    <td className="p-4 text-right font-mono text-gray-400">-</td>
+                  )}
+                  {mode === 'admin' && <td className="p-4 text-center text-gray-400">-</td>}
+                </tr>
+              </tfoot>
             </table>
           </div>
         )}

@@ -466,8 +466,8 @@ const Gastos: FC<GastosProps> = () => {
   };
 
   const sortIndicator = (column: SortColumn): string => {
-    if (sortConfig.column !== column) return 'â†•';
-    return sortConfig.direction === 'asc' ? 'â†‘' : 'â†“';
+    if (sortConfig.column !== column) return '↕';
+    return sortConfig.direction === 'asc' ? '↑' : '↓';
   };
 
   const getExtraProgress = (gasto: GastoAgrupado): ExtraProgress => {
@@ -699,7 +699,7 @@ const Gastos: FC<GastosProps> = () => {
                         >
                           <td className="p-3 text-center" onClick={(e: ReactMouseEvent<HTMLElement>) => toggleRow(g.gasto_id, e)}>
                             <button className="text-gray-400 hover:text-donezo-primary transition-colors text-lg">
-                              {expandedRows[String(g.gasto_id)] ? 'â–¼' : 'â–¶'}
+                              {expandedRows[String(g.gasto_id)] ? '▼' : '▶'}
                             </button>
                           </td>
                           <td className="p-3">
