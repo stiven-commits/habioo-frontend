@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { FC, ChangeEvent, FormEvent } from 'react';
+import ModalBase from './ui/ModalBase';
 import { formatMoney } from '../utils/currency';
 import { API_BASE_URL } from '../config/api';
 import { useDialog } from './ui/DialogProvider';
@@ -387,18 +388,13 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo, ref
   const tieneOperativo = fondos.some((f: Fondo) => f.es_operativo);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-2xl shadow-2xl border border-gray-100 dark:border-gray-800 relative my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
-        <button
-          onClick={onClose}
-          disabled={isCreatingFondo}
-          className="absolute top-4 right-4 text-gray-500 hover:text-red-500 font-bold text-xl disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          X
-        </button>
-
-        <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-1">Configuracion de Fondos</h3>
-        <p className="text-sm text-gray-500 mb-6">Cuenta bancaria: <strong className="text-donezo-primary">{cuenta.nombre_banco} ({cuenta.apodo})</strong></p>
+    <ModalBase
+      onClose={onClose}
+      title="Configuracion de Fondos"
+      subtitle={<>Cuenta bancaria: <strong className="text-donezo-primary">{cuenta.nombre_banco} ({cuenta.apodo})</strong></>}
+      maxWidth="max-w-2xl"
+      disableClose={isCreatingFondo}
+    >
 
         {!tieneOperativo && (
           <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border-l-4 border-blue-500 shadow-sm">
@@ -612,8 +608,7 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo, ref
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </ModalBase>
   );
 };
 

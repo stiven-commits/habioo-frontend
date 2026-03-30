@@ -1,4 +1,5 @@
 ﻿import { useMemo, useState, type FC, type FormEvent } from 'react';
+import ModalBase from '../ui/ModalBase';
 import { CalendarDays } from 'lucide-react';
 import DatePicker from '../ui/DatePicker';
 import { es } from 'date-fns/locale/es';
@@ -129,25 +130,8 @@ const ModalReservarAlquiler: FC<ModalReservarAlquilerProps> = ({ isOpen, onClose
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/55 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="min-h-full flex items-start sm:items-center justify-center">
-        <div className="w-full max-w-lg rounded-3xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-donezo-card-dark shadow-2xl overflow-hidden">
-          <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-800">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="text-xl font-black text-gray-900 dark:text-white">Reservar {alquiler.nombre}</h3>
-              <button
-                type="button"
-                onClick={handleClose}
-                disabled={isLoading}
-                className="h-10 w-10 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-500 hover:text-red-500 hover:border-red-300 transition-colors disabled:opacity-60"
-                aria-label="Cerrar modal"
-              >
-                X
-              </button>
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit} className="p-6 space-y-4">
+    <ModalBase onClose={handleClose} title={`Reservar ${alquiler.nombre}`} maxWidth="max-w-lg" disableClose={isLoading}>
+      <form onSubmit={handleSubmit} className="space-y-4">
             <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-4 space-y-2">
               <p className="text-xs font-black uppercase tracking-wider text-gray-500 dark:text-gray-400">Resumen de pago</p>
               <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">
@@ -204,10 +188,8 @@ const ModalReservarAlquiler: FC<ModalReservarAlquilerProps> = ({ isOpen, onClose
                 {isLoading ? 'Enviando...' : 'Confirmar Solicitud'}
               </button>
             </div>
-          </form>
-        </div>
-      </div>
-    </div>
+      </form>
+    </ModalBase>
   );
 };
 

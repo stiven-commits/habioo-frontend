@@ -1,5 +1,6 @@
 ﻿import React, { useState, useEffect } from 'react';
 import type { FC, ChangeEvent, FormEvent } from 'react';
+import ModalBase from './ui/ModalBase';
 import DatePicker from './ui/DatePicker';
 import { es } from 'date-fns/locale/es';
 import { formatMoney } from '../utils/currency';
@@ -431,23 +432,18 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
   if (!propiedadPreseleccionada) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
-      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 relative my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
-        {isSubmitting && (
-          <div className="absolute inset-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm z-50 rounded-3xl flex flex-col items-center justify-center px-6 text-center">
-            <div className="relative w-14 h-14 mb-4">
-              <div className="absolute inset-0 rounded-full border-4 border-indigo-200 dark:border-indigo-900/50" />
-              <div className="absolute inset-0 rounded-full border-4 border-indigo-600 dark:border-indigo-400 border-t-transparent animate-spin" />
-            </div>
-            <p className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
-              Procesando pago y actualizando saldos... Por favor, espere.
-            </p>
+    <ModalBase onClose={onClose} title="Registrar Pago" maxWidth="max-w-md" disableClose={isSubmitting}>
+      {isSubmitting && (
+        <div className="absolute inset-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm z-50 rounded-3xl flex flex-col items-center justify-center px-6 text-center">
+          <div className="relative w-14 h-14 mb-4">
+            <div className="absolute inset-0 rounded-full border-4 border-indigo-200 dark:border-indigo-900/50" />
+            <div className="absolute inset-0 rounded-full border-4 border-indigo-600 dark:border-indigo-400 border-t-transparent animate-spin" />
           </div>
-        )}
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-bold text-gray-800 dark:text-white">Registrar Pago</h3>
-          <button disabled={isSubmitting} onClick={onClose} className="text-gray-400 hover:text-red-500 text-xl font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed">✕</button>
+          <p className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+            Procesando pago y actualizando saldos... Por favor, espere.
+          </p>
         </div>
+      )}
 
         {isLoading ? (
           <div className="flex justify-center items-center p-8">
@@ -621,8 +617,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
             </form>
           </>
         )}
-      </div>
-    </div>
+    </ModalBase>
   );
 };
 

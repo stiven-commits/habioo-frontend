@@ -1,5 +1,6 @@
 ﻿import React, { useState } from 'react';
 import type { FC, ChangeEvent, FormEvent } from 'react';
+import ModalBase from './ui/ModalBase';
 import DatePicker from './ui/DatePicker';
 import { es } from 'date-fns/locale/es';
 import { API_BASE_URL } from '../config/api';
@@ -219,12 +220,8 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
-      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-2xl shadow-2xl border border-gray-100 dark:border-gray-800 relative my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
-        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl">✕</button>
-        <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">{mode === 'edit' ? 'Editar Gasto' : 'Registrar Gasto'}</h3>
-        
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-6">
+    <ModalBase onClose={onClose} title={mode === 'edit' ? 'Editar Gasto' : 'Registrar Gasto'} maxWidth="max-w-2xl">
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Proveedor <span className="text-red-500">*</span></label>
             <select name="proveedor_id" value={form.proveedor_id} onChange={handleChange} required className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white">
@@ -540,9 +537,8 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
               {mode === 'edit' ? 'Guardar Cambios' : 'Guardar Gasto'}
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </ModalBase>
   );
 };
 

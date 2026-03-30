@@ -1,4 +1,5 @@
 import { useMemo, useState, type FC } from 'react';
+import ModalBase from '../ui/ModalBase';
 import { Copy, ExternalLink } from 'lucide-react';
 import { API_BASE_URL } from '../../config/api';
 import { useDialog } from '../ui/DialogProvider';
@@ -166,25 +167,8 @@ const ModalVerificarPagoAlquiler: FC<ModalVerificarPagoAlquilerProps> = ({
   if (!isOpen || !solicitud) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/55 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="min-h-full flex items-start sm:items-center justify-center">
-        <div className="w-full max-w-5xl rounded-3xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-donezo-card-dark shadow-2xl overflow-hidden">
-          <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-800 flex items-start justify-between gap-4">
-            <div>
-              <h3 className="text-xl font-black text-gray-900 dark:text-white">Verificar Pago - {solicitud.lugar}</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Revisión y validación del pago reportado.</p>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isLoading}
-              className="h-10 w-10 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-500 hover:text-red-500 hover:border-red-300 transition-colors disabled:opacity-60"
-            >
-              X
-            </button>
-          </div>
-
-          <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <ModalBase onClose={onClose} title={`Verificar Pago - ${solicitud.lugar}`} subtitle="Revisión y validación del pago reportado." maxWidth="max-w-5xl" disableClose={isLoading}>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="space-y-4 rounded-2xl border border-gray-100 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-800/40 p-4">
               <div>
                 <p className="text-[11px] font-black uppercase tracking-wider text-gray-500 dark:text-gray-400">Fecha del evento</p>
@@ -254,9 +238,9 @@ const ModalVerificarPagoAlquiler: FC<ModalVerificarPagoAlquilerProps> = ({
                 </a>
               )}
             </div>
-          </div>
+      </div>
 
-          <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 flex items-center justify-end gap-2">
+      <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 flex items-center justify-end gap-2">
             {readOnly ? (
               <button
                 type="button"
@@ -285,10 +269,8 @@ const ModalVerificarPagoAlquiler: FC<ModalVerificarPagoAlquilerProps> = ({
                 </button>
               </>
             )}
-          </div>
-        </div>
       </div>
-    </div>
+    </ModalBase>
   );
 };
 

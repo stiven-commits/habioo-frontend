@@ -1,4 +1,5 @@
 ﻿import { useEffect, useMemo, useState, type ChangeEvent, type FC, type FormEvent } from 'react';
+import ModalBase from '../ui/ModalBase';
 import { CalendarDays, UploadCloud } from 'lucide-react';
 import DatePicker from '../ui/DatePicker';
 import { es } from 'date-fns/locale/es';
@@ -287,29 +288,8 @@ const ModalReportarPagoAlquiler: FC<ModalReportarPagoAlquilerProps> = ({
   if (!isOpen || !reservacion) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="min-h-full flex items-start sm:items-center justify-center">
-        <div className="w-full max-w-3xl rounded-3xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-donezo-card-dark shadow-2xl overflow-hidden">
-          <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-800 flex items-start justify-between gap-4">
-            <div>
-              <h3 className="text-xl font-black text-gray-900 dark:text-white">
-                Reportar Pago - {reservacion.amenidad_nombre}
-              </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Registra el soporte del pago para validación de la Junta.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleClose}
-              className="h-10 w-10 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-500 hover:text-red-500 hover:border-red-300 transition-colors"
-              aria-label="Cerrar modal"
-            >
-              X
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmit} className="p-6 space-y-5">
+    <ModalBase onClose={handleClose} title={`Reportar Pago - ${reservacion.amenidad_nombre}`} subtitle="Registra el soporte del pago para validación de la Junta." maxWidth="max-w-3xl" disableClose={isLoading}>
+      <form onSubmit={handleSubmit} className="space-y-5">
             <div className="rounded-2xl border border-blue-100 dark:border-blue-900/40 bg-blue-50 dark:bg-blue-900/10 p-4">
               <p className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-300">Resumen</p>
               <p className="text-2xl font-black text-blue-700 dark:text-blue-300 mt-1">
@@ -445,10 +425,8 @@ const ModalReportarPagoAlquiler: FC<ModalReportarPagoAlquilerProps> = ({
                 {isLoading ? 'Enviando...' : 'Enviar Reporte'}
               </button>
             </div>
-          </form>
-        </div>
-      </div>
-    </div>
+      </form>
+    </ModalBase>
   );
 };
 

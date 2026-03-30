@@ -5,8 +5,9 @@ import { es } from 'date-fns/locale/es';
 import { formatMoney } from '../utils/currency';
 import { API_BASE_URL } from '../config/api';
 import { useDialog } from './ui/DialogProvider';
+import ModalBase from './ui/ModalBase';
 
-interface ModalBaseProps {
+interface ModalActionProps {
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -77,12 +78,12 @@ interface BcvResponse {
   promedio?: number | string;
 }
 
-interface ModalEliminarFondoProps extends ModalBaseProps {
+interface ModalEliminarFondoProps extends ModalActionProps {
   fondo: Fondo | null;
   fondosDisponibles: Fondo[];
 }
 
-interface ModalRegistrarEgresoProps extends ModalBaseProps {
+interface ModalRegistrarEgresoProps extends ModalActionProps {
   initialCuentaId?: string;
 }
 
@@ -373,7 +374,7 @@ const SearchableCombobox: React.FC<{
   );
 };
 
-export const ModalPagoProveedor: React.FC<ModalBaseProps> = ({ onClose, onSuccess }) => {
+export const ModalPagoProveedor: React.FC<ModalActionProps> = ({ onClose, onSuccess }) => {
   const { showAlert, showConfirm } = useDialog();
 
   const [fondos, setFondos] = useState<Fondo[]>([]);
@@ -479,12 +480,7 @@ export const ModalPagoProveedor: React.FC<ModalBaseProps> = ({ onClose, onSucces
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
-      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-bold text-gray-800 dark:text-white">Pagar a Proveedor</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-red-500 font-bold text-xl">X</button>
-        </div>
+    <ModalBase onClose={onClose} title="Pagar a Proveedor" maxWidth="max-w-md">
 
         {loading ? <p className="text-center text-gray-500">Cargando...</p> : (
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -562,12 +558,11 @@ export const ModalPagoProveedor: React.FC<ModalBaseProps> = ({ onClose, onSucces
             <button type="submit" className="w-full py-3 bg-donezo-primary text-white font-bold rounded-xl hover:bg-green-700 transition-all shadow-lg">Confirmar Pago a Proveedor</button>
           </form>
         )}
-      </div>
-    </div>
+    </ModalBase>
   );
 };
 
-export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSuccess }) => {
+export const ModalTransferencia: React.FC<ModalActionProps> = ({ onClose, onSuccess }) => {
   const { showAlert, showConfirm } = useDialog();
 
   const [fondos, setFondos] = useState<Fondo[]>([]);
@@ -797,12 +792,7 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
-      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 custom-scrollbar max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-bold text-gray-800 dark:text-white">Transferir Dinero</h3>
-          <button onClick={handleCloseTransferModal} className="text-gray-500 hover:text-red-500 font-bold text-xl">X</button>
-        </div>
+    <ModalBase onClose={handleCloseTransferModal} title="Transferir Dinero" maxWidth="max-w-md">
 
         {loading ? <p className="text-center text-gray-500">Cargando fondos...</p> : (
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -906,8 +896,7 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
             )}
           </form>
         )}
-      </div>
-    </div>
+    </ModalBase>
   );
 };
 
@@ -1099,12 +1088,7 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
-      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 custom-scrollbar max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-bold text-gray-800 dark:text-white">Registrar Egreso</h3>
-          <button onClick={handleCloseEgresoModal} className="text-gray-500 hover:text-red-500 font-bold text-xl">X</button>
-        </div>
+    <ModalBase onClose={handleCloseEgresoModal} title="Registrar Egreso" maxWidth="max-w-md">
 
         {loading ? (
           <p className="text-center text-gray-500">Cargando...</p>
@@ -1223,8 +1207,7 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
             </button>
           </form>
         )}
-      </div>
-    </div>
+    </ModalBase>
   );
 };
 
@@ -1275,14 +1258,8 @@ export const ModalEliminarFondo: React.FC<ModalEliminarFondoProps> = ({ fondo, f
   if (!fondo) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
-      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-bold text-red-600 dark:text-red-400">Eliminar Fondo</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-red-500 font-bold text-xl">X</button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4 mt-6">
+    <ModalBase onClose={onClose} title="Eliminar Fondo" maxWidth="max-w-md">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <p className="text-sm text-gray-700 dark:text-gray-300">
             Esta accion desactiva el fondo <strong>{fondo.nombre}</strong>. El historial de movimientos se conserva para auditoria.
           </p>
@@ -1311,12 +1288,8 @@ export const ModalEliminarFondo: React.FC<ModalEliminarFondoProps> = ({ fondo, f
             {loading ? 'Procesando...' : 'Confirmar Eliminacion'}
           </button>
         </form>
-      </div>
-    </div>
+    </ModalBase>
   );
 };
-
-
-
 
 

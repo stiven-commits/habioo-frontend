@@ -560,12 +560,17 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     movimientosConApertura.forEach((mov) => {
       const pagoId = mov.pago_id ? String(mov.pago_id) : '';
       const concepto = String(mov.concepto || '');
-      const esDistribucionPorFondo = /-\s*Fondo:\s*/i.test(concepto);
+      const rawId = String(mov.id || '');
+      const referencia = String(mov.referencia || '').trim();
+      const esIngresoEnFondo = mov.tipo === 'INGRESO'
+        && /^ING-MF-\d+$/i.test(rawId)
+        && toNullableInt((mov as { fondo_id?: unknown }).fondo_id) !== null;
+      const esAjusteReferenciado = /^AJ-/i.test(referencia);
       const pagoMatchLegacy = concepto.match(/Pago de Recibo #(\d+)/i);
       const pagoMatchRef = concepto.match(/Pago Ref:\s*([^\s|]+)/i);
       const pagoClave = pagoId || (pagoMatchLegacy?.[1] || '') || (pagoMatchRef?.[1] || '');
 
-      if (mov.tipo === 'INGRESO' && esDistribucionPorFondo && pagoClave) {
+      if (esIngresoEnFondo && !esAjusteReferenciado && pagoClave) {
         const groupKey = `pago-${pagoClave}`;
         const grupo = ingresosPorPago.get(groupKey) || [];
         grupo.push(mov);
@@ -573,12 +578,9 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
         return;
       }
 
-      const rawId = String(mov.id || '');
-      const referencia = String(mov.referencia || '').trim();
       const esAjusteDistribuido = mov.tipo === 'INGRESO'
         && /^ING-MF-\d+$/i.test(rawId)
         && !mov.pago_id
-        && /ajuste/i.test(concepto)
         && /^AJ-/i.test(referencia);
       if (esAjusteDistribuido) {
         const groupKey = `ajuste-${referencia.toUpperCase()}`;

@@ -2,6 +2,7 @@ import React from 'react';
 import type { FC } from 'react';
 import { formatMoney } from '../utils/currency';
 import { API_BASE_URL } from '../config/api';
+import ModalBase from './ui/ModalBase';
 
 interface GastoDetalle {
   proveedor: string;
@@ -28,12 +29,8 @@ const ModalDetallesGasto: FC<ModalDetallesGastoProps> = ({ gasto, onClose }) => 
   const getFileUrl = (path: string): string => `${API_BASE_URL}${path}`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 relative my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
-        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl">✕</button>
-        <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Inspección de Gasto</h3>
-        
-        <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
+    <ModalBase onClose={onClose} title="Inspección de Gasto" maxWidth="max-w-md">
+      <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
           <div className="flex justify-between items-start border-b border-gray-100 dark:border-gray-700 pb-3">
             <div>
               <p><strong className="text-gray-800 dark:text-white">Proveedor:</strong> <br/>{gasto.proveedor}</p>
@@ -101,9 +98,8 @@ const ModalDetallesGasto: FC<ModalDetallesGastoProps> = ({ gasto, onClose }) => 
           )}
         </div>
 
-        <button onClick={onClose} className="mt-6 w-full px-6 py-3 rounded-xl font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600">Cerrar</button>
-      </div>
-    </div>
+      <button onClick={onClose} className="mt-6 w-full px-6 py-3 rounded-xl font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600">Cerrar</button>
+    </ModalBase>
   );
 };
 

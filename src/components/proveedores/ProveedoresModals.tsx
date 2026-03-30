@@ -1,4 +1,5 @@
 ﻿import React, { useState } from 'react';
+import ModalBase from '../ui/ModalBase';
 
 interface ProveedorForm {
   identificador: string;
@@ -161,16 +162,13 @@ export const ModalProveedorForm: React.FC<ModalProveedorFormProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
-      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-8 w-full max-w-3xl shadow-2xl relative my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
-        <button onClick={() => setIsModalOpen(false)} className="absolute top-6 right-6 text-gray-400 hover:text-red-500 font-bold text-2xl transition-colors">X</button>
-
-        <div className="mb-6 border-b border-gray-100 dark:border-gray-800 pb-4">
-          <h3 className="text-2xl font-black text-gray-800 dark:text-white">{editingId ? 'Editar Proveedor' : 'Registrar Proveedor'}</h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Los campos marcados con (<span className="text-red-500 font-bold">*</span>) son obligatorios.</p>
-        </div>
-
-        <form onSubmit={handleSubmitValidated} className="space-y-5" noValidate>
+    <ModalBase
+      onClose={() => setIsModalOpen(false)}
+      title={editingId ? 'Editar Proveedor' : 'Registrar Proveedor'}
+      subtitle={<>Los campos marcados con (<span className="text-red-500 font-bold">*</span>) son obligatorios.</>}
+      maxWidth="max-w-3xl"
+    >
+      <form onSubmit={handleSubmitValidated} className="space-y-5" noValidate>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Identificador / RIF <span className="text-red-500">*</span></label>
@@ -288,9 +286,8 @@ export const ModalProveedorForm: React.FC<ModalProveedorFormProps> = ({
             <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-3 rounded-xl font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 transition-all">Cancelar</button>
             <button type="submit" className="px-6 py-3 rounded-xl font-bold bg-donezo-primary text-white hover:bg-green-700 transition-all shadow-md">{editingId ? 'Guardar Cambios' : 'Guardar Proveedor'}</button>
           </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </ModalBase>
   );
 };
 
@@ -298,15 +295,8 @@ export const ModalProveedorDetails: React.FC<ModalProveedorDetailsProps> = ({ is
   if (!isOpen || !prov) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
-      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-8 w-full max-w-3xl shadow-2xl relative my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
-        <button onClick={() => setIsOpen(false)} className="absolute top-6 right-6 text-gray-400 hover:text-red-500 font-bold text-2xl transition-colors">X</button>
-
-        <div className="mb-6 border-b border-gray-100 dark:border-gray-800 pb-4">
-          <h3 className="text-2xl font-black text-gray-800 dark:text-white">Detalles del Proveedor</h3>
-        </div>
-
-        <div className="space-y-5">
+    <ModalBase onClose={() => setIsOpen(false)} title="Detalles del Proveedor" maxWidth="max-w-3xl">
+      <div className="space-y-5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Identificador / RIF</label>
@@ -353,9 +343,8 @@ export const ModalProveedorDetails: React.FC<ModalProveedorDetailsProps> = ({ is
           <div className="flex justify-end pt-6 border-t border-gray-100 dark:border-gray-800">
             <button type="button" onClick={() => setIsOpen(false)} className="px-8 py-3 rounded-xl font-bold bg-donezo-primary text-white hover:bg-green-700 transition-all shadow-md">Cerrar Detalles</button>
           </div>
-        </div>
       </div>
-    </div>
+    </ModalBase>
   );
 };
 

@@ -9,6 +9,7 @@ import {
   type SetStateAction,
 } from 'react';
 import DateRangePicker from '../ui/DateRangePicker';
+import ModalBase from '../ui/ModalBase';
 import { es } from 'date-fns/locale/es';
 import { formatMoney } from '../../utils/currency';
 import { formatDateVE } from '../../utils/datetime';
@@ -358,11 +359,12 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-3xl shadow-2xl border border-gray-100 dark:border-gray-800 relative my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
-        <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl">X</button>
-        <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">{editingId ? 'Editar Inmueble' : 'Nuevo Inmueble'}</h3>
-        <form onSubmit={handleSubmit} className="space-y-6">
+    <ModalBase
+      onClose={() => setIsModalOpen(false)}
+      title={editingId ? 'Editar Inmueble' : 'Nuevo Inmueble'}
+      maxWidth="max-w-3xl"
+    >
+      <form onSubmit={handleSubmit} className="space-y-6">
           <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
             <h4 className="font-bold text-donezo-primary mb-3 text-sm uppercase tracking-wider">1. Datos del Inmueble</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -621,9 +623,8 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
           </div>
 
           <div className="flex justify-end gap-3 pt-4"><button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-3 rounded-xl bg-gray-100 dark:bg-gray-800 font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200 transition-colors">Cancelar</button><button type="submit" id="btnSubmitProp" className="px-6 py-3 rounded-xl font-bold bg-donezo-primary text-white hover:bg-blue-700 transition-all">{editingId ? 'Guardar Cambios' : 'Registrar Inmueble'}</button></div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </ModalBase>
   );
 };
 
@@ -814,13 +815,13 @@ export const ModalAjusteSaldo: FC<ModalAjusteSaldoProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
-      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl relative my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
-        <button onClick={() => setAjusteModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl">X</button>
-        <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2 flex items-center gap-2">Ajustar Saldo</h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Inmueble: <strong className="text-donezo-primary">{selectedPropAjuste.identificador}</strong></p>
-
-        <form onSubmit={handleSubmitAjuste} className="space-y-4">
+    <ModalBase
+      onClose={() => setAjusteModalOpen(false)}
+      title="Ajustar Saldo"
+      subtitle={<>Inmueble: <strong className="text-donezo-primary">{selectedPropAjuste.identificador}</strong></>}
+      maxWidth="max-w-md"
+    >
+      <form onSubmit={handleSubmitAjuste} className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Acción a realizar</label>
             <select value={formAjuste.tipo_ajuste} onChange={(e: ChangeEvent<HTMLSelectElement>) => setFormAjuste({ ...formAjuste, tipo_ajuste: (e.target.value === 'FAVOR' ? 'FAVOR' : 'DEUDA'), subtipo_favor: 'directo' })} className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-bold outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white">
@@ -849,9 +850,8 @@ export const ModalAjusteSaldo: FC<ModalAjusteSaldoProps> = ({
             Este ajuste afecta solo el estado de cuenta del inmueble. No genera movimientos en los estados de cuenta bancarios.
           </p>
           <div className="pt-4 flex gap-3"><button type="button" onClick={() => setAjusteModalOpen(false)} className="flex-1 py-3 rounded-xl font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 transition-colors">Cancelar</button><button type="submit" className="flex-1 py-3 rounded-xl font-bold bg-yellow-500 text-white hover:bg-yellow-600 transition-all">Aplicar Ajuste</button></div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </ModalBase>
   );
 };
 
@@ -891,13 +891,14 @@ export const ModalCopropietarioForm: FC<ModalCopropietarioFormProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
-      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-xl shadow-2xl border border-gray-100 dark:border-gray-800 relative my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
-        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl" disabled={isSubmitting}>X</button>
-        <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-1">Agregar Copropietario</h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Inmueble: <strong>{propiedadIdentificador}</strong></p>
-
-        <form onSubmit={onSubmit} className="space-y-4">
+    <ModalBase
+      onClose={onClose}
+      title="Agregar Copropietario"
+      subtitle={<>Inmueble: <strong>{propiedadIdentificador}</strong></>}
+      maxWidth="max-w-xl"
+      disableClose={isSubmitting}
+    >
+      <form onSubmit={onSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-gray-500 mb-1">Cédula *</label>
@@ -1079,8 +1080,7 @@ export const ModalCopropietarioForm: FC<ModalCopropietarioFormProps> = ({
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </ModalBase>
   );
 };
 
@@ -1097,15 +1097,14 @@ export const ModalResidenteForm: FC<ModalResidenteFormProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
-      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-xl shadow-2xl border border-gray-100 dark:border-gray-800 relative my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
-        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl" disabled={isSubmitting}>X</button>
-        <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-1">
-          {hasExistingResidente ? 'Editar Residente / Inquilino' : 'Agregar Residente / Inquilino'}
-        </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Inmueble: <strong>{propiedadIdentificador}</strong></p>
-
-        <form onSubmit={onSubmit} className="space-y-4">
+    <ModalBase
+      onClose={onClose}
+      title={hasExistingResidente ? 'Editar Residente / Inquilino' : 'Agregar Residente / Inquilino'}
+      subtitle={<>Inmueble: <strong>{propiedadIdentificador}</strong></>}
+      maxWidth="max-w-xl"
+      disableClose={isSubmitting}
+    >
+      <form onSubmit={onSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-gray-500 mb-1">Cédula *</label>
@@ -1177,9 +1176,8 @@ export const ModalResidenteForm: FC<ModalResidenteFormProps> = ({
               {isSubmitting ? 'Guardando...' : hasExistingResidente ? 'Guardar Cambios' : 'Guardar Residente / Inquilino'}
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </ModalBase>
   );
 };
 
