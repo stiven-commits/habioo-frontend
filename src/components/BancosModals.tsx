@@ -574,6 +574,7 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
   const [cuentas, setCuentas] = useState<CuentaBancaria[]>([]);
   const [saldosFondos, setSaldosFondos] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState<boolean>(true);
+  const [isSubmittingTransfer, setIsSubmittingTransfer] = useState<boolean>(false);
   const [cuentaDestinoId, setCuentaDestinoId] = useState<string>('');
 
   const [form, setForm] = useState<TransferenciaForm>({
@@ -735,6 +736,7 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
+    if (isSubmittingTransfer) return;
 
     if (!form.fondo_origen_id || !cuentaDestinoId) {
       await showAlert({ title: 'Campos requeridos', message: 'Seleccione fondo de origen y cuenta destino.', variant: 'warning' });
@@ -767,6 +769,7 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
     if (!ok) return;
 
     const token = localStorage.getItem('habioo_token');
+    setIsSubmittingTransfer(true);
     try {
       const res = await fetch(`${API_BASE_URL}/transferencias`, {
         method: 'POST',
@@ -788,6 +791,8 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
       }
     } catch (error) {
       await showAlert({ title: 'Error de red', message: 'No se pudo procesar la transferencia.', variant: 'danger' });
+    } finally {
+      setIsSubmittingTransfer(false);
     }
   };
 
@@ -894,8 +899,8 @@ export const ModalTransferencia: React.FC<ModalBaseProps> = ({ onClose, onSucces
                   <textarea rows={2} value={form.nota} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setForm({ ...form, nota: e.target.value })} placeholder="Motivo de la transferencia" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary resize-none" />
                 </div>
 
-                <button type="submit" disabled={!isTransferFormValid} className="w-full py-3 mt-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
-                  Procesar Transferencia
+                <button type="submit" disabled={!isTransferFormValid || isSubmittingTransfer} className="w-full py-3 mt-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                  {isSubmittingTransfer ? 'Procesando...' : 'Procesar Transferencia'}
                 </button>
               </div>
             )}
