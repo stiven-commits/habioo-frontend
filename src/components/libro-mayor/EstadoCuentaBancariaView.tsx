@@ -61,7 +61,7 @@ interface IMovimiento extends IMovimientoDetalle {
 }
 
 interface RollbackTarget {
-  kind: 'pago' | 'ajuste' | 'transferencia' | 'egreso';
+  kind: 'pago' | 'ajuste' | 'transferencia' | 'egreso' | 'pago_proveedor';
   id: string;
 }
 
@@ -599,9 +599,6 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       const conceptoLimpio = String(base?.concepto || '').replace(/\s*-\s*Fondo:\s*.+$/i, '').trim();
       const montoUsdTotal = grupo.reduce((acc, item) => acc + toNumber(item.monto_usd), 0);
       const montoBsTotal = grupo.reduce((acc, item) => acc + toNumber(item.monto_bs), 0);
-      const montoBsOriginal = grupo
-        .map((item) => toNumber(item.monto_origen_pago))
-        .find((valor) => valor > 0) || 0;
       const referencias = Array.from(new Set(grupo.map((item) => String(item.referencia || '').trim()).filter(Boolean)));
       const tasa = toNumber(base?.tasa_cambio);
       const pagoId = base?.pago_id ?? null;
@@ -616,7 +613,9 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
         concepto: conceptoLimpio || `Pago Ref: ${fallbackKey}`,
         tipo: 'INGRESO',
         monto_usd: Number(montoUsdTotal.toFixed(2)),
-        monto_bs: Number((montoBsOriginal > 0 ? montoBsOriginal : montoBsTotal).toFixed(2)),
+        // En cuenta bancaria Bs, el monto en Bs debe salir de la suma real de movimientos.
+        // La equivalencia en USD se muestra aparte y no redefine la moneda del movimiento.
+        monto_bs: Number(montoBsTotal.toFixed(2)),
         tasa_cambio: tasa > 0 ? tasa : 0,
         banco_origen: String(base?.banco_origen ?? ''),
         cedula_origen: String(base?.cedula_origen ?? ''),
@@ -825,7 +824,10 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       ), 0);
       const netoBs = ingresoBs - egresoBs;
 
-      const saldo = moneda === 'USD' ? netoUsd : netoBs;
+      // Fuente de verdad del saldo actual: fondos.saldo_actual (evita mostrar 0 cuando no existe movimiento de apertura).
+      const saldoActualFondo = toNumber((fondo as { saldo_actual?: unknown }).saldo_actual ?? 0);
+      const saldoCalculado = moneda === 'USD' ? netoUsd : netoBs;
+      const saldo = Number.isFinite(saldoActualFondo) ? saldoActualFondo : saldoCalculado;
       const equivalenteUsd = moneda === 'USD'
         ? saldo
         : (tasaBcvNum > 0 ? (saldo / tasaBcvNum) : 0);
@@ -918,16 +920,16 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     });
   }, [ownerFondoSeleccionado, fondosCuenta, movimientosFiltrados]);
 
-  const getMontoBsVista = (movimiento: IMovimiento): number => {
+  function getMontoBsVista(movimiento: IMovimiento): number {
     const montoBs = toNumber(movimiento.monto_bs);
     if (montoBs > 0) return montoBs;
     const tasa = toNumber(movimiento.tasa_cambio);
     const montoUsd = toNumber(movimiento.monto_usd);
     if (tasa > 0 && montoUsd > 0) return montoUsd * tasa;
     return 0;
-  };
+  }
 
-  const getMontoUsdVista = (movimiento: IMovimiento): number => {
+  function getMontoUsdVista(movimiento: IMovimiento): number {
     const montoUsd = toNumber(movimiento.monto_usd);
     if (montoUsd > 0) return montoUsd;
     const montoBs = toNumber(movimiento.monto_bs);
@@ -936,7 +938,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     if (tasaMovimiento > 0) return montoBs / tasaMovimiento;
     if (tasaBcvNum > 0) return montoBs / tasaBcvNum;
     return 0;
-  };
+  }
 
   const totalesPagina = useMemo(() => (
     movimientosPagina.reduce(
@@ -1033,14 +1035,25 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     const rawId = String(movimiento.id || '');
     const match = rawId.match(/^EGR-MF-(\d+)$/i);
     if (!match?.[1]) return null;
-    const concepto = String(movimiento.concepto || '');
-    if (!/egreso manual/i.test(concepto)) return null;
+    // Usamos el prefijo técnico EGR-MF para identificar egresos manuales reversibles.
+    // El concepto puede variar libremente según lo escriba el usuario.
     return match[1];
+  };
+
+  const extractPagoProveedorIdForRollback = (movimiento: IMovimiento): string | null => {
+    if (movimiento.tipo !== 'EGRESO') return null;
+    if (movimiento.pago_id && Number.isFinite(movimiento.pago_id)) return String(movimiento.pago_id);
+    const rawId = String(movimiento.id || '');
+    const fromPp = rawId.match(/^EGR-PP-(\d+)$/i);
+    if (fromPp?.[1]) return fromPp[1];
+    return null;
   };
 
   const extractRollbackTarget = (movimiento: IMovimiento): RollbackTarget | null => {
     const transferenciaId = extractTransferenciaIdForRollback(movimiento);
     if (transferenciaId) return { kind: 'transferencia', id: transferenciaId };
+    const pagoProveedorId = extractPagoProveedorIdForRollback(movimiento);
+    if (pagoProveedorId) return { kind: 'pago_proveedor', id: pagoProveedorId };
     const egresoId = extractEgresoManualIdForRollback(movimiento);
     if (egresoId) return { kind: 'egreso', id: egresoId };
     const pagoId = extractPagoIdForRollback(movimiento);
@@ -1059,12 +1072,14 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     }
 
     const confirmMessage = target.kind === 'pago'
-      ? '¿Deseas revertir este pago? Se aplicarán las validaciones contables correspondientes.'
-      : target.kind === 'ajuste'
-        ? '¿Deseas revertir este ajuste? Se aplicarán las validaciones contables correspondientes.'
-        : target.kind === 'egreso'
-          ? '¿Deseas revertir este egreso manual? Se hará rollback del saldo del fondo.'
-          : '¿Deseas revertir esta transferencia? Se hará rollback de los saldos entre fondos.';
+        ? '¿Deseas revertir este pago? Se aplicarán las validaciones contables correspondientes.'
+        : target.kind === 'ajuste'
+          ? '¿Deseas revertir este ajuste? Se aplicarán las validaciones contables correspondientes.'
+          : target.kind === 'pago_proveedor'
+            ? '¿Deseas revertir este pago a proveedor? Se restaurarán los saldos involucrados.'
+          : target.kind === 'egreso'
+            ? '¿Deseas revertir este egreso manual? Se hará rollback del saldo del fondo.'
+            : '¿Deseas revertir esta transferencia? Se hará rollback de los saldos entre fondos.';
     const ok = window.confirm(confirmMessage);
     if (!ok) return;
 
@@ -1076,6 +1091,8 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
         ? `${API_BASE_URL}/pagos/${target.id}/rollback`
         : target.kind === 'ajuste'
           ? `${API_BASE_URL}/movimientos-fondos/${target.id}/rollback-ajuste`
+          : target.kind === 'pago_proveedor'
+            ? `${API_BASE_URL}/pagos-proveedores/${target.id}/rollback`
           : target.kind === 'egreso'
             ? `${API_BASE_URL}/movimientos-fondos/${target.id}/rollback-egreso-manual`
             : `${API_BASE_URL}/transferencias/${target.id}/rollback`;
@@ -1095,6 +1112,8 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
           ? 'Pago revertido correctamente.'
           : target.kind === 'ajuste'
             ? 'Ajuste revertido correctamente.'
+            : target.kind === 'pago_proveedor'
+              ? 'Pago a proveedor revertido correctamente.'
             : target.kind === 'egreso'
               ? 'Egreso manual revertido correctamente.'
               : 'Transferencia revertida correctamente.')
@@ -1638,6 +1657,8 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                         ? 'Disponible para reversión (sujeto a validaciones contables).'
                         : rollbackTarget.kind === 'ajuste'
                           ? 'Disponible para reversión (sujeto a validaciones contables).'
+                          : rollbackTarget.kind === 'pago_proveedor'
+                            ? 'Revertir pago a proveedor y restaurar saldos.'
                           : rollbackTarget.kind === 'egreso'
                             ? 'Revertir egreso manual y restaurar saldo en el fondo.'
                             : 'Revertir transferencia y hacer rollback de saldos entre fondos.'}
@@ -1657,7 +1678,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
             renderFooter={() => (
               <tfoot>
                 <tr className="border-t-2 border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/40">
-                  <td colSpan={4} className="p-3 font-black text-gray-700 dark:text-gray-200">
+                  <td colSpan={4} className="p-3 font-black text-right text-gray-700 dark:text-gray-200">
                     Total página
                   </td>
                   {!isCuentaUsd && (
@@ -1684,22 +1705,24 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
         )}
 
         {!loading && movimientosPorVista.length > 0 && totalPages > 1 && (
-          <div className="flex justify-between items-center px-6 py-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-800">
-            <button
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="px-5 py-2 rounded-xl text-sm font-bold bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 transition-all shadow-sm"
-            >
-              ← Anterior
-            </button>
-            <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Página {currentPage} de {totalPages}</span>
-            <button
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="px-5 py-2 rounded-xl text-sm font-bold bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 transition-all shadow-sm"
-            >
-              Siguiente →
-            </button>
+          <div className="flex justify-end items-center px-6 py-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-800">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Página {currentPage} de {totalPages}</span>
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-5 py-2 rounded-xl text-sm font-bold bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 transition-all shadow-sm"
+              >
+                ← Anterior
+              </button>
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-5 py-2 rounded-xl text-sm font-bold bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 transition-all shadow-sm"
+              >
+                Siguiente →
+              </button>
+            </div>
           </div>
         )}
       </div>

@@ -310,6 +310,9 @@ const Gastos: FC<GastosProps> = () => {
             toNumber(gastoActual.monto_pagado_usd),
             toNumber(curr.monto_pagado_usd)
           );
+          if (toNumber(curr.monto_pagado_usd) > 0) {
+            gastoActual.canDelete = false;
+          }
           gastoActual.cuotas.push(curr);
           if (curr.estado !== 'Pendiente') {
             gastoActual.canDelete = false;
@@ -540,6 +543,23 @@ const Gastos: FC<GastosProps> = () => {
     setIsModalOpen(true);
   };
 
+  const handleRegistrarPago = async (gasto: GastoAgrupado): Promise<void> => {
+    const yaEnAviso = gasto.cuotas.some((c: GastoCuota) => String(c.estado || '').toLowerCase() !== 'pendiente');
+    if (!yaEnAviso) {
+      const ok = await showConfirm({
+        title: 'Pago previo al aviso de cobro',
+        message: 'Este gasto aún no ha sido agregado en un aviso de cobro. ¿Seguro que deseas registrar un pago ahora? Esto afectará el estado de cuenta bancario que selecciones para pagar.',
+        confirmText: 'Sí, registrar pago',
+        cancelText: 'Cancelar',
+        variant: 'warning',
+      });
+      if (!ok) return;
+    }
+
+    setGastoPagar(gasto);
+    setIsModalPagarOpen(true);
+  };
+
   if (userRole !== 'Administrador') return <p className="p-6">No tienes permisos.</p>;
 
   return (
@@ -758,7 +778,7 @@ const Gastos: FC<GastosProps> = () => {
                     key: 'estado_pago',
                     header: (
                       <button type="button" onClick={() => toggleSort('estado_pago')} className="font-bold hover:text-donezo-primary">
-                        Estado de Pago {sortIndicator('estado_pago')}
+                        Estado de deuda {sortIndicator('estado_pago')}
                       </button>
                     ),
                     headerClassName: 'text-center',
@@ -891,10 +911,9 @@ const Gastos: FC<GastosProps> = () => {
           </button>
           <button
             type="button"
-            disabled={toNumber(optionsMenuState.gasto.monto_pagado_usd) >= toNumber(optionsMenuState.gasto.monto_total_usd) || !optionsMenuState.gasto.cuotas.some((c: GastoCuota) => String(c.estado || '').toLowerCase() !== 'pendiente')}
+            disabled={toNumber(optionsMenuState.gasto.monto_pagado_usd) >= toNumber(optionsMenuState.gasto.monto_total_usd)}
             onClick={() => {
-              setGastoPagar(optionsMenuState.gasto);
-              setIsModalPagarOpen(true);
+              void handleRegistrarPago(optionsMenuState.gasto);
               setOpenOptionsFor(null);
               setOptionsMenuState(null);
             }}
