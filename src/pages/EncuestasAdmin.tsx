@@ -3,6 +3,7 @@ import type { FC, ChangeEvent } from 'react';
 import { API_BASE_URL } from '../config/api';
 import { useDialog } from '../components/ui/DialogProvider';
 import DataTable from '../components/ui/DataTable';
+import FormField from '../components/ui/FormField';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -365,10 +366,7 @@ const EncuestasAdmin: FC = () => {
             <form onSubmit={(e) => { void handleSubmit(e); }} className="space-y-4">
 
               {/* Título */}
-              <div>
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wider">
-                  Título *
-                </label>
+              <FormField label="Título" required>
                 <input
                   type="text"
                   name="titulo"
@@ -378,13 +376,10 @@ const EncuestasAdmin: FC = () => {
                   required
                   className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white outline-none focus:ring-2 focus:ring-donezo-primary text-sm"
                 />
-              </div>
+              </FormField>
 
               {/* Descripción */}
-              <div>
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wider">
-                  Descripción / Contexto
-                </label>
+              <FormField label="Descripción / Contexto">
                 <textarea
                   name="descripcion"
                   value={form.descripcion}
@@ -393,13 +388,10 @@ const EncuestasAdmin: FC = () => {
                   rows={3}
                   className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white outline-none focus:ring-2 focus:ring-donezo-primary text-sm resize-none"
                 />
-              </div>
+              </FormField>
 
               {/* Tipo */}
-              <div>
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wider">
-                  Tipo de Respuesta *
-                </label>
+              <FormField label="Tipo de Respuesta" required hint={<span className={TIPO_META[form.tipo].color}>{TIPO_META[form.tipo].hint}</span>}>
                 <select
                   name="tipo"
                   value={form.tipo}
@@ -410,11 +402,7 @@ const EncuestasAdmin: FC = () => {
                   <option value="MULTIPLE">Opción Múltiple</option>
                   <option value="ABIERTA">Respuesta Abierta</option>
                 </select>
-                {/* Nota de ayuda dinámica según tipo */}
-                <p className={`mt-1.5 text-[11px] leading-relaxed ${TIPO_META[form.tipo].color}`}>
-                  {TIPO_META[form.tipo].hint}
-                </p>
-              </div>
+              </FormField>
 
               {/* Generador dinámico de opciones — solo MULTIPLE */}
               {form.tipo === 'MULTIPLE' && (
@@ -454,10 +442,7 @@ const EncuestasAdmin: FC = () => {
               )}
 
               {/* Fecha de cierre */}
-              <div>
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wider">
-                  Fecha y Hora de Cierre *
-                </label>
+              <FormField label="Fecha y Hora de Cierre" required hint="Después de esta fecha la carta consulta quedará cerrada y no aceptará más votos.">
                 <input
                   type="datetime-local"
                   name="fecha_fin"
@@ -467,10 +452,7 @@ const EncuestasAdmin: FC = () => {
                   min={new Date().toISOString().slice(0, 16)}
                   className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white outline-none focus:ring-2 focus:ring-donezo-primary text-sm"
                 />
-                <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">
-                  Después de esta fecha la carta consulta quedará cerrada y no aceptará más votos.
-                </p>
-              </div>
+              </FormField>
 
               {/* Botón */}
               <button

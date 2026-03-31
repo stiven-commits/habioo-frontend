@@ -9,6 +9,7 @@ import { formatMoney } from '../utils/currency';
 import { sanitizeCedulaRif, sanitizePhone, sanitizeEmail, isValidEmail, isValidPhone, isValidCedulaRif } from '../utils/validators';
 import { useDialog } from '../components/ui/DialogProvider';
 import PageHeader from '../components/ui/PageHeader';
+import FormField from '../components/ui/FormField';
 
 interface BancosProps {}
 
@@ -613,8 +614,7 @@ const Bancos: FC<BancosProps> = () => {
         <ModalBase onClose={closeCuentaModal} title={editingBanco ? 'Editar Cuenta Bancaria' : 'Nueva Cuenta Bancaria'} maxWidth="max-w-6xl" disableClose={isSavingCuenta}>
           <form onSubmit={handleSubmit}>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Cuenta *</label>
+                <FormField label="Tipo de Cuenta" required>
                   <select name="tipo" value={form.tipo} onChange={handleChange} required className="w-full p-3 bg-blue-50 dark:bg-gray-800 text-blue-800 dark:text-white border border-blue-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold">
                     <option value="Transferencia" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Transferencia (Bs)</option>
                     <option value="Pago Movil" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Pago Movil (Bs)</option>
@@ -622,50 +622,44 @@ const Bancos: FC<BancosProps> = () => {
                     <option value="Efectivo BS" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Efectivo / Caja Chica (Bs)</option>
                     <option value="Efectivo USD" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Efectivo / Caja Chica (USD)</option>
                   </select>
-                </div>
+                </FormField>
 
                 {['Transferencia', 'Pago Movil'].includes(form.tipo) && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Institucion Bancaria *</label>
+                  <FormField label="Institucion Bancaria" required>
                     <select name="nombre_banco" value={form.nombre_banco} onChange={handleChange} required className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white">
                       <option value="" disabled className="text-gray-400">Seleccione el banco...</option>
                       {bancosVenezuela.map((banco: string) => (
                         <option key={banco} value={banco} className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">{banco}</option>
                       ))}
                     </select>
-                  </div>
+                  </FormField>
                 )}
 
                 {form.tipo === 'Zelle' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre del Banco (EEUU) *</label>
+                  <FormField label="Nombre del Banco (EEUU)" required>
                     <input type="text" name="nombre_banco" value={form.nombre_banco} onChange={handleChange} required placeholder="Ej: Wells Fargo, BofA..." className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" />
-                  </div>
+                  </FormField>
                 )}
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Apodo (Referencia) *</label>
+                <FormField label="Apodo (Referencia)" required>
                   <input type="text" name="apodo" value={form.apodo} onChange={handleChange} required placeholder={form.tipo.startsWith('Efectivo') ? 'Ej: Caja Chica Conserjeria' : 'Ej: Principal / Pagos Bs'} className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" />
-                </div>
+                </FormField>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{form.tipo.startsWith('Efectivo') ? 'Custodio / Responsable *' : 'Nombre del Titular *'}</label>
+                <FormField label={form.tipo.startsWith('Efectivo') ? 'Custodio / Responsable' : 'Nombre del Titular'} required>
                   <input type="text" name="nombre_titular" value={form.nombre_titular} onChange={handleChange} required placeholder="Ej: Junta de Condominio" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" />
-                </div>
+                </FormField>
 
                 {['Transferencia', 'Pago Movil'].includes(form.tipo) && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cedula / RIF *</label>
+                  <FormField label="Cedula / RIF" required>
                     <input type="text" name="cedula_rif" value={form.cedula_rif} onChange={handleCedulaChange} pattern="^[VEJG]-?[0-9]{5,9}$" required placeholder="Ej: J-123456789" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono" />
-                  </div>
+                  </FormField>
                 )}
 
                 {form.tipo === 'Transferencia' && (
                   <div className="space-y-3 md:col-span-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Numero de Cuenta *</label>
+                    <FormField label="Numero de Cuenta" required>
                       <input type="text" name="numero_cuenta" value={form.numero_cuenta} onChange={handleChange} required placeholder="20 digitos" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono" />
-                    </div>
+                    </FormField>
                     <label className="inline-flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
                       <input
                         type="checkbox"
@@ -678,8 +672,7 @@ const Bancos: FC<BancosProps> = () => {
                     </label>
                     {form.acepta_pago_movil && (
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Telefono Pago Movil *</label>
+                        <FormField label="Telefono Pago Movil" required>
                           <input
                             type="text"
                             name="pago_movil_telefono"
@@ -691,9 +684,8 @@ const Bancos: FC<BancosProps> = () => {
                             placeholder="Ej: 04141234567"
                             className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
                           />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cedula/RIF Pago Movil *</label>
+                        </FormField>
+                        <FormField label="Cedula/RIF Pago Movil" required>
                           <input
                             type="text"
                             name="pago_movil_cedula_rif"
@@ -704,24 +696,22 @@ const Bancos: FC<BancosProps> = () => {
                             placeholder="Ej: V-12345678"
                             className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
                           />
-                        </div>
+                        </FormField>
                       </div>
                     )}
                   </div>
                 )}
 
                 {form.tipo === 'Pago Movil' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Telefono *</label>
+                  <FormField label="Telefono" required>
                     <input type="text" name="telefono" value={form.telefono} onChange={handleChange} inputMode="numeric" pattern="^[0-9]{7,15}$" required placeholder="Ej: 04141234567" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono" />
-                  </div>
+                  </FormField>
                 )}
 
                 {form.tipo === 'Zelle' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Correo Electronico *</label>
+                  <FormField label="Correo Electronico" required>
                     <input type="email" name="numero_cuenta" value={form.numero_cuenta} onChange={handleChange} required placeholder="correo@zelle.com" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" />
-                  </div>
+                  </FormField>
                 )}
               </div>
 

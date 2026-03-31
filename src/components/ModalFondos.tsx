@@ -5,6 +5,7 @@ import { formatMoney } from '../utils/currency';
 import { API_BASE_URL } from '../config/api';
 import { useDialog } from './ui/DialogProvider';
 import DatePicker from './ui/DatePicker';
+import FormField from './ui/FormField';
 
 interface ModalFondosProps {
   cuenta: CuentaBancaria;
@@ -550,19 +551,18 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo, ref
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className={`${fondos.length === 0 ? 'md:col-span-3' : 'md:col-span-2'}`}>
-              <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">Nombre del Fondo *</label>
-              <input type="text" name="nombre" value={form.nombre} onChange={handleChange} required placeholder="Ej: Fondo de Reserva" className="w-full p-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm dark:text-white" />
+              <FormField label="Nombre del Fondo" required>
+                <input type="text" name="nombre" value={form.nombre} onChange={handleChange} required placeholder="Ej: Fondo de Reserva" className="w-full p-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm dark:text-white" />
+              </FormField>
             </div>
 
             {fondos.length > 0 && (
-              <div>
-                <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">% de Ingresos *</label>
+              <FormField label="% de Ingresos" required>
                 <input type="number" step="0.01" min="0" max={porcentajeRestante} name="porcentaje" value={form.porcentaje} onChange={handleChange} required placeholder="Ej: 10" className="w-full p-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm dark:text-white" />
-              </div>
+              </FormField>
             )}
 
-            <div>
-              <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">Moneda Base</label>
+            <FormField label="Moneda Base">
               <select
                 name="moneda"
                 value={form.moneda}
@@ -574,15 +574,15 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo, ref
                 <option value="USD" className="bg-white dark:bg-gray-800">Dólares (USD)</option>
                 <option value="EUR" className="bg-white dark:bg-gray-800">Euros (EUR)</option>
               </select>
-            </div>
+            </FormField>
 
             <div className={`${fondos.length === 0 ? 'md:col-span-2' : ''}`}>
-              <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">Saldo de Apertura</label>
-              <input type="text" name="saldo_inicial" value={form.saldo_inicial} onChange={handleMonedaChange} required placeholder="0,00" className="w-full p-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm dark:text-white font-mono" />
+              <FormField label="Saldo de Apertura">
+                <input type="text" name="saldo_inicial" value={form.saldo_inicial} onChange={handleMonedaChange} required placeholder="0,00" className="w-full p-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm dark:text-white font-mono" />
+              </FormField>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">Fecha del saldo</label>
+            <FormField label="Fecha del saldo">
               <DatePicker
                 selected={ymdToDate(form.fecha_saldo)}
                 onChange={(date) => setForm((prev: FormState) => ({ ...prev, fecha_saldo: dateToYmd(date) }))}
@@ -591,7 +591,7 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo, ref
                 wrapperClassName="w-full min-w-0"
                 maxDate={new Date()}
               />
-            </div>
+            </FormField>
           </div>
 
           <p className="mt-3 text-xs text-amber-700 dark:text-amber-300">

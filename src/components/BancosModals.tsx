@@ -6,6 +6,7 @@ import { formatMoney } from '../utils/currency';
 import { API_BASE_URL } from '../config/api';
 import { useDialog } from './ui/DialogProvider';
 import ModalBase from './ui/ModalBase';
+import FormField from './ui/FormField';
 
 interface ModalActionProps {
   onClose: () => void;
@@ -484,42 +485,38 @@ export const ModalPagoProveedor: React.FC<ModalActionProps> = ({ onClose, onSucc
 
         {loading ? <p className="text-center text-gray-500">Cargando...</p> : (
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Factura Pendiente *</label>
+            <FormField label="Factura Pendiente" required>
               <select required value={form.gasto_id} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setForm({ ...form, gasto_id: e.target.value })} className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary">
                 <option value="">Seleccione una factura...</option>
                 {gastos.map((g) => (
                   <option key={g.id} value={g.id}>{g.proveedor} - {g.concepto} (Debe: ${g.deuda_restante})</option>
                 ))}
               </select>
-            </div>
+            </FormField>
 
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Fondo de Origen *</label>
+            <FormField label="Fondo de Origen" required>
               <select required value={form.fondo_id} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setForm({ ...form, fondo_id: e.target.value })} className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary">
                 <option value="">Seleccione un fondo...</option>
                 {fondos.map((f) => (
                   <option key={f.id} value={f.id}>{f.nombre} ({f.moneda}) - Disp: {f.moneda === 'USD' ? '$' : 'Bs'}{formatMoney(f.saldo_actual)}</option>
                 ))}
               </select>
-            </div>
+            </FormField>
 
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Monto Pagado ({selectedFondo ? selectedFondo.moneda : '?'}) *</label>
+              <FormField label={`Monto Pagado (${selectedFondo ? selectedFondo.moneda : '?'})`} required>
                 <input required type="text" value={form.monto_origen} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, monto_origen: formatNumberInput(e.target.value, 2) })} placeholder="0,00" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
-              </div>
+              </FormField>
 
               {isBs && (
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tasa BCV *</label>
+                <FormField label="Tasa BCV" required>
                   <div className="flex gap-2">
                     <input required type="text" value={form.tasa_cambio} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, tasa_cambio: formatNumberInput(e.target.value, 3) })} placeholder="Ej: 36,500" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
                     <button type="button" onClick={fetchBCV} disabled={isFetchingBCV} className="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200 px-3 rounded-xl font-bold border border-blue-300 dark:border-blue-700">
                       {isFetchingBCV ? '...' : 'BCV'}
                     </button>
                   </div>
-                </div>
+                </FormField>
               )}
             </div>
 
@@ -531,12 +528,10 @@ export const ModalPagoProveedor: React.FC<ModalActionProps> = ({ onClose, onSucc
             )}
 
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Referencia *</label>
+              <FormField label="Referencia" required>
                 <input required type="text" value={form.referencia} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, referencia: e.target.value })} className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Fecha *</label>
+              </FormField>
+              <FormField label="Fecha" required>
                 <DatePicker
                   selected={ymdToDate(form.fecha_pago)}
                   onChange={(date: Date | null) => setForm({ ...form, fecha_pago: dateToYmd(date) })}
@@ -552,7 +547,7 @@ export const ModalPagoProveedor: React.FC<ModalActionProps> = ({ onClose, onSucc
                   className="h-[50px] w-full rounded-xl border border-gray-300 bg-white p-3 pr-10 text-gray-900 outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
                   required
                 />
-              </div>
+              </FormField>
             </div>
 
             <button type="submit" className="w-full py-3 bg-donezo-primary text-white font-bold rounded-xl hover:bg-green-700 transition-all shadow-lg">Confirmar Pago a Proveedor</button>
@@ -796,8 +791,7 @@ export const ModalTransferencia: React.FC<ModalActionProps> = ({ onClose, onSucc
 
         {loading ? <p className="text-center text-gray-500">Cargando fondos...</p> : (
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-blue-700 dark:text-blue-300 uppercase mb-1">Sale de (Origen) *</label>
+            <FormField label={<span className="text-blue-700 dark:text-blue-300">Sale de (Origen)</span>} required>
               <SearchableCombobox
                 required
                 value={form.fondo_origen_id}
@@ -809,11 +803,10 @@ export const ModalTransferencia: React.FC<ModalActionProps> = ({ onClose, onSucc
                 placeholder="Buscar fondo origen..."
                 className="w-full p-3 rounded-xl border border-blue-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-blue-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-400 font-semibold"
               />
-            </div>
+            </FormField>
 
             {fondoOrigen && (
-              <div className="animate-fadeIn">
-                <label className="block text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase mb-1">Cuenta Destino *</label>
+              <FormField label={<span className="text-indigo-700 dark:text-indigo-300">Cuenta Destino</span>} required>
                 <SearchableCombobox
                   required
                   value={cuentaDestinoId}
@@ -827,7 +820,7 @@ export const ModalTransferencia: React.FC<ModalActionProps> = ({ onClose, onSucc
                     Esta cuenta no tiene fondos creados. Debe crear un fondo primero en la configuración para poder recibir transferencias.
                   </p>
                 )}
-              </div>
+              </FormField>
             )}
 
             
@@ -838,12 +831,9 @@ export const ModalTransferencia: React.FC<ModalActionProps> = ({ onClose, onSucc
                   Al confirmar, el monto se distribuirá automáticamente entre los fondos de la cuenta destino según sus porcentajes de asignación.
                 </div>
 
-                <div className="grid grid-cols-1 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Monto a Enviar *</label>
-                    <input required type="text" value={form.monto_origen} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, monto_origen: formatNumberInput(e.target.value, 2) })} placeholder="Ej: 1.500,00" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
-                  </div>
-                </div>
+                <FormField label="Monto a Enviar" required>
+                  <input required type="text" value={form.monto_origen} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, monto_origen: formatNumberInput(e.target.value, 2) })} placeholder="Ej: 1.500,00" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
+                </FormField>
 
                 {form.monto_origen && distribucionPreview.length > 0 && (
                   <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-xl border border-green-100 dark:border-green-800/50 space-y-2">
@@ -860,12 +850,10 @@ export const ModalTransferencia: React.FC<ModalActionProps> = ({ onClose, onSucc
                 )}
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Referencia *</label>
+                  <FormField label="Referencia" required>
                     <input required type="text" value={form.referencia} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, referencia: e.target.value.replace(/\s/g, '') })} placeholder="Sin espacios" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Fecha *</label>
+                  </FormField>
+                  <FormField label="Fecha" required>
                     <DatePicker
                       selected={ymdToDate(form.fecha)}
                       onChange={(date: Date | null) => setForm({ ...form, fecha: dateToYmd(date) })}
@@ -881,13 +869,12 @@ export const ModalTransferencia: React.FC<ModalActionProps> = ({ onClose, onSucc
                       className="h-[50px] w-full rounded-xl border border-gray-300 bg-white p-3 pr-10 text-gray-900 outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
                       required
                     />
-                  </div>
+                  </FormField>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nota (Opcional)</label>
+                <FormField label="Nota (Opcional)">
                   <textarea rows={2} value={form.nota} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setForm({ ...form, nota: e.target.value })} placeholder="Motivo de la transferencia" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary resize-none" />
-                </div>
+                </FormField>
 
                 <button type="submit" disabled={!isTransferFormValid || isSubmittingTransfer} className="w-full py-3 mt-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
                   {isSubmittingTransfer ? 'Procesando...' : 'Procesar Transferencia'}
@@ -1094,8 +1081,7 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
           <p className="text-center text-gray-500">Cargando...</p>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Desde cuenta *</label>
+            <FormField label="Desde cuenta" required>
               <SearchableCombobox
                 required
                 value={form.cuenta_id}
@@ -1104,10 +1090,9 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
                 placeholder="Buscar cuenta..."
                 className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary"
               />
-            </div>
+            </FormField>
 
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Desde fondo *</label>
+            <FormField label="Desde fondo" required>
               <SearchableCombobox
                 required
                 disabled={!form.cuenta_id}
@@ -1117,13 +1102,10 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
                 placeholder={form.cuenta_id ? 'Buscar fondo...' : 'Seleccione cuenta primero'}
                 className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary disabled:opacity-60"
               />
-            </div>
+            </FormField>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                  Monto {cuentaEsUsd ? '(USD)' : '(Bs)'} *
-                </label>
+              <FormField label={`Monto ${cuentaEsUsd ? '(USD)' : '(Bs)'}`} required>
                 <input
                   required
                   type="text"
@@ -1132,10 +1114,9 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
                   placeholder="0,00"
                   className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary"
                 />
-              </div>
+              </FormField>
               {!cuentaEsUsd && (
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tasa BCV *</label>
+                <FormField label="Tasa BCV" required>
                   <div className="flex gap-2">
                     <input
                       required
@@ -1149,7 +1130,7 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
                       {isFetchingBCV ? '...' : 'BCV'}
                     </button>
                   </div>
-                </div>
+                </FormField>
               )}
             </div>
 
@@ -1161,8 +1142,7 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
             )}
 
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Referencia *</label>
+              <FormField label="Referencia" required>
                 <input
                   required
                   type="text"
@@ -1170,9 +1150,8 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((prev: RegistrarEgresoForm) => ({ ...prev, referencia: e.target.value }))}
                   className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary"
                 />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Fecha *</label>
+              </FormField>
+              <FormField label="Fecha" required>
                 <DatePicker
                   selected={ymdToDate(form.fecha)}
                   onChange={(date: Date | null) => setForm((prev: RegistrarEgresoForm) => ({ ...prev, fecha: dateToYmd(date) }))}
@@ -1188,11 +1167,10 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
                   className="h-[50px] w-full rounded-xl border border-gray-300 bg-white p-3 pr-10 text-gray-900 outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
                   required
                 />
-              </div>
+              </FormField>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Concepto *</label>
+            <FormField label="Concepto" required>
               <textarea
                 required
                 rows={2}
@@ -1200,7 +1178,7 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setForm((prev: RegistrarEgresoForm) => ({ ...prev, concepto: e.target.value }))}
                 className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary resize-none"
               />
-            </div>
+            </FormField>
 
             <button type="submit" disabled={!isValid} className="w-full py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
               Registrar Egreso
@@ -1269,14 +1247,12 @@ export const ModalEliminarFondo: React.FC<ModalEliminarFondoProps> = ({ fondo, f
               <p className="text-xs font-bold text-orange-700 dark:text-orange-300 mb-3 uppercase tracking-wider">
                 Saldo restante: {fondo.moneda === 'USD' ? '$' : 'Bs'} {formatMoney(saldo)}
               </p>
-              <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Fondo destino (opcional, misma moneda)</label>
-              <select value={destinoId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDestinoId(e.target.value)} className="w-full p-3 rounded-xl border border-orange-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-orange-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-orange-400">
-                <option value="">Eliminar sin transferir saldo</option>
-                {fondosDestino.map((f) => <option key={f.id} value={f.id}>{f.nombre} ({f.moneda})</option>)}
-              </select>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                Si este fondo no tiene movimientos bancarios, puede eliminarlo aunque tenga saldo.
-              </p>
+              <FormField label="Fondo destino (opcional, misma moneda)" hint="Si este fondo no tiene movimientos bancarios, puede eliminarlo aunque tenga saldo.">
+                <select value={destinoId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDestinoId(e.target.value)} className="w-full p-3 rounded-xl border border-orange-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-orange-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-orange-400">
+                  <option value="">Eliminar sin transferir saldo</option>
+                  {fondosDestino.map((f) => <option key={f.id} value={f.id}>{f.nombre} ({f.moneda})</option>)}
+                </select>
+              </FormField>
             </div>
           ) : (
             <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-xl border border-green-200 dark:border-green-800/50 mt-4">

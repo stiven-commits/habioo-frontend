@@ -454,8 +454,7 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
                   ) : (
                     <>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div>
-                          <label className="block text-xs font-bold text-gray-500 mb-1">Saldo Inicial (Bs)</label>
+                        <FormField label="Saldo Inicial (Bs)">
                           <input
                             type="text"
                             value={form.saldo_inicial_bs || ''}
@@ -463,9 +462,8 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
                             placeholder="0,00"
                             className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
                           />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-500 mb-1">Tasa BCV</label>
+                        </FormField>
+                        <FormField label="Tasa BCV">
                           <input
                             type="text"
                             value={form.tasa_bcv || ''}
@@ -473,7 +471,7 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
                             placeholder="Ej: 36,500"
                             className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
                           />
-                        </div>
+                        </FormField>
                         <button
                           type="button"
                           onClick={fetchBCV}
@@ -484,8 +482,7 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
                         </button>
                       </div>
                       <div className="grid grid-cols-1 gap-3">
-                        <div>
-                          <label className="block text-xs font-bold text-gray-500 mb-1">Saldo Inicial (USD)</label>
+                        <FormField label="Saldo Inicial (USD)">
                           <input
                             type="text"
                             name="monto_saldo_inicial"
@@ -494,7 +491,7 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
                             placeholder="Calculado automáticamente"
                             className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-800/80 outline-none text-gray-600 dark:text-gray-300 font-mono cursor-not-allowed"
                           />
-                        </div>
+                        </FormField>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
                           Este campo se calcula automáticamente con la fórmula:
                           <strong> Saldo Inicial (USD) = Saldo Inicial (Bs) / Tasa BCV</strong>.
@@ -535,8 +532,7 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
             </div>
             {esModoPropietarioExistente && (
               <div className="mb-4 rounded-xl border border-gray-200 dark:border-gray-600 bg-white/70 dark:bg-gray-900/40 p-3 space-y-3">
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">Buscar propietario existente</label>
+                <FormField label="Buscar propietario existente">
                   <div className="relative">
                     <input
                       type="text"
@@ -586,42 +582,42 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
                     )}
                   </div>
                   <input type="hidden" value={form.propietario_existente_id} required={esModoPropietarioExistente} />
-                </div>
+                </FormField>
                 <p className="text-[11px] text-gray-500 dark:text-gray-400">
                   Se vinculará este inmueble al propietario seleccionado sin crear un usuario nuevo.
                 </p>
               </div>
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">Cedula (Usuario) *</label>
+              <FormField label="Cedula (Usuario)" required>
                 <p className="text-[11px] text-gray-400 mb-1">Formato: V, E, J o G seguido de numeros.</p>
                 <input type="text" name="prop_cedula" value={form.prop_cedula} onChange={handleChange} pattern="^[VEJG][0-9]{5,9}$" placeholder="Ej: V12345678" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white uppercase disabled:opacity-70 disabled:cursor-not-allowed" required disabled={esModoPropietarioExistente} />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">Nombre Completo *</label>
+              </FormField>
+              <FormField label="Nombre Completo" required>
                 <p className="text-[11px] text-transparent mb-1 select-none" aria-hidden="true">_</p>
                 <input type="text" name="prop_nombre" value={form.prop_nombre} onChange={(e) => setForm((prev) => ({ ...prev, prop_nombre: e.target.value.replace(/(^|\s)\S/g, (c) => c.toUpperCase()) }))} placeholder="Ej: Carlos Daniel Rojas" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white disabled:opacity-70 disabled:cursor-not-allowed" disabled={esModoPropietarioExistente} required />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">Correo Electronico *</label>
+              </FormField>
+              <FormField label="Correo Electronico" required>
                 <input type="email" name="prop_email" value={form.prop_email} onChange={handleChange} placeholder="Ej: usuario@email.com" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white disabled:opacity-70 disabled:cursor-not-allowed" disabled={esModoPropietarioExistente} required />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">Correo Secundario (Opcional)</label>
+              </FormField>
+              <FormField label="Correo Secundario (Opcional)">
                 <input type="email" name="prop_email_secundario" value={form.prop_email_secundario} onChange={handleChange} placeholder="Ej: usuario_sec@email.com" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white disabled:opacity-70 disabled:cursor-not-allowed" disabled={esModoPropietarioExistente} />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500">Telefono (WhatsApp)</label>
+              </FormField>
+              <FormField label="Telefono (WhatsApp)">
                 <p className="text-[11px] text-gray-400 mb-1">Solo numeros, sin espacios ni guiones.</p>
                 <input type="text" name="prop_telefono" value={form.prop_telefono} onChange={handleChange} inputMode="numeric" pattern="^[0-9]{7,15}$" placeholder="Ej: 04141234567" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white disabled:opacity-70 disabled:cursor-not-allowed" disabled={esModoPropietarioExistente} />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500">Telefono Alternativo / Fijo</label>
+              </FormField>
+              <FormField label="Telefono Alternativo / Fijo">
                 <p className="text-[11px] text-gray-400 mb-1">Solo numeros, sin espacios ni guiones.</p>
                 <input type="text" name="prop_telefono_secundario" value={form.prop_telefono_secundario} onChange={handleChange} inputMode="numeric" pattern="^[0-9]{7,15}$" placeholder="Ej: 02121234567" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white disabled:opacity-70 disabled:cursor-not-allowed" disabled={esModoPropietarioExistente} />
-              </div>
-              {editingId && (<div className="md:col-span-2 mt-2 bg-yellow-50 dark:bg-yellow-900/10 p-3 rounded-xl border border-yellow-200 dark:border-yellow-800"><label className="block text-xs font-bold text-yellow-800 dark:text-yellow-500 mb-1">Restablecer Contrasena</label><input type="password" name="prop_password" value={form.prop_password} onChange={handleChange} placeholder="Nueva clave..." className="w-full p-2.5 rounded-xl border border-yellow-300 dark:bg-gray-800 outline-none dark:text-white" /></div>)}
+              </FormField>
+              {editingId && (
+                <div className="md:col-span-2 mt-2 bg-yellow-50 dark:bg-yellow-900/10 p-3 rounded-xl border border-yellow-200 dark:border-yellow-800">
+                  <FormField label={<span className="text-yellow-800 dark:text-yellow-500">Restablecer Contrasena</span>}>
+                    <input type="password" name="prop_password" value={form.prop_password} onChange={handleChange} placeholder="Nueva clave..." className="w-full p-2.5 rounded-xl border border-yellow-300 dark:bg-gray-800 outline-none dark:text-white" />
+                  </FormField>
+                </div>
+              )}
             </div>
           </div>
 
@@ -812,30 +808,29 @@ export const ModalAjusteSaldo: FC<ModalAjusteSaldoProps> = ({
       maxWidth="max-w-md"
     >
       <form onSubmit={handleSubmitAjuste} className="space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Acción a realizar</label>
+          <FormField label="Acción a realizar">
             <select value={formAjuste.tipo_ajuste} onChange={(e: ChangeEvent<HTMLSelectElement>) => setFormAjuste({ ...formAjuste, tipo_ajuste: (e.target.value === 'FAVOR' ? 'FAVOR' : 'DEUDA'), subtipo_favor: 'directo' })} className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-bold outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white">
               <option value="FAVOR">A favor</option>
               <option value="DEUDA">Deuda</option>
             </select>
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Monto (Bs)</label>
+          </FormField>
+          <FormField label="Monto (Bs)">
             <input type="text" value={formAjuste.monto_bs || ''} onChange={(e: ChangeEvent<HTMLInputElement>) => setFormAjuste({ ...formAjuste, monto_bs: e.target.value.replace(/\./g, ',').replace(/[^0-9,]/g, '') })} placeholder="Ej: 1.500,00" className="w-full p-3 rounded-xl border font-mono text-lg dark:bg-gray-900 dark:border-gray-700 outline-none dark:text-white" required />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tasa BCV</label>
+          </FormField>
+          <FormField label="Tasa BCV">
             <div className="flex gap-2">
               <input type="text" value={formAjuste.tasa_cambio || ''} onChange={(e: ChangeEvent<HTMLInputElement>) => setFormAjuste({ ...formAjuste, tasa_cambio: e.target.value.replace(/\./g, ',').replace(/[^0-9,]/g, '') })} placeholder="Ej: 95,20" className="flex-1 p-3 rounded-xl border font-mono text-lg dark:bg-gray-900 dark:border-gray-700 outline-none dark:text-white" required />
               <button type="button" onClick={() => { void fetchBCV(); }} disabled={isFetchingBCV} className="px-3 rounded-xl border border-blue-300 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200 dark:border-blue-700 text-xs font-bold disabled:opacity-60">
                 {isFetchingBCV ? 'Consultando...' : 'Obtener BCV'}
               </button>
             </div>
-          </div>
+          </FormField>
           <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-3 text-sm">
             Equivalente en USD: <strong className="font-mono">${formatMoney(montoUsd)}</strong>
           </div>
-          <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nota (Auditoría) *</label><textarea value={formAjuste.nota} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setFormAjuste({ ...formAjuste, nota: e.target.value })} placeholder="Ej: Cobro de multa" className="w-full p-3 rounded-xl border dark:bg-gray-900 dark:border-gray-700 outline-none dark:text-white text-sm min-h-[80px]" required /></div>
+          <FormField label="Nota (Auditoría)" required>
+            <textarea value={formAjuste.nota} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setFormAjuste({ ...formAjuste, nota: e.target.value })} placeholder="Ej: Cobro de multa" className="w-full p-3 rounded-xl border dark:bg-gray-900 dark:border-gray-700 outline-none dark:text-white text-sm min-h-[80px]" required />
+          </FormField>
           <p className="text-xs font-semibold text-blue-700 dark:text-blue-300">
             Este ajuste afecta solo el estado de cuenta del inmueble. No genera movimientos en los estados de cuenta bancarios.
           </p>
@@ -890,8 +885,7 @@ export const ModalCopropietarioForm: FC<ModalCopropietarioFormProps> = ({
     >
       <form onSubmit={onSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-gray-500 mb-1">Cédula *</label>
+            <FormField label="Cédula" required>
               <input
                 type="text"
                 name="cedula"
@@ -902,9 +896,8 @@ export const ModalCopropietarioForm: FC<ModalCopropietarioFormProps> = ({
                 className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white uppercase"
                 required
               />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-500 mb-1">Nombre completo *</label>
+            </FormField>
+            <FormField label="Nombre completo" required>
               <input
                 type="text"
                 name="nombre"
@@ -914,9 +907,8 @@ export const ModalCopropietarioForm: FC<ModalCopropietarioFormProps> = ({
                 className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
                 required
               />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-500 mb-1">Email</label>
+            </FormField>
+            <FormField label="Email">
               <input
                 type="email"
                 name="email"
@@ -925,9 +917,8 @@ export const ModalCopropietarioForm: FC<ModalCopropietarioFormProps> = ({
                 placeholder="Ej: copropietario@email.com"
                 className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
               />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-500 mb-1">Teléfono</label>
+            </FormField>
+            <FormField label="Teléfono">
               <input
                 type="text"
                 name="telefono"
@@ -938,7 +929,7 @@ export const ModalCopropietarioForm: FC<ModalCopropietarioFormProps> = ({
                 placeholder="Ej: 04141234567"
                 className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
               />
-            </div>
+            </FormField>
           </div>
 
           <label className="mt-2 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -1096,8 +1087,7 @@ export const ModalResidenteForm: FC<ModalResidenteFormProps> = ({
     >
       <form onSubmit={onSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-gray-500 mb-1">Cédula *</label>
+            <FormField label="Cédula" required>
               <input
                 type="text"
                 name="cedula"
@@ -1108,9 +1098,8 @@ export const ModalResidenteForm: FC<ModalResidenteFormProps> = ({
                 className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white uppercase"
                 required
               />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-500 mb-1">Nombre completo *</label>
+            </FormField>
+            <FormField label="Nombre completo" required>
               <input
                 type="text"
                 name="nombre"
@@ -1120,9 +1109,8 @@ export const ModalResidenteForm: FC<ModalResidenteFormProps> = ({
                 className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
                 required
               />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-500 mb-1">Email</label>
+            </FormField>
+            <FormField label="Email">
               <input
                 type="email"
                 name="email"
@@ -1131,9 +1119,8 @@ export const ModalResidenteForm: FC<ModalResidenteFormProps> = ({
                 placeholder="Ej: residente@email.com"
                 className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
               />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-500 mb-1">Teléfono</label>
+            </FormField>
+            <FormField label="Teléfono">
               <input
                 type="text"
                 name="telefono"
@@ -1144,7 +1131,7 @@ export const ModalResidenteForm: FC<ModalResidenteFormProps> = ({
                 placeholder="Ej: 04141234567"
                 className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
               />
-            </div>
+            </FormField>
           </div>
 
           <label className="mt-2 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">

@@ -8,6 +8,7 @@ import ModalBase from '../components/ui/ModalBase';
 import DataTable from '../components/ui/DataTable';
 import ModalRegistrarPago from '../components/ModalRegistrarPago';
 import { ModalEstadoCuenta } from '../components/propiedades/PropiedadesModals';
+import FormField from '../components/ui/FormField';
 
 interface CuentasPorCobrarProps { }
 
@@ -905,16 +906,17 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
 
                     {rejectingPagoId === pago.id && (
                       <div className="mt-3 rounded-xl border border-red-200 dark:border-red-800/50 bg-red-50/50 dark:bg-red-900/10 p-3">
-                        <label className="block text-xs font-bold text-red-700 dark:text-red-300 mb-1">Motivo de rechazo (obligatorio)</label>
-                        <textarea
-                          value={rechazoDraft[pago.id] || ''}
-                          onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
-                            setRechazoDraft((prev) => ({ ...prev, [pago.id]: e.target.value }))
-                          }
-                          className="w-full p-2.5 rounded-xl border border-red-200 dark:border-red-700 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-red-400 dark:text-white text-sm"
-                          rows={2}
-                          placeholder="Ej: El comprobante no coincide con el monto reportado."
-                        />
+                        <FormField label={<span className="text-red-700 dark:text-red-300">Motivo de rechazo</span>} required>
+                          <textarea
+                            value={rechazoDraft[pago.id] || ''}
+                            onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+                              setRechazoDraft((prev) => ({ ...prev, [pago.id]: e.target.value }))
+                            }
+                            className="w-full p-2.5 rounded-xl border border-red-200 dark:border-red-700 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-red-400 dark:text-white text-sm"
+                            rows={2}
+                            placeholder="Ej: El comprobante no coincide con el monto reportado."
+                          />
+                        </FormField>
                         <div className="mt-2 flex justify-end">
                           <button
                             type="button"
@@ -970,83 +972,87 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
               {ajusteTipo === 'FAVOR' && ajusteModo === 'COMPLETO' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pb-3 border-b border-gray-100 dark:border-gray-800">
                   <div className="md:col-span-2">
-                    <label className="block text-xs font-bold text-gray-500 mb-2">Destino del Ingreso</label>
-                    <div className="flex gap-6">
-                      <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
-                        <input
-                          type="radio"
-                          checked={destinoIngreso === 'CUENTA'}
-                          onChange={() => setDestinoIngreso('CUENTA')}
-                          className="text-donezo-primary focus:ring-donezo-primary"
-                        />
-                        A cuenta bancaria
-                      </label>
-                      <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
-                        <input
-                          type="radio"
-                          checked={destinoIngreso === 'EXTRA'}
-                          onChange={() => { setDestinoIngreso('EXTRA'); setCuentaBancariaSeleccionada(''); }}
-                          className="text-donezo-primary focus:ring-donezo-primary"
-                        />
-                        A gasto extra (Sin cuenta)
-                      </label>
-                    </div>
+                    <FormField label="Destino del Ingreso">
+                      <div className="flex gap-6">
+                        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+                          <input
+                            type="radio"
+                            checked={destinoIngreso === 'CUENTA'}
+                            onChange={() => setDestinoIngreso('CUENTA')}
+                            className="text-donezo-primary focus:ring-donezo-primary"
+                          />
+                          A cuenta bancaria
+                        </label>
+                        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+                          <input
+                            type="radio"
+                            checked={destinoIngreso === 'EXTRA'}
+                            onChange={() => { setDestinoIngreso('EXTRA'); setCuentaBancariaSeleccionada(''); }}
+                            className="text-donezo-primary focus:ring-donezo-primary"
+                          />
+                          A gasto extra (Sin cuenta)
+                        </label>
+                      </div>
+                    </FormField>
                   </div>
                   {destinoIngreso === 'CUENTA' && (
                     <div className="md:col-span-2">
-                      <label className="block text-xs font-bold text-gray-500 mb-1">Cuenta Bancaria Receptora</label>
-                      <select
-                        value={cuentaBancariaSeleccionada}
-                        onChange={(e: ChangeEvent<HTMLSelectElement>) => setCuentaBancariaSeleccionada(e.target.value)}
-                        className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-medium"
-                      >
-                        <option value="">Seleccione una cuenta...</option>
-                        {cuentasBancarias.map((c: any) => (
-                          <option key={c.id} value={c.id}>{getCuentaLabel(c)}</option>
-                        ))}
-                      </select>
+                      <FormField label="Cuenta Bancaria Receptora">
+                        <select
+                          value={cuentaBancariaSeleccionada}
+                          onChange={(e: ChangeEvent<HTMLSelectElement>) => setCuentaBancariaSeleccionada(e.target.value)}
+                          className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-medium"
+                        >
+                          <option value="">Seleccione una cuenta...</option>
+                          {cuentasBancarias.map((c: any) => (
+                            <option key={c.id} value={c.id}>{getCuentaLabel(c)}</option>
+                          ))}
+                        </select>
+                      </FormField>
                     </div>
                   )}
                   {destinoIngreso === 'CUENTA' && (
                     <div className="md:col-span-2">
-                      <label className="block text-xs font-bold text-gray-500 mb-1">Distribucion en Fondos</label>
-                      <div className="flex gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setSubtipoFavor('directo')}
-                          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border transition-colors ${subtipoFavor === 'directo' ? 'bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}
-                        >
-                          Directo<br /><span className="font-normal opacity-70">100% al fondo principal</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setSubtipoFavor('distribuido')}
-                          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border transition-colors ${subtipoFavor === 'distribuido' ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}
-                        >
-                          Distribuido<br /><span className="font-normal opacity-70">Por % de fondos</span>
-                        </button>
-                      </div>
+                      <FormField label="Distribucion en Fondos">
+                        <div className="flex gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setSubtipoFavor('directo')}
+                            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border transition-colors ${subtipoFavor === 'directo' ? 'bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}
+                          >
+                            Directo<br /><span className="font-normal opacity-70">100% al fondo principal</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSubtipoFavor('distribuido')}
+                            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border transition-colors ${subtipoFavor === 'distribuido' ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}
+                          >
+                            Distribuido<br /><span className="font-normal opacity-70">Por % de fondos</span>
+                          </button>
+                        </div>
+                      </FormField>
                     </div>
                   )}
                   {destinoIngreso === 'EXTRA' && (
                     <div className="md:col-span-2">
-                      <label className="block text-xs font-bold text-gray-500 mb-1">Gasto Extra a Rebajar</label>
-                      {gastosExtras.length === 0 ? (
-                        <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">No hay gastos extras disponibles. Asegurese que hayan sido generados en recibos o avisos.</p>
-                      ) : (
-                        <select
-                          value={gastoExtraSeleccionado}
-                          onChange={(e: ChangeEvent<HTMLSelectElement>) => setGastoExtraSeleccionado(e.target.value)}
-                          className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-medium"
-                        >
-                          <option value="">Seleccione un gasto extra...</option>
-                          {gastosExtras.map((g: any) => (
-                            <option key={g.id} value={g.id}>
-                              {g.concepto} - Deuda act.: ${parseFloat(String(g.deuda_restante)).toFixed(2)}
-                            </option>
-                          ))}
-                        </select>
-                      )}
+                      <FormField label="Gasto Extra a Rebajar">
+                        {gastosExtras.length === 0 ? (
+                          <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">No hay gastos extras disponibles. Asegurese que hayan sido generados en recibos o avisos.</p>
+                        ) : (
+                          <select
+                            value={gastoExtraSeleccionado}
+                            onChange={(e: ChangeEvent<HTMLSelectElement>) => setGastoExtraSeleccionado(e.target.value)}
+                            className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-medium"
+                          >
+                            <option value="">Seleccione un gasto extra...</option>
+                            {gastosExtras.map((g: any) => (
+                              <option key={g.id} value={g.id}>
+                                {g.concepto} - Deuda act.: ${parseFloat(String(g.deuda_restante)).toFixed(2)}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </FormField>
                     </div>
                   )}
                 </div>
@@ -1058,17 +1064,17 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
               )}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="md:col-span-3">
-                  <label className="block text-xs font-bold text-gray-500 mb-1">Concepto</label>
-                  <input
-                    type="text"
-                    value={conceptoAjuste}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setConceptoAjuste(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
-                    placeholder="Ej: Ajuste por revisión de deuda histórica"
-                  />
+                  <FormField label="Concepto">
+                    <input
+                      type="text"
+                      value={conceptoAjuste}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => setConceptoAjuste(e.target.value)}
+                      className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
+                      placeholder="Ej: Ajuste por revisión de deuda histórica"
+                    />
+                  </FormField>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">Monto (Bs)</label>
+                <FormField label="Monto (Bs)">
                   <input
                     type="text"
                     value={montoBsAjuste}
@@ -1076,9 +1082,8 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                     className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
                     placeholder="0,00"
                   />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">Tasa BCV</label>
+                </FormField>
+                <FormField label="Tasa BCV">
                   <input
                     type="text"
                     value={tasaBcvAjuste}
@@ -1086,7 +1091,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                     className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
                     placeholder="Ej: 36,500"
                   />
-                </div>
+                </FormField>
                 <button
                   type="button"
                   onClick={fetchBCVAjuste}

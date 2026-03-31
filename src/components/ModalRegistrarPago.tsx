@@ -7,6 +7,7 @@ import { formatMoney } from '../utils/currency';
 import { API_BASE_URL } from '../config/api';
 import { sanitizeCedulaRif, isValidCedulaRif, sanitizePhone, isValidPhone } from '../utils/validators';
 import { useDialog } from './ui/DialogProvider';
+import FormField from './ui/FormField';
 
 interface ModalRegistrarPagoProps {
   propiedadPreseleccionada: PropiedadPreseleccionada | null;
@@ -465,8 +466,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
             </div>
 
             <form onSubmit={handleSubmitPago} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Cuenta Bancaria Destino</label>
+              <FormField label="Cuenta Bancaria Destino" required>
                 <select name="cuenta_id" value={formPago.cuenta_id} onChange={handlePagoChange} className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required>
                   <option value="">{cuentasConFondos.length ? 'Seleccione cuenta bancaria...' : 'No hay cuentas con fondos activos'}</option>
                   {cuentasConFondos.map((b: BancoCuenta) => <option key={b.id} value={b.id}>{b.nombre_banco || 'Cuenta'} ({b.apodo || b.tipo || 'Sin alias'})</option>)}
@@ -476,11 +476,10 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                     Debe crear al menos un fondo en una cuenta bancaria para registrar pagos.
                   </p>
                 )}
-              </div>
+              </FormField>
 
               {formPago.cuenta_id && metodosCuentaSeleccionada.length > 0 && (
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Método de Pago</label>
+                <FormField label="Método de Pago" required>
                   <div className="grid grid-cols-2 gap-2">
                     {metodosCuentaSeleccionada.map((metodo) => (
                       <button
@@ -504,12 +503,11 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                       </button>
                     ))}
                   </div>
-                </div>
+                </FormField>
               )}
 
               {esCuentaUsd ? (
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Monto Pagado (USD)</label>
+                <FormField label="Monto Pagado (USD)" required>
                   <input
                     type="text"
                     value={montoUsdDirecto}
@@ -518,46 +516,40 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                     className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary"
                     required
                   />
-                </div>
+                </FormField>
               ) : requiresTasa ? (
                 <div className="grid grid-cols-2 gap-3 items-stretch">
                   <div className="space-y-3">
-                    <div>
-                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Monto Pagado</label>
+                    <FormField label="Monto Pagado" required>
                       <input type="text" name="monto_origen" value={formPago.monto_origen} onChange={handlePagoChange} placeholder="0,00" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Tasa de Cambio <span className="text-red-500">*</span></label>
+                    </FormField>
+                    <FormField label="Tasa de Cambio" required>
                       <input type="text" name="tasa_cambio" value={formPago.tasa_cambio} onChange={handlePagoChange} placeholder="Ej: 36,500" required className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" />
-                    </div>
+                    </FormField>
                   </div>
                   <button type="button" onClick={fetchBCV} disabled={isFetchingBCV} className="h-full min-h-[118px] w-full bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/40 dark:text-blue-400 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-donezo-primary disabled:opacity-60" title="Consultar tasa actual del BCV">
                     {isFetchingBCV ? '⌛...' : 'BCV'}
                   </button>
                 </div>
               ) : (
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Monto Pagado</label>
+                <FormField label="Monto Pagado" required>
                   <input type="text" name="monto_origen" value={formPago.monto_origen} onChange={handlePagoChange} placeholder="0,00" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
-                </div>
+                </FormField>
               )}
 
               {requiresTasa && (
                 <div className={`grid gap-3 mt-3 border-t border-gray-100 dark:border-gray-800 pt-3 ${formPago.metodo_pago === 'Pago Movil' ? 'grid-cols-1 md:grid-cols-3' : 'grid-cols-2'}`}>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Banco de Origen</label>
+                  <FormField label="Banco de Origen" required>
                     <select name="banco_origen" value={formPago.banco_origen} onChange={handlePagoChange} className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required>
                       <option value="">Seleccione...</option>
                       {BANCOS_VENEZUELA.map((b: string) => <option key={b} value={b}>{b}</option>)}
                     </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Cedula Origen</label>
+                  </FormField>
+                  <FormField label="Cedula Origen" required>
                     <input type="text" name="cedula_origen" value={formPago.cedula_origen} onChange={handlePagoChange} pattern="^[VEJG][0-9]{5,9}$" placeholder="V12345678" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
-                  </div>
+                  </FormField>
                   {formPago.metodo_pago === 'Pago Movil' && (
-                    <div>
-                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Telefono Origen</label>
+                    <FormField label="Telefono Origen" required>
                       <input
                         type="text"
                         name="telefono_origen"
@@ -569,7 +561,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                         className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary"
                         required
                       />
-                    </div>
+                    </FormField>
                   )}
                 </div>
               )}
@@ -582,12 +574,10 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
               )}
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Referencia</label>
+                <FormField label="Referencia" required={formPago.metodo_pago !== 'Efectivo'}>
                   <input type="text" name="referencia" value={formPago.referencia} onChange={handlePagoChange} placeholder={formPago.metodo_pago === 'Efectivo' ? 'EFECTIVO (opcional)' : 'Ref / Comprobante'} className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required={formPago.metodo_pago !== 'Efectivo'} />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1 dark:text-gray-400">Fecha Pago</label>
+                </FormField>
+                <FormField label="Fecha Pago" required>
                   <DatePicker
                     selected={ymdToDate(formPago.fecha_pago)}
                     onChange={(date: Date | Date[] | null) => {
@@ -606,7 +596,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                     className="h-[50px] w-full rounded-xl border border-gray-200 bg-white p-3 pr-10 outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                     required
                   />
-                </div>
+                </FormField>
               </div>
 
               <div className="pt-2">

@@ -3,6 +3,7 @@ import type { FC, ChangeEvent } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { API_BASE_URL } from '../../config/api';
 import { useDialog } from '../../components/ui/DialogProvider';
+import FormField from '../../components/ui/FormField';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -340,10 +341,7 @@ const EncuestasPropietario: FC = () => {
                 {estaVotando && !cerrada && !enc.ya_voto && (
                   <div className="border-t border-gray-100 dark:border-gray-800 px-5 py-4 bg-gray-50/50 dark:bg-gray-800/30">
                     {enc.tipo === 'ABIERTA' ? (
-                      <div>
-                        <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider">
-                          Tu respuesta
-                        </label>
+                      <FormField label="Tu respuesta">
                         <textarea
                           rows={3}
                           value={respuestaTexto}
@@ -351,7 +349,7 @@ const EncuestasPropietario: FC = () => {
                           placeholder="Escribe tu respuesta aquí..."
                           className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white outline-none focus:ring-2 focus:ring-donezo-primary text-sm resize-none"
                         />
-                      </div>
+                      </FormField>
                     ) : (
                       <div className="space-y-2">
                         <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Elige una opción</p>
