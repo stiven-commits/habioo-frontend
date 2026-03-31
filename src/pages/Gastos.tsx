@@ -5,7 +5,7 @@ import DateRangePicker from '../components/ui/DateRangePicker';
 import PageHeader from '../components/ui/PageHeader';
 import { es } from 'date-fns/locale/es';
 import { useOutletContext } from 'react-router-dom';
-import { ChevronDown } from 'lucide-react';
+import DropdownMenu from '../components/ui/DropdownMenu';
 import ModalAgregarGasto from '../components/ModalAgregarGasto';
 import ModalDetallesGasto from '../components/ModalDetallesGasto';
 import ModalPagarProveedor from '../components/gastos/ModalPagarProveedor';
@@ -162,12 +162,6 @@ interface ExpandedRows {
   [key: string]: boolean;
 }
 
-interface OptionsMenuState {
-  gasto: GastoAgrupado;
-  top: number;
-  left: number;
-}
-
 interface SortConfig {
   column: SortColumn;
   direction: SortDirection;
@@ -247,8 +241,6 @@ const Gastos: FC<GastosProps> = () => {
   const [gastoEnEdicion, setGastoEnEdicion] = useState<GastoAgrupado | null>(null);
   const [selectedGasto, setSelectedGasto] = useState<GastoAgrupado | null>(null);
   const [expandedRows, setExpandedRows] = useState<ExpandedRows>({});
-  const [openOptionsFor, setOpenOptionsFor] = useState<number | string | null>(null);
-  const [optionsMenuState, setOptionsMenuState] = useState<OptionsMenuState | null>(null);
   const [isModalPagarOpen, setIsModalPagarOpen] = useState<boolean>(false);
   const [gastoPagar, setGastoPagar] = useState<IGasto | null>(null);
   const [isModalVerPagosOpen, setIsModalVerPagosOpen] = useState<boolean>(false);
@@ -338,30 +330,6 @@ const Gastos: FC<GastosProps> = () => {
   useEffect(() => {
     if (userRole === 'Administrador') fetchData();
   }, [userRole]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: globalThis.MouseEvent): void => {
-      const target = event.target as HTMLElement | null;
-      if (target?.closest('[data-options-menu]')) return;
-      setOpenOptionsFor(null);
-      setOptionsMenuState(null);
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  useEffect(() => {
-    const closeMenu = (): void => {
-      setOpenOptionsFor(null);
-      setOptionsMenuState(null);
-    };
-    window.addEventListener('resize', closeMenu);
-    window.addEventListener('scroll', closeMenu, true);
-    return () => {
-      window.removeEventListener('resize', closeMenu);
-      window.removeEventListener('scroll', closeMenu, true);
-    };
-  }, []);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -485,8 +453,7 @@ const Gastos: FC<GastosProps> = () => {
     return { pagado: safePagado, total: safeTotal, pct, isComplete: safePagado >= safeTotal };
   };
 
-  const handleDelete = async (gastoId: number | string, e: ReactMouseEvent<HTMLButtonElement>): Promise<void> => {
-    e.stopPropagation();
+  const handleDelete = async (gastoId: number | string): Promise<void> => {
     const ok = await showConfirm({
       title: 'Eliminar gasto',
       message: '¿Eliminar este gasto y todas sus cuotas?',
@@ -505,40 +472,11 @@ const Gastos: FC<GastosProps> = () => {
     else alert('No se pudo eliminar');
   };
 
-  const handleToggleOptionsMenu = (gasto: GastoAgrupado, event: ReactMouseEvent<HTMLButtonElement>): void => {
-    event.stopPropagation();
-    if (openOptionsFor === gasto.gasto_id) {
-      setOpenOptionsFor(null);
-      setOptionsMenuState(null);
-      return;
-    }
-
-    const rect = event.currentTarget.getBoundingClientRect();
-    const menuWidth = 224;
-    const menuHeight = 210;
-    const padding = 8;
-    const viewportW = window.innerWidth;
-    const viewportH = window.innerHeight;
-    const openUp = rect.bottom + menuHeight > viewportH - padding;
-    const top = openUp
-      ? Math.max(padding, rect.top - menuHeight - 6)
-      : Math.min(viewportH - menuHeight - padding, rect.bottom + 6);
-    const left = Math.min(
-      viewportW - menuWidth - padding,
-      Math.max(padding, rect.right - menuWidth),
-    );
-
-    setOptionsMenuState({ gasto, top, left });
-    setOpenOptionsFor(gasto.gasto_id);
-  };
-
   const handleEditGasto = (gasto: GastoAgrupado): void => {
     if (!gasto.canEdit) {
       alert('Este gasto ya fue incluido en aviso(s) de cobro y no puede editarse.');
       return;
     }
-    setOpenOptionsFor(null);
-    setOptionsMenuState(null);
     setGastoEnEdicion(gasto);
     setIsModalOpen(true);
   };
@@ -819,16 +757,12 @@ const Gastos: FC<GastosProps> = () => {
                     headerClassName: 'text-center',
                     className: 'text-center',
                     render: (g) => (
-                      <div className="relative inline-block text-left" data-options-menu>
-                        <button
-                          type="button"
-                          onClick={(e: ReactMouseEvent<HTMLButtonElement>) => handleToggleOptionsMenu(g, e)}
-                          className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-                        >
-                          Opciones
-                          <ChevronDown size={14} strokeWidth={2.25} aria-hidden="true" />
-                        </button>
-                      </div>
+                      <DropdownMenu width={208} items={[
+                        { label: 'Ver pagos', onClick: () => { setGastoVerPagos(g); setIsModalVerPagosOpen(true); } },
+                        { label: 'Registrar pago', onClick: () => { void handleRegistrarPago(g); }, disabled: toNumber(g.monto_pagado_usd) >= toNumber(g.monto_total_usd) },
+                        { label: 'Editar gasto', onClick: () => handleEditGasto(g), disabled: !g.canEdit },
+                        { label: 'Eliminar', onClick: () => { void handleDelete(g.gasto_id); }, variant: 'danger', disabled: !g.canDelete },
+                      ]} />
                     ),
                   },
                 ]}
@@ -890,59 +824,6 @@ const Gastos: FC<GastosProps> = () => {
           )}
         </div>
       </div>
-
-      {optionsMenuState && openOptionsFor === optionsMenuState.gasto.gasto_id && (
-        <div
-          data-options-menu
-          className="fixed z-[120] w-56 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800 animate-fadeIn"
-          style={{ top: optionsMenuState.top, left: optionsMenuState.left }}
-        >
-          <button
-            type="button"
-            onClick={() => {
-              setGastoVerPagos(optionsMenuState.gasto);
-              setIsModalVerPagosOpen(true);
-              setOpenOptionsFor(null);
-              setOptionsMenuState(null);
-            }}
-            className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors"
-          >
-            Ver pagos
-          </button>
-          <button
-            type="button"
-            disabled={toNumber(optionsMenuState.gasto.monto_pagado_usd) >= toNumber(optionsMenuState.gasto.monto_total_usd)}
-            onClick={() => {
-              void handleRegistrarPago(optionsMenuState.gasto);
-              setOpenOptionsFor(null);
-              setOptionsMenuState(null);
-            }}
-            className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Registrar pago
-          </button>
-          <button
-            type="button"
-            disabled={!optionsMenuState.gasto.canEdit}
-            onClick={() => handleEditGasto(optionsMenuState.gasto)}
-            className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Editar gasto
-          </button>
-          <button
-            type="button"
-            disabled={!optionsMenuState.gasto.canDelete}
-            onClick={(e: ReactMouseEvent<HTMLButtonElement>) => {
-              setOpenOptionsFor(null);
-              setOptionsMenuState(null);
-              void handleDelete(optionsMenuState.gasto.gasto_id, e);
-            }}
-            className="w-full text-left px-4 py-3 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm text-red-600 dark:text-red-400 font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Eliminar
-          </button>
-        </div>
-      )}
 
       {isModalOpen && (
         <ModalAgregarGasto

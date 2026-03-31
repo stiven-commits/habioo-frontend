@@ -3,6 +3,7 @@ import type React from 'react';
 import { useOutletContext } from 'react-router-dom';
 import DataTable from '../components/ui/DataTable';
 import PageHeader from '../components/ui/PageHeader';
+import DropdownMenu from '../components/ui/DropdownMenu';
 import { API_BASE_URL } from '../config/api';
 import * as XLSX from 'xlsx';
 import { ModalProveedorForm, ModalProveedorDetails, ModalCargaMasivaProveedores } from '../components/proveedores/ProveedoresModals';
@@ -122,7 +123,6 @@ const Proveedores: React.FC<ProveedoresProps> = () => {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const itemsPerPage = 13;
 
-  const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
   const [detailsModalOpen, setDetailsModalOpen] = useState<boolean>(false);
   const [selectedProvDetails, setSelectedProvDetails] = useState<Proveedor | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -455,20 +455,16 @@ const Proveedores: React.FC<ProveedoresProps> = () => {
                     key: 'acciones',
                     header: 'Acciones',
                     headerClassName: 'text-center',
-                    className: 'text-center relative',
+                    className: 'text-center',
                     render: (p) => (
-                      <>
-                        <button onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); setOpenDropdownId(openDropdownId === p.id ? null : p.id); }} className="bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 px-4 py-2 rounded-xl text-xs font-bold transition-colors inline-flex items-center gap-2">
-                          Opciones <span className="text-[9px]">▼</span>
-                        </button>
-                        {openDropdownId === p.id && (
-                          <div className="absolute right-0 top-12 w-48 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden text-left animate-fadeIn">
-                            <button onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); handleViewDetails(p); }} className="w-full text-left px-4 py-3 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-sm text-blue-600 dark:text-blue-400 font-bold transition-colors border-b border-gray-50 dark:border-gray-700">Ver detalles</button>
-                            <button onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); handleEdit(p); }} className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 border-b border-gray-50 dark:border-gray-700 transition-colors">Editar datos</button>
-                            <button onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); void handleDelete(p.id, p.nombre); }} className="w-full text-left px-4 py-3 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm text-red-600 dark:text-red-400 font-bold transition-colors">Eliminar</button>
-                          </div>
-                        )}
-                      </>
+                      <DropdownMenu
+                        width={192}
+                        items={[
+                          { label: 'Ver detalles', onClick: () => handleViewDetails(p), className: 'text-blue-600 dark:text-blue-400 font-bold hover:bg-blue-50 dark:hover:bg-blue-900/30' },
+                          { label: 'Editar datos', onClick: () => handleEdit(p) },
+                          { label: 'Eliminar', onClick: () => { void handleDelete(p.id, p.nombre); }, variant: 'danger' },
+                        ]}
+                      />
                     ),
                   },
                 ]}

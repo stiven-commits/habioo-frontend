@@ -1,7 +1,8 @@
 ﻿import { useState, useEffect, useRef, useMemo } from 'react';
 import type { FC, ChangeEvent, FormEvent, Dispatch, SetStateAction } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { ChevronDown, Pencil, UserPlus, Users, Trash2 } from 'lucide-react';
+import { Pencil, UserPlus, Users, Trash2 } from 'lucide-react';
+import DropdownMenu from '../components/ui/DropdownMenu';
 import { formatMoney } from '../utils/currency';
 import { toYmdVE } from '../utils/datetime';
 import { sanitizeCedulaRif, sanitizePhone, sanitizeEmail, isValidEmail, isValidPhone, isValidCedulaRif } from '../utils/validators';
@@ -275,7 +276,6 @@ const Propiedades: FC<PropiedadesProps> = () => {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
   const [copropModalOpen, setCopropModalOpen] = useState<boolean>(false);
   const [residenteModalOpen, setResidenteModalOpen] = useState<boolean>(false);
   const [residenteSubmitting, setResidenteSubmitting] = useState<boolean>(false);
@@ -1597,50 +1597,18 @@ const Propiedades: FC<PropiedadesProps> = () => {
                   key: 'acciones',
                   header: 'Acciones',
                   headerClassName: 'text-center',
-                  className: 'text-center relative',
-                  render: (p, index) => {
-                    const abrirHaciaArriba = index >= currentProps.length - 4;
-                    return (
-                      <>
-                        <button onClick={(e) => { e.stopPropagation(); setOpenDropdownId(openDropdownId === p.id ? null : p.id); }} className="bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 px-4 py-2 rounded-xl text-xs font-bold transition-colors inline-flex items-center gap-2">
-                          Opciones <ChevronDown className="w-3.5 h-3.5" />
-                        </button>
-                        {openDropdownId === p.id && (
-                          <div className={`absolute right-0 ${abrirHaciaArriba ? 'bottom-12' : 'top-12'} w-48 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden text-left animate-fadeIn`}>
-                            <button onClick={(e) => { e.stopPropagation(); handleEdit(p); }} className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors">
-                              <span className="inline-flex items-center gap-2">
-                                <Pencil className="w-4 h-4" />
-                                Editar Datos
-                              </span>
-                            </button>
-                            <button onClick={(e) => { e.stopPropagation(); handleOpenResidente(p); }} className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors">
-                              <span className="inline-flex items-center gap-2">
-                                <UserPlus className="w-4 h-4" />
-                                Residente / Inquilino
-                              </span>
-                            </button>
-                            <button onClick={(e) => { e.stopPropagation(); handleOpenCopropietarios(p); }} className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors">
-                              <span className="inline-flex items-center gap-2">
-                                <Users className="w-4 h-4" />
-                                Copropietarios
-                              </span>
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); void handleEliminarInmueble(p); }}
-                              disabled={!p.can_delete}
-                              className="w-full text-left px-4 py-3 hover:bg-red-50 dark:hover:bg-red-900/30 text-sm text-red-600 dark:text-red-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                              title={p.can_delete ? 'Eliminar inmueble' : 'No se puede eliminar: ya tiene avisos/recibos'}
-                            >
-                              <span className="inline-flex items-center gap-2">
-                                <Trash2 className="w-4 h-4" />
-                                Eliminar inmueble
-                              </span>
-                            </button>
-                          </div>
-                        )}
-                      </>
-                    );
-                  },
+                  className: 'text-center',
+                  render: (p) => (
+                    <DropdownMenu
+                      width={192}
+                      items={[
+                        { label: 'Editar Datos', onClick: () => handleEdit(p), icon: <Pencil className="w-4 h-4" /> },
+                        { label: 'Residente / Inquilino', onClick: () => handleOpenResidente(p), icon: <UserPlus className="w-4 h-4" /> },
+                        { label: 'Copropietarios', onClick: () => handleOpenCopropietarios(p), icon: <Users className="w-4 h-4" /> },
+                        { label: 'Eliminar inmueble', onClick: () => { void handleEliminarInmueble(p); }, variant: 'danger', disabled: !p.can_delete, icon: <Trash2 className="w-4 h-4" /> },
+                      ]}
+                    />
+                  ),
                 },
               ]}
               data={currentProps}
