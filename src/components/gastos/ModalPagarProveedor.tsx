@@ -16,8 +16,13 @@ interface ICuentaBancaria {
   nombre_banco?: string;
   banco?: string;
   nombre?: string;
+  apodo?: string;
+  alias?: string;
   tipo?: string;
   moneda?: string;
+  numero_cuenta?: string;
+  numeroCuenta?: string;
+  cuenta?: string;
 }
 
 interface FondoPagoProveedor {
@@ -43,6 +48,7 @@ interface FilaOrigen {
   moneda: 'Bs' | 'USD' | '';
   requiere_ref: boolean;
   monto_input: string;
+  tasa_input: string;
   tasa_cambio: number | '';
   monto_usd: number;
   referencia: string;
@@ -93,6 +99,7 @@ const createFila = (): FilaOrigen => {
     moneda: '',
     requiere_ref: true,
     monto_input: '',
+    tasa_input: '',
     tasa_cambio: '',
     monto_usd: 0,
     referencia: '',
@@ -112,6 +119,33 @@ const formatRateForInput = (value: number | ''): string => {
   const intWithDots = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   const decPart = decPartRaw.replace(/0+$/, '');
   return decPart ? `${intWithDots},${decPart}` : intWithDots;
+};
+
+const formatRateInput = (value: string): string => {
+  const clean = value.replace(/[^\d.,]/g, '');
+  if (!clean) return '';
+
+  const [intRaw = '', ...decParts] = clean.split(',');
+  const intDigits = intRaw.replace(/[^\d]/g, '');
+  if (!intDigits && !clean.includes(',')) return '';
+
+  const intPart = intDigits.replace(/^0+(?=\d)/, '') || '0';
+  const intWithDots = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+  if (!clean.includes(',')) return intWithDots;
+
+  const decRaw = decParts.join('').replace(/[^\d]/g, '').slice(0, 3);
+  return `${intWithDots},${decRaw}`;
+};
+
+const getCuentaLabel = (banco: ICuentaBancaria): string => {
+  const moneda = inferMonedaFromBanco(banco);
+  const apodo = String(banco.apodo || banco.alias || banco.nombre || banco.nombre_banco || banco.banco || 'Cuenta').trim();
+  if (moneda === 'USD') return `${apodo} | USD`;
+
+  const numeroRaw = String(banco.numero_cuenta || banco.numeroCuenta || banco.cuenta || '').replace(/\D/g, '');
+  const ultimos4 = numeroRaw ? numeroRaw.slice(-4) : '';
+  return ultimos4 ? `Bs | ${apodo} | ****${ultimos4}` : `Bs | ${apodo}`;
 };
 
 const formatCurrency = (value: string): string => {
@@ -193,6 +227,7 @@ const ModalPagarProveedor: React.FC<ModalPagarProveedorProps> = ({ isOpen, onClo
       moneda,
       requiere_ref: requiereRef,
       monto_input: '',
+      tasa_input: moneda === 'USD' ? '1' : '',
       tasa_cambio: moneda === 'USD' ? 1 : '',
       monto_usd: 0,
       referencia: '',
@@ -231,13 +266,15 @@ const ModalPagarProveedor: React.FC<ModalPagarProveedorProps> = ({ isOpen, onClo
   };
 
   const handleTasaChange = (filaId: string, value: string): void => {
-    const tasaNumber = parseFormattedAmount(value);
+    const tasaInput = formatRateInput(value);
+    const tasaNumber = parseFormattedAmount(tasaInput);
     const tasa = tasaNumber > 0 ? parseFloat(tasaNumber.toFixed(3)) : '';
     setFila(filaId, (fila: FilaOrigen) => {
       const montoBs = parseFormattedAmount(fila.monto_input);
       const usd = Number(tasa) > 0 ? parseFloat((montoBs / Number(tasa)).toFixed(2)) : 0;
       return {
         ...fila,
+        tasa_input: tasaInput,
         tasa_cambio: tasa,
         monto_usd: usd,
       };
@@ -271,6 +308,7 @@ const ModalPagarProveedor: React.FC<ModalPagarProveedorProps> = ({ isOpen, onClo
         const usd = montoBs > 0 ? parseFloat((montoBs / promedio).toFixed(2)) : 0;
         return {
           ...fila,
+          tasa_input: formatRateForInput(parseFloat(promedio.toFixed(3))),
           tasa_cambio: parseFloat(promedio.toFixed(3)),
           monto_usd: usd,
         };
@@ -493,7 +531,7 @@ const ModalPagarProveedor: React.FC<ModalPagarProveedorProps> = ({ isOpen, onClo
                             <option value="">Seleccione banco...</option>
                             {bancos.map((b: ICuentaBancaria) => (
                               <option key={b.id} value={b.id}>
-                                {(b.nombre_banco || b.nombre || b.banco || 'Banco')} - {b.tipo || 'N/A'}
+                                {getCuentaLabel(b)}
                               </option>
                             ))}
                           </select>
@@ -541,7 +579,7 @@ const ModalPagarProveedor: React.FC<ModalPagarProveedorProps> = ({ isOpen, onClo
                               type="text"
                               inputMode="decimal"
                               placeholder="0,000"
-                              value={formatRateForInput(fila.tasa_cambio)}
+                              value={fila.tasa_input}
                               onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleTasaChange(fila.id, e.target.value)}
                               disabled={saving}
                               className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-emerald-500 transition focus:ring-2 disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
@@ -615,7 +653,7 @@ const ModalPagarProveedor: React.FC<ModalPagarProveedorProps> = ({ isOpen, onClo
                           <option value="">Seleccione banco...</option>
                           {bancos.map((b: ICuentaBancaria) => (
                             <option key={b.id} value={b.id}>
-                              {(b.nombre_banco || b.nombre || b.banco || 'Banco')} - {b.tipo || 'N/A'}
+                              {getCuentaLabel(b)}
                             </option>
                           ))}
                         </select>
@@ -738,5 +776,3 @@ const ModalPagarProveedor: React.FC<ModalPagarProveedorProps> = ({ isOpen, onClo
 };
 
 export default ModalPagarProveedor;
-
-
