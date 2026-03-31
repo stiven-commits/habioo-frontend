@@ -13,6 +13,8 @@ import ModalBase from '../ui/ModalBase';
 import { es } from 'date-fns/locale/es';
 import { formatMoney } from '../../utils/currency';
 import { formatDateVE } from '../../utils/datetime';
+import DataTable from '../ui/DataTable';
+import FormField from '../ui/FormField';
 
 interface PropiedadFormData {
   identificador: string;
@@ -368,14 +370,12 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
           <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
             <h4 className="font-bold text-donezo-primary mb-3 text-sm uppercase tracking-wider">1. Datos del Inmueble</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">Identificador *</label>
+              <FormField label="Identificador" required>
                 <input type="text" name="identificador" value={form.identificador} onChange={handleChange} placeholder="Ej: A-12 o Casa 3" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" required />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">Alícuota (%) *</label>
+              </FormField>
+              <FormField label="Alícuota (%)" required>
                 <input type="text" name="alicuota" value={form.alicuota} onChange={handleChange} placeholder="Ej: 3,125" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono" required />
-              </div>
+              </FormField>
 
               {!editingId && (
                 <div className="md:col-span-2 space-y-3">
@@ -396,34 +396,37 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
                       {deudasIniciales.map((deuda, index) => (
                         <div key={`deuda-${index}`} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
                           <div className="md:col-span-6">
-                            <label className="block text-xs font-bold text-gray-500 mb-1">Concepto</label>
-                            <input
-                              type="text"
-                              value={deuda.concepto}
-                              onChange={(e: ChangeEvent<HTMLInputElement>) => updateDeudaInicial(index, 'concepto', e.target.value)}
-                              placeholder="Ej: Deuda mantenimiento enero"
-                              className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
-                            />
+                            <FormField label="Concepto">
+                              <input
+                                type="text"
+                                value={deuda.concepto}
+                                onChange={(e: ChangeEvent<HTMLInputElement>) => updateDeudaInicial(index, 'concepto', e.target.value)}
+                                placeholder="Ej: Deuda mantenimiento enero"
+                                className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
+                              />
+                            </FormField>
                           </div>
                           <div className="md:col-span-2">
-                            <label className="block text-xs font-bold text-gray-500 mb-1">Monto deuda ($)</label>
-                            <input
-                              type="text"
-                              value={deuda.monto_deuda}
-                              onChange={(e: ChangeEvent<HTMLInputElement>) => updateDeudaInicial(index, 'monto_deuda', e.target.value)}
-                              placeholder="0,00"
-                              className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
-                            />
+                            <FormField label="Monto deuda ($)">
+                              <input
+                                type="text"
+                                value={deuda.monto_deuda}
+                                onChange={(e: ChangeEvent<HTMLInputElement>) => updateDeudaInicial(index, 'monto_deuda', e.target.value)}
+                                placeholder="0,00"
+                                className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                              />
+                            </FormField>
                           </div>
                           <div className="md:col-span-2">
-                            <label className="block text-xs font-bold text-gray-500 mb-1">Monto abono ($)</label>
-                            <input
-                              type="text"
-                              value={deuda.monto_abono}
-                              onChange={(e: ChangeEvent<HTMLInputElement>) => updateDeudaInicial(index, 'monto_abono', e.target.value)}
-                              placeholder="Opcional"
-                              className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
-                            />
+                            <FormField label="Monto abono ($)">
+                              <input
+                                type="text"
+                                value={deuda.monto_abono}
+                                onChange={(e: ChangeEvent<HTMLInputElement>) => updateDeudaInicial(index, 'monto_abono', e.target.value)}
+                                placeholder="Opcional"
+                                className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                              />
+                            </FormField>
                           </div>
                           <div className="md:col-span-2 flex gap-2">
                             <button
@@ -669,7 +672,7 @@ export const ModalEstadoCuenta: FC<ModalEstadoCuentaProps> = ({
               <p className="text-sm font-medium text-gray-500 mt-1">Residente: <span className="text-gray-700 dark:text-gray-300">{selectedPropCuenta.inq_nombre}</span></p>
             )}
           </div>
-          <button onClick={() => setEstadoCuentaModalOpen(false)} className="text-gray-400 hover:text-red-500 font-bold text-2xl transition-colors">x</button>
+          <button type="button" onClick={() => setEstadoCuentaModalOpen(false)} className="ml-4 shrink-0 text-gray-400 hover:text-red-500 font-bold text-2xl transition-colors leading-none" aria-label="Cerrar">✕</button>
         </div>
 
         <div className="px-6 py-4 flex flex-wrap justify-between items-end gap-4 bg-white dark:bg-donezo-card-dark border-b border-gray-100 dark:border-gray-800">
@@ -707,57 +710,44 @@ export const ModalEstadoCuenta: FC<ModalEstadoCuentaProps> = ({
 
         <div className="flex-1 overflow-y-auto p-6 bg-white dark:bg-donezo-card-dark custom-scrollbar">
           {loadingCuenta ? <p className="text-center text-gray-400 py-10">Cargando movimientos...</p> : estadoCuentaFiltrado.length === 0 ? <p className="text-center text-gray-400 py-10">No hay movimientos en este rango de fechas.</p> : (
-            <table className="w-full text-left border-collapse text-sm min-w-[1100px]">
-              <thead className="sticky top-0 bg-white dark:bg-donezo-card-dark shadow-sm">
-                <tr className="border-b border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400">
-                  <th className="p-3 font-bold uppercase text-[11px]">Fecha Op.</th>
-                  <th className="p-3 font-bold uppercase text-[11px]">Ingreso al Sistema</th>
-                  <th className="p-3 font-bold uppercase text-[11px]">Concepto</th>
-                  <th className="p-3 font-bold uppercase text-[11px] text-right">Monto Bs</th>
-                  <th className="p-3 font-bold uppercase text-[11px] text-right">Tasa</th>
-                  <th className="p-3 font-bold uppercase text-[11px] text-right">Cargos (Deuda)</th>
-                  <th className="p-3 font-bold uppercase text-[11px] text-right">Abonos (Pago)</th>
-                  <th className="p-3 font-bold uppercase text-[11px] text-right text-donezo-primary">Saldo Final</th>
-                  <th className="p-3 font-bold uppercase text-[11px] text-center">Ver</th>
-                </tr>
-              </thead>
-              <tbody>
-                {movimientosPagina.map((m, idx) => (
-                  <tr key={idx} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                    <td className="p-3 text-gray-600 dark:text-gray-300 font-mono text-xs">{formatDateVE(m.fecha_operacion)}</td>
-                    <td className="p-3 text-gray-400 font-mono text-[10px]">{formatDateVE(m.fecha_registro)}</td>
-                    <td className="p-3 font-medium text-gray-800 dark:text-gray-200">
-                      {m.tipo === 'RECIBO' ? m.concepto : `${m.tipo === 'PAGO' ? 'PAGO' : 'AJUSTE'} ${m.concepto}`}
-                    </td>
-                    <td className="p-3 text-right font-mono text-gray-700 dark:text-gray-300">{m.monto_bs > 0 ? `Bs ${formatMoney(m.monto_bs)}` : '-'}</td>
-                    <td className="p-3 text-right font-mono text-gray-700 dark:text-gray-300">{m.tasa_cambio > 0 ? formatMoney(m.tasa_cambio) : '-'}</td>
-                    <td className="p-3 text-right text-red-500 font-mono font-medium">{m.cargo > 0 ? `$${formatMoney(m.cargo)}` : '-'}</td>
-                    <td className="p-3 text-right text-green-500 font-mono font-medium">{m.abono > 0 ? `$${formatMoney(m.abono)}` : '-'}</td>
-                    <td className="p-3 text-right font-mono font-black text-gray-800 dark:text-white">${formatMoney(m.saldoFila)}</td>
-                    <td className="p-3 text-center">
-                      {m.tipo === 'RECIBO' ? (
-                        <button
-                          type="button"
-                          title="Ver detalle del aviso (proximamente)"
-                          className="px-2 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm"
-                        >
-                          Ver
-                        </button>
-                      ) : (
-                        <span className="text-gray-300">-</span>
-                      )}
-                    </td>
+            <DataTable
+              tableStyle={{ minWidth: '1100px' }}
+              columns={[
+                { key: 'fecha_op', header: 'Fecha Op.', className: 'text-gray-600 dark:text-gray-300 font-mono text-xs', render: (m) => formatDateVE(m.fecha_operacion) },
+                { key: 'fecha_reg', header: 'Ingreso al Sistema', className: 'text-gray-400 font-mono text-[10px]', render: (m) => formatDateVE(m.fecha_registro) },
+                { key: 'concepto', header: 'Concepto', className: 'font-medium text-gray-800 dark:text-gray-200', render: (m) => m.tipo === 'RECIBO' ? m.concepto : `${m.tipo === 'PAGO' ? 'PAGO' : 'AJUSTE'} ${m.concepto}` },
+                { key: 'monto_bs', header: 'Monto Bs', headerClassName: 'text-right', className: 'text-right font-mono text-gray-700 dark:text-gray-300', render: (m) => m.monto_bs > 0 ? `Bs ${formatMoney(m.monto_bs)}` : '-' },
+                { key: 'tasa', header: 'Tasa', headerClassName: 'text-right', className: 'text-right font-mono text-gray-700 dark:text-gray-300', render: (m) => m.tasa_cambio > 0 ? formatMoney(m.tasa_cambio) : '-' },
+                { key: 'cargos', header: 'Cargos (Deuda)', headerClassName: 'text-right', className: 'text-right text-red-500 font-mono font-medium', render: (m) => m.cargo > 0 ? `$${formatMoney(m.cargo)}` : '-' },
+                { key: 'abonos', header: 'Abonos (Pago)', headerClassName: 'text-right', className: 'text-right text-green-500 font-mono font-medium', render: (m) => m.abono > 0 ? `$${formatMoney(m.abono)}` : '-' },
+                { key: 'saldo', header: 'Saldo Final', headerClassName: 'text-right text-donezo-primary', className: 'text-right font-mono font-black text-gray-800 dark:text-white', render: (m) => `$${formatMoney(m.saldoFila)}` },
+                {
+                  key: 'ver',
+                  header: 'Ver',
+                  headerClassName: 'text-center',
+                  className: 'text-center',
+                  render: (m) => m.tipo === 'RECIBO' ? (
+                    <button type="button" title="Ver detalle del aviso (proximamente)" className="px-2 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm">
+                      Ver
+                    </button>
+                  ) : (
+                    <span className="text-gray-300">-</span>
+                  ),
+                },
+              ]}
+              data={movimientosPagina}
+              keyExtractor={(_, idx) => idx}
+              rowClassName="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+              renderFooter={() => (
+                <tfoot>
+                  <tr className="bg-gray-50 dark:bg-gray-900 border-t-2 border-gray-200 dark:border-gray-700">
+                    <td colSpan={7} className="p-3 text-right font-black uppercase text-xs text-gray-600 dark:text-gray-300 tracking-wider">Saldo Final:</td>
+                    <td className="p-3 text-right font-black text-donezo-primary dark:text-cyan-300 font-mono">${formatMoney(saldoFinal)}</td>
+                    <td className="p-3"></td>
                   </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="bg-gray-50 dark:bg-gray-900 border-t-2 border-gray-200 dark:border-gray-700">
-                  <td colSpan={7} className="p-4 text-right font-black uppercase text-xs text-gray-600 dark:text-gray-300 tracking-wider">Saldo Final:</td>
-                  <td className="p-4 text-right font-black text-donezo-primary dark:text-cyan-300 font-mono">${formatMoney(saldoFinal)}</td>
-                  <td className="p-4"></td>
-                </tr>
-              </tfoot>
-            </table>
+                </tfoot>
+              )}
+            />
           )}
         </div>
         {!loadingCuenta && estadoCuentaFiltrado.length > 0 && totalPages > 1 && (
@@ -1269,42 +1259,84 @@ export const ModalCargaMasiva: FC<ModalCargaMasivaProps> = ({
               </div>
             )}
             <div className="flex-1 overflow-y-auto p-0 bg-white dark:bg-donezo-card-dark custom-scrollbar">
-              <table className="w-full text-left border-collapse text-sm">
-                <thead className="sticky top-0 bg-gray-100 dark:bg-gray-800 shadow-sm z-10">
-                  <tr className="text-gray-600 dark:text-gray-300">
-                    <th className="p-3 font-bold text-center">Estado</th>
-                    <th className="p-3 font-bold">Apto/Casa</th>
-                    <th className="p-3 font-bold">Propietario</th>
-                    <th className="p-3 font-bold">Cédula</th>
-                    <th className="p-3 font-bold">Correo</th>
-                    <th className="p-3 font-bold">Teléfono</th>
-                    <th className="p-3 font-bold text-right">Alícuota</th>
-                    <th className="p-3 font-bold text-right">Saldo Inicial</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loteData.map((row, i) => (
-                    <tr key={i} className={`border-b ${row.isValid ? 'border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800' : 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30'}`}>
-                      <td className="p-3 text-center text-xs">
-                        {row.isValid ? (
-                          <span className="text-green-500 text-lg" title="Correcto">OK</span>
-                        ) : (
-                          <span className="text-red-500 font-semibold" title={row.errors}>
-                            ERR{row.errors ? ` - ${row.errors}` : ''}
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-3 font-bold text-gray-800 dark:text-white">{row.identificador}</td>
-                      <td className="p-3"><div className="text-gray-700 dark:text-gray-300 font-medium">{row.nombre}</div>{!row.isValid && row.errors.includes('Nombre') && <span className="text-[10px] text-red-500 font-bold">Requerido</span>}</td>
-                      <td className="p-3 font-mono text-gray-600 dark:text-gray-400">{row.cedula}{!row.isValid && row.errors.includes('Cédula') && <div className="text-[10px] text-red-500 font-bold">Inválida</div>}</td>
-                      <td className="p-3 text-gray-500 dark:text-gray-400 text-xs">{row.correo || '-'}{!row.isValid && row.errors.includes('Correo duplicado') && <div className="text-[10px] text-red-500 font-bold">Repetido</div>}</td>
-                      <td className="p-3 text-gray-500 dark:text-gray-400 text-xs">{row.telefono || '-'}</td>
-                      <td className="p-3 text-right font-mono font-bold text-blue-600 dark:text-blue-400">{String(row.alicuota).replace('.', ',')}% {!row.isValid && row.errors.includes('Alícuota') && <div className="text-[10px] text-red-500 font-bold">Debe ser {'>'} 0</div>}</td>
-                      <td className="p-3 text-right font-mono font-medium"><span className={parseFloat(String(row.saldo_inicial)) > 0 ? 'text-red-500' : parseFloat(String(row.saldo_inicial)) < 0 ? 'text-green-500' : 'text-gray-500 dark:text-gray-400'}>${formatMoney(Math.abs(parseFloat(String(row.saldo_inicial || 0))))}</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <DataTable
+                columns={[
+                  {
+                    key: 'estado',
+                    header: 'Estado',
+                    headerClassName: 'text-center',
+                    className: 'text-center text-xs',
+                    render: (row) => row.isValid ? (
+                      <span className="text-green-500 text-lg" title="Correcto">OK</span>
+                    ) : (
+                      <span className="text-red-500 font-semibold" title={row.errors}>ERR{row.errors ? ` - ${row.errors}` : ''}</span>
+                    ),
+                  },
+                  { key: 'apto', header: 'Apto/Casa', className: 'font-bold text-gray-800 dark:text-white', render: (row) => row.identificador },
+                  {
+                    key: 'propietario',
+                    header: 'Propietario',
+                    render: (row) => (
+                      <>
+                        <div className="text-gray-700 dark:text-gray-300 font-medium">{row.nombre}</div>
+                        {!row.isValid && row.errors.includes('Nombre') && <span className="text-[10px] text-red-500 font-bold">Requerido</span>}
+                      </>
+                    ),
+                  },
+                  {
+                    key: 'cedula',
+                    header: 'Cédula',
+                    className: 'font-mono text-gray-600 dark:text-gray-400',
+                    render: (row) => (
+                      <>
+                        {row.cedula}
+                        {!row.isValid && row.errors.includes('Cédula') && <div className="text-[10px] text-red-500 font-bold">Inválida</div>}
+                      </>
+                    ),
+                  },
+                  {
+                    key: 'correo',
+                    header: 'Correo',
+                    className: 'text-gray-500 dark:text-gray-400 text-xs',
+                    render: (row) => (
+                      <>
+                        {row.correo || '-'}
+                        {!row.isValid && row.errors.includes('Correo duplicado') && <div className="text-[10px] text-red-500 font-bold">Repetido</div>}
+                      </>
+                    ),
+                  },
+                  { key: 'telefono', header: 'Teléfono', className: 'text-gray-500 dark:text-gray-400 text-xs', render: (row) => row.telefono || '-' },
+                  {
+                    key: 'alicuota',
+                    header: 'Alícuota',
+                    headerClassName: 'text-right',
+                    className: 'text-right font-mono font-bold text-blue-600 dark:text-blue-400',
+                    render: (row) => (
+                      <>
+                        {String(row.alicuota).replace('.', ',')}%
+                        {!row.isValid && row.errors.includes('Alícuota') && <div className="text-[10px] text-red-500 font-bold">Debe ser &gt; 0</div>}
+                      </>
+                    ),
+                  },
+                  {
+                    key: 'saldo',
+                    header: 'Saldo Inicial',
+                    headerClassName: 'text-right',
+                    className: 'text-right font-mono font-medium',
+                    render: (row) => {
+                      const saldo = parseFloat(String(row.saldo_inicial));
+                      return (
+                        <span className={saldo > 0 ? 'text-red-500' : saldo < 0 ? 'text-green-500' : 'text-gray-500 dark:text-gray-400'}>
+                          ${formatMoney(Math.abs(parseFloat(String(row.saldo_inicial || 0))))}
+                        </span>
+                      );
+                    },
+                  },
+                ]}
+                data={loteData}
+                keyExtractor={(_, i) => i}
+                rowClassName={(row) => `border-b ${row.isValid ? 'border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800' : 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30'}`}
+              />
             </div>
 
             <div className="p-6 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-800 flex flex-col gap-4">

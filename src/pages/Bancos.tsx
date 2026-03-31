@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { FC, ChangeEvent, FormEvent } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import ModalBase from '../components/ui/ModalBase';
 import ModalFondos from '../components/ModalFondos';
 import { ModalEliminarFondo } from '../components/BancosModals';
 import { API_BASE_URL } from '../config/api';
 import { formatMoney } from '../utils/currency';
 import { sanitizeCedulaRif, sanitizePhone, sanitizeEmail, isValidEmail, isValidPhone, isValidCedulaRif } from '../utils/validators';
 import { useDialog } from '../components/ui/DialogProvider';
+import PageHeader from '../components/ui/PageHeader';
 
 interface BancosProps {}
 
@@ -494,12 +496,14 @@ const Bancos: FC<BancosProps> = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Cuentas Bancarias</h2>
-        <button onClick={openCreateModal} className="bg-gray-800 hover:bg-gray-900 text-white dark:bg-donezo-primary dark:hover:bg-blue-600 font-bold py-2 px-5 rounded-xl transition-all shadow-md text-sm flex items-center gap-2">
-          + Agregar Cuenta
-        </button>
-      </div>
+      <PageHeader
+        title="Cuentas Bancarias"
+        actions={
+          <button onClick={openCreateModal} className="bg-gray-800 hover:bg-gray-900 text-white dark:bg-donezo-primary dark:hover:bg-blue-600 font-bold py-2 px-5 rounded-xl transition-all shadow-md text-sm flex items-center gap-2">
+            + Agregar Cuenta
+          </button>
+        }
+      />
 
       {bancos.length > 0 && !bancos.some(b => b.es_predeterminada) && (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-500 p-4 rounded-xl shadow-sm">
@@ -606,23 +610,8 @@ const Bancos: FC<BancosProps> = () => {
       )}
 
       {showCuentaModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-donezo-card-dark rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 w-full max-w-6xl max-h-[90vh] overflow-y-auto custom-scrollbar">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
-              <h3 className="text-lg font-bold text-gray-800 dark:text-white">
-                {editingBanco ? 'Editar Cuenta Bancaria' : 'Nueva Cuenta Bancaria'}
-              </h3>
-              <button
-                type="button"
-                onClick={closeCuentaModal}
-                disabled={isSavingCuenta}
-                className="text-gray-500 hover:text-red-500 font-bold text-xl disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                X
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="p-6">
+        <ModalBase onClose={closeCuentaModal} title={editingBanco ? 'Editar Cuenta Bancaria' : 'Nueva Cuenta Bancaria'} maxWidth="max-w-6xl" disableClose={isSavingCuenta}>
+          <form onSubmit={handleSubmit}>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Cuenta *</label>
@@ -736,26 +725,25 @@ const Bancos: FC<BancosProps> = () => {
                 )}
               </div>
 
-              <div className="flex gap-3 justify-end">
+              <div className="flex gap-3 justify-end mt-6">
                 <button
                   type="button"
                   onClick={closeCuentaModal}
                   disabled={isSavingCuenta}
-                  className="px-6 py-3 rounded-xl bg-gray-100 dark:bg-gray-800 font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200 transition-colors"
+                  className="px-5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-60"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={isSavingCuenta}
-                  className="bg-donezo-primary hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="px-5 py-2.5 rounded-xl bg-donezo-primary hover:bg-blue-700 text-white font-bold transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {isSavingCuenta ? 'Guardando...' : editingBanco ? 'Guardar Cambios' : 'Guardar Configuracion'}
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
+          </form>
+        </ModalBase>
       )}
 
       {selectedBancoForFondos && (

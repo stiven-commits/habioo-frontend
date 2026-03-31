@@ -1,6 +1,8 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import type { FC, MouseEvent as ReactMouseEvent, ChangeEvent } from 'react';
+import DataTable from '../components/ui/DataTable';
 import DateRangePicker from '../components/ui/DateRangePicker';
+import PageHeader from '../components/ui/PageHeader';
 import { es } from 'date-fns/locale/es';
 import { useOutletContext } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
@@ -542,55 +544,48 @@ const Gastos: FC<GastosProps> = () => {
 
   return (
     <div className="space-y-6 relative">
-      <div className="flex flex-col sm:flex-row justify-between items-center bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 gap-4">
-        <h3 className="text-xl font-bold text-gray-800 dark:text-white">Gestión de Gastos</h3>
-        <div className="flex-1 max-w-md w-full relative">
-          <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">🔍</span>
-          <input
-            type="text"
-            placeholder="Buscar concepto, proveedor..."
-            value={searchTerm}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 p-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white transition-all"
-          />
-        </div>
-        <div className="flex items-end gap-2 w-full sm:w-auto">
-            <div className="min-w-[290px]">
-              <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Rango</label>
-              <DateRangePicker
-                from={ymdToDate(fechaDesde)}
-                to={ymdToDate(fechaHasta)}
-                onChange={({ from, to }) => {
-                  setFechaDesde(dateToYmd(from));
-                  setFechaHasta(dateToYmd(to));
-                }}
-                locale={es}
-                placeholderText="Rango (dd/mm/yyyy - dd/mm/yyyy)"
-                wrapperClassName="w-full min-w-0"
-                className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 p-2 pr-10 text-xs outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-              />
-            </div>
+      <PageHeader
+        title="Gestión de Gastos"
+        actions={
+          <button
+            onClick={() => { setGastoEnEdicion(null); setIsModalOpen(true); }}
+            className="bg-donezo-primary hover:bg-green-700 text-white font-bold py-2 px-6 rounded-xl transition-all whitespace-nowrap shadow-md"
+          >
+            + Nuevo Gasto
+          </button>
+        }
+      >
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative flex-1 min-w-[200px]">
+            <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">🔍</span>
+            <input
+              type="text"
+              placeholder="Buscar concepto, proveedor..."
+              value={searchTerm}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 p-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white transition-all"
+            />
+          </div>
+          <div className="min-w-[290px]">
+            <DateRangePicker
+              from={ymdToDate(fechaDesde)}
+              to={ymdToDate(fechaHasta)}
+              onChange={({ from, to }) => { setFechaDesde(dateToYmd(from)); setFechaHasta(dateToYmd(to)); }}
+              locale={es}
+              placeholderText="Rango (dd/mm/yyyy - dd/mm/yyyy)"
+              wrapperClassName="w-full min-w-0"
+              className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 p-2 pr-10 text-xs outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            />
+          </div>
           <button
             type="button"
-            onClick={() => {
-              setFechaDesde('');
-              setFechaHasta('');
-            }}
+            onClick={() => { setFechaDesde(''); setFechaHasta(''); }}
             className="px-3 py-2 rounded-xl text-xs font-bold bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300"
           >
             Limpiar
           </button>
         </div>
-        <button
-          onClick={() => {
-            setGastoEnEdicion(null);
-            setIsModalOpen(true);
-          }}
-          className="bg-donezo-primary hover:bg-green-700 text-white font-bold py-2 px-6 rounded-xl transition-all whitespace-nowrap shadow-md"
-        >
-          + Nuevo Gasto
-        </button>
-      </div>
+      </PageHeader>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
         <div className="bg-white dark:bg-donezo-card-dark rounded-xl border border-gray-100 dark:border-gray-800 p-4">
@@ -639,47 +634,136 @@ const Gastos: FC<GastosProps> = () => {
               <p className="mb-3 text-xs font-semibold text-gray-500 dark:text-gray-400">
                 Tip: haz doble click sobre un gasto para ver sus detalles.
               </p>
-              <div className="w-full">
-                <table className="w-full text-left border-collapse select-none">
-                  <thead className="sticky top-0 bg-white dark:bg-donezo-card-dark z-20 shadow-sm">
-                    <tr className="border-b border-gray-200 dark:border-gray-800 text-gray-500 text-sm dark:text-gray-400">
-                      <th className="p-3 pl-6 w-10"></th>
-                      <th className="p-3">
-                        <button type="button" onClick={() => toggleSort('fecha_factura')} className="font-bold hover:text-donezo-primary">
-                          Fechas {sortIndicator('fecha_factura')}
-                        </button>
-                      </th>
-                      <th className="p-3">
-                        <button type="button" onClick={() => toggleSort('proveedor')} className="font-bold hover:text-donezo-primary">
-                          Proveedor {sortIndicator('proveedor')}
-                        </button>
-                      </th>
-                      <th className="p-3">
-                        <button type="button" onClick={() => toggleSort('concepto')} className="font-bold hover:text-donezo-primary">
-                          Concepto {sortIndicator('concepto')}
-                        </button>
-                      </th>
-                      <th className="p-3 text-right">
-                        <button type="button" onClick={() => toggleSort('monto_total_usd')} className="font-bold hover:text-donezo-primary">
-                          Monto Total {sortIndicator('monto_total_usd')}
-                        </button>
-                      </th>
-                      <th className="p-3 text-center">
-                        <button type="button" onClick={() => toggleSort('total_cuotas')} className="font-bold hover:text-donezo-primary">
-                          Cuotas {sortIndicator('total_cuotas')}
-                        </button>
-                      </th>
-                      <th className="p-3 text-center">
-                        <button type="button" onClick={() => toggleSort('estado_pago')} className="font-bold hover:text-donezo-primary">
-                          Estado de Pago {sortIndicator('estado_pago')}
-                        </button>
-                      </th>
-                      <th className="p-3 pr-6 text-center">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedGastos.map((g: IGasto) => {
+              <DataTable
+                columns={[
+                  {
+                    key: 'expand',
+                    header: '',
+                    render: (g) => (
+                      <button
+                        type="button"
+                        className="text-gray-400 hover:text-donezo-primary transition-colors text-lg"
+                        onClick={(e: ReactMouseEvent<HTMLButtonElement>) => toggleRow(g.gasto_id, e)}
+                      >
+                        {expandedRows[String(g.gasto_id)] ? '▼' : '▶'}
+                      </button>
+                    ),
+                  },
+                  {
+                    key: 'fechas',
+                    header: (
+                      <button type="button" onClick={() => toggleSort('fecha_factura')} className="font-bold hover:text-donezo-primary">
+                        Fechas {sortIndicator('fecha_factura')}
+                      </button>
+                    ),
+                    render: (g) => (
+                      <>
+                        <span className="block text-xs font-bold text-gray-800 dark:text-gray-300">📄 {g.fecha_factura}</span>
+                        <span className="block text-[10px] text-gray-400">💻 {g.fecha_registro}</span>
+                      </>
+                    ),
+                  },
+                  {
+                    key: 'proveedor',
+                    header: (
+                      <button type="button" onClick={() => toggleSort('proveedor')} className="font-bold hover:text-donezo-primary">
+                        Proveedor {sortIndicator('proveedor')}
+                      </button>
+                    ),
+                    className: 'font-bold text-gray-800 dark:text-gray-300',
+                    render: (g) => g.proveedor,
+                  },
+                  {
+                    key: 'concepto',
+                    header: (
+                      <button type="button" onClick={() => toggleSort('concepto')} className="font-bold hover:text-donezo-primary">
+                        Concepto {sortIndicator('concepto')}
+                      </button>
+                    ),
+                    render: (g) => (
+                      <>
+                        <div className="text-gray-600 dark:text-gray-400 truncate max-w-[200px] text-sm" title={g.concepto}>
+                          {g.concepto}
+                        </div>
+                        <span className={`inline-block mt-1 mr-1 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${String(g.clasificacion || 'Variable') === 'Fijo'
+                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                          : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}>
+                          {String(g.clasificacion || 'Variable') === 'Fijo' ? 'Gasto fijo' : 'Gasto variable'}
+                        </span>
+                        {(g.tipo === 'Zona' || g.tipo === 'No Comun') && (
+                          <span className="inline-block mt-1 bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                            Zona: {g.zona_nombre || 'Especifica'}
+                          </span>
+                        )}
+                        {g.tipo === 'Individual' && (
+                          <span className="inline-block mt-1 bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                            Apto/Casa: {g.propiedad_identificador}
+                          </span>
+                        )}
+                        {g.tipo === 'Extra' && (
+                          <span className="inline-block mt-1 bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                            Extra
+                          </span>
+                        )}
+                      </>
+                    ),
+                  },
+                  {
+                    key: 'monto',
+                    header: (
+                      <button type="button" onClick={() => toggleSort('monto_total_usd')} className="font-bold hover:text-donezo-primary">
+                        Monto Total {sortIndicator('monto_total_usd')}
+                      </button>
+                    ),
+                    headerClassName: 'text-right',
+                    className: 'text-right font-bold text-gray-800 dark:text-white',
+                    render: (g) => {
                       const extraProgress = g.tipo === 'Extra' ? getExtraProgress(g) : null;
+                      return g.tipo === 'Extra' && extraProgress ? (
+                        <div className="min-w-[210px] ml-auto">
+                          <div className="text-right text-sm font-bold text-gray-800 dark:text-white">
+                            ${formatMoney(g.monto_total_usd)}
+                          </div>
+                          <div className="mt-1 text-[11px] text-gray-500 dark:text-gray-300">
+                            Recaudado: ${formatMoney(extraProgress.pagado)} / ${formatMoney(extraProgress.total)}
+                          </div>
+                          <div className="mt-1 h-1.5 w-full rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${extraProgress.isComplete ? 'bg-emerald-500' : 'bg-sky-500 dark:bg-orange-400'}`}
+                              style={{ width: `${extraProgress.pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <>${formatMoney(g.monto_total_usd)}</>
+                      );
+                    },
+                  },
+                  {
+                    key: 'cuotas',
+                    header: (
+                      <button type="button" onClick={() => toggleSort('total_cuotas')} className="font-bold hover:text-donezo-primary">
+                        Cuotas {sortIndicator('total_cuotas')}
+                      </button>
+                    ),
+                    headerClassName: 'text-center',
+                    className: 'text-center',
+                    render: (g) => (
+                      <span className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 py-1 px-3 rounded-full text-xs font-bold">
+                        {g.total_cuotas} Mes{g.total_cuotas > 1 ? 'es' : ''}
+                      </span>
+                    ),
+                  },
+                  {
+                    key: 'estado_pago',
+                    header: (
+                      <button type="button" onClick={() => toggleSort('estado_pago')} className="font-bold hover:text-donezo-primary">
+                        Estado de Pago {sortIndicator('estado_pago')}
+                      </button>
+                    ),
+                    headerClassName: 'text-center',
+                    className: 'text-center',
+                    render: (g) => {
                       const montoTotal = toNumber(g.monto_total_usd);
                       const montoPagado = toNumber(g.monto_pagado_usd);
                       const progresoPago = montoTotal > 0 ? Math.min(100, (montoPagado / montoTotal) * 100) : 0;
@@ -692,127 +776,74 @@ const Gastos: FC<GastosProps> = () => {
                             ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
                             : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300';
                       return (
-                      <React.Fragment key={g.gasto_id}>
-                        <tr
-                          onDoubleClick={() => setSelectedGasto(g)}
-                          className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors"
+                        <>
+                          <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-wide ${estadoPagoClass}`}>
+                            {estadoPago}
+                          </span>
+                          <p className="mt-1 text-[11px] font-semibold text-gray-500 dark:text-gray-300">
+                            ${formatMoney(montoPagado)} / ${formatMoney(montoTotal)}
+                          </p>
+                          <div className="mx-auto mt-1 h-1.5 w-28 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${estadoPago === 'Pagado' ? 'bg-emerald-500' : estadoPago === 'Abonado' ? 'bg-amber-500' : 'bg-red-400'}`}
+                              style={{ width: `${progresoPago}%` }}
+                            />
+                          </div>
+                        </>
+                      );
+                    },
+                  },
+                  {
+                    key: 'acciones',
+                    header: 'Acciones',
+                    headerClassName: 'text-center',
+                    className: 'text-center',
+                    render: (g) => (
+                      <div className="relative inline-block text-left" data-options-menu>
+                        <button
+                          type="button"
+                          onClick={(e: ReactMouseEvent<HTMLButtonElement>) => handleToggleOptionsMenu(g, e)}
+                          className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                         >
-                          <td className="p-3 text-center" onClick={(e: ReactMouseEvent<HTMLElement>) => toggleRow(g.gasto_id, e)}>
-                            <button className="text-gray-400 hover:text-donezo-primary transition-colors text-lg">
-                              {expandedRows[String(g.gasto_id)] ? '▼' : '▶'}
-                            </button>
+                          Opciones
+                          <ChevronDown size={14} strokeWidth={2.25} aria-hidden="true" />
+                        </button>
+                      </div>
+                    ),
+                  },
+                ]}
+                data={paginatedGastos}
+                keyExtractor={(g) => g.gasto_id}
+                rowClassName="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors select-none"
+                onRowDoubleClick={(g) => setSelectedGasto(g)}
+                renderExpandedRow={(g) =>
+                  expandedRows[String(g.gasto_id)]
+                    ? g.cuotas.map((c: GastoCuota, cuotaIndex: number) => (
+                        <tr key={c.cuota_id} className="bg-gray-50/50 dark:bg-gray-800/30 border-b border-gray-50 dark:border-gray-800/50">
+                          <td className="p-3 border-l-2 border-donezo-primary"></td>
+                          <td className="p-3 text-gray-500 text-xs dark:text-gray-400" colSpan={2}>
+                            Cobro en: <strong>{formatMonthText(c.mes_asignado)}</strong>
                           </td>
-                          <td className="p-3">
-                            <span className="block text-xs font-bold text-gray-800 dark:text-gray-300">📄 {g.fecha_factura}</span>
-                            <span className="block text-[10px] text-gray-400">💻 {g.fecha_registro}</span>
-                          </td>
-                          <td className="p-3 font-bold text-gray-800 dark:text-gray-300 text-sm">{g.proveedor}</td>
-                          <td className="p-3">
-                            <div className="text-gray-600 dark:text-gray-400 truncate max-w-[200px] text-sm" title={g.concepto}>
-                              {g.concepto}
-                            </div>
-                            <span className={`inline-block mt-1 mr-1 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${String(g.clasificacion || 'Variable') === 'Fijo'
-                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-                              : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}>
-                              {String(g.clasificacion || 'Variable') === 'Fijo' ? 'Gasto fijo' : 'Gasto variable'}
-                            </span>
-                            {(g.tipo === 'Zona' || g.tipo === 'No Comun') && (
-                              <span className="inline-block mt-1 bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                                Zona: {g.zona_nombre || 'Especifica'}
-                              </span>
-                            )}
-                            {g.tipo === 'Individual' && (
-                              <span className="inline-block mt-1 bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                                Apto/Casa: {g.propiedad_identificador}
-                              </span>
-                            )}
-                            {g.tipo === 'Extra' && (
-                              <span className="inline-block mt-1 bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                                Extra
-                              </span>
-                            )}
-                          </td>
-                          <td className="p-3 text-right font-bold text-gray-800 dark:text-white text-sm">
-                            {g.tipo === 'Extra' && extraProgress ? (
-                              <div className="min-w-[210px] ml-auto">
-                                <div className="text-right text-sm font-bold text-gray-800 dark:text-white">
-                                  ${formatMoney(g.monto_total_usd)}
-                                </div>
-                                <div className="mt-1 text-[11px] text-gray-500 dark:text-gray-300">
-                                  Recaudado: ${formatMoney(extraProgress.pagado)} / ${formatMoney(extraProgress.total)}
-                                </div>
-                                <div className="mt-1 h-1.5 w-full rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                                  <div
-                                    className={`h-full rounded-full transition-all ${extraProgress.isComplete ? 'bg-emerald-500' : 'bg-sky-500 dark:bg-orange-400'}`}
-                                    style={{ width: `${extraProgress.pct}%` }}
-                                  />
-                                </div>
-                              </div>
-                            ) : (
-                              <>${formatMoney(g.monto_total_usd)}</>
-                            )}
+                          <td className="p-3 text-gray-500 text-xs dark:text-gray-400">
+                            Fracción {c.numero_cuota}/{g.total_cuotas}
                           </td>
                           <td className="p-3 text-center">
-                            <span className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 py-1 px-3 rounded-full text-xs font-bold">
-                              {g.total_cuotas} Mes{g.total_cuotas > 1 ? 'es' : ''}
+                            <span className="text-[10px] font-bold bg-white dark:bg-gray-700 px-2 py-1 rounded border border-gray-200 dark:border-gray-600">
+                              {c.estado}
                             </span>
                           </td>
-                          <td className="p-3 text-center">
-                            <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-wide ${estadoPagoClass}`}>
-                              {estadoPago}
-                            </span>
-                            <p className="mt-1 text-[11px] font-semibold text-gray-500 dark:text-gray-300">
-                              ${formatMoney(montoPagado)} / ${formatMoney(montoTotal)}
-                            </p>
-                            <div className="mx-auto mt-1 h-1.5 w-28 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all ${estadoPago === 'Pagado' ? 'bg-emerald-500' : estadoPago === 'Abonado' ? 'bg-amber-500' : 'bg-red-400'}`}
-                                style={{ width: `${progresoPago}%` }}
-                              />
-                            </div>
+                          <td className="p-3 text-right text-gray-400 text-xs">
+                            {cuotaIndex > 0 ? `Restan: $${formatMoney(c.saldo_pendiente)}` : ''}
                           </td>
-                          <td className="p-3 pr-6 text-center">
-                            <div className="relative inline-block text-left" data-options-menu>
-                              <button
-                                type="button"
-                                onClick={(e: ReactMouseEvent<HTMLButtonElement>) => handleToggleOptionsMenu(g, e)}
-                                className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-                              >
-                                Opciones
-                                <ChevronDown size={14} strokeWidth={2.25} aria-hidden="true" />
-                              </button>
-                            </div>
+                          <td className="p-3 text-right text-gray-600 dark:text-gray-400 font-medium text-sm">
+                            ${formatMoney(c.monto_cuota_usd)}
                           </td>
+                          <td></td>
                         </tr>
-                        {expandedRows[String(g.gasto_id)] &&
-                          g.cuotas.map((c: GastoCuota, cuotaIndex: number) => (
-                            <tr key={c.cuota_id} className="bg-gray-50/50 dark:bg-gray-800/30 border-b border-gray-50 dark:border-gray-800/50">
-                              <td className="p-3 border-l-2 border-donezo-primary"></td>
-                              <td className="p-3 text-gray-500 text-xs dark:text-gray-400" colSpan={2}>
-                                Cobro en: <strong>{formatMonthText(c.mes_asignado)}</strong>
-                              </td>
-                              <td className="p-3 text-gray-500 text-xs dark:text-gray-400">
-                                Fracción {c.numero_cuota}/{g.total_cuotas}
-                              </td>
-                              <td className="p-3 text-center">
-                                <span className="text-[10px] font-bold bg-white dark:bg-gray-700 px-2 py-1 rounded border border-gray-200 dark:border-gray-600">
-                                  {c.estado}
-                                </span>
-                              </td>
-                              <td className="p-3 text-right text-gray-400 text-xs">
-                                {cuotaIndex > 0 ? `Restan: $${formatMoney(c.saldo_pendiente)}` : ''}
-                              </td>
-                              <td className="p-3 text-right text-gray-600 dark:text-gray-400 font-medium text-sm">
-                                ${formatMoney(c.monto_cuota_usd)}
-                              </td>
-                              <td></td>
-                            </tr>
-                          ))}
-                      </React.Fragment>
-                    );})}
-                  </tbody>
-                </table>
-              </div>
+                      ))
+                    : null
+                }
+              />
 
               {totalPagesSorted > 1 && (
                 <div className="flex justify-between items-center mt-6 border-t border-gray-100 dark:border-gray-800 pt-4">

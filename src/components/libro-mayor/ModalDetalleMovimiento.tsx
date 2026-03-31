@@ -1,4 +1,5 @@
 import type { FC } from 'react';
+import ModalBase from '../ui/ModalBase';
 
 export interface IMovimientoDetalle {
   id: string | number;
@@ -33,16 +34,8 @@ const ModalDetalleMovimiento: FC<ModalDetalleMovimientoProps> = ({
   const cedulaOrigen = movimiento.cedula_origen?.trim() || '-';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-xl rounded-2xl border border-gray-200 bg-white p-5 shadow-2xl dark:border-gray-700 dark:bg-gray-900">
-        <div className="mb-4 flex items-center justify-between">
-          <h4 className="text-lg font-black text-gray-800 dark:text-white">Detalle del movimiento</h4>
-          <button type="button" onClick={onClose} className="text-sm font-bold text-gray-500 hover:text-red-500">
-            Cerrar
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
+    <ModalBase onClose={onClose} title="Detalle del movimiento" maxWidth="max-w-xl">
+      <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
           <div><span className="font-bold text-gray-600 dark:text-gray-300">ID:</span> <span className="text-gray-800 dark:text-gray-100">{String(movimiento.id)}</span></div>
           <div><span className="font-bold text-gray-600 dark:text-gray-300">Tipo:</span> <span className={movimiento.tipo === 'EGRESO' ? 'font-bold text-red-600 dark:text-red-400' : 'font-bold text-emerald-600 dark:text-emerald-400'}>{movimiento.tipo}</span></div>
           <div><span className="font-bold text-gray-600 dark:text-gray-300">Fecha:</span> <span className="text-gray-800 dark:text-gray-100">{formatFecha(movimiento.fecha)}</span></div>
@@ -53,9 +46,8 @@ const ModalDetalleMovimiento: FC<ModalDetalleMovimientoProps> = ({
           <div><span className="font-bold text-gray-600 dark:text-gray-300">Monto USD:</span> <span className="text-gray-800 dark:text-gray-100">${formatCurrency(movimiento.monto_usd)}</span></div>
           <div className="md:col-span-2"><span className="font-bold text-gray-600 dark:text-gray-300">Banco origen:</span> <span className="text-gray-800 dark:text-gray-100">{bancoOrigen}</span></div>
           <div className="md:col-span-2"><span className="font-bold text-gray-600 dark:text-gray-300">Cédula/RIF origen:</span> <span className="text-gray-800 dark:text-gray-100">{cedulaOrigen}</span></div>
-        </div>
       </div>
-    </div>
+    </ModalBase>
   );
 };
 

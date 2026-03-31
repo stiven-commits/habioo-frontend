@@ -1,5 +1,6 @@
 ﻿import { useEffect, useRef, useState } from 'react';
 import type { FC, ChangeEvent } from 'react';
+import DataTable from '../components/ui/DataTable';
 import DateRangePicker from '../components/ui/DateRangePicker';
 import { es } from 'date-fns/locale/es';
 import { useNavigate, useOutletContext } from 'react-router-dom';
@@ -315,63 +316,73 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
           ) : (
             <>
               <div className="w-full rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden">
-                <table className="w-full text-left border-collapse select-none">
-                  <thead className="sticky top-0 z-20">
-                    <tr className="bg-gray-50 dark:bg-gray-800/60 border-y border-gray-100 dark:border-gray-700 text-gray-500 text-sm dark:text-gray-400">
-                      <th className="p-4 pl-6 font-black uppercase tracking-wide">Recibo</th>
-                      <th className="p-4 font-black uppercase tracking-wide">Inmueble</th>
-                      <th className="p-4 font-black uppercase tracking-wide">Propietario</th>
-                      <th className="p-4 text-center font-black uppercase tracking-wide">Estado</th>
-                      <th className="p-4 text-right font-black uppercase tracking-wide text-red-500">Deuda</th>
-                      <th className="p-4 pr-6 text-center font-black uppercase tracking-wide">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedData.map((r: Recibo) => (
-                      <tr key={r.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-sm">
-                        <td className="p-3 pl-6">
+                <DataTable
+                  columns={[
+                    {
+                      key: 'recibo',
+                      header: 'Recibo',
+                      render: (r) => (
+                        <>
                           <span className="font-mono text-gray-400 block">#{r.id}</span>
                           <span className="text-xs text-gray-500 dark:text-gray-400">{r.fecha}</span>
-                        </td>
-                        <td className="p-3 font-bold text-gray-800 dark:text-white">
-                          {r.apto}
+                        </>
+                      ),
+                    },
+                    {
+                      key: 'inmueble',
+                      header: 'Inmueble',
+                      render: (r) => (
+                        <>
+                          <span className="font-bold text-gray-800 dark:text-white">{r.apto}</span>
                           <div className="text-[10px] font-normal text-gray-400">{r.mes_cobro}</div>
-                        </td>
-                        <td className="p-3 text-gray-600 dark:text-gray-300">{r.propietario || 'Sin asignar'}</td>
-                        <td className="p-3 text-center">
-                          {mapEstadoTab(r.estado) === 'Pagados' ? (
-                            <span className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px] font-black px-2.5 py-1.5 rounded-lg uppercase tracking-wider shadow-sm border border-green-200 dark:border-green-800/50">
-                              Pagado
-                            </span>
-                          ) : mapEstadoTab(r.estado) === 'Abonado' ? (
-                            <span className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 text-[10px] font-black px-2.5 py-1.5 rounded-lg uppercase tracking-wider shadow-sm border border-yellow-200 dark:border-yellow-800/50">
-                              Abonado
-                            </span>
-                          ) : (
-                            <span className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-[10px] font-black px-2.5 py-1.5 rounded-lg uppercase tracking-wider shadow-sm border border-red-200 dark:border-red-800/50">
-                              Pendiente
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-3 text-right font-bold text-gray-800 dark:text-white">
-                          ${formatMoney(r.deuda_pendiente ?? r.monto_usd)}
-                        </td>
-                        <td className="p-3 pr-6 flex justify-center gap-2">
-                          <button
-                            onClick={() => {
-                              setSelectedReciboId(r.id);
-                              setShowPrintModal(true);
-                            }}
-                            className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-lg"
-                            title="Ver / Imprimir"
-                          >
-                            🖨️
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </>
+                      ),
+                    },
+                    {
+                      key: 'propietario',
+                      header: 'Propietario',
+                      className: 'text-gray-600 dark:text-gray-300',
+                      render: (r) => r.propietario || 'Sin asignar',
+                    },
+                    {
+                      key: 'estado',
+                      header: 'Estado',
+                      headerClassName: 'text-center',
+                      className: 'text-center',
+                      render: (r) => mapEstadoTab(r.estado) === 'Pagados' ? (
+                        <span className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px] font-black px-2.5 py-1.5 rounded-lg uppercase tracking-wider shadow-sm border border-green-200 dark:border-green-800/50">Pagado</span>
+                      ) : mapEstadoTab(r.estado) === 'Abonado' ? (
+                        <span className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 text-[10px] font-black px-2.5 py-1.5 rounded-lg uppercase tracking-wider shadow-sm border border-yellow-200 dark:border-yellow-800/50">Abonado</span>
+                      ) : (
+                        <span className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-[10px] font-black px-2.5 py-1.5 rounded-lg uppercase tracking-wider shadow-sm border border-red-200 dark:border-red-800/50">Pendiente</span>
+                      ),
+                    },
+                    {
+                      key: 'deuda',
+                      header: <span className="text-red-500">Deuda</span>,
+                      headerClassName: 'text-right',
+                      className: 'text-right font-bold text-gray-800 dark:text-white',
+                      render: (r) => `$${formatMoney(r.deuda_pendiente ?? r.monto_usd)}`,
+                    },
+                    {
+                      key: 'acciones',
+                      header: 'Acciones',
+                      headerClassName: 'text-center',
+                      className: 'text-center',
+                      render: (r) => (
+                        <button
+                          onClick={() => { setSelectedReciboId(r.id); setShowPrintModal(true); }}
+                          className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-lg"
+                          title="Ver / Imprimir"
+                        >
+                          🖨️
+                        </button>
+                      ),
+                    },
+                  ]}
+                  data={paginatedData}
+                  keyExtractor={(r) => r.id}
+                />
               </div>
 
               {totalPages > 1 && (

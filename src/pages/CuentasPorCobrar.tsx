@@ -4,6 +4,8 @@ import { useOutletContext } from 'react-router-dom';
 import { formatMoney } from '../utils/currency';
 import { toYmdVE } from '../utils/datetime';
 import { API_BASE_URL } from '../config/api';
+import ModalBase from '../components/ui/ModalBase';
+import DataTable from '../components/ui/DataTable';
 import ModalRegistrarPago from '../components/ModalRegistrarPago';
 import { ModalEstadoCuenta } from '../components/propiedades/PropiedadesModals';
 
@@ -612,8 +614,9 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
+      <div className="bg-white dark:bg-donezo-card-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
 
+        <div className="px-6 pt-6">
         <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 mb-4">
           <div className="flex items-center gap-2">
             <h3 className="text-2xl font-black text-gray-800 dark:text-white">Cuentas por Cobrar</h3>
@@ -654,6 +657,8 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
           </button>
         </div>
 
+        </div>
+
         {filteredProperties.length === 0 ? (
           <div className="text-center py-10">
             <p className="text-gray-500 dark:text-gray-400 text-lg">
@@ -661,65 +666,77 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
             </p>
           </div>
         ) : (
-          <div className="w-full rounded-xl border border-gray-100 dark:border-gray-800 overflow-x-auto overflow-y-visible">
-            <table className="w-full text-left border-collapse">
-              <thead className="sticky top-0 z-20">
-                <tr className="bg-gray-50 dark:bg-gray-800/60 border-y border-gray-100 dark:border-gray-700 text-gray-500 dark:text-gray-400 text-sm">
-                  <th className="p-4 pl-6 font-black uppercase tracking-wide">Inmueble</th>
-                  <th className="p-4 text-right font-black uppercase tracking-wide">Alícuota</th>
-                  <th className="p-4 font-black uppercase tracking-wide">Propietario</th>
-                  <th className="p-4 text-right font-black uppercase tracking-wide">Saldo Actual</th>
-                  <th className="p-4 pr-6 text-center font-black uppercase tracking-wide">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedProperties.map((p: Propiedad) => {
-                  const saldo = toNumber(p.saldo_actual);
-
-                  // Logica de colores dinamicos para el saldo
-                  const isDeuda = saldo > 0;
-                  const isFavor = saldo < 0;
-                  const colorClass = isDeuda ? 'text-red-500' : isFavor ? 'text-green-500' : 'text-gray-500 dark:text-gray-400';
-                  const label = isDeuda ? 'Deuda' : isFavor ? 'A Favor' : 'Al Día';
-
-                  return (
-                    <tr key={p.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                      <td className="p-3 pl-6 font-bold text-gray-800 dark:text-white text-base">{p.identificador}</td>
-                      <td className="p-3 text-right font-mono text-blue-600 dark:text-blue-400 font-bold">{String(p.alicuota || 0).replace('.', ',')}%</td>
-                      <td className="p-3">
-                        <div className="font-medium text-gray-800 dark:text-gray-300 text-sm">{p.prop_nombre || 'Sin asignar'}</div>
-                        <div className="text-xs text-gray-500">{p.prop_cedula || '-'}</div>
-                      </td>
-                      <td className="p-3 text-right">
-                        <div className={`font-black font-mono tracking-tight text-lg ${colorClass}`}>
+          <DataTable
+              columns={[
+                {
+                  key: 'inmueble',
+                  header: 'Inmueble',
+                  className: 'font-bold text-gray-800 dark:text-white text-base',
+                  render: (p) => p.identificador,
+                },
+                {
+                  key: 'alicuota',
+                  header: 'Alícuota',
+                  headerClassName: 'text-right',
+                  className: 'text-right font-mono text-blue-600 dark:text-blue-400 font-bold',
+                  render: (p) => `${String(p.alicuota || 0).replace('.', ',')}%`,
+                },
+                {
+                  key: 'propietario',
+                  header: 'Propietario',
+                  render: (p) => (
+                    <>
+                      <div className="font-medium text-gray-800 dark:text-gray-300 text-sm">{p.prop_nombre || 'Sin asignar'}</div>
+                      <div className="text-xs text-gray-500">{p.prop_cedula || '-'}</div>
+                    </>
+                  ),
+                },
+                {
+                  key: 'saldo',
+                  header: 'Saldo Actual',
+                  headerClassName: 'text-right',
+                  className: 'text-right',
+                  render: (p) => {
+                    const saldo = toNumber(p.saldo_actual);
+                    const isDeuda = saldo > 0;
+                    const isFavor = saldo < 0;
+                    return (
+                      <>
+                        <div className={`font-black font-mono tracking-tight text-lg ${isDeuda ? 'text-red-500' : isFavor ? 'text-green-500' : 'text-gray-500 dark:text-gray-400'}`}>
                           {isFavor ? '+' : ''}${formatMoney(Math.abs(saldo))}
                         </div>
                         <div className={`text-[10px] uppercase font-bold tracking-wider ${isDeuda ? 'text-red-400' : isFavor ? 'text-green-400' : 'text-gray-400'}`}>
-                          {label}
+                          {isDeuda ? 'Deuda' : isFavor ? 'A Favor' : 'Al Día'}
                         </div>
-                      </td>
-                      <td className="p-3 pr-6 text-center">
-                        <div className="relative inline-block text-left" data-options-menu>
-                          <button
-                            type="button"
-                            onClick={(e: ReactMouseEvent<HTMLButtonElement>) => handleToggleOptionsMenu(p, e)}
-                            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-                          >
-                            Opciones
-                            <span className="text-[10px]">▼</span>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </>
+                    );
+                  },
+                },
+                {
+                  key: 'acciones',
+                  header: 'Acciones',
+                  headerClassName: 'text-center',
+                  className: 'text-center',
+                  render: (p) => (
+                    <div className="relative inline-block text-left" data-options-menu>
+                      <button
+                        type="button"
+                        onClick={(e: ReactMouseEvent<HTMLButtonElement>) => handleToggleOptionsMenu(p, e)}
+                        className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                      >
+                        Opciones <span className="text-[10px]">▼</span>
+                      </button>
+                    </div>
+                  ),
+                },
+              ]}
+              data={paginatedProperties}
+              keyExtractor={(p) => p.id}
+            />
         )}
 
         {totalPages > 1 && (
-          <div className="flex justify-between items-center mt-6 border-t border-gray-100 dark:border-gray-800 pt-4">
+          <div className="flex justify-between items-center px-6 py-4 border-t border-gray-100 dark:border-gray-800">
             <p className="text-sm text-gray-500 dark:text-gray-400">Página {currentPage} de {totalPages}</p>
             <div className="flex gap-2">
               <button
@@ -838,23 +855,12 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
       />
 
       {showAprobacionModal && selectedPropAprobacion && (
-        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-3xl shadow-2xl border border-gray-100 dark:border-gray-800 relative">
-            <button
-              onClick={() => {
-                setShowAprobacionModal(false);
-                setSelectedPropAprobacion(null);
-                setPagosPendientes([]);
-                setRejectingPagoId(null);
-              }}
-              className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl"
-            >
-              X
-            </button>
-            <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-1">Aprobación de Pagos</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
-              {selectedPropAprobacion.identificador} - {selectedPropAprobacion.prop_nombre || 'Sin propietario'}
-            </p>
+        <ModalBase
+          onClose={() => { setShowAprobacionModal(false); setSelectedPropAprobacion(null); setPagosPendientes([]); setRejectingPagoId(null); }}
+          title="Aprobación de Pagos"
+          subtitle={<>{selectedPropAprobacion.identificador} - {selectedPropAprobacion.prop_nombre || 'Sin propietario'}</>}
+          maxWidth="max-w-3xl"
+        >
 
             {loadingPendientes ? (
               <p className="text-sm text-gray-500 dark:text-gray-400 py-6">Cargando pagos pendientes...</p>
@@ -925,25 +931,17 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                 ))}
               </div>
             )}
-          </div>
-        </div>
+        </ModalBase>
       )}
 
       {showAjusteModal && selectedPropAjuste && (
-        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-xl shadow-2xl border border-gray-100 dark:border-gray-800 relative">
-            <button
-              onClick={() => setShowAjusteModal(false)}
-              disabled={isSavingAjuste}
-              className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl disabled:opacity-40"
-            >
-              X
-            </button>
-            <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-1">Ajuste de Saldo</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
-              {selectedPropAjuste.identificador} - {selectedPropAjuste.prop_nombre || 'Sin asignar'}
-            </p>
-
+        <ModalBase
+          onClose={() => setShowAjusteModal(false)}
+          title="Ajuste de Saldo"
+          subtitle={<>{selectedPropAjuste.identificador} - {selectedPropAjuste.prop_nombre || 'Sin asignar'}</>}
+          maxWidth="max-w-xl"
+          disableClose={isSavingAjuste}
+        >
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <span className="text-sm font-bold text-gray-600 dark:text-gray-300">Tipo:</span>
@@ -1110,7 +1108,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                 type="button"
                 onClick={() => setShowAjusteModal(false)}
                 disabled={isSavingAjuste}
-                className="px-6 py-3 rounded-xl bg-gray-100 dark:bg-gray-800 font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200 transition-colors disabled:opacity-50"
+                className="px-5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-60"
               >
                 Cancelar
               </button>
@@ -1118,13 +1116,12 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                 type="button"
                 onClick={handleGuardarAjuste}
                 disabled={isSavingAjuste}
-                className="px-6 py-3 rounded-xl font-bold bg-donezo-primary text-white hover:bg-blue-700 transition-all disabled:opacity-50"
+                className="px-5 py-2.5 rounded-xl font-bold bg-donezo-primary text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
               >
                 {isSavingAjuste ? 'Guardando...' : 'Guardar Ajuste'}
               </button>
             </div>
-          </div>
-        </div>
+        </ModalBase>
       )}
     </div>
   );

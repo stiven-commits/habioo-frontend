@@ -4,6 +4,7 @@ import { useOutletContext } from 'react-router-dom';
 import { formatMoney } from '../utils/currency';
 import { useDialog } from '../components/ui/DialogProvider';
 import { API_BASE_URL } from '../config/api';
+import DataTable from '../components/ui/DataTable';
 
 interface CierresProps {}
 
@@ -492,28 +493,18 @@ const Cierres: FC<CierresProps> = () => {
         </div>
 
         {gastosMesActual.length === 0 ? <p className="text-gray-500 py-4 text-center border border-dashed border-gray-300 rounded-xl dark:text-gray-400">No hay gastos asignados a este mes.</p> : (
-          <div className="w-full">
-            <table className="w-full text-left border-collapse select-none">
-              <thead className="sticky top-0 bg-white dark:bg-donezo-card-dark z-20 shadow-sm">
-                <tr className="border-b border-gray-200 dark:border-gray-800 text-gray-500 text-sm dark:text-gray-400">
-                  <th className="p-3 pl-6">Proveedor</th>
-                  <th className="p-3">Concepto</th>
-                  <th className="p-3 text-center">Cuota</th>
-                  <th className="p-3 pr-6 text-right">Monto a Cobrar</th>
-                </tr>
-              </thead>
-              <tbody>
-                {gastosMesActual.map((g: Gasto, i: number) => (
-                  <tr key={i} onDoubleClick={() => setSelectedGasto(g)} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer">
-                    <td className="p-3 pl-6 text-gray-800 dark:text-gray-300 font-medium text-sm">{g.proveedor}</td>
-                    <td className="p-3 text-gray-600 dark:text-gray-400 text-sm">{g.concepto}</td>
-                    <td className="p-3 text-center text-gray-500 text-xs dark:text-gray-400">{g.numero_cuota} de {g.total_cuotas}</td>
-                    <td className="p-3 pr-6 text-right font-bold text-gray-800 dark:text-gray-300">${formatMoney(g.monto_cuota_usd)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            columns={[
+              { key: 'proveedor', header: 'Proveedor', className: 'text-gray-800 dark:text-gray-300 font-medium', render: (g) => g.proveedor },
+              { key: 'concepto', header: 'Concepto', className: 'text-gray-600 dark:text-gray-400', render: (g) => g.concepto },
+              { key: 'cuota', header: 'Cuota', headerClassName: 'text-center', className: 'text-center text-xs text-gray-500 dark:text-gray-400', render: (g) => `${g.numero_cuota} de ${g.total_cuotas}` },
+              { key: 'monto', header: 'Monto a Cobrar', headerClassName: 'text-right', className: 'text-right font-bold text-gray-800 dark:text-gray-300', render: (g) => `$${formatMoney(g.monto_cuota_usd)}` },
+            ]}
+            data={gastosMesActual}
+            keyExtractor={(_, i) => i}
+            rowClassName="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer select-none"
+            onRowDoubleClick={(g) => setSelectedGasto(g)}
+          />
         )}
       </div>
 

@@ -6,6 +6,7 @@ import { useOutletContext } from 'react-router-dom';
 import { API_BASE_URL } from '../../config/api';
 import { ModalRegistrarEgreso, ModalTransferencia } from '../BancosModals';
 import ModalDetalleMovimiento, { type IMovimientoDetalle } from './ModalDetalleMovimiento';
+import DataTable, { type Column } from '../ui/DataTable';
 
 type ViewMode = 'admin' | 'owner';
 type ActiveTab = 'cuenta' | 'sin-fondo' | `fondo-${number | string}`;
@@ -1248,35 +1249,20 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
               <div className="p-5 border-b border-gray-100 dark:border-gray-800">
                 <h3 className="text-lg font-bold text-gray-800 dark:text-white">Egresos del fondo seleccionado</h3>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-sm">
-                  <thead>
-                    <tr className="bg-gray-50/50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400">
-                      <th className="p-4 font-bold">Fecha</th>
-                      <th className="p-4 font-bold">Referencia</th>
-                      <th className="p-4 font-bold">Descripción</th>
-                      <th className="p-4 font-bold text-right">Monto (Bs)</th>
-                      <th className="p-4 font-bold text-right">Cargo ($)</th>
-                      <th className="p-4 font-bold text-right">Tasa</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ownerEgresosFondo.map((mov) => (
-                      <tr key={String(mov.id)} className="border-b border-gray-50 dark:border-gray-800/50">
-                        <td className="p-4 font-mono text-gray-600 dark:text-gray-400 text-xs">{formatFecha(mov.fecha)}</td>
-                        <td className="p-4 font-mono text-xs text-gray-500">{mov.referencia || '-'}</td>
-                        <td className="p-4 font-medium text-gray-800 dark:text-gray-200">{mov.concepto || '-'}</td>
-                        <td className="p-4 text-right font-black font-mono">Bs {formatCurrency(getMontoBsVista(mov))}</td>
-                        <td className="p-4 text-right font-black font-mono text-red-600 dark:text-red-400">-{formatCurrency(mov.monto_usd)}</td>
-                        <td className="p-4 text-right font-mono text-xs text-blue-600 dark:text-blue-400">{mov.tasa_cambio ? formatCurrency(mov.tasa_cambio) : '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {ownerEgresosFondo.length === 0 && (
-                <p className="text-center text-gray-400 py-10 font-medium">No hay egresos en el fondo seleccionado.</p>
-              )}
+              <DataTable<IMovimiento>
+                columns={[
+                  { key: 'fecha', header: 'Fecha', className: 'font-mono text-gray-600 dark:text-gray-400 text-xs', render: (mov) => formatFecha(mov.fecha) },
+                  { key: 'referencia', header: 'Referencia', className: 'font-mono text-xs text-gray-500', render: (mov) => mov.referencia || '-' },
+                  { key: 'descripcion', header: 'Descripción', className: 'font-medium text-gray-800 dark:text-gray-200', render: (mov) => mov.concepto || '-' },
+                  { key: 'monto_bs', header: 'Monto (Bs)', headerClassName: 'text-right', className: 'text-right font-black font-mono', render: (mov) => <>Bs {formatCurrency(getMontoBsVista(mov))}</> },
+                  { key: 'cargo', header: 'Cargo ($)', headerClassName: 'text-right', className: 'text-right font-black font-mono text-red-600 dark:text-red-400', render: (mov) => <>-{formatCurrency(mov.monto_usd)}</> },
+                  { key: 'tasa', header: 'Tasa', headerClassName: 'text-right', className: 'text-right font-mono text-xs text-blue-600 dark:text-blue-400', render: (mov) => mov.tasa_cambio ? formatCurrency(mov.tasa_cambio) : '-' },
+                ]}
+                data={ownerEgresosFondo}
+                keyExtractor={(mov) => String(mov.id)}
+                emptyMessage="No hay egresos en el fondo seleccionado."
+                rowClassName="border-b border-gray-50 dark:border-gray-800/50"
+              />
             </div>
           </>
         ) : (
@@ -1293,33 +1279,19 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
             </div>
 
             <div className="bg-white dark:bg-donezo-card-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-sm">
-                  <thead>
-                    <tr className="bg-gray-50/50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400">
-                      <th className="p-4 font-bold">Fondo</th>
-                      <th className="p-4 font-bold">Banco</th>
-                      <th className="p-4 font-bold text-right">Saldo (Bs)</th>
-                      <th className="p-4 font-bold text-right">Saldo (USD)</th>
-                      <th className="p-4 font-bold text-right">Tasa Ref.</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ownerCortesFiltrados.map((corte) => (
-                      <tr key={corte.id} className="border-b border-gray-50 dark:border-gray-800/50">
-                        <td className="p-4 font-semibold text-gray-800 dark:text-gray-200">{corte.nombre_fondo}</td>
-                        <td className="p-4 text-gray-600 dark:text-gray-400">{corte.nombre_banco || 'Cuenta'} ({corte.apodo_cuenta || '-'})</td>
-                        <td className="p-4 text-right font-black font-mono">Bs {formatCurrency(corte.saldo_bs)}</td>
-                        <td className="p-4 text-right font-black font-mono">$ {formatCurrency(corte.saldo_usd)}</td>
-                        <td className="p-4 text-right text-blue-600 dark:text-blue-400 font-mono">{corte.tasa_referencia ? formatCurrency(corte.tasa_referencia) : '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {ownerCortesFiltrados.length === 0 && (
-                <p className="text-center text-gray-400 py-10 font-medium">No hay cortes mensuales para el período seleccionado.</p>
-              )}
+              <DataTable
+                columns={[
+                  { key: 'fondo', header: 'Fondo', className: 'font-semibold text-gray-800 dark:text-gray-200', render: (corte) => corte.nombre_fondo },
+                  { key: 'banco', header: 'Banco', className: 'text-gray-600 dark:text-gray-400', render: (corte) => `${corte.nombre_banco || 'Cuenta'} (${corte.apodo_cuenta || '-'})` },
+                  { key: 'saldo_bs', header: 'Saldo (Bs)', headerClassName: 'text-right', className: 'text-right font-black font-mono', render: (corte) => <>Bs {formatCurrency(corte.saldo_bs)}</> },
+                  { key: 'saldo_usd', header: 'Saldo (USD)', headerClassName: 'text-right', className: 'text-right font-black font-mono', render: (corte) => <>$ {formatCurrency(corte.saldo_usd)}</> },
+                  { key: 'tasa', header: 'Tasa Ref.', headerClassName: 'text-right', className: 'text-right text-blue-600 dark:text-blue-400 font-mono', render: (corte) => corte.tasa_referencia ? formatCurrency(corte.tasa_referencia) : '-' },
+                ]}
+                data={ownerCortesFiltrados}
+                keyExtractor={(corte) => corte.id}
+                emptyMessage="No hay cortes mensuales para el período seleccionado."
+                rowClassName="border-b border-gray-50 dark:border-gray-800/50"
+              />
             </div>
           </>
         )}
@@ -1521,178 +1493,194 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
         ) : movimientosPorVista.length === 0 ? (
           <p className="text-center text-gray-400 py-10 font-medium">No hay movimientos registrados en esta cuenta.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse" style={{ fontSize: `${tableFontSizePx}px` }}>
-              <thead>
-                <tr className="bg-gray-50/50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400">
-                  <th className="p-4 font-bold">
-                    <button type="button" onClick={() => handleSort('fecha')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
-                      Fecha <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('fecha')}</span>
-                    </button>
-                  </th>
-                  <th className="p-4 font-bold">
-                    <button type="button" onClick={() => handleSort('referencia')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
-                      Referencia <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('referencia')}</span>
-                    </button>
-                  </th>
-                  <th className="p-4 font-bold">
-                    <button type="button" onClick={() => handleSort('inmueble')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
-                      Inmueble <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('inmueble')}</span>
-                    </button>
-                  </th>
-                  <th className="p-4 font-bold">
-                    <button type="button" onClick={() => handleSort('descripcion')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
-                      Descripción <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('descripcion')}</span>
-                    </button>
-                  </th>
-                  {!isCuentaUsd && (
-                    <th className="p-4 font-bold text-right">
-                      <button type="button" onClick={() => handleSort('monto_bs')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
-                        Monto (Bs) <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('monto_bs')}</span>
-                      </button>
-                    </th>
-                  )}
-                  <th className="p-4 font-bold text-right">
-                    <button type="button" onClick={() => handleSort('cargo')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
-                      Cargo ($) <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('cargo')}</span>
-                    </button>
-                  </th>
-                  <th className="p-4 font-bold text-right">
-                    <button type="button" onClick={() => handleSort('abono')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
-                      Abono ($) <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('abono')}</span>
-                    </button>
-                  </th>
-                  {!isCuentaUsd && (
-                    <th className="p-4 font-bold text-right">
-                      <button type="button" onClick={() => handleSort('tasa')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
-                        Tasa (Bs.) <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('tasa')}</span>
-                      </button>
-                    </th>
-                  )}
-                  {mode === 'admin' && <th className="p-4 font-bold text-center">Acciones</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {movimientosPagina.map((movimiento) => {
+          <DataTable<IMovimiento>
+            tableStyle={{ fontSize: `${tableFontSizePx}px` }}
+            columns={[
+              {
+                key: 'fecha',
+                header: (
+                  <button type="button" onClick={() => handleSort('fecha')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
+                    Fecha <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('fecha')}</span>
+                  </button>
+                ),
+                render: (movimiento) => (
+                  <>
+                    <span className="block font-mono font-bold text-gray-800 dark:text-gray-200" style={{ fontSize: `${tableCompactFontPx}px` }}>
+                      <span className="font-bold text-gray-500 dark:text-gray-300 uppercase mr-1" style={{ fontSize: `${tableTagFontPx}px` }}>pago</span>{formatFecha(movimiento.fecha)}
+                    </span>
+                    {movimiento.fecha_registro && (
+                      <span className="block font-mono text-gray-600 dark:text-gray-200 mt-0.5" style={{ fontSize: `${tableMetaFontPx}px` }}>
+                        <span className="font-bold text-gray-600 dark:text-gray-200 uppercase mr-1" style={{ fontSize: `${tableTagFontPx}px` }}>sistema</span>{formatFecha(movimiento.fecha_registro)}
+                      </span>
+                    )}
+                  </>
+                ),
+              },
+              {
+                key: 'referencia',
+                header: (
+                  <button type="button" onClick={() => handleSort('referencia')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
+                    Referencia <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('referencia')}</span>
+                  </button>
+                ),
+                className: 'font-mono text-gray-500',
+                render: (movimiento) => <span style={{ fontSize: `${tableCompactFontPx}px` }}>{movimiento.referencia || '-'}</span>,
+              },
+              {
+                key: 'inmueble',
+                header: (
+                  <button type="button" onClick={() => handleSort('inmueble')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
+                    Inmueble <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('inmueble')}</span>
+                  </button>
+                ),
+                className: 'font-semibold text-gray-700 dark:text-gray-300',
+                render: (movimiento) => <span style={{ fontSize: `${tableCompactFontPx}px` }}>{getInmuebleVista(movimiento)}</span>,
+              },
+              {
+                key: 'descripcion',
+                header: (
+                  <button type="button" onClick={() => handleSort('descripcion')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
+                    Descripción <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('descripcion')}</span>
+                  </button>
+                ),
+                className: 'font-medium text-gray-800 dark:text-gray-200',
+                render: (movimiento) => getConceptoVista(movimiento),
+              },
+              ...(!isCuentaUsd ? [{
+                key: 'monto_bs',
+                header: (
+                  <button type="button" onClick={() => handleSort('monto_bs')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
+                    Monto (Bs) <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('monto_bs')}</span>
+                  </button>
+                ),
+                headerClassName: 'text-right',
+                className: 'text-right font-black font-mono text-slate-700 dark:text-slate-200',
+                render: (movimiento: IMovimiento) => {
                   const montoBsVista = getMontoBsVista(movimiento);
+                  return montoBsVista > 0 ? (
+                    movimiento.tipo === 'EGRESO' ? (
+                      <span className="text-red-600 dark:text-red-400">-Bs {formatCurrency(montoBsVista)}</span>
+                    ) : (
+                      <span>Bs {formatCurrency(montoBsVista)}</span>
+                    )
+                  ) : <>-</>;
+                },
+              } as Column<IMovimiento>] : []),
+              {
+                key: 'cargo',
+                header: (
+                  <button type="button" onClick={() => handleSort('cargo')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
+                    Cargo ($) <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('cargo')}</span>
+                  </button>
+                ),
+                headerClassName: 'text-right',
+                className: 'text-right font-black font-mono',
+                render: (movimiento) => {
                   const montoUsdVista = getMontoUsdVista(movimiento);
+                  return movimiento.tipo === 'EGRESO' && montoUsdVista > 0 ? (
+                    <span className="text-red-600 dark:text-red-400">-{formatCurrency(montoUsdVista)}</span>
+                  ) : (
+                    <span className="text-gray-400">-</span>
+                  );
+                },
+              },
+              {
+                key: 'abono',
+                header: (
+                  <button type="button" onClick={() => handleSort('abono')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
+                    Abono ($) <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('abono')}</span>
+                  </button>
+                ),
+                headerClassName: 'text-right',
+                className: 'text-right font-black font-mono',
+                render: (movimiento) => {
+                  const montoUsdVista = getMontoUsdVista(movimiento);
+                  return movimiento.tipo === 'INGRESO' && montoUsdVista > 0 ? (
+                    <span className="text-emerald-600 dark:text-emerald-400">+{formatCurrency(montoUsdVista)}</span>
+                  ) : (
+                    <span className="text-gray-400">-</span>
+                  );
+                },
+              },
+              ...(!isCuentaUsd ? [{
+                key: 'tasa',
+                header: (
+                  <button type="button" onClick={() => handleSort('tasa')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
+                    Tasa (Bs.) <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('tasa')}</span>
+                  </button>
+                ),
+                headerClassName: 'text-right',
+                className: 'text-right font-mono text-blue-600 dark:text-blue-400',
+                render: (movimiento: IMovimiento) => (
+                  <span style={{ fontSize: `${tableCompactFontPx}px` }}>
+                    {movimiento.tasa_cambio ? formatCurrency(movimiento.tasa_cambio) : '-'}
+                  </span>
+                ),
+              } as Column<IMovimiento>] : []),
+              ...(mode === 'admin' ? [{
+                key: 'acciones',
+                header: 'Acciones',
+                headerClassName: 'text-center',
+                className: 'text-center',
+                render: (movimiento: IMovimiento) => {
                   const rollbackTarget = extractRollbackTarget(movimiento);
                   const rollbackButtonKey = rollbackTarget ? `${rollbackTarget.kind}-${rollbackTarget.id}` : '';
-                  return (
-                    <tr
-                      key={String(movimiento.id)}
-                      onDoubleClick={() => setMovimientoDetalle(movimiento)}
-                      className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors cursor-pointer"
+                  return rollbackTarget ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleRollbackMovimiento(movimiento);
+                      }}
+                      disabled={rollbackingKey === rollbackButtonKey}
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                      title={rollbackTarget.kind === 'pago'
+                        ? 'Disponible para reversión (sujeto a validaciones contables).'
+                        : rollbackTarget.kind === 'ajuste'
+                          ? 'Disponible para reversión (sujeto a validaciones contables).'
+                          : rollbackTarget.kind === 'egreso'
+                            ? 'Revertir egreso manual y restaurar saldo en el fondo.'
+                            : 'Revertir transferencia y hacer rollback de saldos entre fondos.'}
                     >
-                      <td className="p-4">
-                        <span className="block font-mono font-bold text-gray-800 dark:text-gray-200" style={{ fontSize: `${tableCompactFontPx}px` }}>
-                          <span className="font-bold text-gray-500 dark:text-gray-300 uppercase mr-1" style={{ fontSize: `${tableTagFontPx}px` }}>pago</span>{formatFecha(movimiento.fecha)}
-                        </span>
-                        {movimiento.fecha_registro && (
-                          <span className="block font-mono text-gray-600 dark:text-gray-200 mt-0.5" style={{ fontSize: `${tableMetaFontPx}px` }}>
-                            <span className="font-bold text-gray-600 dark:text-gray-200 uppercase mr-1" style={{ fontSize: `${tableTagFontPx}px` }}>sistema</span>{formatFecha(movimiento.fecha_registro)}
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-4 font-mono text-gray-500" style={{ fontSize: `${tableCompactFontPx}px` }}>{movimiento.referencia || '-'}</td>
-                      <td className="p-4 font-semibold text-gray-700 dark:text-gray-300" style={{ fontSize: `${tableCompactFontPx}px` }}>{getInmuebleVista(movimiento)}</td>
-                      <td className="p-4 font-medium text-gray-800 dark:text-gray-200">{getConceptoVista(movimiento)}</td>
-                      {!isCuentaUsd && (
-                        <td className="p-4 text-right font-black font-mono text-slate-700 dark:text-slate-200">
-                          {montoBsVista > 0 ? (
-                            movimiento.tipo === 'EGRESO' ? (
-                              <span className="text-red-600 dark:text-red-400">-Bs {formatCurrency(montoBsVista)}</span>
-                            ) : (
-                              <span>Bs {formatCurrency(montoBsVista)}</span>
-                            )
-                          ) : '-'}
-                        </td>
-                      )}
-                      <td className="p-4 text-right font-black font-mono">
-                        {movimiento.tipo === 'EGRESO' ? (
-                          montoUsdVista > 0 ? (
-                            <span className="text-red-600 dark:text-red-400">-{formatCurrency(montoUsdVista)}</span>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </td>
-                      <td className="p-4 text-right font-black font-mono">
-                        {movimiento.tipo === 'INGRESO' ? (
-                          montoUsdVista > 0 ? (
-                            <span className="text-emerald-600 dark:text-emerald-400">+{formatCurrency(montoUsdVista)}</span>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </td>
-                      {!isCuentaUsd && (
-                        <td className="p-4 text-right font-mono text-blue-600 dark:text-blue-400" style={{ fontSize: `${tableCompactFontPx}px` }}>
-                          {movimiento.tasa_cambio ? formatCurrency(movimiento.tasa_cambio) : '-'}
-                        </td>
-                      )}
-                      {mode === 'admin' && (
-                        <td className="p-4 text-center">
-                          {rollbackTarget ? (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void handleRollbackMovimiento(movimiento);
-                              }}
-                              disabled={rollbackingKey === rollbackButtonKey}
-                              className="px-2.5 py-1 rounded-lg text-[11px] font-bold border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                              title={rollbackTarget.kind === 'pago'
-                                ? 'Disponible para reversión (sujeto a validaciones contables).'
-                                : rollbackTarget.kind === 'ajuste'
-                                  ? 'Disponible para reversión (sujeto a validaciones contables).'
-                                  : rollbackTarget.kind === 'egreso'
-                                    ? 'Revertir egreso manual y restaurar saldo en el fondo.'
-                                    : 'Revertir transferencia y hacer rollback de saldos entre fondos.'}
-                            >
-                              {rollbackingKey === rollbackButtonKey
-                                ? 'Revirtiendo...'
-                                : 'Revertir'}
-                            </button>
-                          ) : (
-                            <span className="text-gray-300">-</span>
-                          )}
-                        </td>
-                      )}
-                    </tr>
+                      {rollbackingKey === rollbackButtonKey ? 'Revirtiendo...' : 'Revertir'}
+                    </button>
+                  ) : (
+                    <span className="text-gray-300">-</span>
                   );
-                })}
-              </tbody>
+                },
+              } as Column<IMovimiento>] : []),
+            ]}
+            data={movimientosPagina}
+            keyExtractor={(movimiento) => String(movimiento.id)}
+            rowClassName="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors cursor-pointer"
+            onRowDoubleClick={(movimiento) => setMovimientoDetalle(movimiento)}
+            renderFooter={() => (
               <tfoot>
                 <tr className="border-t-2 border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/40">
-                  <td colSpan={4} className="p-4 font-black text-gray-700 dark:text-gray-200">
+                  <td colSpan={4} className="p-3 font-black text-gray-700 dark:text-gray-200">
                     Total página
                   </td>
                   {!isCuentaUsd && (
-                    <td className="p-4 text-right font-black font-mono text-slate-700 dark:text-slate-200">
+                    <td className="p-3 text-right font-black font-mono text-slate-700 dark:text-slate-200">
                       {totalesPagina.montoBs < 0
                         ? `-Bs ${formatCurrency(Math.abs(totalesPagina.montoBs))}`
                         : `Bs ${formatCurrency(totalesPagina.montoBs)}`}
                     </td>
                   )}
-                  <td className="p-4 text-right font-black font-mono text-red-600 dark:text-red-400">
+                  <td className="p-3 text-right font-black font-mono text-red-600 dark:text-red-400">
                     {`-${formatCurrency(totalesPagina.cargoUsd)}`}
                   </td>
-                  <td className="p-4 text-right font-black font-mono text-emerald-600 dark:text-emerald-400">
+                  <td className="p-3 text-right font-black font-mono text-emerald-600 dark:text-emerald-400">
                     {`+${formatCurrency(totalesPagina.abonoUsd)}`}
                   </td>
                   {!isCuentaUsd && (
-                    <td className="p-4 text-right font-mono text-gray-400">-</td>
+                    <td className="p-3 text-right font-mono text-gray-400">-</td>
                   )}
-                  {mode === 'admin' && <td className="p-4 text-center text-gray-400">-</td>}
+                  {mode === 'admin' && <td className="p-3 text-center text-gray-400">-</td>}
                 </tr>
               </tfoot>
-            </table>
-          </div>
+            )}
+          />
         )}
 
         {!loading && movimientosPorVista.length > 0 && totalPages > 1 && (

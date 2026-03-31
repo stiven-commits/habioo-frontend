@@ -4,6 +4,7 @@ import { useOutletContext } from 'react-router-dom';
 import VistaAvisoCobro from '../../components/recibos/VistaAvisoCobro';
 import { API_BASE_URL } from '../../config/api';
 import { formatMoney } from '../../utils/currency';
+import DataTable from '../../components/ui/DataTable';
 
 interface ReciboPropietario {
   id: number;
@@ -204,70 +205,61 @@ const RecibosPropietario: FC = () => {
       <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
         
         <div className="mt-2">
-          <div className="w-full">
-            <table className="w-full border-collapse text-left">
-              <thead className="sticky top-0 bg-white dark:bg-donezo-card-dark z-20 shadow-sm">
-                <tr className="border-b border-gray-200 text-xs uppercase tracking-wider text-gray-500 dark:border-gray-800 dark:text-gray-400">
-                  <th className="p-3 pl-6 font-bold">Mes</th>
-                  <th className="p-3 text-right font-bold">Monto ($)</th>
-                  <th className="p-3 text-right font-bold">Monto Pagado ($)</th>
-                  <th className="p-3 text-right font-bold">Saldo Pendiente ($)</th>
-                  <th className="p-3 text-center font-bold">Estado</th>
-                  <th className="p-3 pr-6 text-center font-bold">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={6} className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">
-                      Cargando recibos...
-                    </td>
-                  </tr>
-                ) : rows.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">
-                      No hay recibos para este inmueble.
-                    </td>
-                  </tr>
-                ) : (
-                  rows.map((recibo) => (
-                    <tr key={recibo.id} className="border-b border-gray-50 hover:bg-gray-50/70 dark:border-gray-800/70 dark:hover:bg-gray-800/40">
-                      <td className="p-3 pl-6">
-                        <p className="font-bold text-gray-800 dark:text-gray-200">{recibo.mes_cobro}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{recibo.fecha_emision ? String(recibo.fecha_emision).slice(0, 10) : ''}</p>
-                      </td>
-                      <td className="p-3 text-right font-bold text-gray-700 dark:text-gray-200">${formatMoney(recibo.monto)}</td>
-                      <td className="p-3 text-right font-bold text-emerald-700 dark:text-emerald-300">${formatMoney(recibo.pagado)}</td>
-                      <td className="p-3 text-right font-black text-red-600 dark:text-red-400">${formatMoney(recibo.saldoPendiente)}</td>
-                      <td className="p-3 text-center">
-                        <span
-                          className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-wide ${
-                            recibo.saldoPendiente <= 0
-                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-                              : toNumber(recibo.pagado) > 0
-                                ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
-                                : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
-                          }`}
-                        >
-                          {recibo.saldoPendiente <= 0 ? 'Pagado' : toNumber(recibo.pagado) > 0 ? 'Abonado' : 'Pendiente'}
-                        </span>
-                      </td>
-                      <td className="p-3 pr-6 text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenRecibo(recibo.id)}
-                          className="rounded-lg bg-gray-100 px-3 py-2 text-sm hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
-                          title="Ver / Imprimir"
-                        >
-                          🖨️
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            columns={[
+              {
+                key: 'mes',
+                header: 'Mes',
+                render: (recibo) => (
+                  <>
+                    <p className="font-bold text-gray-800 dark:text-gray-200">{recibo.mes_cobro}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{recibo.fecha_emision ? String(recibo.fecha_emision).slice(0, 10) : ''}</p>
+                  </>
+                ),
+              },
+              { key: 'monto', header: 'Monto ($)', headerClassName: 'text-right', className: 'text-right font-bold text-gray-700 dark:text-gray-200', render: (recibo) => `$${formatMoney(recibo.monto)}` },
+              { key: 'pagado', header: 'Monto Pagado ($)', headerClassName: 'text-right', className: 'text-right font-bold text-emerald-700 dark:text-emerald-300', render: (recibo) => `$${formatMoney(recibo.pagado)}` },
+              { key: 'pendiente', header: 'Saldo Pendiente ($)', headerClassName: 'text-right', className: 'text-right font-black text-red-600 dark:text-red-400', render: (recibo) => `$${formatMoney(recibo.saldoPendiente)}` },
+              {
+                key: 'estado',
+                header: 'Estado',
+                headerClassName: 'text-center',
+                className: 'text-center',
+                render: (recibo) => (
+                  <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-wide ${
+                    recibo.saldoPendiente <= 0
+                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                      : toNumber(recibo.pagado) > 0
+                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                        : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                  }`}>
+                    {recibo.saldoPendiente <= 0 ? 'Pagado' : toNumber(recibo.pagado) > 0 ? 'Abonado' : 'Pendiente'}
+                  </span>
+                ),
+              },
+              {
+                key: 'acciones',
+                header: 'Acciones',
+                headerClassName: 'text-center',
+                className: 'text-center',
+                render: (recibo) => (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenRecibo(recibo.id)}
+                    className="rounded-lg bg-gray-100 px-3 py-2 text-sm hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
+                    title="Ver / Imprimir"
+                  >
+                    🖨️
+                  </button>
+                ),
+              },
+            ]}
+            data={rows}
+            keyExtractor={(recibo) => recibo.id}
+            loading={loading}
+            emptyMessage="No hay recibos para este inmueble."
+            rowClassName="border-b border-gray-50 hover:bg-gray-50/70 dark:border-gray-800/70 dark:hover:bg-gray-800/40"
+          />
         </div>
       </div>
 

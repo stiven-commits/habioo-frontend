@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { FC, ChangeEvent } from 'react';
 import { API_BASE_URL } from '../config/api';
 import { useDialog } from '../components/ui/DialogProvider';
+import DataTable from '../components/ui/DataTable';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -165,31 +166,24 @@ const TablaDetalleAdmin: FC<{ detalle: VotoDetalle[]; tipo: TipoEncuesta }> = ({
   }
 
   return (
-    <div className="overflow-x-auto mt-4">
-      <table className="w-full text-left text-sm border-collapse min-w-[560px]">
-        <thead>
-          <tr className="border-b border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 text-xs uppercase">
-            <th className="py-2 px-3 font-bold">Apto / Inmueble</th>
-            <th className="py-2 px-3 font-bold">Votante</th>
-            <th className="py-2 px-3 font-bold">
-              {tipo === 'ABIERTA' ? 'Respuesta Escrita' : 'Opción Seleccionada'}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {detalle.map((v, i) => (
-            <tr key={i} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/40">
-              <td className="py-2.5 px-3 font-bold text-donezo-primary">{v.propiedad_identificador}</td>
-              <td className="py-2.5 px-3 text-gray-700 dark:text-gray-300">{v.user_nombre}</td>
-              <td className="py-2.5 px-3 text-gray-600 dark:text-gray-400">
-                {tipo === 'ABIERTA'
-                  ? (v.respuesta_texto ?? <span className="text-gray-300 italic">Sin respuesta</span>)
-                  : (v.opcion_texto ?? '-')}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="overflow-x-auto mt-4" style={{ minWidth: '560px' }}>
+      <DataTable<VotoDetalle>
+        columns={[
+          { key: 'apto', header: 'Apto / Inmueble', className: 'font-bold text-donezo-primary', render: (v) => v.propiedad_identificador },
+          { key: 'votante', header: 'Votante', className: 'text-gray-700 dark:text-gray-300', render: (v) => v.user_nombre },
+          {
+            key: 'respuesta',
+            header: tipo === 'ABIERTA' ? 'Respuesta Escrita' : 'Opción Seleccionada',
+            className: 'text-gray-600 dark:text-gray-400',
+            render: (v) => tipo === 'ABIERTA'
+              ? (v.respuesta_texto ?? <span className="text-gray-300 italic">Sin respuesta</span>)
+              : (v.opcion_texto ?? '-'),
+          },
+        ]}
+        data={detalle}
+        keyExtractor={(_, i) => i}
+        rowClassName="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/40"
+      />
     </div>
   );
 };

@@ -1,5 +1,7 @@
-﻿import React, { useState } from 'react';
+﻿import { useState } from 'react';
 import ModalBase from '../ui/ModalBase';
+import DataTable from '../ui/DataTable';
+import FormField, { inputClass } from '../ui/FormField';
 
 interface ProveedorForm {
   identificador: string;
@@ -170,8 +172,7 @@ export const ModalProveedorForm: React.FC<ModalProveedorFormProps> = ({
     >
       <form onSubmit={handleSubmitValidated} className="space-y-5" noValidate>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Identificador / RIF <span className="text-red-500">*</span></label>
+            <FormField label="Identificador / RIF" required>
               <input
                 type="text"
                 name="identificador"
@@ -180,31 +181,21 @@ export const ModalProveedorForm: React.FC<ModalProveedorFormProps> = ({
                 pattern="^[VEJG][0-9]{5,9}$"
                 placeholder="Ej: J123456789"
                 disabled={editingId !== null}
-                className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-green dark:text-white font-mono uppercase disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`${inputClass} font-mono uppercase`}
                 required
               />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre / Razon Social <span className="text-red-500">*</span></label>
-              <input type="text" name="nombre" value={formProv.nombre} onChange={handleProvChange} className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-green dark:text-white" required />
-            </div>
+            </FormField>
+            <FormField label="Nombre / Razon Social" required>
+              <input type="text" name="nombre" value={formProv.nombre} onChange={handleProvChange} className={inputClass} required />
+            </FormField>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Correo Electronico</label>
-            <input
-              type="text"
-              inputMode="email"
-              name="email"
-              value={formProv.email || ''}
-              onChange={handleProvChange}
-              placeholder="ejemplo@correo.com"
-              className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-green dark:text-white"
-            />
-          </div>
+          <FormField label="Correo Electronico">
+            <input type="text" inputMode="email" name="email" value={formProv.email || ''} onChange={handleProvChange} placeholder="ejemplo@correo.com" className={inputClass} />
+          </FormField>
 
           <div className="relative">
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Especialidad / Rubro <span className="text-red-500">*</span></label>
+            <FormField label="Especialidad / Rubro" required error={rubroError}>
             <input
               type="text"
               name="rubro"
@@ -220,15 +211,11 @@ export const ModalProveedorForm: React.FC<ModalProveedorFormProps> = ({
                 validateRubro();
               }}
               placeholder="Ej: Plomeria, Ferreteria..."
-              className={`w-full p-3 bg-gray-50 dark:bg-gray-800 border rounded-xl outline-none focus:ring-2 focus:ring-donezo-green dark:text-white ${
-                rubroError ? 'border-red-400 dark:border-red-500' : 'border-gray-200 dark:border-gray-700'
-              }`}
+              className={`${inputClass} ${rubroError ? 'border-red-400 dark:border-red-500' : ''}`}
               required
               autoComplete="off"
             />
-            {rubroError && (
-              <p className="mt-1 text-xs font-bold text-red-500">{rubroError}</p>
-            )}
+            </FormField>
 
             {isRubroOpen && (
               <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl max-h-64 overflow-y-auto custom-scrollbar animate-fadeIn">
@@ -264,21 +251,27 @@ export const ModalProveedorForm: React.FC<ModalProveedorFormProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Telefono Principal <span className="text-red-500">*</span></label><input type="text" name="telefono1" value={formProv.telefono1} onChange={handleProvChange} inputMode="numeric" pattern="^[0-9]{7,15}$" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-green dark:text-white" required /></div>
-            <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Telefono Secundario</label><input type="text" name="telefono2" value={formProv.telefono2} onChange={handleProvChange} inputMode="numeric" pattern="^[0-9]{7,15}$" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-green dark:text-white" /></div>
+            <FormField label="Telefono Principal" required>
+              <input type="text" name="telefono1" value={formProv.telefono1} onChange={handleProvChange} inputMode="numeric" pattern="^[0-9]{7,15}$" className={inputClass} required />
+            </FormField>
+            <FormField label="Telefono Secundario">
+              <input type="text" name="telefono2" value={formProv.telefono2} onChange={handleProvChange} inputMode="numeric" pattern="^[0-9]{7,15}$" className={inputClass} />
+            </FormField>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             <div className="md:col-span-1">
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Estado <span className="text-red-500">*</span></label>
-              <select name="estado_venezuela" value={formProv.estado_venezuela} onChange={handleProvChange} className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-green dark:text-white" required>
-                <option value="">Seleccione...</option>
-                {ESTADOS_VENEZUELA.map((estado) => <option key={estado} value={estado}>{estado}</option>)}
-              </select>
+              <FormField label="Estado" required>
+                <select name="estado_venezuela" value={formProv.estado_venezuela} onChange={handleProvChange} className={inputClass} required>
+                  <option value="">Seleccione...</option>
+                  {ESTADOS_VENEZUELA.map((estado) => <option key={estado} value={estado}>{estado}</option>)}
+                </select>
+              </FormField>
             </div>
             <div className="md:col-span-2">
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Direccion Fisica Exacta <span className="text-red-500">*</span></label>
-              <input type="text" name="direccion" value={formProv.direccion} onChange={handleProvChange} className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-green dark:text-white" required />
+              <FormField label="Direccion Fisica Exacta" required>
+                <input type="text" name="direccion" value={formProv.direccion} onChange={handleProvChange} className={inputClass} required />
+              </FormField>
             </div>
           </div>
 
@@ -298,45 +291,41 @@ export const ModalProveedorDetails: React.FC<ModalProveedorDetailsProps> = ({ is
     <ModalBase onClose={() => setIsOpen(false)} title="Detalles del Proveedor" maxWidth="max-w-3xl">
       <div className="space-y-5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Identificador / RIF</label>
+            <FormField label="Identificador / RIF">
               <div className="w-full p-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-800 dark:text-gray-200 font-mono uppercase">{prov.identificador}</div>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre / Razon Social</label>
+            </FormField>
+            <FormField label="Nombre / Razon Social">
               <div className="w-full p-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-800 dark:text-gray-200 font-bold">{prov.nombre}</div>
-            </div>
+            </FormField>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Correo Electronico</label>
+          <FormField label="Correo Electronico">
             <div className="w-full p-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-800 dark:text-gray-200">{prov.email || 'No especificado'}</div>
-          </div>
+          </FormField>
 
-          <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Especialidad / Rubro</label>
+          <FormField label="Especialidad / Rubro">
             <div className="w-full p-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl text-blue-600 dark:text-blue-400 font-bold">{prov.rubro || 'No especificado'}</div>
-          </div>
+          </FormField>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Telefono Principal</label>
+            <FormField label="Telefono Principal">
               <div className="w-full p-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-800 dark:text-gray-200">{prov.telefono1 || 'No especificado'}</div>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Telefono Secundario</label>
+            </FormField>
+            <FormField label="Telefono Secundario">
               <div className="w-full p-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-800 dark:text-gray-200">{prov.telefono2 || 'No especificado'}</div>
-            </div>
+            </FormField>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             <div className="md:col-span-1">
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Estado</label>
-              <div className="w-full p-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-800 dark:text-gray-200">{prov.estado_venezuela || 'No especificado'}</div>
+              <FormField label="Estado">
+                <div className="w-full p-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-800 dark:text-gray-200">{prov.estado_venezuela || 'No especificado'}</div>
+              </FormField>
             </div>
             <div className="md:col-span-2">
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Direccion Fisica Exacta</label>
-              <div className="w-full p-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-800 dark:text-gray-200">{prov.direccion || 'No especificada'}</div>
+              <FormField label="Direccion Fisica Exacta">
+                <div className="w-full p-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-800 dark:text-gray-200">{prov.direccion || 'No especificada'}</div>
+              </FormField>
             </div>
           </div>
 
@@ -408,34 +397,21 @@ export const ModalCargaMasivaProveedores: React.FC<ModalCargaMasivaProveedoresPr
                 </div>
               )}
 
-              <table className="w-full text-left border-collapse text-sm">
-                <thead className="sticky top-0 bg-gray-100 dark:bg-gray-800 shadow-sm z-10">
-                  <tr className="text-gray-600 dark:text-gray-300">
-                    <th className="p-3 font-bold text-center">Estado</th>
-                    <th className="p-3 font-bold">RIF</th>
-                    <th className="p-3 font-bold">Nombre</th>
-                    <th className="p-3 font-bold">Correo</th>
-                    <th className="p-3 font-bold">Rubro</th>
-                    <th className="p-3 font-bold">Telefono Principal</th>
-                    <th className="p-3 font-bold">Estado / Provincia</th>
-                    <th className="p-3 font-bold">Direccion</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loteData.map((row, i) => (
-                    <tr key={i} className={`border-b ${row.isValid ? 'border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800' : 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30'}`}>
-                      <td className="p-3 text-center">{row.isValid ? <span className="text-green-500 text-lg">OK</span> : <span className="text-red-500 text-lg">ERR</span>}</td>
-                      <td className="p-3 font-bold font-mono text-gray-800 dark:text-white">{row.identificador}</td>
-                      <td className="p-3 text-gray-700 dark:text-gray-300 font-medium">{row.nombre}</td>
-                      <td className="p-3 text-gray-600 dark:text-gray-400 text-xs">{row.email || '-'}</td>
-                      <td className="p-3 text-gray-500 dark:text-gray-400 text-xs">{row.rubro || '-'}</td>
-                      <td className="p-3 font-mono text-gray-600 dark:text-gray-400">{row.telefono1}</td>
-                      <td className="p-3 text-gray-600 dark:text-gray-400 text-xs font-semibold">{row.estado_venezuela}</td>
-                      <td className="p-3 text-gray-500 dark:text-gray-400 text-xs truncate max-w-[200px]" title={row.direccion}>{row.direccion}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <DataTable
+                columns={[
+                  { key: 'estado', header: 'Estado', headerClassName: 'text-center', className: 'text-center', render: (row) => row.isValid ? <span className="text-green-500 text-lg">OK</span> : <span className="text-red-500 text-lg">ERR</span> },
+                  { key: 'rif', header: 'RIF', className: 'font-bold font-mono text-gray-800 dark:text-white', render: (row) => row.identificador },
+                  { key: 'nombre', header: 'Nombre', className: 'text-gray-700 dark:text-gray-300 font-medium', render: (row) => row.nombre },
+                  { key: 'correo', header: 'Correo', className: 'text-gray-600 dark:text-gray-400 text-xs', render: (row) => row.email || '-' },
+                  { key: 'rubro', header: 'Rubro', className: 'text-gray-500 dark:text-gray-400 text-xs', render: (row) => row.rubro || '-' },
+                  { key: 'telefono', header: 'Telefono Principal', className: 'font-mono text-gray-600 dark:text-gray-400', render: (row) => row.telefono1 },
+                  { key: 'estado_ve', header: 'Estado / Provincia', className: 'text-gray-600 dark:text-gray-400 text-xs font-semibold', render: (row) => row.estado_venezuela },
+                  { key: 'direccion', header: 'Direccion', className: 'text-gray-500 dark:text-gray-400 text-xs truncate max-w-[200px]', render: (row) => <span title={row.direccion}>{row.direccion}</span> },
+                ]}
+                data={loteData}
+                keyExtractor={(_, i) => i}
+                rowClassName={(row) => `border-b ${row.isValid ? 'border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800' : 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30'}`}
+              />
             </div>
 
             <div className="p-6 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-800 flex flex-col gap-4">

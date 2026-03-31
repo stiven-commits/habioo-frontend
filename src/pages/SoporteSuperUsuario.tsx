@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FC } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { API_BASE_URL } from '../config/api';
+import DataTable from '../components/ui/DataTable';
 
 interface UserLite {
   nombre?: string;
@@ -173,44 +174,44 @@ const SoporteSuperUsuario: FC = () => {
         ) : filtered.length === 0 ? (
           <p className="py-8 text-center text-gray-500">No hay juntas para mostrar.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[840px] border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                  <th className="p-3 font-bold uppercase text-[11px]">Junta</th>
-                  <th className="p-3 font-bold uppercase text-[11px]">RIF</th>
-                  <th className="p-3 font-bold uppercase text-[11px]">Administradora</th>
-                  <th className="p-3 font-bold uppercase text-[11px] text-right">Inmuebles</th>
-                  <th className="p-3 font-bold uppercase text-[11px] text-right">Acción</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((row) => (
-                  <tr key={row.condominio_id} className="border-b border-gray-100 dark:border-gray-800/70">
-                    <td className="p-3 font-semibold text-gray-900 dark:text-gray-100">{row.nombre_junta}</td>
-                    <td className="p-3 font-mono text-gray-700 dark:text-gray-300">{row.rif_junta || '-'}</td>
-                    <td className="p-3 text-gray-800 dark:text-gray-200">
-                      <p className="font-semibold">{row.admin_nombre || 'Sin administradora'}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{row.admin_cedula || ''}</p>
-                    </td>
-                    <td className="p-3 text-right font-mono text-gray-700 dark:text-gray-300">
-                      {toNumber(row.total_inmuebles)}
-                    </td>
-                    <td className="p-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => { void handleEntrar(row); }}
-                        disabled={workingId === row.condominio_id}
-                        className="rounded-xl bg-donezo-primary px-3 py-2 text-xs font-black text-white transition hover:opacity-90 disabled:opacity-50"
-                      >
-                        {workingId === row.condominio_id ? 'Entrando...' : 'Entrar como soporte'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            tableStyle={{ minWidth: '840px' }}
+            columns={[
+              { key: 'junta', header: 'Junta', className: 'font-semibold text-gray-900 dark:text-gray-100', render: (row) => row.nombre_junta },
+              { key: 'rif', header: 'RIF', className: 'font-mono text-gray-700 dark:text-gray-300', render: (row) => row.rif_junta || '-' },
+              {
+                key: 'admin',
+                header: 'Administradora',
+                className: 'text-gray-800 dark:text-gray-200',
+                render: (row) => (
+                  <>
+                    <p className="font-semibold">{row.admin_nombre || 'Sin administradora'}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{row.admin_cedula || ''}</p>
+                  </>
+                ),
+              },
+              { key: 'inmuebles', header: 'Inmuebles', headerClassName: 'text-right', className: 'text-right font-mono text-gray-700 dark:text-gray-300', render: (row) => toNumber(row.total_inmuebles) },
+              {
+                key: 'accion',
+                header: 'Acción',
+                headerClassName: 'text-right',
+                className: 'text-right',
+                render: (row) => (
+                  <button
+                    type="button"
+                    onClick={() => { void handleEntrar(row); }}
+                    disabled={workingId === row.condominio_id}
+                    className="rounded-xl bg-donezo-primary px-3 py-2 text-xs font-black text-white transition hover:opacity-90 disabled:opacity-50"
+                  >
+                    {workingId === row.condominio_id ? 'Entrando...' : 'Entrar como soporte'}
+                  </button>
+                ),
+              },
+            ]}
+            data={filtered}
+            keyExtractor={(row) => row.condominio_id}
+            rowClassName="border-b border-gray-100 dark:border-gray-800/70"
+          />
         )}
         {message ? <p className="mt-3 text-sm font-semibold text-red-600">{message}</p> : null}
       </article>

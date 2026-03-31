@@ -1,6 +1,8 @@
 ﻿import { useState, useEffect, useRef } from 'react';
 import type React from 'react';
 import { useOutletContext } from 'react-router-dom';
+import DataTable from '../components/ui/DataTable';
+import PageHeader from '../components/ui/PageHeader';
 import { API_BASE_URL } from '../config/api';
 import * as XLSX from 'xlsx';
 import { ModalProveedorForm, ModalProveedorDetails, ModalCargaMasivaProveedores } from '../components/proveedores/ProveedoresModals';
@@ -402,56 +404,63 @@ const Proveedores: React.FC<ProveedoresProps> = () => {
 
   return (
     <div className="space-y-6 relative" onClick={() => setOpenDropdownId(null)}>
-      {/* ENCABEZADO */}
-      <div className="flex flex-col xl:flex-row justify-between items-center bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 gap-4">
-        <h3 className="text-xl font-bold text-gray-800 dark:text-white whitespace-nowrap">Directorio Proveedores</h3>
-
-        <div className="flex-1 w-full relative">
-          <input type="text" placeholder="Buscar por nombre, RIF, correo o rubro..." value={searchTerm} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)} className="w-full p-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white transition-all"/>
-        </div>
-
-        <div className="flex gap-3 w-full xl:w-auto">
-          <button onClick={() => setLoteModalOpen(true)} className="flex-1 xl:flex-none bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 dark:border-blue-800/50 dark:text-blue-400 font-bold py-2.5 px-5 rounded-xl transition-all shadow-sm text-sm flex items-center justify-center gap-2">
-            Carga masiva
-          </button>
-          <button onClick={handleCreateNew} className="flex-1 xl:flex-none bg-donezo-primary hover:bg-blue-700 text-white font-bold py-2.5 px-5 rounded-xl transition-all shadow-md text-sm whitespace-nowrap">
-            + Nuevo Proveedor
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Directorio Proveedores"
+        actions={
+          <>
+            <button onClick={() => setLoteModalOpen(true)} className="flex-1 xl:flex-none bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 dark:border-blue-800/50 dark:text-blue-400 font-bold py-2.5 px-5 rounded-xl transition-all shadow-sm text-sm">
+              Carga masiva
+            </button>
+            <button onClick={handleCreateNew} className="flex-1 xl:flex-none bg-donezo-primary hover:bg-blue-700 text-white font-bold py-2.5 px-5 rounded-xl transition-all shadow-md text-sm whitespace-nowrap">
+              + Nuevo Proveedor
+            </button>
+          </>
+        }
+      >
+        <input type="text" placeholder="Buscar por nombre, RIF, correo o rubro..." value={searchTerm} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)} className="w-full p-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white transition-all"/>
+      </PageHeader>
 
       <div className="bg-white dark:bg-donezo-card-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
         {loading ? <p className="text-gray-500 p-6">Cargando directorio...</p> : currentProveedores.length === 0 ? <p className="text-gray-500 text-center py-10">No se encontraron proveedores activos.</p> : (
           <>
             <div className="w-full pb-32">
-              <table className="w-full text-left border-collapse">
-                <thead className="sticky top-0 bg-white dark:bg-donezo-card-dark z-20 shadow-sm">
-                  <tr className="border-b border-gray-200 dark:border-gray-800 text-gray-500 dark:text-gray-400 text-sm">
-                    <th className="py-4 pr-3 pl-6">RIF / Identificador</th>
-                    <th className="py-4 px-3">Nombre y Rubro</th>
-                    <th className="py-4 px-3">Teléfonos</th>
-                    <th className="py-4 pl-3 pr-6 text-center">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {/* Mapeo sobre los proveedores de la página actual */}
-                  {currentProveedores.map((p: Proveedor) => (
-                    <tr key={p.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                      <td className="py-3 pr-3 pl-6 font-mono font-medium text-gray-600 dark:text-gray-400">{p.identificador}</td>
-                      <td className="py-3 px-3">
+              <DataTable
+                columns={[
+                  {
+                    key: 'rif',
+                    header: 'RIF / Identificador',
+                    className: 'font-mono font-medium text-gray-600 dark:text-gray-400',
+                    render: (p) => p.identificador,
+                  },
+                  {
+                    key: 'nombre',
+                    header: 'Nombre y Rubro',
+                    render: (p) => (
+                      <>
                         <div className="font-bold text-gray-800 dark:text-white text-base">{p.nombre}</div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">{p.email || 'Sin correo'}</div>
                         {p.rubro && <span className="inline-block mt-1 px-2 py-0.5 rounded bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 text-[10px] font-bold tracking-wider uppercase">{p.rubro}</span>}
-                      </td>
-                      <td className="py-3 px-3 text-gray-600 dark:text-gray-400 text-sm">
-                        {p.telefono1} {p.telefono2 && <><br /><span className="text-gray-400 text-xs">{p.telefono2}</span></>}
-                      </td>
-
-                      <td className="py-3 pl-3 pr-6 text-center relative">
+                      </>
+                    ),
+                  },
+                  {
+                    key: 'telefonos',
+                    header: 'Teléfonos',
+                    className: 'text-gray-600 dark:text-gray-400 text-sm',
+                    render: (p) => (
+                      <>{p.telefono1}{p.telefono2 && <><br /><span className="text-gray-400 text-xs">{p.telefono2}</span></>}</>
+                    ),
+                  },
+                  {
+                    key: 'acciones',
+                    header: 'Acciones',
+                    headerClassName: 'text-center',
+                    className: 'text-center relative',
+                    render: (p) => (
+                      <>
                         <button onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); setOpenDropdownId(openDropdownId === p.id ? null : p.id); }} className="bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 px-4 py-2 rounded-xl text-xs font-bold transition-colors inline-flex items-center gap-2">
                           Opciones <span className="text-[9px]">▼</span>
                         </button>
-
                         {openDropdownId === p.id && (
                           <div className="absolute right-0 top-12 w-48 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden text-left animate-fadeIn">
                             <button onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); handleViewDetails(p); }} className="w-full text-left px-4 py-3 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-sm text-blue-600 dark:text-blue-400 font-bold transition-colors border-b border-gray-50 dark:border-gray-700">Ver detalles</button>
@@ -459,11 +468,13 @@ const Proveedores: React.FC<ProveedoresProps> = () => {
                             <button onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); void handleDelete(p.id, p.nombre); }} className="w-full text-left px-4 py-3 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm text-red-600 dark:text-red-400 font-bold transition-colors">Eliminar</button>
                           </div>
                         )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </>
+                    ),
+                  },
+                ]}
+                data={currentProveedores}
+                keyExtractor={(p) => p.id}
+              />
             </div>
 
             {/* Controles de paginación */}

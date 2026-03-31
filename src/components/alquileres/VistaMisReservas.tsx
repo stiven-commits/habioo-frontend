@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FC } from 'react';
+import DataTable from '../ui/DataTable';
 import { Loader2 } from 'lucide-react';
 import { API_BASE_URL } from '../../config/api';
 import ModalReportarPagoAlquiler from './ModalReportarPagoAlquiler';
@@ -125,73 +126,72 @@ const VistaMisReservas: FC = () => {
 
       {!isLoading && !error && hasData && (
         <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-donezo-card-dark shadow-sm overflow-visible">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead className="bg-gray-50 dark:bg-gray-900/40 border-b border-gray-100 dark:border-gray-800">
-                <tr className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                  <th className="p-3 font-black">Estado</th>
-                  <th className="p-3 font-black">Lugar</th>
-                  <th className="p-3 font-black">Fecha Alquiler</th>
-                  <th className="p-3 font-black text-right">Monto (USD)</th>
-                  <th className="p-3 font-black text-center">Acción</th>
-                </tr>
-              </thead>
-              <tbody>
-                {misReservas.map((reserva) => {
-                  const normalized = normalizeEstado(String(reserva.estado));
-                  const canReport = normalized === 'APROBADA' || normalized === 'PAGO_PARCIAL';
-                  const canSeeDetails = normalized === 'PAGO_REPORTADO' || normalized === 'CONFIRMADA' || normalized === 'RECHAZADA';
+          <DataTable
+            columns={[
+              {
+                key: 'estado',
+                header: 'Estado',
+                render: (reserva) => (
+                  <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${badgeClassByEstado(reserva.estado)}`}>
+                    {labelEstado(reserva.estado)}
+                  </span>
+                ),
+              },
+              {
+                key: 'lugar',
+                header: 'Lugar',
+                className: 'text-sm font-semibold text-gray-800 dark:text-gray-200',
+                render: (reserva) => reserva.amenidad_nombre,
+              },
+              {
+                key: 'fecha',
+                header: 'Fecha Alquiler',
+                className: 'text-sm font-semibold text-gray-700 dark:text-gray-300',
+                render: (reserva) => formatDateVe(reserva.fecha_reserva),
+              },
+              {
+                key: 'monto',
+                header: 'Monto (USD)',
+                headerClassName: 'text-right',
+                className: 'text-right text-sm font-black text-gray-900 dark:text-white',
+                render: (reserva) => {
                   const pagadoUsd = Number(reserva.monto_pagado_usd) || 0;
                   const totalUsd = Number(reserva.monto_total_usd) || 0;
                   const restanteUsd = Math.max(0, totalUsd - pagadoUsd);
-
                   return (
-                    <tr
-                      key={reserva.id}
-                      className="border-b border-gray-50 dark:border-gray-800/60 hover:bg-gray-50/70 dark:hover:bg-gray-800/30"
-                    >
-                      <td className="p-3">
-                        <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${badgeClassByEstado(reserva.estado)}`}>
-                          {labelEstado(reserva.estado)}
-                        </span>
-                      </td>
-                      <td className="p-3 text-sm font-semibold text-gray-800 dark:text-gray-200">{reserva.amenidad_nombre}</td>
-                      <td className="p-3 text-sm font-semibold text-gray-700 dark:text-gray-300">{formatDateVe(reserva.fecha_reserva)}</td>
-                      <td className="p-3 text-right text-sm font-black text-gray-900 dark:text-white">
-                        <div>${formatUsd(pagadoUsd)} / ${formatUsd(totalUsd)} USD</div>
-                        <div className="text-xs font-semibold text-amber-600 dark:text-amber-300">
-                          Resta: ${formatUsd(restanteUsd)} USD
-                        </div>
-                      </td>
-                      <td className="p-3 text-center">
-                        {canReport ? (
-                          <div className="inline-flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setReservaAPagar(reserva)}
-                              className="rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white transition-colors"
-                            >
-                              Reportar Pago
-                            </button>
-                          </div>
-                        ) : canSeeDetails ? (
-                          <button
-                            type="button"
-                            onClick={() => setReservaDetalle(reserva)}
-                            className="rounded-lg bg-violet-100 dark:bg-violet-900/30 px-3 py-1.5 text-xs font-bold text-violet-700 dark:text-violet-300 hover:bg-violet-200 dark:hover:bg-violet-900/50 transition-colors"
-                          >
-                            Detalles pago
-                          </button>
-                        ) : (
-                          <span className="text-xs text-gray-300">-</span>
-                        )}
-                      </td>
-                    </tr>
+                    <>
+                      <div>${formatUsd(pagadoUsd)} / ${formatUsd(totalUsd)} USD</div>
+                      <div className="text-xs font-semibold text-amber-600 dark:text-amber-300">Resta: ${formatUsd(restanteUsd)} USD</div>
+                    </>
                   );
-                })}
-              </tbody>
-            </table>
-          </div>
+                },
+              },
+              {
+                key: 'accion',
+                header: 'Acción',
+                headerClassName: 'text-center',
+                className: 'text-center',
+                render: (reserva) => {
+                  const normalized = normalizeEstado(String(reserva.estado));
+                  const canReport = normalized === 'APROBADA' || normalized === 'PAGO_PARCIAL';
+                  const canSeeDetails = normalized === 'PAGO_REPORTADO' || normalized === 'CONFIRMADA' || normalized === 'RECHAZADA';
+                  return canReport ? (
+                    <button type="button" onClick={() => setReservaAPagar(reserva)} className="rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white transition-colors">
+                      Reportar Pago
+                    </button>
+                  ) : canSeeDetails ? (
+                    <button type="button" onClick={() => setReservaDetalle(reserva)} className="rounded-lg bg-violet-100 dark:bg-violet-900/30 px-3 py-1.5 text-xs font-bold text-violet-700 dark:text-violet-300 hover:bg-violet-200 dark:hover:bg-violet-900/50 transition-colors">
+                      Detalles pago
+                    </button>
+                  ) : (
+                    <span className="text-xs text-gray-300">-</span>
+                  );
+                },
+              },
+            ]}
+            data={misReservas}
+            keyExtractor={(reserva) => reserva.id}
+          />
         </div>
       )}
 

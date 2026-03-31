@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FC } from 'react';
 import { createPortal } from 'react-dom';
+import DataTable from '../ui/DataTable';
 import { Loader2 } from 'lucide-react';
 import { API_BASE_URL } from '../../config/api';
 import ModalVerificarPagoAlquiler from './ModalVerificarPagoAlquiler';
@@ -168,84 +169,86 @@ const VistaSolicitudesAlquiler: FC = () => {
 
       {!isLoading && !error && solicitudes.length > 0 && (
         <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-donezo-card-dark shadow-sm overflow-visible">
-          <div className="overflow-x-auto overflow-y-visible">
-            <table className="w-full text-left border-collapse">
-              <thead className="bg-gray-50 dark:bg-gray-900/40 border-b border-gray-100 dark:border-gray-800">
-                <tr className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                  <th className="p-3 font-black">Estado</th>
-                  <th className="p-3 font-black">Solicitante</th>
-                  <th className="p-3 font-black">Lugar</th>
-                  <th className="p-3 font-black">Fecha Alquiler</th>
-                  <th className="p-3 font-black text-right">Monto (USD)</th>
-                  <th className="p-3 font-black text-center">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {solicitudes.map((item) => {
-                  const inmueble = item.propiedad_identificador || item.inmueble_identificador || 'Sin inmueble';
-                  const isRowUpdating = updatingId === item.id;
-                  const estadoNormalizado = String(item.estado || '').trim().toUpperCase();
+          <DataTable
+            columns={[
+              {
+                key: 'estado',
+                header: 'Estado',
+                render: (item) => (
+                  <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${badgeClassByEstado(item.estado)}`}>
+                    {item.estado}
+                  </span>
+                ),
+              },
+              {
+                key: 'solicitante',
+                header: 'Solicitante',
+                className: 'text-sm font-bold text-gray-800 dark:text-gray-200',
+                render: (item) => item.propiedad_identificador || item.inmueble_identificador || 'Sin inmueble',
+              },
+              {
+                key: 'lugar',
+                header: 'Lugar',
+                className: 'text-sm font-semibold text-gray-700 dark:text-gray-300',
+                render: (item) => item.amenidad_nombre,
+              },
+              {
+                key: 'fecha',
+                header: 'Fecha Alquiler',
+                className: 'text-sm font-semibold text-gray-700 dark:text-gray-300',
+                render: (item) => formatDateVe(item.fecha_reserva),
+              },
+              {
+                key: 'monto',
+                header: 'Monto (USD)',
+                headerClassName: 'text-right',
+                className: 'text-right text-sm font-black text-gray-900 dark:text-white',
+                render: (item) => {
                   const pagadoUsd = Number(item.monto_pagado_usd) || 0;
                   const totalUsd = Number(item.monto_total_usd) || 0;
                   const restanteUsd = Math.max(0, totalUsd - pagadoUsd);
                   return (
-                    <tr key={item.id} className="border-b border-gray-50 dark:border-gray-800/60 hover:bg-gray-50/70 dark:hover:bg-gray-800/30">
-                      <td className="p-3">
-                        <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${badgeClassByEstado(item.estado)}`}>
-                          {item.estado}
-                        </span>
-                      </td>
-                      <td className="p-3 text-sm font-bold text-gray-800 dark:text-gray-200">{inmueble}</td>
-                      <td className="p-3 text-sm font-semibold text-gray-700 dark:text-gray-300">{item.amenidad_nombre}</td>
-                      <td className="p-3 text-sm font-semibold text-gray-700 dark:text-gray-300">{formatDateVe(item.fecha_reserva)}</td>
-                      <td className="p-3 text-right text-sm font-black text-gray-900 dark:text-white">
-                        <div>${formatUsd(pagadoUsd)} / ${formatUsd(totalUsd)} USD</div>
-                        <div className="text-xs font-semibold text-amber-600 dark:text-amber-300">
-                          Resta: ${formatUsd(restanteUsd)} USD
-                        </div>
-                      </td>
-                      <td className="p-3 text-center">
-                        {estadoNormalizado === 'PENDIENTE' ? (
-                          <div className="inline-flex justify-center">
-                            <button
-                              type="button"
-                              disabled={isRowUpdating}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                const rect = (event.currentTarget as HTMLButtonElement).getBoundingClientRect();
-                                setMenuAnchor((prev) =>
-                                  prev?.id === item.id
-                                    ? null
-                                    : {
-                                        id: item.id,
-                                        top: rect.bottom + 6,
-                                        left: rect.right - 150,
-                                      }
-                                );
-                              }}
-                              className="rounded-lg bg-gray-100 dark:bg-gray-800 px-3 py-1.5 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-60"
-                            >
-                              {isRowUpdating ? 'Actualizando...' : 'Opciones'}
-                            </button>
-                          </div>
-                        ) : estadoNormalizado === 'PAGO_REPORTADO' ? (
-                          <button
-                            type="button"
-                            onClick={() => setSolicitudAVerificar(item)}
-                            className="rounded-lg bg-violet-100 dark:bg-violet-900/30 px-3 py-1.5 text-xs font-bold text-violet-700 dark:text-violet-300 hover:bg-violet-200 dark:hover:bg-violet-900/50 transition-colors"
-                          >
-                            Verificar Pago
-                          </button>
-                        ) : (
-                          <span className="text-xs text-gray-300">-</span>
-                        )}
-                      </td>
-                    </tr>
+                    <>
+                      <div>${formatUsd(pagadoUsd)} / ${formatUsd(totalUsd)} USD</div>
+                      <div className="text-xs font-semibold text-amber-600 dark:text-amber-300">Resta: ${formatUsd(restanteUsd)} USD</div>
+                    </>
                   );
-                })}
-              </tbody>
-            </table>
-          </div>
+                },
+              },
+              {
+                key: 'acciones',
+                header: 'Acciones',
+                headerClassName: 'text-center',
+                className: 'text-center',
+                render: (item) => {
+                  const estadoNormalizado = String(item.estado || '').trim().toUpperCase();
+                  const isRowUpdating = updatingId === item.id;
+                  return estadoNormalizado === 'PENDIENTE' ? (
+                    <button
+                      type="button"
+                      disabled={isRowUpdating}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        const rect = (event.currentTarget as HTMLButtonElement).getBoundingClientRect();
+                        setMenuAnchor((prev) => prev?.id === item.id ? null : { id: item.id, top: rect.bottom + 6, left: rect.right - 150 });
+                      }}
+                      className="rounded-lg bg-gray-100 dark:bg-gray-800 px-3 py-1.5 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-60"
+                    >
+                      {isRowUpdating ? 'Actualizando...' : 'Opciones'}
+                    </button>
+                  ) : estadoNormalizado === 'PAGO_REPORTADO' ? (
+                    <button type="button" onClick={() => setSolicitudAVerificar(item)} className="rounded-lg bg-violet-100 dark:bg-violet-900/30 px-3 py-1.5 text-xs font-bold text-violet-700 dark:text-violet-300 hover:bg-violet-200 dark:hover:bg-violet-900/50 transition-colors">
+                      Verificar Pago
+                    </button>
+                  ) : (
+                    <span className="text-xs text-gray-300">-</span>
+                  );
+                },
+              },
+            ]}
+            data={solicitudes}
+            keyExtractor={(item) => item.id}
+          />
 
           {!hasPendientes && (
             <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 p-3">

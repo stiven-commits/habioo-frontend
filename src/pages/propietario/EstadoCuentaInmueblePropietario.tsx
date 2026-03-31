@@ -6,6 +6,7 @@ import ModalRegistrarPago from '../../components/ModalRegistrarPago';
 import { API_BASE_URL } from '../../config/api';
 import { formatMoney } from '../../utils/currency';
 import { formatDateVE, parseDateVE } from '../../utils/datetime';
+import DataTable from '../../components/ui/DataTable';
 
 interface PropiedadActiva {
   id_propiedad: number;
@@ -324,73 +325,79 @@ const EstadoCuentaInmueblePropietario: FC = () => {
         ) : movimientosConSaldo.length === 0 ? (
           <p className="py-10 text-center text-gray-400">No hay movimientos para este inmueble.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left text-sm">
-              <thead className="bg-white dark:bg-donezo-card-dark">
-                <tr className="border-b border-gray-200 text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                  <th className="p-3 font-bold uppercase text-[11px]">
-                    <button type="button" onClick={() => toggleSort('fecha_operacion')} className="font-bold hover:text-donezo-primary">
-                      Fecha Op. {sortIndicator('fecha_operacion')}
-                    </button>
-                  </th>
-                  <th className="p-3 font-bold uppercase text-[11px]">
-                    <button type="button" onClick={() => toggleSort('fecha_registro')} className="font-bold hover:text-donezo-primary">
-                      Ingreso al Sistema {sortIndicator('fecha_registro')}
-                    </button>
-                  </th>
-                  <th className="p-3 font-bold uppercase text-[11px]">
-                    Concepto
-                  </th>
-                  <th className="hidden p-3 text-right font-bold uppercase text-[11px] md:table-cell">
-                    Cargos
-                  </th>
-                  <th className="hidden p-3 text-right font-bold uppercase text-[11px] md:table-cell">
-                    Abonos
-                  </th>
-                  <th className="p-3 text-right font-bold uppercase text-[11px] text-donezo-primary">
-                    Saldo Final
-                  </th>
-                  <th className="hidden p-3 text-right font-bold uppercase text-[11px] md:table-cell">Tasa BCV (hoy)</th>
-                  <th className="hidden p-3 text-right font-bold uppercase text-[11px] md:table-cell">Monto Bs (BCV hoy)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {movimientosFiltrados.map((m, idx) => (
-                  <tr key={`${m.tipo}-${m.fecha_registro}-${idx}`} className="border-b border-gray-50 hover:bg-gray-50 dark:border-gray-800/50 dark:hover:bg-gray-800/50">
-                    <td className="p-3 text-xs font-mono text-gray-600 dark:text-gray-300">{formatDateVE(m.fecha_operacion)}</td>
-                    <td className="p-3 text-[10px] font-mono text-gray-400">{formatDateVE(m.fecha_registro)}</td>
-                    <td className="p-3 font-medium text-gray-800 dark:text-gray-200 break-words">
-                      {m.tipo === 'RECIBO' ? m.concepto : `${m.tipo === 'PAGO' ? 'PAGO' : 'AJUSTE'} ${m.concepto}`}
-                    </td>
-                    <td className="hidden p-3 text-right font-mono font-medium text-red-500 md:table-cell">{toNumber(m.cargo) > 0 ? `$${formatMoney(toNumber(m.cargo))}` : '-'}</td>
-                    <td className="hidden p-3 text-right font-mono font-medium text-green-500 md:table-cell">{toNumber(m.abono) > 0 ? `$${formatMoney(toNumber(m.abono))}` : '-'}</td>
-                    <td
-                      className={`p-3 text-right font-mono font-black ${
-                        toNumber(m.saldoFila) > 0
-                          ? 'text-red-600 dark:text-red-400'
-                          : toNumber(m.saldoFila) < 0
-                            ? 'text-emerald-600 dark:text-emerald-400'
-                            : 'text-gray-600 dark:text-gray-300'
-                      }`}
-                    >
-                      ${formatMoney(toNumber(m.saldoFila))}
-                    </td>
-                    <td className="hidden p-3 text-right font-mono text-gray-700 dark:text-gray-300 md:table-cell">
-                      {tasaBcvActual && tasaBcvActual > 0 ? formatMoney(tasaBcvActual) : '-'}
-                    </td>
-                    <td className="hidden p-3 text-right font-mono text-gray-700 dark:text-gray-300 md:table-cell">
-                      {tasaBcvActual && tasaBcvActual > 0
-                        ? `Bs ${formatMoney((toNumber(m.cargo) - toNumber(m.abono)) * tasaBcvActual)}`
-                        : '-'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {movimientosFiltrados.length === 0 ? (
-              <p className="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">No hay movimientos con los filtros aplicados.</p>
-            ) : null}
-          </div>
+          <DataTable
+            columns={[
+              {
+                key: 'fecha_op',
+                header: (
+                  <button type="button" onClick={() => toggleSort('fecha_operacion')} className="font-bold hover:text-donezo-primary">
+                    Fecha Op. {sortIndicator('fecha_operacion')}
+                  </button>
+                ),
+                className: 'text-xs font-mono text-gray-600 dark:text-gray-300',
+                render: (m) => formatDateVE(m.fecha_operacion),
+              },
+              {
+                key: 'fecha_reg',
+                header: (
+                  <button type="button" onClick={() => toggleSort('fecha_registro')} className="font-bold hover:text-donezo-primary">
+                    Ingreso al Sistema {sortIndicator('fecha_registro')}
+                  </button>
+                ),
+                className: 'text-[10px] font-mono text-gray-400',
+                render: (m) => formatDateVE(m.fecha_registro),
+              },
+              {
+                key: 'concepto',
+                header: 'Concepto',
+                className: 'font-medium text-gray-800 dark:text-gray-200 break-words',
+                render: (m) => m.tipo === 'RECIBO' ? m.concepto : `${m.tipo === 'PAGO' ? 'PAGO' : 'AJUSTE'} ${m.concepto}`,
+              },
+              {
+                key: 'cargos',
+                header: 'Cargos',
+                headerClassName: 'text-right hidden md:table-cell',
+                className: 'hidden text-right font-mono font-medium text-red-500 md:table-cell',
+                render: (m) => toNumber(m.cargo) > 0 ? `$${formatMoney(toNumber(m.cargo))}` : '-',
+              },
+              {
+                key: 'abonos',
+                header: 'Abonos',
+                headerClassName: 'text-right hidden md:table-cell',
+                className: 'hidden text-right font-mono font-medium text-green-500 md:table-cell',
+                render: (m) => toNumber(m.abono) > 0 ? `$${formatMoney(toNumber(m.abono))}` : '-',
+              },
+              {
+                key: 'saldo',
+                header: 'Saldo Final',
+                headerClassName: 'text-right text-donezo-primary',
+                className: 'text-right font-mono font-black',
+                render: (m) => (
+                  <span className={toNumber(m.saldoFila) > 0 ? 'text-red-600 dark:text-red-400' : toNumber(m.saldoFila) < 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-600 dark:text-gray-300'}>
+                    ${formatMoney(toNumber(m.saldoFila))}
+                  </span>
+                ),
+              },
+              {
+                key: 'tasa',
+                header: 'Tasa BCV (hoy)',
+                headerClassName: 'text-right hidden md:table-cell',
+                className: 'hidden text-right font-mono text-gray-700 dark:text-gray-300 md:table-cell',
+                render: () => tasaBcvActual && tasaBcvActual > 0 ? formatMoney(tasaBcvActual) : '-',
+              },
+              {
+                key: 'monto_bs',
+                header: 'Monto Bs (BCV hoy)',
+                headerClassName: 'text-right hidden md:table-cell',
+                className: 'hidden text-right font-mono text-gray-700 dark:text-gray-300 md:table-cell',
+                render: (m) => tasaBcvActual && tasaBcvActual > 0 ? `Bs ${formatMoney((toNumber(m.cargo) - toNumber(m.abono)) * tasaBcvActual)}` : '-',
+              },
+            ]}
+            data={movimientosFiltrados}
+            keyExtractor={(m, idx) => `${m.tipo}-${m.fecha_registro}-${idx}`}
+            emptyMessage="No hay movimientos con los filtros aplicados."
+            rowClassName="border-b border-gray-50 hover:bg-gray-50 dark:border-gray-800/50 dark:hover:bg-gray-800/50"
+          />
         )}
       </div>
 

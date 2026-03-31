@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FC, type FormEvent } from 'react';
+import ModalBase from '../ui/ModalBase';
 import ReactMarkdown from 'react-markdown';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
@@ -251,28 +252,8 @@ const ModalNuevoAlquiler: FC<ModalNuevoAlquilerProps> = ({ isOpen, onClose, onSu
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/55 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="min-h-full flex items-start md:items-center justify-center">
-        <div className="w-full max-w-5xl rounded-3xl border border-emerald-100/70 dark:border-emerald-900/40 bg-white dark:bg-slate-900 shadow-[0_24px_80px_-24px_rgba(16,185,129,0.35)] overflow-hidden">
-          <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-slate-900 dark:to-slate-900">
-            <div>
-              <h3 className="text-xl font-black text-slate-900 dark:text-white">{mode === 'edit' ? 'Editar Alquiler' : 'Registrar Nuevo Alquiler'}</h3>
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1">
-                {mode === 'edit' ? 'Actualiza los datos del espacio alquilable.' : 'Crea un espacio reservable para residentes y copropietarios.'}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleClose}
-              disabled={isLoading}
-              className="h-10 w-10 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-red-500 hover:border-red-300 transition-colors disabled:opacity-60"
-              aria-label="Cerrar modal"
-            >
-              X
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmit}>
+    <ModalBase onClose={handleClose} title={mode === 'edit' ? 'Editar Alquiler' : 'Registrar Nuevo Alquiler'} subtitle={mode === 'edit' ? 'Actualiza los datos del espacio alquilable.' : 'Crea un espacio reservable para residentes y copropietarios.'} maxWidth="max-w-5xl" disableClose={isLoading}>
+      <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
               <section className="p-6 space-y-4 border-b lg:border-b-0 lg:border-r border-slate-100 dark:border-slate-800">
                 <div>
@@ -334,7 +315,7 @@ const ModalNuevoAlquiler: FC<ModalNuevoAlquilerProps> = ({ isOpen, onClose, onSu
               </section>
             </div>
 
-            <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/50 flex items-center justify-between gap-3">
+            <div className="pt-4 mt-4 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between gap-3">
               <p className="text-sm font-semibold text-red-600 dark:text-red-400">{error || ' '}</p>
               <div className="flex items-center gap-2">
                 <button
@@ -354,10 +335,8 @@ const ModalNuevoAlquiler: FC<ModalNuevoAlquilerProps> = ({ isOpen, onClose, onSu
                 </button>
               </div>
             </div>
-          </form>
-        </div>
-      </div>
-    </div>
+      </form>
+    </ModalBase>
   );
 };
 

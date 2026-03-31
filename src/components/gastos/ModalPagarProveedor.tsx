@@ -1,4 +1,5 @@
 ﻿import React, { useEffect, useMemo, useState } from 'react';
+import ModalBase from '../ui/ModalBase';
 import DatePicker from '../ui/DatePicker';
 import { es } from 'date-fns/locale/es';
 import { API_BASE_URL } from '../../config/api';
@@ -396,31 +397,14 @@ const ModalPagarProveedor: React.FC<ModalPagarProveedorProps> = ({ isOpen, onClo
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 p-4 backdrop-blur-[2px]">
-      <div className="relative w-full max-w-6xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
-        {saving && (
-          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-white/70 backdrop-blur-sm dark:bg-slate-900/70">
-            <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-300 border-t-emerald-500" />
-            <p className="text-sm font-semibold text-slate-700 dark:text-slate-100">Cargando / Procesando pago...</p>
-          </div>
-        )}
-
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-700">
-          <div>
-            <h2 className="text-lg font-black text-slate-900 dark:text-white">Pagar proveedor</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-300">Orígenes reactivos por banco seleccionado</p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            className="rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            Cerrar
-          </button>
+    <ModalBase onClose={onClose} title="Pagar proveedor" subtitle="Orígenes reactivos por banco seleccionado" maxWidth="max-w-6xl" disableClose={saving}>
+      {saving && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-white/70 backdrop-blur-sm dark:bg-donezo-card-dark/70 rounded-3xl">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-300 border-t-donezo-primary" />
+          <p className="text-sm font-semibold text-gray-700 dark:text-gray-100">Cargando / Procesando pago...</p>
         </div>
-
-        <form onSubmit={handleSubmit} className="space-y-5 p-6">
+      )}
+      <form onSubmit={handleSubmit} className="space-y-5">
           <div className="grid grid-cols-1 gap-3 rounded-xl bg-slate-50 p-4 dark:bg-slate-800/50 md:grid-cols-3">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-300">Monto del gasto</p>
@@ -748,9 +732,8 @@ const ModalPagarProveedor: React.FC<ModalPagarProveedorProps> = ({ isOpen, onClo
               </button>
             </div>
           </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </ModalBase>
   );
 };
 

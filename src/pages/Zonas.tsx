@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import type React from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useDialog } from '../components/ui/DialogProvider';
+import PageHeader from '../components/ui/PageHeader';
 
 interface ZonasProps {}
 
@@ -204,10 +205,14 @@ const Zonas: React.FC<ZonasProps> = () => {
 
   return (
     <div className="space-y-6 relative">
-      <div className="flex justify-between items-center bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
-        <h3 className="text-xl font-bold text-gray-800 dark:text-white">🏢 Areas / Sectores del Condominio</h3>
-        <button onClick={handleCreate} className="bg-donezo-primary hover:bg-green-700 text-white font-bold py-2 px-6 rounded-xl transition-all shadow-lg shadow-green-500/30">+ Crear Area / Sector</button>
-      </div>
+      <PageHeader
+        title="🏢 Areas / Sectores del Condominio"
+        actions={
+          <button onClick={handleCreate} className="bg-donezo-primary hover:bg-green-700 text-white font-bold py-2 px-6 rounded-xl transition-all shadow-lg shadow-green-500/30">
+            + Crear Area / Sector
+          </button>
+        }
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {zonas.map((z: Zona) => (

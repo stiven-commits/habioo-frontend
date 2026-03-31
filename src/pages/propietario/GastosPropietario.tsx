@@ -6,6 +6,7 @@ import { useOutletContext } from 'react-router-dom';
 import { API_BASE_URL } from '../../config/api';
 import { formatMoney } from '../../utils/currency';
 import { formatDateVE } from '../../utils/datetime';
+import DataTable from '../../components/ui/DataTable';
 
 interface PropiedadActiva {
   id_condominio: number;
@@ -220,58 +221,50 @@ const GastosPropietario: FC = () => {
           <p className="text-sm text-gray-500 dark:text-gray-400">No hay gastos comunes para este condominio.</p>
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-left">
-                <thead className="sticky top-0 z-20 bg-white dark:bg-donezo-card-dark">
-                  <tr className="border-b border-gray-100 text-xs uppercase tracking-wider text-gray-500 dark:border-gray-800 dark:text-gray-400">
-                    <th className="p-3 font-bold">
-                      <button type="button" onClick={() => toggleSort('fecha_gasto')} className="font-bold hover:text-donezo-primary">
-                        Fecha {sortIndicator('fecha_gasto')}
-                      </button>
-                    </th>
-                    <th className="p-3 font-bold">
-                      <button type="button" onClick={() => toggleSort('concepto')} className="font-bold hover:text-donezo-primary">
-                        Concepto {sortIndicator('concepto')}
-                      </button>
-                    </th>
-                    <th className="p-3 font-bold">
-                      <button type="button" onClick={() => toggleSort('clasificacion')} className="font-bold hover:text-donezo-primary">
-                        Etiqueta {sortIndicator('clasificacion')}
-                      </button>
-                    </th>
-                    <th className="p-3 text-right font-bold">
-                      <button type="button" onClick={() => toggleSort('monto_usd')} className="font-bold hover:text-donezo-primary">
-                        Monto ($) {sortIndicator('monto_usd')}
-                      </button>
-                    </th>
-                    <th className="p-3 text-right font-bold">
-                      <button type="button" onClick={() => toggleSort('monto_bs')} className="font-bold hover:text-donezo-primary">
-                        Monto (Bs) {sortIndicator('monto_bs')}
-                      </button>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {gastosFiltrados.map((gasto) => (
-                    <tr key={gasto.id} className="border-b border-gray-50 dark:border-gray-800/70">
-                      <td className="p-3 text-sm text-gray-600 dark:text-gray-300">
-                        {formatDateVE(getGastoDate(gasto.fecha_gasto))}
-                      </td>
-                      <td className="p-3">
-                        <p className="font-bold text-gray-800 dark:text-gray-200">{gasto.concepto}</p>
-                        {gasto.nota ? <p className="text-xs text-gray-500 dark:text-gray-400">{gasto.nota}</p> : null}
-                      </td>
-                      <td className="p-3 text-sm text-gray-600 dark:text-gray-300">{gasto.clasificacion || 'Variable'}</td>
-                      <td className="p-3 text-right font-bold text-gray-800 dark:text-gray-200">${formatMoney(toNumber(gasto.monto_usd))}</td>
-                      <td className="p-3 text-right font-bold text-gray-700 dark:text-gray-300">Bs {formatMoney(toNumber(gasto.monto_bs))}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {gastosFiltrados.length === 0 ? (
-              <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">No hay resultados con los filtros aplicados.</p>
-            ) : null}
+            <DataTable
+              columns={[
+                {
+                  key: 'fecha',
+                  header: <button type="button" onClick={() => toggleSort('fecha_gasto')} className="font-bold hover:text-donezo-primary">Fecha {sortIndicator('fecha_gasto')}</button>,
+                  className: 'text-gray-600 dark:text-gray-300',
+                  render: (gasto) => formatDateVE(getGastoDate(gasto.fecha_gasto)),
+                },
+                {
+                  key: 'concepto',
+                  header: <button type="button" onClick={() => toggleSort('concepto')} className="font-bold hover:text-donezo-primary">Concepto {sortIndicator('concepto')}</button>,
+                  render: (gasto) => (
+                    <>
+                      <p className="font-bold text-gray-800 dark:text-gray-200">{gasto.concepto}</p>
+                      {gasto.nota ? <p className="text-xs text-gray-500 dark:text-gray-400">{gasto.nota}</p> : null}
+                    </>
+                  ),
+                },
+                {
+                  key: 'etiqueta',
+                  header: <button type="button" onClick={() => toggleSort('clasificacion')} className="font-bold hover:text-donezo-primary">Etiqueta {sortIndicator('clasificacion')}</button>,
+                  className: 'text-gray-600 dark:text-gray-300',
+                  render: (gasto) => gasto.clasificacion || 'Variable',
+                },
+                {
+                  key: 'monto_usd',
+                  header: <button type="button" onClick={() => toggleSort('monto_usd')} className="font-bold hover:text-donezo-primary">Monto ($) {sortIndicator('monto_usd')}</button>,
+                  headerClassName: 'text-right',
+                  className: 'text-right font-bold text-gray-800 dark:text-gray-200',
+                  render: (gasto) => `$${formatMoney(toNumber(gasto.monto_usd))}`,
+                },
+                {
+                  key: 'monto_bs',
+                  header: <button type="button" onClick={() => toggleSort('monto_bs')} className="font-bold hover:text-donezo-primary">Monto (Bs) {sortIndicator('monto_bs')}</button>,
+                  headerClassName: 'text-right',
+                  className: 'text-right font-bold text-gray-700 dark:text-gray-300',
+                  render: (gasto) => `Bs ${formatMoney(toNumber(gasto.monto_bs))}`,
+                },
+              ]}
+              data={gastosFiltrados}
+              keyExtractor={(gasto) => gasto.id}
+              emptyMessage="No hay resultados con los filtros aplicados."
+              rowClassName="border-b border-gray-50 dark:border-gray-800/70"
+            />
           </>
         )}
       </div>

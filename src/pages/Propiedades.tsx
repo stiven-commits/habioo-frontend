@@ -9,6 +9,8 @@ import { API_BASE_URL } from '../config/api';
 import * as XLSX from 'xlsx';
 import { ModalAjusteSaldo, ModalEstadoCuenta, ModalPropiedadForm, ModalCargaMasiva, ModalCopropietarioForm, ModalResidenteForm } from '../components/propiedades/PropiedadesModals';
 import { useDialog } from '../components/ui/DialogProvider';
+import DataTable from '../components/ui/DataTable';
+import PageHeader from '../components/ui/PageHeader';
 
 interface PropiedadesProps {}
 
@@ -1505,127 +1507,146 @@ const Propiedades: FC<PropiedadesProps> = () => {
   return (
     <div className="space-y-6 relative" onClick={() => setOpenDropdownId(null)}>
       
-      {/* HEADER PRINCIPAL */}
-      <div className="flex flex-col xl:flex-row justify-between items-center bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 gap-4">
-        <h3 className="text-xl font-bold text-gray-800 dark:text-white whitespace-nowrap">Inmuebles y Residentes</h3>
-        <div className="flex-1 w-full relative">
+      <PageHeader
+        title="Inmuebles y Residentes"
+        actions={
+          <>
+            {canDeleteAll && propiedades.length > 0 && (
+              <button onClick={handleEliminarTodos} className="flex-1 xl:flex-none bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:border-red-800/50 dark:text-red-400 font-bold py-2.5 px-5 rounded-xl transition-all shadow-sm text-sm">
+                Eliminar todos
+              </button>
+            )}
+            <button onClick={() => setLoteModalOpen(true)} className="flex-1 xl:flex-none bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 dark:border-green-800/50 dark:text-green-400 font-bold py-2.5 px-5 rounded-xl transition-all shadow-sm text-sm">
+              Carga Masiva
+            </button>
+            <button onClick={handleCreateNew} className="flex-1 xl:flex-none bg-donezo-primary hover:bg-blue-700 text-white font-bold py-2.5 px-5 rounded-xl transition-all shadow-md text-sm whitespace-nowrap">
+              + Agregar Inmueble
+            </button>
+          </>
+        }
+      >
+        <div className="relative">
           <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">🔍</span>
           <input type="text" placeholder="Buscar inmueble, propietario o cedula..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 p-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white transition-all"/>
         </div>
-        <div className="flex gap-3 w-full xl:w-auto">
-          {canDeleteAll && propiedades.length > 0 && (
-            <button
-              onClick={handleEliminarTodos}
-              className="flex-1 xl:flex-none bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:border-red-800/50 dark:text-red-400 font-bold py-2.5 px-5 rounded-xl transition-all shadow-sm text-sm"
-            >
-              Eliminar todos
-            </button>
-          )}
-          <button onClick={() => setLoteModalOpen(true)} className="flex-1 xl:flex-none bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 dark:border-green-800/50 dark:text-green-400 font-bold py-2.5 px-5 rounded-xl transition-all shadow-sm text-sm flex items-center justify-center gap-2">
-            Carga Masiva
-          </button>
-          
-          <button onClick={handleCreateNew} className="flex-1 xl:flex-none bg-donezo-primary hover:bg-blue-700 text-white font-bold py-2.5 px-5 rounded-xl transition-all shadow-md text-sm whitespace-nowrap">
-            + Agregar Inmueble
-          </button>
-        </div>
-      </div>
+      </PageHeader>
 
       {/* TABLA DE PROPIEDADES */}
       <div className="bg-white dark:bg-donezo-card-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
         {loading ? <p className="text-gray-500 p-6">Cargando...</p> : currentProps.length === 0 ? <p className="text-gray-500 text-center py-10">No hay inmuebles registrados.</p> : (
           <>
-            <div className="w-full">
-              <table className="w-full text-left border-collapse">
-                <thead className="sticky top-0 bg-white dark:bg-donezo-card-dark z-20 shadow-sm">
-                  <tr className="border-b border-gray-200 dark:border-gray-800 text-gray-500 dark:text-gray-400 text-sm">
-                    <th className="py-4 pl-6 pr-3">
-                      <button type="button" onClick={() => toggleSort('identificador')} className="font-bold hover:text-donezo-primary">
-                        Inmueble {sortIndicator('identificador')}
-                      </button>
-                    </th>
-                    <th className="py-4 px-3 text-right">
-                      <button type="button" onClick={() => toggleSort('alicuota')} className="font-bold hover:text-donezo-primary">
-                        Alicuota {sortIndicator('alicuota')}
-                      </button>
-                    </th>
-                    <th className="py-4 px-3 text-right">
-                      <button type="button" onClick={() => toggleSort('saldo_actual')} className="font-bold hover:text-donezo-primary">
-                        Saldo Actual {sortIndicator('saldo_actual')}
-                      </button>
-                    </th>
-                    <th className="py-4 px-3">
-                      <button type="button" onClick={() => toggleSort('prop_nombre')} className="font-bold hover:text-donezo-primary">
-                        Propietario {sortIndicator('prop_nombre')}
-                      </button>
-                    </th>
-                    <th className="py-4 pr-6 pl-3 text-center">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {currentProps.map((p: Propiedad, index: number) => {
+            <DataTable
+              columns={[
+                {
+                  key: 'identificador',
+                  header: (
+                    <button type="button" onClick={() => toggleSort('identificador')} className="font-bold hover:text-donezo-primary">
+                      Inmueble {sortIndicator('identificador')}
+                    </button>
+                  ),
+                  className: 'font-bold text-gray-800 dark:text-white',
+                  render: (p) => p.identificador,
+                },
+                {
+                  key: 'alicuota',
+                  header: (
+                    <button type="button" onClick={() => toggleSort('alicuota')} className="font-bold hover:text-donezo-primary">
+                      Alicuota {sortIndicator('alicuota')}
+                    </button>
+                  ),
+                  headerClassName: 'text-right',
+                  className: 'text-right font-mono text-blue-600 dark:text-blue-400 font-bold',
+                  render: (p) => <>{formatAlicuotaDisplay(p.alicuota)}%</>,
+                },
+                {
+                  key: 'saldo_actual',
+                  header: (
+                    <button type="button" onClick={() => toggleSort('saldo_actual')} className="font-bold hover:text-donezo-primary">
+                      Saldo Actual {sortIndicator('saldo_actual')}
+                    </button>
+                  ),
+                  headerClassName: 'text-right',
+                  className: 'text-right',
+                  render: (p) => {
                     const saldo = toNumber(p.saldo_actual);
                     const isDeuda = saldo > 0;
                     const isFavor = saldo < 0;
+                    return (
+                      <>
+                        <div className={`font-black font-mono tracking-tight ${isDeuda ? 'text-red-500' : isFavor ? 'text-green-500' : 'text-gray-400'}`}>${formatMoney(Math.abs(saldo))}</div>
+                        <div className="text-[10px] uppercase font-bold text-gray-400">{isDeuda ? 'Deuda' : isFavor ? 'A Favor' : 'Solvente'}</div>
+                      </>
+                    );
+                  },
+                },
+                {
+                  key: 'prop_nombre',
+                  header: (
+                    <button type="button" onClick={() => toggleSort('prop_nombre')} className="font-bold hover:text-donezo-primary">
+                      Propietario {sortIndicator('prop_nombre')}
+                    </button>
+                  ),
+                  render: (p) => (
+                    <>
+                      <div className="font-medium text-gray-800 dark:text-gray-300 text-sm">{p.prop_nombre}</div>
+                      <div className="text-xs text-gray-500">{p.prop_cedula}</div>
+                    </>
+                  ),
+                },
+                {
+                  key: 'acciones',
+                  header: 'Acciones',
+                  headerClassName: 'text-center',
+                  className: 'text-center relative',
+                  render: (p, index) => {
                     const abrirHaciaArriba = index >= currentProps.length - 4;
                     return (
-                      <tr key={p.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                        <td className="py-3 pl-6 pr-3 font-bold text-gray-800 dark:text-white">{p.identificador}</td>
-                        <td className="py-3 px-3 text-right font-mono text-blue-600 dark:text-blue-400 font-bold">{formatAlicuotaDisplay(p.alicuota)}%</td>
-                        <td className="py-3 px-3 text-right">
-                          <div className={`font-black font-mono tracking-tight ${isDeuda ? 'text-red-500' : isFavor ? 'text-green-500' : 'text-gray-400'}`}>${formatMoney(Math.abs(saldo))}</div>
-                          <div className="text-[10px] uppercase font-bold text-gray-400">{isDeuda ? 'Deuda' : isFavor ? 'A Favor' : 'Solvente'}</div>
-                        </td>
-                        <td className="py-3 px-3">
-                          <div className="font-medium text-gray-800 dark:text-gray-300 text-sm">{p.prop_nombre}</div>
-                          <div className="text-xs text-gray-500">{p.prop_cedula}</div>
-                        </td>
-                        <td className="py-3 pr-6 pl-3 text-center relative">
-                          <button onClick={(e) => { e.stopPropagation(); setOpenDropdownId(openDropdownId === p.id ? null : p.id); }} className="bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 px-4 py-2 rounded-xl text-xs font-bold transition-colors inline-flex items-center gap-2">
-                            Opciones <ChevronDown className="w-3.5 h-3.5" />
-                          </button>
-                          {openDropdownId === p.id && (
-                        <div className={`absolute right-0 ${abrirHaciaArriba ? 'bottom-12' : 'top-12'} w-48 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden text-left animate-fadeIn`}>
-
-                          <button onClick={(e) => { e.stopPropagation(); handleEdit(p); }} className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors">
-                            <span className="inline-flex items-center gap-2">
-                              <Pencil className="w-4 h-4" />
-                              Editar Datos
-                            </span>
-                          </button>
-                          <button onClick={(e) => { e.stopPropagation(); handleOpenResidente(p); }} className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors">
-                            <span className="inline-flex items-center gap-2">
-                              <UserPlus className="w-4 h-4" />
-                              Residente / Inquilino
-                            </span>
-                          </button>
-                          <button onClick={(e) => { e.stopPropagation(); handleOpenCopropietarios(p); }} className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors">
-                            <span className="inline-flex items-center gap-2">
-                              <Users className="w-4 h-4" />
-                              Copropietarios
-                            </span>
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); void handleEliminarInmueble(p); }}
-                            disabled={!p.can_delete}
-                            className="w-full text-left px-4 py-3 hover:bg-red-50 dark:hover:bg-red-900/30 text-sm text-red-600 dark:text-red-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                            title={p.can_delete ? 'Eliminar inmueble' : 'No se puede eliminar: ya tiene avisos/recibos'}
-                          >
-                            <span className="inline-flex items-center gap-2">
-                              <Trash2 className="w-4 h-4" />
-                              Eliminar inmueble
-                            </span>
-                          </button>
-                           
-                        </div>
-                      )}
-                        </td>
-                      </tr>
+                      <>
+                        <button onClick={(e) => { e.stopPropagation(); setOpenDropdownId(openDropdownId === p.id ? null : p.id); }} className="bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 px-4 py-2 rounded-xl text-xs font-bold transition-colors inline-flex items-center gap-2">
+                          Opciones <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+                        {openDropdownId === p.id && (
+                          <div className={`absolute right-0 ${abrirHaciaArriba ? 'bottom-12' : 'top-12'} w-48 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden text-left animate-fadeIn`}>
+                            <button onClick={(e) => { e.stopPropagation(); handleEdit(p); }} className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors">
+                              <span className="inline-flex items-center gap-2">
+                                <Pencil className="w-4 h-4" />
+                                Editar Datos
+                              </span>
+                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); handleOpenResidente(p); }} className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors">
+                              <span className="inline-flex items-center gap-2">
+                                <UserPlus className="w-4 h-4" />
+                                Residente / Inquilino
+                              </span>
+                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); handleOpenCopropietarios(p); }} className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors">
+                              <span className="inline-flex items-center gap-2">
+                                <Users className="w-4 h-4" />
+                                Copropietarios
+                              </span>
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); void handleEliminarInmueble(p); }}
+                              disabled={!p.can_delete}
+                              className="w-full text-left px-4 py-3 hover:bg-red-50 dark:hover:bg-red-900/30 text-sm text-red-600 dark:text-red-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                              title={p.can_delete ? 'Eliminar inmueble' : 'No se puede eliminar: ya tiene avisos/recibos'}
+                            >
+                              <span className="inline-flex items-center gap-2">
+                                <Trash2 className="w-4 h-4" />
+                                Eliminar inmueble
+                              </span>
+                            </button>
+                          </div>
+                        )}
+                      </>
                     );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                  },
+                },
+              ]}
+              data={currentProps}
+              keyExtractor={(p) => p.id}
+              rowClassName="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+            />
 
             {totalPages > 1 && (
               <div className="flex justify-between items-center px-6 py-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-800 rounded-b-2xl">
