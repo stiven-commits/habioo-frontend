@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FC } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import VistaAvisoCobro from '../../components/recibos/VistaAvisoCobro';
+import StatusBadge from '../../components/ui/StatusBadge';
 import { API_BASE_URL } from '../../config/api';
 import { formatMoney } from '../../utils/currency';
 import DataTable from '../../components/ui/DataTable';
@@ -226,15 +227,13 @@ const RecibosPropietario: FC = () => {
                 headerClassName: 'text-center',
                 className: 'text-center',
                 render: (recibo) => (
-                  <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-wide ${
-                    recibo.saldoPendiente <= 0
-                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-                      : toNumber(recibo.pagado) > 0
-                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
-                        : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
-                  }`}>
+                  <StatusBadge
+                    color={recibo.saldoPendiente <= 0 ? 'emerald' : toNumber(recibo.pagado) > 0 ? 'amber' : 'red'}
+                    size="md"
+                    className="font-black"
+                  >
                     {recibo.saldoPendiente <= 0 ? 'Pagado' : toNumber(recibo.pagado) > 0 ? 'Abonado' : 'Pendiente'}
-                  </span>
+                  </StatusBadge>
                 ),
               },
               {

@@ -4,6 +4,7 @@ import DataTable from '../ui/DataTable';
 import { Loader2 } from 'lucide-react';
 import { API_BASE_URL } from '../../config/api';
 import ModalVerificarPagoAlquiler from './ModalVerificarPagoAlquiler';
+import StatusBadge, { type BadgeColor } from '../ui/StatusBadge';
 
 type EstadoSolicitud = 'Pendiente' | 'Aprobada' | 'Pago_Reportado' | 'Pago_Parcial' | 'Confirmada' | 'Rechazada' | string;
 
@@ -52,14 +53,14 @@ const formatUsd = (value: string | number): string => {
   return safe.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-const badgeClassByEstado = (estado: EstadoSolicitud): string => {
-  if (estado === 'Pendiente') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300';
-  if (estado === 'Aprobada') return 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300';
-  if (estado === 'Pago_Reportado') return 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300';
-  if (estado === 'Pago_Parcial' || estado === 'PAGO_PARCIAL') return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300';
-  if (estado === 'Confirmada') return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300';
-  if (estado === 'Rechazada') return 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300';
-  return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
+const estadoColor = (estado: EstadoSolicitud): BadgeColor => {
+  if (estado === 'Pendiente') return 'amber';
+  if (estado === 'Aprobada') return 'sky';
+  if (estado === 'Pago_Reportado' || estado === 'PAGO_REPORTADO') return 'violet';
+  if (estado === 'Pago_Parcial' || estado === 'PAGO_PARCIAL') return 'orange';
+  if (estado === 'Confirmada') return 'emerald';
+  if (estado === 'Rechazada') return 'rose';
+  return 'gray';
 };
 
 const VistaSolicitudesAlquiler: FC = () => {
@@ -175,9 +176,7 @@ const VistaSolicitudesAlquiler: FC = () => {
                 key: 'estado',
                 header: 'Estado',
                 render: (item) => (
-                  <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${badgeClassByEstado(item.estado)}`}>
-                    {item.estado}
-                  </span>
+                  <StatusBadge color={estadoColor(item.estado)} size="md" className="font-black">{item.estado}</StatusBadge>
                 ),
               },
               {

@@ -10,6 +10,7 @@ import { sanitizeCedulaRif, sanitizePhone, sanitizeEmail, isValidEmail, isValidP
 import { useDialog } from '../components/ui/DialogProvider';
 import PageHeader from '../components/ui/PageHeader';
 import FormField from '../components/ui/FormField';
+import StatusBadge from '../components/ui/StatusBadge';
 
 interface BancosProps {}
 
@@ -541,7 +542,7 @@ const Bancos: FC<BancosProps> = () => {
                     if (b.tipo === 'Efectivo BS' || b.tipo === 'Efectivo USD' || b.tipo === 'Efectivo') canales.add(String(b.tipo).toUpperCase());
                     return Array.from(canales);
                   })().includes('TRANSFERENCIA') && (
-                    <span className="bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-[11px] uppercase font-bold px-2.5 py-1 rounded-md shadow-sm">Transferencia</span>
+                    <StatusBadge color="indigo" shape="tag" size="md" border className="shadow-sm">Transferencia</StatusBadge>
                   )}
                   {(() => {
                     const canales = new Set<string>();
@@ -551,12 +552,12 @@ const Bancos: FC<BancosProps> = () => {
                     if (b.tipo === 'Efectivo BS' || b.tipo === 'Efectivo USD' || b.tipo === 'Efectivo') canales.add(String(b.tipo).toUpperCase());
                     return Array.from(canales);
                   })().includes('PAGO MOVIL') && (
-                    <span className="bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[11px] uppercase font-bold px-2.5 py-1 rounded-md shadow-sm">Pago Móvil</span>
+                    <StatusBadge color="emerald" shape="tag" size="md" border className="shadow-sm">Pago Móvil</StatusBadge>
                   )}
                   {b.tipo === 'Zelle' && (
-                    <span className="bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[11px] uppercase font-bold px-2.5 py-1 rounded-md shadow-sm">Zelle</span>
+                    <StatusBadge color="blue" shape="tag" size="md" border className="shadow-sm">Zelle</StatusBadge>
                   )}
-                  <span className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300 text-[11px] uppercase font-bold px-2.5 py-1 rounded-md">{b.apodo}</span>
+                  <StatusBadge color="gray" shape="tag" size="md">{b.apodo}</StatusBadge>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm text-gray-600 dark:text-gray-400">
                   <p><strong className="text-gray-800 dark:text-gray-300 font-medium">Titular/Custodio:</strong> {b.nombre_titular}</p>

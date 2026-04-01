@@ -7,6 +7,7 @@ import { API_BASE_URL } from '../../config/api';
 import { formatMoney } from '../../utils/currency';
 import { formatDateVE } from '../../utils/datetime';
 import DataTable from '../../components/ui/DataTable';
+import StatusBadge from '../../components/ui/StatusBadge';
 
 interface PropiedadActiva {
   id_condominio: number;
@@ -207,9 +208,7 @@ const GastosPropietario: FC = () => {
           </div>
 
           <div className="mt-4 flex items-center justify-end gap-3">
-            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-              Total: ${formatMoney(totalUsd)}
-            </span>
+            <StatusBadge color="emerald" size="lg" className="font-black">Total: ${formatMoney(totalUsd)}</StatusBadge>
           </div>
         </div>
       )}

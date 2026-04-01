@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { API_BASE_URL } from '../../config/api';
 import ModalReportarPagoAlquiler from './ModalReportarPagoAlquiler';
 import ModalVerificarPagoAlquiler from './ModalVerificarPagoAlquiler';
+import StatusBadge, { type BadgeColor } from '../ui/StatusBadge';
 
 type EstadoReserva = 'Pendiente' | 'Rechazada' | 'Aprobada' | 'Pago_Reportado' | 'Confirmada' | string;
 
@@ -43,15 +44,15 @@ const formatUsd = (value: string | number): string => {
   return safe.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-const badgeClassByEstado = (estado: EstadoReserva): string => {
+const estadoColor = (estado: EstadoReserva): BadgeColor => {
   const normalized = normalizeEstado(String(estado));
-  if (normalized === 'PENDIENTE') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300';
-  if (normalized === 'RECHAZADA') return 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300';
-  if (normalized === 'APROBADA') return 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300';
-  if (normalized === 'PAGO_PARCIAL') return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300';
-  if (normalized === 'PAGO_REPORTADO') return 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300';
-  if (normalized === 'CONFIRMADA') return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300';
-  return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
+  if (normalized === 'PENDIENTE') return 'amber';
+  if (normalized === 'RECHAZADA') return 'rose';
+  if (normalized === 'APROBADA') return 'sky';
+  if (normalized === 'PAGO_PARCIAL') return 'orange';
+  if (normalized === 'PAGO_REPORTADO') return 'violet';
+  if (normalized === 'CONFIRMADA') return 'emerald';
+  return 'gray';
 };
 
 const labelEstado = (estado: EstadoReserva): string => {
@@ -132,9 +133,7 @@ const VistaMisReservas: FC = () => {
                 key: 'estado',
                 header: 'Estado',
                 render: (reserva) => (
-                  <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${badgeClassByEstado(reserva.estado)}`}>
-                    {labelEstado(reserva.estado)}
-                  </span>
+                  <StatusBadge color={estadoColor(reserva.estado)} size="md" className="font-black">{labelEstado(reserva.estado)}</StatusBadge>
                 ),
               },
               {

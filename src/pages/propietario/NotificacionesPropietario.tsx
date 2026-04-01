@@ -3,6 +3,7 @@ import type { FC } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { API_BASE_URL } from '../../config/api';
 import { formatMoney } from '../../utils/currency';
+import StatusBadge from '../../components/ui/StatusBadge';
 
 interface PropiedadActiva {
   id_propiedad: number;
@@ -91,12 +92,7 @@ const NotificacionesPropietario: FC = () => {
                     : n.estado === 'Rechazado'
                       ? 'Rechazado'
                       : n.estado;
-              const badgeClass =
-                n.estado === 'Validado'
-                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-                  : n.estado === 'Rechazado'
-                    ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
-                    : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300';
+              const badgeColor = n.estado === 'Validado' ? 'emerald' : n.estado === 'Rechazado' ? 'red' : 'amber';
 
               return (
                 <article key={n.id} className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/40">
@@ -104,9 +100,7 @@ const NotificacionesPropietario: FC = () => {
                     <p className="text-sm font-bold text-gray-800 dark:text-gray-100">
                       {n.identificador} | {n.nombre_condominio}
                     </p>
-                    <span className={`rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-wide ${badgeClass}`}>
-                      {estado}
-                    </span>
+                    <StatusBadge color={badgeColor} size="md" className="font-black">{estado}</StatusBadge>
                   </div>
                   <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
                     Pago #{n.id} {n.referencia ? `· Ref: ${n.referencia}` : ''}

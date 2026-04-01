@@ -6,6 +6,7 @@ import { es } from 'date-fns/locale/es';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { formatMoney } from '../utils/currency';
 import VistaAvisoCobro from '../components/recibos/VistaAvisoCobro';
+import StatusBadge from '../components/ui/StatusBadge';
 
 interface HistorialAvisosProps {}
 
@@ -350,11 +351,11 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
                       headerClassName: 'text-center',
                       className: 'text-center',
                       render: (r) => mapEstadoTab(r.estado) === 'Pagados' ? (
-                        <span className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px] font-black px-2.5 py-1.5 rounded-lg uppercase tracking-wider shadow-sm border border-green-200 dark:border-green-800/50">Pagado</span>
+                        <StatusBadge color="green" shape="badge" border className="px-2.5 py-1.5 font-black shadow-sm">Pagado</StatusBadge>
                       ) : mapEstadoTab(r.estado) === 'Abonado' ? (
-                        <span className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 text-[10px] font-black px-2.5 py-1.5 rounded-lg uppercase tracking-wider shadow-sm border border-yellow-200 dark:border-yellow-800/50">Abonado</span>
+                        <StatusBadge color="yellow" shape="badge" border className="px-2.5 py-1.5 font-black shadow-sm">Abonado</StatusBadge>
                       ) : (
-                        <span className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-[10px] font-black px-2.5 py-1.5 rounded-lg uppercase tracking-wider shadow-sm border border-red-200 dark:border-red-800/50">Pendiente</span>
+                        <StatusBadge color="red" shape="badge" border className="px-2.5 py-1.5 font-black shadow-sm">Pendiente</StatusBadge>
                       ),
                     },
                     {

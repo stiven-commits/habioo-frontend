@@ -4,6 +4,7 @@ import { API_BASE_URL } from '../config/api';
 import { useDialog } from '../components/ui/DialogProvider';
 import DataTable from '../components/ui/DataTable';
 import FormField from '../components/ui/FormField';
+import StatusBadge, { type BadgeColor } from '../components/ui/StatusBadge';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -94,23 +95,23 @@ const formatFechaFin = (iso: string): string => {
 
 const isClosed = (fecha_fin: string): boolean => new Date() > new Date(fecha_fin);
 
-const TIPO_META: Record<TipoEncuesta, { label: string; color: string; badge: string; hint: string }> = {
+const TIPO_META: Record<TipoEncuesta, { label: string; color: string; badgeColor: BadgeColor; hint: string }> = {
   SI_NO: {
     label: 'Sí / No',
     color: 'text-blue-600 dark:text-blue-400',
-    badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+    badgeColor: 'blue',
     hint: 'Dos opciones fijas: "Sí" y "No". Ideal para aprobaciones o cartas de consulta binarias.',
   },
   MULTIPLE: {
     label: 'Opción Múltiple',
     color: 'text-violet-600 dark:text-violet-400',
-    badge: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300',
+    badgeColor: 'violet',
     hint: 'Define las opciones tú mismo. El propietario elige una sola. Ideal para seleccionar fechas, proveedores o alternativas.',
   },
   ABIERTA: {
     label: 'Respuesta Abierta',
     color: 'text-amber-600 dark:text-amber-400',
-    badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+    badgeColor: 'amber',
     hint: 'El propietario escribe libremente su respuesta. Ideal para recolectar opiniones, sugerencias o comentarios.',
   },
 };
@@ -498,17 +499,11 @@ const EncuestasAdmin: FC = () => {
                         {/* Info */}
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-wrap items-center gap-2 mb-1">
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${meta.badge}`}>
-                              {meta.label}
-                            </span>
+                            <StatusBadge color={meta.badgeColor}>{meta.label}</StatusBadge>
                             {cerrada ? (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">
-                                Cerrada
-                              </span>
+                              <StatusBadge color="gray">Cerrada</StatusBadge>
                             ) : (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">
-                                Activa
-                              </span>
+                              <StatusBadge color="green">Activa</StatusBadge>
                             )}
                           </div>
                           <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm leading-tight">{enc.titulo}</p>

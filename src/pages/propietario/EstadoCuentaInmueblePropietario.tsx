@@ -7,6 +7,7 @@ import { API_BASE_URL } from '../../config/api';
 import { formatMoney } from '../../utils/currency';
 import { formatDateVE, parseDateVE } from '../../utils/datetime';
 import DataTable from '../../components/ui/DataTable';
+import StatusBadge from '../../components/ui/StatusBadge';
 
 interface PropiedadActiva {
   id_propiedad: number;
@@ -231,11 +232,7 @@ const EstadoCuentaInmueblePropietario: FC = () => {
   const totalCargo = useMemo(() => movimientosFiltrados.reduce((acc, m) => acc + toNumber(m.cargo), 0), [movimientosFiltrados]);
   const totalAbono = useMemo(() => movimientosFiltrados.reduce((acc, m) => acc + toNumber(m.abono), 0), [movimientosFiltrados]);
   const saldoFinal = toNumber(movimientosFiltrados.at(-1)?.saldoFila);
-  const saldoFinalClass = saldoFinal > 0
-    ? 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-    : saldoFinal < 0
-      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-      : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
+  const saldoFinalColor = saldoFinal > 0 ? 'red' : saldoFinal < 0 ? 'emerald' : 'gray';
   const saldoActualInmueble = toNumber(movimientosConSaldo.at(-1)?.saldoFila);
 
   const openPagoModal = (): void => {
@@ -312,9 +309,9 @@ const EstadoCuentaInmueblePropietario: FC = () => {
             >
               Registrar Pago
             </button>
-            <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-700 dark:bg-red-900/30 dark:text-red-300">Cargos: ${formatMoney(totalCargo)}</span>
-            <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700 dark:bg-green-900/30 dark:text-green-300">Abonos: ${formatMoney(totalAbono)}</span>
-            <span className={`rounded-full px-3 py-1 text-xs font-black ${saldoFinalClass}`}>Saldo: ${formatMoney(saldoFinal)}</span>
+            <StatusBadge color="red" size="lg" className="font-black">Cargos: ${formatMoney(totalCargo)}</StatusBadge>
+            <StatusBadge color="green" size="lg" className="font-black">Abonos: ${formatMoney(totalAbono)}</StatusBadge>
+            <StatusBadge color={saldoFinalColor} size="lg" className="font-black">Saldo: ${formatMoney(saldoFinal)}</StatusBadge>
           </div>
         </div>
       )}

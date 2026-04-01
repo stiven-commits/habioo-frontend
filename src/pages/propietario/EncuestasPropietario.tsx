@@ -4,6 +4,7 @@ import { useOutletContext } from 'react-router-dom';
 import { API_BASE_URL } from '../../config/api';
 import { useDialog } from '../../components/ui/DialogProvider';
 import FormField from '../../components/ui/FormField';
+import StatusBadge, { type BadgeColor } from '../../components/ui/StatusBadge';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -78,10 +79,10 @@ const formatFechaFin = (iso: string): string =>
 
 const isClosed = (fecha_fin: string): boolean => new Date() > new Date(fecha_fin);
 
-const TIPO_META: Record<TipoEncuesta, { label: string; badge: string }> = {
-  SI_NO:    { label: 'Sí / No',           badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
-  MULTIPLE: { label: 'Opción Múltiple',   badge: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300' },
-  ABIERTA:  { label: 'Respuesta Abierta', badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
+const TIPO_META: Record<TipoEncuesta, { label: string; badgeColor: BadgeColor }> = {
+  SI_NO:    { label: 'Sí / No',           badgeColor: 'blue' },
+  MULTIPLE: { label: 'Opción Múltiple',   badgeColor: 'violet' },
+  ABIERTA:  { label: 'Respuesta Abierta', badgeColor: 'amber' },
 };
 
 // ─── Sub-componente: Barra de progreso (anónima) ──────────────────────────────
@@ -277,11 +278,11 @@ const EncuestasPropietario: FC = () => {
                 {/* Cabecera */}
                 <div className="p-5">
                   <div className="flex flex-wrap gap-2 mb-2">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${meta.badge}`}>{meta.label}</span>
+                    <StatusBadge color={meta.badgeColor}>{meta.label}</StatusBadge>
                     {cerrada ? (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">Cerrada</span>
+                      <StatusBadge color="gray">Cerrada</StatusBadge>
                     ) : (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">Activa</span>
+                      <StatusBadge color="green">Activa</StatusBadge>
                     )}
                     {enc.ya_voto && (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-donezo-primary/10 text-donezo-primary">Ya votaste</span>

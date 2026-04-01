@@ -3,6 +3,7 @@ import type React from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useDialog } from '../components/ui/DialogProvider';
 import PageHeader from '../components/ui/PageHeader';
+import StatusBadge from '../components/ui/StatusBadge';
 
 interface ZonasProps {}
 
@@ -221,7 +222,7 @@ const Zonas: React.FC<ZonasProps> = () => {
             <div className="flex justify-between items-start mb-3">
               <h4 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
                 {z.nombre}
-                {!z.activa && <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-md dark:text-gray-400">Inactiva</span>}
+                {!z.activa && <StatusBadge color="gray" shape="tag" size="lg">Inactiva</StatusBadge>}
               </h4>
 
               <div className="flex gap-1">

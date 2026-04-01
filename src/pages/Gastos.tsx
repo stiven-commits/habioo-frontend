@@ -6,6 +6,7 @@ import PageHeader from '../components/ui/PageHeader';
 import { es } from 'date-fns/locale/es';
 import { useOutletContext } from 'react-router-dom';
 import DropdownMenu from '../components/ui/DropdownMenu';
+import StatusBadge from '../components/ui/StatusBadge';
 import ModalAgregarGasto from '../components/ModalAgregarGasto';
 import ModalDetallesGasto from '../components/ModalDetallesGasto';
 import ModalPagarProveedor from '../components/gastos/ModalPagarProveedor';
@@ -643,25 +644,17 @@ const Gastos: FC<GastosProps> = () => {
                         <div className="text-gray-600 dark:text-gray-400 truncate max-w-[200px] text-sm" title={g.concepto}>
                           {g.concepto}
                         </div>
-                        <span className={`inline-block mt-1 mr-1 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${String(g.clasificacion || 'Variable') === 'Fijo'
-                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-                          : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}>
+                        <StatusBadge color={String(g.clasificacion || 'Variable') === 'Fijo' ? 'blue' : 'slate'} className="mt-1 mr-1">
                           {String(g.clasificacion || 'Variable') === 'Fijo' ? 'Gasto fijo' : 'Gasto variable'}
-                        </span>
+                        </StatusBadge>
                         {(g.tipo === 'Zona' || g.tipo === 'No Comun') && (
-                          <span className="inline-block mt-1 bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                            Zona: {g.zona_nombre || 'Especifica'}
-                          </span>
+                          <StatusBadge color="purple" className="mt-1">Zona: {g.zona_nombre || 'Especifica'}</StatusBadge>
                         )}
                         {g.tipo === 'Individual' && (
-                          <span className="inline-block mt-1 bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                            Apto/Casa: {g.propiedad_identificador}
-                          </span>
+                          <StatusBadge color="orange" className="mt-1">Apto/Casa: {g.propiedad_identificador}</StatusBadge>
                         )}
                         {g.tipo === 'Extra' && (
-                          <span className="inline-block mt-1 bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                            Extra
-                          </span>
+                          <StatusBadge color="red" className="mt-1">Extra</StatusBadge>
                         )}
                       </>
                     ),
@@ -727,17 +720,10 @@ const Gastos: FC<GastosProps> = () => {
                       const progresoPago = montoTotal > 0 ? Math.min(100, (montoPagado / montoTotal) * 100) : 0;
                       const estadoPago: 'Pendiente' | 'Abonado' | 'Pagado' =
                         montoPagado <= 0 ? 'Pendiente' : montoPagado < montoTotal ? 'Abonado' : 'Pagado';
-                      const estadoPagoClass =
-                        estadoPago === 'Pagado'
-                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-                          : estadoPago === 'Abonado'
-                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-                            : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300';
+                      const estadoPagoColor = estadoPago === 'Pagado' ? 'emerald' : estadoPago === 'Abonado' ? 'amber' : 'red';
                       return (
                         <>
-                          <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-wide ${estadoPagoClass}`}>
-                            {estadoPago}
-                          </span>
+                          <StatusBadge color={estadoPagoColor} size="md" className="font-black">{estadoPago}</StatusBadge>
                           <p className="mt-1 text-[11px] font-semibold text-gray-500 dark:text-gray-300">
                             ${formatMoney(montoPagado)} / ${formatMoney(montoTotal)}
                           </p>
