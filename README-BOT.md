@@ -79,7 +79,8 @@ Usar esta guia cuando el usuario pida "donde hago X". El agente debe mencionar r
   - Filtrar por tipo: tabs `Todos`, `Comunes`, `Por Areas/Sectores`, `Individuales`, `Extra`.
   - Ver detalle: menu de acciones por fila -> `Ver Detalles`.
   - Editar: menu de acciones por fila -> `Editar`.
-  - Pagar proveedor: menu de acciones por fila -> `Pagar Proveedor`.
+  - Pagar proveedor: menu de acciones por fila -> `Pagar Proveedor` (habilitado aunque el gasto aun no este en avisos de cobro).
+  - Si el gasto aun no fue incluido en avisos, mostrar confirmacion previa indicando que afecta el estado de cuenta bancario seleccionado.
   - Ver pagos del gasto: menu de acciones por fila -> `Ver Pagos`.
   - Eliminar: menu de acciones por fila -> `Eliminar`.
 
@@ -101,6 +102,7 @@ Usar esta guia cuando el usuario pida "donde hago X". El agente debe mencionar r
   - Filtros: campos `Desde`, `Hasta`, `Buscar`, boton `Limpiar`.
   - Aumentar fuente tabla: boton `A+` al lado de `Limpiar`.
   - Reversion: columna `Acciones` -> boton `Revertir` en la fila del movimiento.
+  - Movimientos reversibles desde esta vista: pagos validados, ajustes bancarios, pagos a proveedor, transferencias entre fondos y egresos bancarios/manuales (segun validaciones de trazabilidad).
   - Ver detalle: doble clic sobre una fila del libro mayor.
 
 - `Bancos` (`/bancos`):
@@ -155,6 +157,7 @@ Usar esta guia cuando el usuario pida "donde hago X". El agente debe mencionar r
 1. Ir a `/gastos`.
 2. Crear gasto (tipo, distribucion, monto BS, tasa, soportes).
 3. Verificar que quede visible en listado y preliminar.
+4. Si se requiere, se puede registrar pago a proveedor de inmediato (no depende de que exista aviso de cobro).
 
 ### 4.2 Cerrar ciclo y generar avisos (Junta)
 1. Ir a `/cierres`.
@@ -185,9 +188,17 @@ Existen 2 modos:
    - pagos,
    - ajustes bancarios,
    - transferencias,
-   - egresos manuales.
+   - egresos manuales,
+   - pagos a proveedor.
 3. Requiere validaciones de trazabilidad y permisos.
 4. No documentar limite fijo de 48h: la logica actual no aplica esa ventana.
+
+### 4.8 Pagos a proveedores sin aviso generado (Junta)
+1. En `/gastos`, usar `Pagar Proveedor` desde el menu de acciones.
+2. El pago puede registrarse aunque el gasto no haya sido incluido aun en avisos de cobro.
+3. Si el gasto no esta en avisos, debe mostrarse modal de confirmacion antes de procesar.
+4. El impacto contable es inmediato en cuenta/fondo origen y en el estado de deuda del gasto.
+5. El gasto sigue su ciclo normal para ser cobrado a copropietarios en el proximo cierre/aviso.
 
 ### 4.6 Alquileres
 1. Junta gestiona catalogo en `/alquileres`.
@@ -228,6 +239,8 @@ Existen 2 modos:
 - `POST /pagos/:id/validar`
 - `POST /pagos/:id/rechazar`
 - `POST /pagos/:id/rollback`
+- `POST /pagos-proveedores`
+- `POST /pagos-proveedores/:id/rollback`
 
 ### Propiedades y estado de cuenta
 - `GET /propiedades-admin`
