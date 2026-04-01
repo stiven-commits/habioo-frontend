@@ -6,21 +6,43 @@ import { API_BASE_URL, PROD_API_BASE_URL } from './config/api'
 
 if (typeof window !== 'undefined') {
   window.__HABIOO_API_BASE__ = API_BASE_URL
-}
-
-if (API_BASE_URL !== PROD_API_BASE_URL && typeof window !== 'undefined') {
   const originalFetch = window.fetch.bind(window)
-  window.fetch = (input, init) => {
-    if (typeof input === 'string' && input.startsWith(PROD_API_BASE_URL)) {
-      return originalFetch(input.replace(PROD_API_BASE_URL, API_BASE_URL), init)
+
+  const getTargetErrorPath = (status) => {
+    if (status === 403) return '/error-403'
+    if (status === 500) return '/error-500'
+    if (status === 503) return '/error-503'
+    return ''
+  }
+
+  window.fetch = async (input, init) => {
+    let requestInput = input
+    let requestUrl = typeof input === 'string' ? input : (input instanceof Request ? input.url : '')
+
+    if (API_BASE_URL !== PROD_API_BASE_URL) {
+      if (typeof requestUrl === 'string' && requestUrl.startsWith(PROD_API_BASE_URL)) {
+        const rewrittenUrl = requestUrl.replace(PROD_API_BASE_URL, API_BASE_URL)
+        requestInput = typeof input === 'string'
+          ? rewrittenUrl
+          : new Request(rewrittenUrl, input)
+        requestUrl = rewrittenUrl
+      }
     }
 
-    if (input instanceof Request && input.url.startsWith(PROD_API_BASE_URL)) {
-      const replaced = new Request(input.url.replace(PROD_API_BASE_URL, API_BASE_URL), input)
-      return originalFetch(replaced, init)
+    const response = await originalFetch(requestInput, init)
+
+    const effectiveUrl = response.url || requestUrl
+    const isApiCall = typeof effectiveUrl === 'string'
+      && (effectiveUrl.startsWith(API_BASE_URL) || effectiveUrl.startsWith(PROD_API_BASE_URL))
+
+    if (isApiCall) {
+      const errorPath = getTargetErrorPath(response.status)
+      if (errorPath && window.location.pathname !== errorPath) {
+        window.location.replace(errorPath)
+      }
     }
 
-    return originalFetch(input, init)
+    return response
   }
 }
 

@@ -25,6 +25,10 @@ import EncuestasPropietario from './pages/propietario/EncuestasPropietario';
 import AlquileresPropietario from './pages/propietario/AlquileresPropietario';
 import SoporteSuperUsuario from './pages/SoporteSuperUsuario';
 import { DialogProvider } from './components/ui/DialogProvider';
+import NotFound from './pages/NotFound';
+import Error403 from './pages/Error403';
+import Error500 from './pages/Error500';
+import Error503 from './pages/Error503';
 
 export default function App() {
   return (
@@ -33,6 +37,9 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/error-403" element={<Error403 />} />
+          <Route path="/error-500" element={<Error500 />} />
+          <Route path="/error-503" element={<Error503 />} />
 
           <Route element={<Layout />}>
             <Route path="/dashboard" element={<DashboardHome />} />
@@ -59,6 +66,7 @@ export default function App() {
             <Route path="/mis-cartas-consulta" element={<EncuestasPropietario />} />
             <Route path="/soporte/condominios" element={<SoporteSuperUsuario />} />
           </Route>
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
     </DialogProvider>
