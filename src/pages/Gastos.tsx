@@ -34,7 +34,7 @@ interface GastoCuota {
   fecha_factura?: string;
   fecha_registro?: string;
   factura_img?: string;
-  imagenes?: string[];
+  imagenes?: string[] | string;
   monto_bs?: string | number;
   tasa_cambio?: string | number;
   monto_total_usd?: string | number;
@@ -170,6 +170,28 @@ interface SortConfig {
 
 const toNumber = (value: string | number | undefined | null): number => parseFloat(String(value ?? 0)) || 0;
 
+const parseSoportes = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || '').trim()).filter(Boolean);
+  }
+  if (typeof value !== 'string') return [];
+  const trimmed = value.trim();
+  if (!trimmed) return [];
+
+  if (trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item) => String(item || '').trim()).filter(Boolean);
+      }
+    } catch {
+      return [];
+    }
+  }
+
+  return trimmed ? [trimmed] : [];
+};
+
 const parseNotaToFields = (nota?: string): { numero_documento: string; nota: string } => {
   const raw = String(nota || '').trim();
   if (!raw) return { numero_documento: '', nota: '' };
@@ -269,6 +291,7 @@ const Gastos: FC<GastosProps> = () => {
       if (dataGastos.status === 'success') {
         const agrupados = dataGastos.gastos.reduce<Record<string, GastoAgrupado>>((acc, curr) => {
           const key = String(curr.gasto_id);
+          const imagenesActuales = parseSoportes(curr.imagenes);
           if (!acc[key]) {
             const nuevo: GastoAgrupado = {
               gasto_id: curr.gasto_id,
@@ -276,7 +299,7 @@ const Gastos: FC<GastosProps> = () => {
               concepto: curr.concepto,
               fecha_factura: curr.fecha_factura || 'N/A',
               fecha_registro: curr.fecha_registro || 'N/A',
-              imagenes: Array.isArray(curr.imagenes) ? curr.imagenes : [],
+              imagenes: imagenesActuales,
               monto_bs: curr.monto_bs ?? 0,
               tasa_cambio: curr.tasa_cambio ?? 0,
               monto_total_usd: curr.monto_total_usd ?? 0,
@@ -296,6 +319,10 @@ const Gastos: FC<GastosProps> = () => {
           }
           const gastoActual = acc[key];
           if (!gastoActual) return acc;
+          if (imagenesActuales.length > 0) {
+            const merged = new Set<string>([...gastoActual.imagenes, ...imagenesActuales]);
+            gastoActual.imagenes = Array.from(merged);
+          }
           if (curr.proveedor_id !== undefined && curr.proveedor_id !== null && String(curr.proveedor_id) !== '') {
             gastoActual.proveedor_id = curr.proveedor_id;
           }

@@ -46,10 +46,11 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
   const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
   const [open, setOpen] = useState(false);
   const [month, setMonth] = useState<Date>(from ?? new Date());
+  const fromTs = from ? from.getTime() : null;
 
   useEffect(() => {
-    if (from) setMonth(from);
-  }, [from]);
+    if (fromTs !== null) setMonth(new Date(fromTs));
+  }, [fromTs]);
 
   useEffect(() => {
     const onDocMouseDown = (ev: globalThis.MouseEvent): void => {

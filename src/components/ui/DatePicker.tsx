@@ -57,11 +57,23 @@ const DatePicker: React.FC<DatePickerProps> = ({
   const [open, setOpen] = useState(false);
   const [month, setMonth] = useState<Date>(selected ?? new Date());
   const [inputValue, setInputValue] = useState<string>(selected ? format(selected, DATE_FORMAT, { locale }) : '');
+  const inputValueRef = useRef<string>(inputValue);
+  const commitTypedDateRef = useRef<(raw: string) => void>(() => undefined);
+  const selectedTs = selected ? selected.getTime() : null;
 
   useEffect(() => {
-    setInputValue(selected ? format(selected, DATE_FORMAT, { locale }) : '');
-    if (selected) setMonth(selected);
-  }, [selected, locale]);
+    if (selectedTs === null) {
+      setInputValue('');
+      return;
+    }
+    const selectedDate = new Date(selectedTs);
+    setInputValue(format(selectedDate, DATE_FORMAT, { locale }));
+    setMonth(selectedDate);
+  }, [selectedTs, locale]);
+
+  useEffect(() => {
+    inputValueRef.current = inputValue;
+  }, [inputValue]);
 
   useEffect(() => {
     const onDocMouseDown = (ev: globalThis.MouseEvent): void => {
@@ -69,11 +81,18 @@ const DatePicker: React.FC<DatePickerProps> = ({
       if (!target) return;
       const inInput = Boolean(rootRef.current?.contains(target));
       const inPopover = Boolean(popoverRef.current?.contains(target));
-      if (!inInput && !inPopover) setOpen(false);
+      if (!inInput && !inPopover) {
+        if (open) {
+          commitTypedDateRef.current(inputValueRef.current);
+        }
+        setOpen(false);
+      }
     };
     document.addEventListener('mousedown', onDocMouseDown);
-    return () => document.removeEventListener('mousedown', onDocMouseDown);
-  }, []);
+    return () => {
+      document.removeEventListener('mousedown', onDocMouseDown);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open || !rootRef.current) return;
@@ -135,6 +154,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
     setMonth(next);
     setInputValue(format(next, DATE_FORMAT, { locale }));
   };
+  commitTypedDateRef.current = commitTypedDate;
 
   return (
     <div ref={rootRef} className={`relative ${wrapperClassName}`}>
@@ -142,7 +162,10 @@ const DatePicker: React.FC<DatePickerProps> = ({
         type="text"
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
-        onBlur={() => commitTypedDate(inputValue)}
+        onBlur={() => {
+          if (open) return;
+          commitTypedDate(inputValue);
+        }}
         onFocus={() => !disabled && setOpen(true)}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {

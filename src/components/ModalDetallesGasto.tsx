@@ -15,7 +15,7 @@ interface GastoDetalle {
   tasa_cambio: string | number;
   monto_total_usd: string | number;
   factura_img?: string;
-  imagenes?: string[];
+  imagenes?: string[] | string;
 }
 
 interface ModalDetallesGastoProps {
@@ -26,7 +26,30 @@ interface ModalDetallesGastoProps {
 const ModalDetallesGasto: FC<ModalDetallesGastoProps> = ({ gasto, onClose }) => {
   if (!gasto) return null;
   const isPdf = (path: string): boolean => /\.pdf($|\?)/i.test(path);
-  const getFileUrl = (path: string): string => `${API_BASE_URL}${path}`;
+  const getFileUrl = (path: string): string => {
+    if (/^https?:\/\//i.test(path)) return path;
+    return `${API_BASE_URL}${path}`;
+  };
+  const normalizeSoportes = (value: string[] | string | undefined): string[] => {
+    if (Array.isArray(value)) {
+      return value.map((item) => String(item || '').trim()).filter(Boolean);
+    }
+    if (typeof value !== 'string') return [];
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.map((item) => String(item || '').trim()).filter(Boolean);
+        }
+      } catch {
+        return [];
+      }
+    }
+    return [trimmed];
+  };
+  const soportesAdjuntos = normalizeSoportes(gasto.imagenes);
 
   return (
     <ModalBase onClose={onClose} title="Inspección de Gasto" maxWidth="max-w-md">
@@ -78,11 +101,12 @@ const ModalDetallesGasto: FC<ModalDetallesGastoProps> = ({ gasto, onClose }) => 
               </a>
             </div>
           )}
-          {gasto.imagenes && gasto.imagenes.length > 0 && (
+          {soportesAdjuntos.length > 0 && (
             <div>
               <p className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider dark:text-gray-400">Soportes Adjuntos</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Haz click en la vista previa para abrir el soporte completo.</p>
               <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-                {gasto.imagenes.map((img: string, idx: number) => (
+                {soportesAdjuntos.map((img: string, idx: number) => (
                   <a key={idx} href={getFileUrl(img)} target="_blank" rel="noreferrer" className="flex-shrink-0">
                     {isPdf(img) ? (
                       <div className="w-20 h-20 rounded-lg border border-gray-200 bg-gray-50 text-[11px] font-bold text-gray-600 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 flex items-center justify-center text-center px-1">
