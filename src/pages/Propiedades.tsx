@@ -462,7 +462,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
   };
 
   const handleOpenEstadoCuenta = (prop: Propiedad): void => {
-    setOpenDropdownId(null); setSelectedPropCuenta(prop); setFechaDesde(''); setFechaHasta('');
+    setSelectedPropCuenta(prop); setFechaDesde(''); setFechaHasta('');
     fetchEstadoCuenta(prop.id); setEstadoCuentaModalOpen(true);
   };
   void handleOpenEstadoCuenta;
@@ -535,7 +535,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
   };
 
   const handleEdit = (prop: Propiedad): void => {
-    setOpenDropdownId(null); setEditingId(prop.id);
+    setEditingId(prop.id);
     setForm({
       identificador: prop.identificador, alicuota: formatAlicuotaDisplay(prop.alicuota), propietario_modo: 'NUEVO', propietario_existente_id: '',
       prop_nombre: prop.prop_nombre || '', prop_cedula: prop.prop_cedula || '', prop_email: prop.prop_email || '', prop_email_secundario: (prop as any).prop_email_secundario || '', prop_telefono: prop.prop_telefono || '', prop_telefono_secundario: (prop as any).prop_telefono_secundario || '', prop_password: '',
@@ -550,7 +550,6 @@ const Propiedades: FC<PropiedadesProps> = () => {
   const handleCreateNew = (): void => { setEditingId(null); setForm(initialForm); setIsModalOpen(true); };
 
   const handleOpenResidente = (prop: Propiedad): void => {
-    setOpenDropdownId(null);
     setSelectedPropResidente(prop);
     setResidenteForm({
       cedula: String(prop.inq_cedula || ''),
@@ -665,7 +664,6 @@ const Propiedades: FC<PropiedadesProps> = () => {
   };
 
   const handleOpenCopropietarios = (prop: Propiedad): void => {
-    setOpenDropdownId(null);
     setSelectedPropCoprop(prop);
     setCopropForm({
       cedula: '',
@@ -955,7 +953,6 @@ const Propiedades: FC<PropiedadesProps> = () => {
       const data: ApiActionResponse = await res.json();
       if (data.status === 'success') {
         alert(data.message || 'Inmueble eliminado.');
-        setOpenDropdownId(null);
         fetchPropiedades();
       } else {
         alert(data.error || 'No fue posible eliminar el inmueble.');
@@ -1505,7 +1502,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
   if (userRole !== 'Administrador') return <p className="p-6">No tienes permisos.</p>;
 
   return (
-    <div className="space-y-6 relative" onClick={() => setOpenDropdownId(null)}>
+    <div className="space-y-6 relative">
       
       <PageHeader
         title="Inmuebles y Residentes"

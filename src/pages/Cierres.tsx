@@ -36,6 +36,7 @@ interface PreliminarData {
   gastos: Gasto[];
   alicuotas_disponibles: string[];
   metodo_division: 'Alicuota' | 'Partes Iguales';
+  jerarquia_objetivo?: string;
 }
 
 interface PreliminarResponse extends PreliminarData {
@@ -125,7 +126,8 @@ const Cierres: FC<CierresProps> = () => {
     total_usd: '0.00',
     gastos: [],
     alicuotas_disponibles: [],
-    metodo_division: 'Alicuota'
+    metodo_division: 'Alicuota',
+    jerarquia_objetivo: 'Inmuebles',
   });
 
   // Estados para el Buscador Inteligente
@@ -161,14 +163,15 @@ const Cierres: FC<CierresProps> = () => {
 
       if (result.status === 'success') {
         const alicuotasUnicas = dedupeAlicuotas(result.alicuotas_disponibles || []);
-        setData({
-          mes_actual: result.mes_actual,
-          mes_texto: result.mes_texto,
-          total_usd: result.total_usd,
-          gastos: result.gastos,
-          alicuotas_disponibles: alicuotasUnicas,
-          metodo_division: result.metodo_division
-        });
+          setData({
+            mes_actual: result.mes_actual,
+            mes_texto: result.mes_texto,
+            total_usd: result.total_usd,
+            gastos: result.gastos,
+            alicuotas_disponibles: alicuotasUnicas,
+            metodo_division: result.metodo_division,
+            jerarquia_objetivo: result.jerarquia_objetivo || 'Inmuebles',
+          });
         setSimulacionAlicuota('');
         setSearchProp('');
         setSelectedPropiedad(null);
@@ -194,6 +197,8 @@ const Cierres: FC<CierresProps> = () => {
   const today = new Date();
   const realCurrentYM = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}`;
   const canCloseMonth = data.mes_actual && data.mes_actual < realCurrentYM;
+  const isGeneralFlow = data.jerarquia_objetivo === 'Juntas Individuales';
+  const hasRequisitosPendientes = isGeneralFlow ? false : (propiedades.length === 0 || bancos.length === 0);
 
   const gastosMesActual = data.gastos.filter((g: Gasto) => g.mes_asignado === data.mes_actual);
   const gastosFuturos = data.gastos.filter((g: Gasto) => g.mes_asignado > data.mes_actual);
@@ -343,7 +348,7 @@ const Cierres: FC<CierresProps> = () => {
         </div>
       )}
 
-      {(propiedades.length === 0 || bancos.length === 0) && (
+      {hasRequisitosPendientes && (
         <div className="bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-500 p-4 rounded-xl shadow-sm flex items-start gap-3">
           <span className="text-2xl">⚠️</span>
           <div>
@@ -518,12 +523,12 @@ const Cierres: FC<CierresProps> = () => {
              </button>
 
              {/* FORZAR CIERRE DE PRUEBA */}
-             <button disabled={propiedades.length === 0 || bancos.length === 0} onClick={handleCerrarCiclo} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-xl transition-all shadow-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+             <button disabled={hasRequisitosPendientes} onClick={handleCerrarCiclo} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-xl transition-all shadow-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed">
                🚨 FORZAR CIERRE (Pruebas)
              </button>
 
              {/* BOTON REAL DE CIERRE */}
-             <button disabled={!canCloseMonth || propiedades.length === 0 || bancos.length === 0} onClick={handleCerrarCiclo} className="bg-donezo-primary hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-xl transition-all shadow-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+             <button disabled={!canCloseMonth || hasRequisitosPendientes} onClick={handleCerrarCiclo} className="bg-donezo-primary hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-xl transition-all shadow-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed">
                Generar Recibos
              </button>
           </div>

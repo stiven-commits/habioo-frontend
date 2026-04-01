@@ -53,6 +53,7 @@ interface PerfilCondominioHeaderData {
   admin_representante?: string | null;
   nombre_legal?: string | null;
   nombre?: string | null;
+  tipo?: string | null;
 }
 
 interface PerfilCondominioHeaderResponse {
@@ -113,6 +114,21 @@ interface ReservacionesAdminResponse {
   message?: string;
 }
 
+interface JuntaGeneralNotificacion {
+  id: number;
+  tipo: string;
+  titulo: string;
+  mensaje: string;
+  leida: boolean;
+  created_at?: string;
+}
+
+interface JuntaGeneralNotificacionesResponse {
+  status: 'success' | 'error';
+  data?: JuntaGeneralNotificacion[];
+  message?: string;
+}
+
 interface FloatingNotification {
   key: string;
   title: string;
@@ -153,6 +169,7 @@ const Layout: React.FC<LayoutProps> = () => {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [headerDisplayName, setHeaderDisplayName] = useState<string>('');
+  const [condominioTipo, setCondominioTipo] = useState<string>('');
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
   const [theme, setTheme] = useState<Theme>(() => (localStorage.theme === 'dark' ? 'dark' : 'light'));
@@ -166,6 +183,8 @@ const Layout: React.FC<LayoutProps> = () => {
   const pagosPendientesAdminBootstrappedRef = useRef<boolean>(false);
   const seenReservacionesAdminRef = useRef<Record<number, string>>({});
   const reservacionesAdminBootstrappedRef = useRef<boolean>(false);
+  const seenJuntaGeneralNotifsRef = useRef<Record<number, string>>({});
+  const juntaGeneralNotifsBootstrappedRef = useRef<boolean>(false);
   const buttonClickLockRef = useRef<WeakMap<HTMLButtonElement, number>>(new WeakMap<HTMLButtonElement, number>());
   const formSubmitLockRef = useRef<WeakMap<HTMLFormElement, number>>(new WeakMap<HTMLFormElement, number>());
   const location = useLocation();
@@ -315,12 +334,14 @@ const Layout: React.FC<LayoutProps> = () => {
       if (!user) return;
       if (userRole !== 'Administrador') {
         setHeaderDisplayName(String(user.nombre || '').trim());
+        setCondominioTipo('');
         return;
       }
 
       const token = localStorage.getItem('habioo_token');
       if (!token) {
         setHeaderDisplayName(String(user.nombre || '').trim());
+        setCondominioTipo('');
         return;
       }
 
@@ -330,6 +351,7 @@ const Layout: React.FC<LayoutProps> = () => {
         });
         const data: PerfilCondominioHeaderResponse = await res.json();
         const profile = data?.data || {};
+        setCondominioTipo(String(profile.tipo || '').trim());
         const adminNombre = String(profile.admin_nombre || '').trim();
         const adminRepresentante = String(profile.admin_representante || '').trim();
         const nombreJunta = String(profile.nombre_legal || profile.nombre || '').trim();
@@ -339,6 +361,7 @@ const Layout: React.FC<LayoutProps> = () => {
         setHeaderDisplayName(nombreCompuesto || 'Usuario');
       } catch {
         setHeaderDisplayName(String(user.nombre || '').trim() || 'Usuario');
+        setCondominioTipo('');
       }
     };
 
@@ -483,6 +506,67 @@ const Layout: React.FC<LayoutProps> = () => {
       if (timer) clearInterval(timer);
     };
   }, [userRole]);
+
+  useEffect(() => {
+    if (userRole !== 'Administrador') return;
+    if (String(condominioTipo || '').trim().toLowerCase() !== 'junta general') return;
+
+    let isActive = true;
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    const pollJuntaGeneralNotificaciones = async (): Promise<void> => {
+      const token = localStorage.getItem('habioo_token');
+      if (!token) return;
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/juntas-generales/notificaciones`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data: JuntaGeneralNotificacionesResponse = (await res.json()) as JuntaGeneralNotificacionesResponse;
+        if (!isActive || !res.ok || data.status !== 'success') return;
+
+        const rows = Array.isArray(data.data) ? data.data : [];
+        const currentMap: Record<number, string> = {};
+        rows.forEach((n) => {
+          currentMap[n.id] = `${n.leida ? '1' : '0'}|${n.tipo}|${n.titulo}|${n.mensaje}`;
+        });
+
+        if (!juntaGeneralNotifsBootstrappedRef.current) {
+          seenJuntaGeneralNotifsRef.current = currentMap;
+          juntaGeneralNotifsBootstrappedRef.current = true;
+          return;
+        }
+
+        rows.forEach((n) => {
+          const prevSignature = seenJuntaGeneralNotifsRef.current[n.id];
+          const currentSignature = currentMap[n.id];
+          if (prevSignature === currentSignature) return;
+          if (n.leida) return;
+
+          pushFloating({
+            key: `jg-notif-${n.id}-${Date.now()}`,
+            title: n.titulo || 'Notificación Junta General',
+            message: n.mensaje || 'Tienes una nueva notificación de junta general.',
+            tone: 'info',
+          });
+        });
+
+        seenJuntaGeneralNotifsRef.current = currentMap;
+      } catch {
+        // Sin bloqueo en UI por errores transitorios.
+      }
+    };
+
+    void pollJuntaGeneralNotificaciones();
+    timer = setInterval(() => {
+      void pollJuntaGeneralNotificaciones();
+    }, 15000);
+
+    return () => {
+      isActive = false;
+      if (timer) clearInterval(timer);
+    };
+  }, [userRole, condominioTipo]);
 
   useEffect(() => {
     if (userRole !== 'Administrador') return;
@@ -655,6 +739,7 @@ const Layout: React.FC<LayoutProps> = () => {
     '/carta-consulta': 'Cartas Consulta',
     '/mis-cartas-consulta': 'Cartas Consulta',
     '/soporte/condominios': 'Soporte Habioo',
+    '/junta-general': 'Junta General',
   };
 
   const hideOuterPageHeader =
@@ -741,6 +826,7 @@ const Layout: React.FC<LayoutProps> = () => {
   if (!user) return null;
 
   const displayName = String(headerDisplayName || user.nombre || 'Usuario').trim() || 'Usuario';
+  const esJuntaGeneral = String(condominioTipo || '').trim().toLowerCase() === 'junta general';
 
   return (
     <div
@@ -792,10 +878,18 @@ const Layout: React.FC<LayoutProps> = () => {
 
           {userRole === 'Administrador' && (
             <>
-              <Link to="/inmuebles" className={navClass('/inmuebles')} title="Inmuebles">
-                <Building2 size={18} />
-                {!sidebarCollapsed && <span>Inmuebles</span>}
-              </Link>
+              {!esJuntaGeneral && (
+                <Link to="/inmuebles" className={navClass('/inmuebles')} title="Inmuebles">
+                  <Building2 size={18} />
+                  {!sidebarCollapsed && <span>Inmuebles</span>}
+                </Link>
+              )}
+              {esJuntaGeneral && (
+                <Link to="/junta-general" className={navClass('/junta-general')} title="Junta General">
+                  <Building2 size={18} />
+                  {!sidebarCollapsed && <span>Junta General</span>}
+                </Link>
+              )}
               <Link to="/proveedores" className={navClass('/proveedores')} title="Proveedores">
                 <Handshake size={18} />
                 {!sidebarCollapsed && <span>Proveedores</span>}
@@ -828,10 +922,12 @@ const Layout: React.FC<LayoutProps> = () => {
               </Link>
 
               <p className={`mt-6 ${sectionTitleClass}`}>Configuracion</p>
-              <Link to="/zonas" className={navClass('/zonas')} title="Áreas">
-                <MapPin size={18} />
-                {!sidebarCollapsed && <span>Áreas</span>}
-              </Link>
+              {!esJuntaGeneral && (
+                <Link to="/zonas" className={navClass('/zonas')} title="Áreas">
+                  <MapPin size={18} />
+                  {!sidebarCollapsed && <span>Áreas</span>}
+                </Link>
+              )}
               <Link to="/perfil" className={navClass('/perfil')} title="Perfil Condominio">
                 <Settings size={18} />
                 {!sidebarCollapsed && <span>Perfil</span>}

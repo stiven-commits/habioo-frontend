@@ -14,6 +14,7 @@ import EncuestasAdmin from './pages/EncuestasAdmin';
 import HistorialAvisos from './pages/HistorialAvisos';
 import EstadoCuentasBancarias from './pages/EstadoCuentasBancarias';
 import PerfilCondominio from './pages/PerfilCondominio';
+import JuntaGeneral from './pages/JuntaGeneral';
 import VistaAvisoCobro from './components/recibos/VistaAvisoCobro.tsx';
 import RecibosPropietario from './pages/propietario/RecibosPropietario';
 import GastosPropietario from './pages/propietario/GastosPropietario';
@@ -44,6 +45,7 @@ export default function App() {
           <Route element={<Layout />}>
             <Route path="/dashboard" element={<DashboardHome />} />
             <Route path="/perfil" element={<PerfilCondominio />} />
+            <Route path="/junta-general" element={<JuntaGeneral />} />
             <Route path="/proveedores" element={<Proveedores />} />
             <Route path="/gastos" element={<Gastos />} />
             <Route path="/cierres" element={<Cierres />} />

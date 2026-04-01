@@ -172,11 +172,10 @@ const Proveedores: React.FC<ProveedoresProps> = () => {
     setFormProv({ ...formProv, [name]: value });
   };
 
-  const handleCreateNew = (): void => { setOpenDropdownId(null); setEditingId(null); setFormProv(initialForm); setIsModalOpen(true); };
-  const handleViewDetails = (prov: Proveedor): void => { setOpenDropdownId(null); setSelectedProvDetails(prov); setDetailsModalOpen(true); };
+  const handleCreateNew = (): void => { setEditingId(null); setFormProv(initialForm); setIsModalOpen(true); };
+  const handleViewDetails = (prov: Proveedor): void => { setSelectedProvDetails(prov); setDetailsModalOpen(true); };
 
   const handleEdit = (prov: Proveedor): void => {
-    setOpenDropdownId(null);
     setEditingId(prov.id);
     setFormProv({
       identificador: prov.identificador, nombre: prov.nombre, email: prov.email || '', rubro: prov.rubro || '',
@@ -186,7 +185,6 @@ const Proveedores: React.FC<ProveedoresProps> = () => {
   };
 
   const handleDelete = async (id: number, nombre: string): Promise<void> => {
-    setOpenDropdownId(null);
     const ok = await showConfirm({
       title: 'Eliminar proveedor',
       message: `¿Está seguro de que desea eliminar a "${nombre}" del directorio? Sus facturas pasadas se mantendrán intactas.`,
@@ -403,7 +401,7 @@ const Proveedores: React.FC<ProveedoresProps> = () => {
   if (userRole !== 'Administrador') { return <section className="p-6"><p>No tienes permisos para gestionar proveedores.</p></section>; }
 
   return (
-    <div className="space-y-6 relative" onClick={() => setOpenDropdownId(null)}>
+    <div className="space-y-6 relative">
       <PageHeader
         title="Directorio Proveedores"
         actions={
