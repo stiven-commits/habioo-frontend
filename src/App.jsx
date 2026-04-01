@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import DashboardHome from './pages/DashboardHome';
@@ -31,7 +31,8 @@ export default function App() {
     <DialogProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Login />} />
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/login" element={<Login />} />
 
           <Route element={<Layout />}>
             <Route path="/dashboard" element={<DashboardHome />} />
