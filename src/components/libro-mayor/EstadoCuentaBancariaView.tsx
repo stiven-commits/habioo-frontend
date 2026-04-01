@@ -7,6 +7,7 @@ import { API_BASE_URL } from '../../config/api';
 import { ModalRegistrarEgreso, ModalTransferencia } from '../BancosModals';
 import ModalDetalleMovimiento, { type IMovimientoDetalle } from './ModalDetalleMovimiento';
 import DataTable, { type Column } from '../ui/DataTable';
+import { useDialog } from '../ui/DialogProvider';
 
 type ViewMode = 'admin' | 'owner';
 type ActiveTab = 'cuenta' | 'sin-fondo' | `fondo-${number | string}`;
@@ -68,6 +69,22 @@ interface RollbackTarget {
 interface SortConfig {
   key: SortKey;
   direction: SortDirection;
+}
+
+interface DialogContextType {
+  showAlert: (options: {
+    title: string;
+    message: string;
+    confirmText?: string;
+    variant?: 'info' | 'success' | 'warning' | 'danger';
+  }) => Promise<void>;
+  showConfirm: (options: {
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    variant?: 'info' | 'success' | 'warning' | 'danger';
+  }) => Promise<boolean>;
 }
 
 interface BancosResponse {
@@ -213,6 +230,7 @@ const parseFilterDate = (value: string): Date | null => {
 
 const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) => {
   const { userRole, propiedadActiva } = useOutletContext<OutletContextType>();
+  const { showAlert, showConfirm } = useDialog() as DialogContextType;
   const ownerCondominioId = propiedadActiva?.id_condominio;
 
   const [cuentas, setCuentas] = useState<CuentaBancaria[]>([]);
@@ -455,7 +473,12 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
         setTasaBcv(Number.isFinite(rateNumber) ? rateNumber.toFixed(3) : String(data.promedio));
       }
     } catch {
-      alert('Error obteniendo tasa BCV.');
+      await showAlert({
+        title: 'Error BCV',
+        message: 'No se pudo obtener la tasa BCV en este momento.',
+        confirmText: 'Entendido',
+        variant: 'warning',
+      });
     } finally {
       setLoadingBcv(false);
     }
@@ -1067,7 +1090,12 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     if (mode !== 'admin') return;
     const target = extractRollbackTarget(movimiento);
     if (!target) {
-      alert('Este movimiento no corresponde a un registro reversible.');
+      await showAlert({
+        title: 'Movimiento no reversible',
+        message: 'Este movimiento no corresponde a un registro reversible.',
+        confirmText: 'Entendido',
+        variant: 'warning',
+      });
       return;
     }
 
@@ -1080,7 +1108,13 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
           : target.kind === 'egreso'
             ? '¿Deseas revertir este egreso manual? Se hará rollback del saldo del fondo.'
             : '¿Deseas revertir esta transferencia? Se hará rollback de los saldos entre fondos.';
-    const ok = window.confirm(confirmMessage);
+    const ok = await showConfirm({
+      title: 'Confirmar reversión',
+      message: confirmMessage,
+      confirmText: 'Revertir',
+      cancelText: 'Cancelar',
+      variant: 'warning',
+    });
     if (!ok) return;
 
     const token = localStorage.getItem('habioo_token');
@@ -1102,24 +1136,38 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       });
       const data = await res.json();
       if (!res.ok || data?.status !== 'success') {
-        alert(data?.message || data?.error || 'No se pudo revertir el movimiento.');
+        await showAlert({
+          title: 'No se pudo revertir',
+          message: data?.message || data?.error || 'No se pudo revertir el movimiento.',
+          confirmText: 'Entendido',
+          variant: 'danger',
+        });
         return;
       }
       await Promise.all([fetchMovimientos(selectedCuenta), fetchFondos()]);
-      alert(
-        data?.message
-        || (target.kind === 'pago'
-          ? 'Pago revertido correctamente.'
-          : target.kind === 'ajuste'
-            ? 'Ajuste revertido correctamente.'
-            : target.kind === 'pago_proveedor'
-              ? 'Pago a proveedor revertido correctamente.'
-            : target.kind === 'egreso'
-              ? 'Egreso manual revertido correctamente.'
-              : 'Transferencia revertida correctamente.')
-      );
+      await showAlert({
+        title: 'Reversión completada',
+        message:
+          data?.message
+          || (target.kind === 'pago'
+            ? 'Pago revertido correctamente.'
+            : target.kind === 'ajuste'
+              ? 'Ajuste revertido correctamente.'
+              : target.kind === 'pago_proveedor'
+                ? 'Pago a proveedor revertido correctamente.'
+              : target.kind === 'egreso'
+                ? 'Egreso manual revertido correctamente.'
+                : 'Transferencia revertida correctamente.'),
+        confirmText: 'Entendido',
+        variant: 'success',
+      });
     } catch {
-      alert('No se pudo revertir el movimiento por un error de conexión.');
+      await showAlert({
+        title: 'Error de conexión',
+        message: 'No se pudo revertir el movimiento por un error de conexión.',
+        confirmText: 'Entendido',
+        variant: 'danger',
+      });
     } finally {
       setRollbackingKey('');
     }

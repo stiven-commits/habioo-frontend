@@ -76,7 +76,23 @@ interface DialogContextType {
   showConfirm: (options: ConfirmOptions) => Promise<boolean>;
 }
 
-const toNumber = (value: string | number | undefined | null): number => parseFloat(String(value ?? 0)) || 0;
+const toNumber = (value: string | number | undefined | null): number => {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  const text = String(value ?? '').trim();
+  if (!text) return 0;
+
+  if (text.includes('.') && text.includes(',')) {
+    const n = parseFloat(text.replace(/\./g, '').replace(',', '.'));
+    return Number.isFinite(n) ? n : 0;
+  }
+  if (text.includes(',') && !text.includes('.')) {
+    const n = parseFloat(text.replace(',', '.'));
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  const n = parseFloat(text);
+  return Number.isFinite(n) ? n : 0;
+};
 
 const normalizarAlicuota = (value: string): string => {
   const raw = String(value ?? '').trim().replace(',', '.');
@@ -117,6 +133,8 @@ const Cierres: FC<CierresProps> = () => {
   const [bancos, setBancos] = useState<any[]>([]);
   const [searchProp, setSearchProp] = useState<string>('');
   const [showDropdown, setShowDropdown] = useState<boolean>(false);
+  const [selectedPropiedad, setSelectedPropiedad] = useState<Propiedad | null>(null);
+  const [tasaBcvHoy, setTasaBcvHoy] = useState<number>(0);
 
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedGasto, setSelectedGasto] = useState<Gasto | null>(null);
@@ -129,15 +147,17 @@ const Cierres: FC<CierresProps> = () => {
   const fetchPreliminar = async (): Promise<void> => {
     const token = localStorage.getItem('habioo_token');
     try {
-      const [resPreliminar, resProps, resBancos] = await Promise.all([
+      const [resPreliminar, resProps, resBancos, resBcv] = await Promise.all([
         fetch(`${API_BASE_URL}/preliminar`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API_BASE_URL}/propiedades-admin`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API_BASE_URL}/bancos`, { headers: { Authorization: `Bearer ${token}` } })
+        fetch(`${API_BASE_URL}/bancos`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('https://ve.dolarapi.com/v1/dolares/oficial')
       ]);
 
       const result: PreliminarResponse = await resPreliminar.json();
       const dataProps: PropiedadesResponse = await resProps.json();
       const dataBancos = await resBancos.json();
+      const dataBcv = await resBcv.json();
 
       if (result.status === 'success') {
         const alicuotasUnicas = dedupeAlicuotas(result.alicuotas_disponibles || []);
@@ -149,10 +169,9 @@ const Cierres: FC<CierresProps> = () => {
           alicuotas_disponibles: alicuotasUnicas,
           metodo_division: result.metodo_division
         });
-        if (alicuotasUnicas.length > 0) {
-          const primeraAlicuota = alicuotasUnicas[0];
-          if (primeraAlicuota !== undefined) setSimulacionAlicuota(primeraAlicuota);
-        }
+        setSimulacionAlicuota('');
+        setSearchProp('');
+        setSelectedPropiedad(null);
       }
 
       if (dataProps.status === 'success') {
@@ -160,6 +179,10 @@ const Cierres: FC<CierresProps> = () => {
       }
       if (dataBancos.status === 'success') {
         setBancos(dataBancos.bancos || []);
+      }
+      const promedio = parseFloat(String(dataBcv?.promedio ?? 0));
+      if (Number.isFinite(promedio) && promedio > 0) {
+        setTasaBcvHoy(parseFloat(promedio.toFixed(3)));
       }
     } catch (error) { console.error(error); }
     finally { setLoading(false); }
@@ -302,6 +325,8 @@ const Cierres: FC<CierresProps> = () => {
       return (total / totalProps).toFixed(2);
     }
   };
+  const montoSimuladoUsd = toNumber(calcularProyeccion());
+  const montoSimuladoBs = montoSimuladoUsd * (tasaBcvHoy || 0);
 
   if (loading) return <p className="p-6 text-gray-500 dark:text-gray-400">Cargando datos contables...</p>;
 
@@ -427,11 +452,11 @@ const Cierres: FC<CierresProps> = () => {
                 {/* BUSCADOR ALICUOTA */}
                 <div className="relative w-full sm:w-1/2">
                   <label className="text-xs text-blue-700 dark:text-blue-300 block mb-1 font-bold">Buscar Inmueble</label>
-                  <input type="text" value={searchProp} onChange={(e: ChangeEvent<HTMLInputElement>) => { setSearchProp(e.target.value); setShowDropdown(true); }} onFocus={() => setShowDropdown(true)} onBlur={() => setTimeout(() => setShowDropdown(false), 200)} placeholder="Ej: Apto 12..." className="p-2.5 rounded-xl border border-blue-200 bg-white dark:bg-gray-800 dark:border-blue-800 outline-none focus:ring-2 focus:ring-blue-400 w-full text-sm dark:text-white" />
+                  <input type="text" value={searchProp} onChange={(e: ChangeEvent<HTMLInputElement>) => { setSearchProp(e.target.value); setSelectedPropiedad(null); setShowDropdown(true); }} onFocus={() => setShowDropdown(true)} onBlur={() => setTimeout(() => setShowDropdown(false), 200)} placeholder="Ej: Apto 12..." className="p-2.5 rounded-xl border border-blue-200 bg-white dark:bg-gray-800 dark:border-blue-800 outline-none focus:ring-2 focus:ring-blue-400 w-full text-sm dark:text-white" />
                   {showDropdown && searchProp && (
                     <ul className="absolute z-50 w-full bg-white dark:bg-gray-800 border border-blue-100 dark:border-blue-700 rounded-xl shadow-2xl max-h-48 overflow-y-auto mt-2 custom-scrollbar">
                       {propiedades.filter((p: Propiedad) => p.identificador.toLowerCase().includes(searchProp.toLowerCase()) || (p.prop_cedula && p.prop_cedula.toLowerCase().includes(searchProp.toLowerCase()))).map((p: Propiedad) => (
-                          <li key={p.id} className="p-3 hover:bg-blue-50 dark:hover:bg-blue-900/30 cursor-pointer border-b border-gray-50 dark:border-gray-700/50 transition-colors" onClick={() => { setSearchProp(`${p.identificador}`); setSimulacionAlicuota(p.alicuota); setShowDropdown(false); }}>
+                          <li key={p.id} className="p-3 hover:bg-blue-50 dark:hover:bg-blue-900/30 cursor-pointer border-b border-gray-50 dark:border-gray-700/50 transition-colors" onClick={() => { setSelectedPropiedad(p); setSearchProp(`${p.identificador}`); setSimulacionAlicuota(formatearAlicuota(String(p.alicuota ?? '0'))); setShowDropdown(false); }}>
                             <div className="flex justify-between items-center"><strong className="text-gray-800 dark:text-white text-sm">{p.identificador}</strong><span className="text-xs font-bold text-donezo-primary">{p.alicuota}%</span></div>
                           </li>
                         ))}
@@ -441,14 +466,26 @@ const Cierres: FC<CierresProps> = () => {
                 {/* SELECTOR MANUAL */}
                 <div className="w-full sm:w-1/4">
                   <label className="text-xs text-blue-700 dark:text-blue-300 block mb-1 font-bold">Alicuota (%)</label>
-                  <select value={simulacionAlicuota} onChange={(e: ChangeEvent<HTMLSelectElement>) => { setSimulacionAlicuota(e.target.value); setSearchProp(''); }} className="p-2.5 rounded-xl border border-blue-200 bg-white dark:bg-gray-800 dark:border-blue-800 outline-none w-full text-sm font-bold dark:text-white">
+                  <select value={simulacionAlicuota} onChange={(e: ChangeEvent<HTMLSelectElement>) => {
+                    const nuevaAlicuota = e.target.value;
+                    if (selectedPropiedad) {
+                      const alicuotaInmueble = formatearAlicuota(String(selectedPropiedad.alicuota ?? '0'));
+                      if (normalizarAlicuota(nuevaAlicuota) !== normalizarAlicuota(alicuotaInmueble)) {
+                        setSelectedPropiedad(null);
+                        setSearchProp('');
+                      }
+                    }
+                    setSimulacionAlicuota(nuevaAlicuota);
+                  }} className="p-2.5 rounded-xl border border-blue-200 bg-white dark:bg-gray-800 dark:border-blue-800 outline-none w-full text-sm font-bold dark:text-white">
+                    <option value="">Seleccione...</option>
                     {data.alicuotas_disponibles.map((a: string) => <option key={a} value={a}>{a}%</option>)}
                   </select>
                 </div>
                 {/* RESULTADO ALICUOTA */}
                 <div className="w-full sm:w-1/4 sm:text-right flex flex-col justify-end h-full">
-                  <p className="text-xs text-blue-700 dark:text-blue-300 font-bold mb-1">Pagaria</p>
-                  <p className="text-3xl font-black text-blue-600 dark:text-blue-400 leading-none">${formatMoney(calcularProyeccion())}</p>
+                  <p className="text-xs text-blue-700 dark:text-blue-300 font-bold mb-1">Pagaría</p>
+                  <p className="text-3xl font-black text-blue-600 dark:text-blue-400 leading-none">${formatMoney(montoSimuladoUsd)}</p>
+                  <p className="text-xs font-semibold text-blue-700/80 dark:text-blue-300 mt-1">Bs {formatMoney(montoSimuladoBs)} {tasaBcvHoy > 0 ? `(@${formatMoney(tasaBcvHoy, 3)} BCV)` : ''}</p>
                 </div>
               </>
             ) : (
@@ -499,6 +536,7 @@ const Cierres: FC<CierresProps> = () => {
               { key: 'concepto', header: 'Concepto', className: 'text-gray-600 dark:text-gray-400', render: (g) => g.concepto },
               { key: 'cuota', header: 'Cuota', headerClassName: 'text-center', className: 'text-center text-xs text-gray-500 dark:text-gray-400', render: (g) => `${g.numero_cuota} de ${g.total_cuotas}` },
               { key: 'monto', header: 'Monto a Cobrar', headerClassName: 'text-right', className: 'text-right font-bold text-gray-800 dark:text-gray-300', render: (g) => `$${formatMoney(g.monto_cuota_usd)}` },
+              { key: 'monto_bs', header: 'Monto (Bs)', headerClassName: 'text-right', className: 'text-right font-bold text-gray-800 dark:text-gray-300', render: (g) => `Bs ${formatMoney(toNumber(g.monto_cuota_usd) * (tasaBcvHoy || 0))}` },
             ]}
             data={gastosMesActual}
             keyExtractor={(_, i) => i}
