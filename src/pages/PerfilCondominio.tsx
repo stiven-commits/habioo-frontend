@@ -21,6 +21,9 @@ interface PerfilCondominioFormData {
   nombre_legal: string;
   rif: string;
   direccion: string;
+  tipo: 'Junta General' | 'Junta Individual' | '';
+  junta_general_id: string;
+  cuota_participacion: string;
   porcentaje_morosidad: string;
   admin_nombre: string;
   admin_rif: string;
@@ -55,6 +58,9 @@ interface PerfilCondominioApiData {
   aviso_msg_2?: string | null;
   aviso_msg_3?: string | null;
   aviso_msg_4?: string | null;
+  tipo?: string | null;
+  junta_general_id?: number | null;
+  cuota_participacion?: string | number | null;
 }
 
 interface PasswordFormData {
@@ -79,6 +85,9 @@ const initialPerfil: PerfilCondominioFormData = {
   nombre_legal: '',
   rif: '',
   direccion: '',
+  tipo: '',
+  junta_general_id: '',
+  cuota_participacion: '',
   porcentaje_morosidad: '',
   admin_nombre: '',
   admin_rif: '',
@@ -234,6 +243,8 @@ const PerfilCondominio: FC = () => {
   });
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [successMessage, setSuccessMessage] = useState<string>('');
+  const [codigoInvitacion, setCodigoInvitacion] = useState<string>('');
+  const [linkingInvitacion, setLinkingInvitacion] = useState<boolean>(false);
 
   const token = useMemo<string>(() => localStorage.getItem('habioo_token') || '', []);
 
@@ -258,6 +269,11 @@ const PerfilCondominio: FC = () => {
           nombre_legal: String(profile.nombre_legal ?? profile.nombre ?? ''),
           rif: String(profile.rif ?? ''),
           direccion: String(profile.direccion ?? ''),
+          tipo: (String(profile.tipo ?? '').trim() === 'Junta General' ? 'Junta General' : 'Junta Individual'),
+          junta_general_id: profile.junta_general_id ? String(profile.junta_general_id) : '',
+          cuota_participacion: profile.cuota_participacion !== null && profile.cuota_participacion !== undefined
+            ? String(profile.cuota_participacion)
+            : '',
           porcentaje_morosidad: String(profile.porcentaje_morosidad ?? profile.tasa_interes ?? ''),
           admin_nombre: String(profile.admin_nombre ?? ''),
           admin_rif: String(profile.admin_rif ?? ''),
@@ -302,6 +318,9 @@ const PerfilCondominio: FC = () => {
         rif: form.rif.trim(),
         direccion: form.direccion.trim(),
         porcentaje_morosidad: form.porcentaje_morosidad === '' ? null : Number(form.porcentaje_morosidad),
+        tipo: form.tipo || null,
+        junta_general_id: form.tipo === 'Junta Individual' && form.junta_general_id ? Number(form.junta_general_id) : null,
+        cuota_participacion: form.tipo === 'Junta Individual' && form.cuota_participacion !== '' ? Number(form.cuota_participacion) : null,
         admin_nombre: form.admin_nombre.trim(),
         admin_rif: form.admin_rif.trim(),
         admin_representante: form.admin_representante.trim(),
@@ -333,6 +352,54 @@ const PerfilCondominio: FC = () => {
       setErrorMessage(msg);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleAceptarInvitacion = async (): Promise<void> => {
+    const codigo = codigoInvitacion.trim();
+    if (!codigo) {
+      setErrorMessage('Debes indicar un código de invitación.');
+      return;
+    }
+    try {
+      setLinkingInvitacion(true);
+      setErrorMessage('');
+      setSuccessMessage('');
+      const res = await fetch(`${API_BASE_URL}/juntas-generales/aceptar-invitacion`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ codigo_invitacion: codigo }),
+      });
+      const data: ApiResponse<Record<string, unknown>> = await res.json();
+      if (!res.ok || data.status !== 'success') {
+        setErrorMessage(data.status === 'error' ? data.message : 'No se pudo aceptar el código.');
+        return;
+      }
+      setCodigoInvitacion('');
+      setSuccessMessage(data.message || 'Vinculación completada correctamente.');
+      const refresh = await fetch(`${API_BASE_URL}/api/perfil`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const refreshData: ApiResponse<PerfilCondominioApiData> = await refresh.json();
+      if (refresh.ok && refreshData.status === 'success' && refreshData.data) {
+        const profile = refreshData.data;
+        setForm((prev) => ({
+          ...prev,
+          tipo: (String(profile.tipo ?? '').trim() === 'Junta General' ? 'Junta General' : 'Junta Individual'),
+          junta_general_id: profile.junta_general_id ? String(profile.junta_general_id) : '',
+          cuota_participacion: profile.cuota_participacion !== null && profile.cuota_participacion !== undefined
+            ? String(profile.cuota_participacion)
+            : '',
+        }));
+      }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Error al aceptar invitación.';
+      setErrorMessage(msg);
+    } finally {
+      setLinkingInvitacion(false);
     }
   };
 
@@ -522,6 +589,71 @@ const PerfilCondominio: FC = () => {
                 <label className={labelClass}>Dirección</label>
                 <textarea rows={4} className={inputClass} value={form.direccion} onChange={handleInputChange('direccion')} />
               </div>
+            </div>
+            <div className="mt-5 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/30">
+              <h3 className="mb-3 text-base font-black text-gray-900 dark:text-white">Jerarquía de Junta</h3>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div>
+                  <label className={labelClass}>Tipo de Junta</label>
+                  <select
+                    className={inputClass}
+                    value={form.tipo}
+                    onChange={(e) => {
+                      const nextTipo = (e.target.value === 'Junta General' ? 'Junta General' : 'Junta Individual');
+                      setForm((prev) => ({
+                        ...prev,
+                        tipo: nextTipo,
+                        junta_general_id: nextTipo === 'Junta General' ? '' : prev.junta_general_id,
+                        cuota_participacion: nextTipo === 'Junta General' ? '' : prev.cuota_participacion,
+                      }));
+                    }}
+                  >
+                    <option value="Junta General">Junta General</option>
+                    <option value="Junta Individual">Junta Individual</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>Junta General Vinculada (ID)</label>
+                  <input
+                    className={inputClass}
+                    value={form.junta_general_id}
+                    onChange={(e) => setForm((prev) => ({ ...prev, junta_general_id: e.target.value.replace(/\D/g, '') }))}
+                    placeholder="Ej: 2"
+                    disabled={form.tipo !== 'Junta Individual'}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Cuota de Participación</label>
+                  <input
+                    className={inputClass}
+                    value={form.cuota_participacion}
+                    onChange={(e) => setForm((prev) => ({ ...prev, cuota_participacion: e.target.value.replace(',', '.').replace(/[^0-9.]/g, '') }))}
+                    placeholder="Ej: 12.5000"
+                    disabled={form.tipo !== 'Junta Individual'}
+                  />
+                </div>
+              </div>
+              {form.tipo === 'Junta Individual' && (
+                <div className="mt-4 rounded-xl border border-dashed border-blue-300 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-900/20">
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wide text-blue-700 dark:text-blue-300">Vinculación por código</p>
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <input
+                      className={`${inputClass} flex-1`}
+                      value={codigoInvitacion}
+                      onChange={(e) => setCodigoInvitacion(e.target.value.trim().toUpperCase())}
+                      placeholder="Pega el código de invitación"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void handleAceptarInvitacion()}
+                      disabled={linkingInvitacion}
+                      className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {linkingInvitacion ? 'Vinculando...' : 'Aceptar código'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="mt-5 border-t border-gray-200 pt-5 dark:border-gray-700">
               <h3 className="mb-4 text-base font-black text-gray-900 dark:text-white">Identidad Visual del Condominio</h3>

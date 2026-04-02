@@ -48,6 +48,11 @@ interface EntrarSoporteResponse {
   token?: string;
   user?: Record<string, unknown>;
   session?: Record<string, unknown>;
+  condominio?: {
+    id?: number;
+    nombre?: string;
+    tipo?: 'Junta General' | 'Junta Individual' | string | null;
+  };
   message?: string;
 }
 
@@ -55,7 +60,7 @@ interface CrearCondominioResponse {
   status: 'success' | 'error';
   data?: {
     condominio_id: number;
-    admin_user_id: number;
+    admin_user_id: number | null;
     tipo: 'Junta General' | 'Junta Individual';
   };
   message?: string;
@@ -66,6 +71,71 @@ const toDecimal = (value: string): number | null => {
   const parsed = Number.parseFloat(String(value || '').replace(',', '.'));
   return Number.isFinite(parsed) ? parsed : null;
 };
+const onlyDigits = (value: string): string => value.replace(/\D/g, '');
+const normalizeJuntaRif = (value: string): string => {
+  const normalized = String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!normalized) return '';
+  return normalized.startsWith('J') ? normalized : `J${normalized}`;
+};
+const maskJuntaRif = (value: string): string => {
+  const normalized = normalizeJuntaRif(value);
+  const digits = normalized.slice(1).replace(/\D/g, '').slice(0, 9);
+  return `J${digits}`;
+};
+const maskAdminDoc = (value: string): string => {
+  const raw = String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!raw) return '';
+  const first = raw[0];
+  if (/[VEJPG]/.test(first)) {
+    return `${first}-${raw.slice(1).replace(/\D/g, '').slice(0, 9)}`;
+  }
+  return raw.replace(/\D/g, '').slice(0, 12);
+};
+const maskPhoneVe = (value: string): string => {
+  const digits = onlyDigits(value).slice(0, 12);
+  if (!digits) return '';
+  if (digits.startsWith('58')) {
+    const rest = digits.slice(2);
+    if (rest.length <= 3) return `+58 ${rest}`;
+    if (rest.length <= 6) return `+58 ${rest.slice(0, 3)}-${rest.slice(3)}`;
+    return `+58 ${rest.slice(0, 3)}-${rest.slice(3, 6)}-${rest.slice(6, 10)}`;
+  }
+  if (digits.length <= 4) return digits;
+  if (digits.length <= 7) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+  return `${digits.slice(0, 4)}-${digits.slice(4, 7)}-${digits.slice(7, 11)}`;
+};
+const maskCuota = (value: string): string => {
+  const cleaned = String(value || '').replace(',', '.').replace(/[^0-9.]/g, '');
+  const parts = cleaned.split('.');
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]}.${parts.slice(1).join('').slice(0, 6)}`;
+};
+const ESTADOS_VENEZUELA: string[] = [
+  'Amazonas',
+  'Anzoategui',
+  'Apure',
+  'Aragua',
+  'Barinas',
+  'Bolivar',
+  'Carabobo',
+  'Cojedes',
+  'Delta Amacuro',
+  'Distrito Capital',
+  'Falcon',
+  'Guarico',
+  'Lara',
+  'Merida',
+  'Miranda',
+  'Monagas',
+  'Nueva Esparta',
+  'Portuguesa',
+  'Sucre',
+  'Tachira',
+  'Trujillo',
+  'La Guaira',
+  'Yaracuy',
+  'Zulia',
+];
 
 const SoporteSuperUsuario: FC = () => {
   const { userRole } = useOutletContext<OutletContextType>();
@@ -91,6 +161,7 @@ const SoporteSuperUsuario: FC = () => {
   const [estadoVenezuela, setEstadoVenezuela] = useState<string>('Distrito Capital');
   const [juntaGeneralId, setJuntaGeneralId] = useState<string>('');
   const [cuotaParticipacion, setCuotaParticipacion] = useState<string>('');
+  const showAdminAccessFields = Boolean(adminNombre.trim() && adminCedula.trim());
 
   const fetchCondominios = async (): Promise<void> => {
     setLoading(true);
@@ -193,7 +264,8 @@ const SoporteSuperUsuario: FC = () => {
       localStorage.setItem('habioo_token', data.token);
       localStorage.setItem('habioo_user', JSON.stringify(data.user || {}));
       localStorage.setItem('habioo_session', JSON.stringify(data.session || {}));
-      window.location.assign('/dashboard');
+      const destino = data.condominio?.tipo === 'Junta General' ? '/junta-general' : '/dashboard';
+      window.location.assign(destino);
     } catch {
       setMessage('Error de conexion al entrar en modo soporte.');
     } finally {
@@ -229,14 +301,11 @@ const SoporteSuperUsuario: FC = () => {
       setCreateMessage('Debes indicar el RIF de la junta.');
       return;
     }
-    if (!adminNombre.trim()) {
+    const adminNombreValue = adminNombre.trim();
+    const adminCedulaValue = adminCedula.trim().toUpperCase();
+    if ((adminNombreValue && !adminCedulaValue) || (!adminNombreValue && adminCedulaValue)) {
       setCreateError(true);
-      setCreateMessage('Debes indicar el nombre de la administradora.');
-      return;
-    }
-    if (!adminCedula.trim()) {
-      setCreateError(true);
-      setCreateMessage('Debes indicar la cedula de la administradora.');
+      setCreateMessage('Si registras administradora debes indicar nombre y cedula.');
       return;
     }
 
@@ -256,12 +325,12 @@ const SoporteSuperUsuario: FC = () => {
       const payload = {
         tipo,
         nombre_junta: nombreJunta.trim(),
-        rif_junta: rifJunta.trim(),
-        admin_nombre: adminNombre.trim(),
-        admin_cedula: adminCedula.trim(),
-        admin_password: adminPassword.trim() || undefined,
-        admin_email: adminEmail.trim() || undefined,
-        admin_telefono: adminTelefono.trim() || undefined,
+        rif_junta: normalizeJuntaRif(rifJunta),
+        admin_nombre: adminNombreValue || undefined,
+        admin_cedula: adminCedulaValue || undefined,
+        admin_password: adminNombreValue && adminCedulaValue ? (adminPassword.trim() || undefined) : undefined,
+        admin_email: adminNombreValue && adminCedulaValue ? (adminEmail.trim() || undefined) : undefined,
+        admin_telefono: adminNombreValue && adminCedulaValue ? (adminTelefono.trim() || undefined) : undefined,
         estado_venezuela: estadoVenezuela.trim() || undefined,
         junta_general_id: tipo === 'Junta Individual' && juntaGeneralId ? Number.parseInt(juntaGeneralId, 10) : null,
         cuota_participacion: tipo === 'Junta Individual' && juntaGeneralId ? cuotaValue : null,
@@ -300,127 +369,202 @@ const SoporteSuperUsuario: FC = () => {
 
   return (
     <section className="space-y-5">
-      <article className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
-        <h3 className="text-xl font-black text-gray-900 dark:text-white">Panel de Soporte Habioo</h3>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Registra juntas de condominio y entra en sesion delegada para brindar soporte.
-        </p>
-
-        <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-4">
-          <select
-            value={tipo}
-            onChange={(e) => {
-              const next = (e.target.value === 'Junta Individual' ? 'Junta Individual' : 'Junta General');
-              setTipo(next);
-              if (next === 'Junta General') {
-                setJuntaGeneralId('');
-                setCuotaParticipacion('');
-              }
-            }}
-            className="h-11 rounded-xl border border-gray-200 bg-gray-50 px-3 outline-none focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-          >
-            <option value="Junta General">Junta General</option>
-            <option value="Junta Individual">Junta Individual</option>
-          </select>
-          <input
-            type="text"
-            value={nombreJunta}
-            onChange={(e) => setNombreJunta(e.target.value)}
-            placeholder="Nombre de la junta"
-            className="h-11 rounded-xl border border-gray-200 bg-gray-50 px-3 outline-none focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-          />
-          <input
-            type="text"
-            value={rifJunta}
-            onChange={(e) => setRifJunta(e.target.value)}
-            placeholder="RIF de la junta"
-            className="h-11 rounded-xl border border-gray-200 bg-gray-50 px-3 outline-none focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-          />
-          <input
-            type="text"
-            value={estadoVenezuela}
-            onChange={(e) => setEstadoVenezuela(e.target.value)}
-            placeholder="Estado (ej: Distrito Capital)"
-            className="h-11 rounded-xl border border-gray-200 bg-gray-50 px-3 outline-none focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-          />
-
-          <input
-            type="text"
-            value={adminNombre}
-            onChange={(e) => setAdminNombre(e.target.value)}
-            placeholder="Nombre administradora"
-            className="h-11 rounded-xl border border-gray-200 bg-gray-50 px-3 outline-none focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-          />
-          <input
-            type="text"
-            value={adminCedula}
-            onChange={(e) => setAdminCedula(e.target.value)}
-            placeholder="Cedula administradora"
-            className="h-11 rounded-xl border border-gray-200 bg-gray-50 px-3 outline-none focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-          />
-          <input
-            type="text"
-            value={adminPassword}
-            onChange={(e) => setAdminPassword(e.target.value)}
-            placeholder="Password admin (opcional)"
-            className="h-11 rounded-xl border border-gray-200 bg-gray-50 px-3 outline-none focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-          />
-          <input
-            type="email"
-            value={adminEmail}
-            onChange={(e) => setAdminEmail(e.target.value)}
-            placeholder="Email admin (opcional)"
-            className="h-11 rounded-xl border border-gray-200 bg-gray-50 px-3 outline-none focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-          />
-
-          <input
-            type="text"
-            value={adminTelefono}
-            onChange={(e) => setAdminTelefono(e.target.value)}
-            placeholder="Telefono admin (opcional)"
-            className="h-11 rounded-xl border border-gray-200 bg-gray-50 px-3 outline-none focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-          />
-          <select
-            value={juntaGeneralId}
-            onChange={(e) => setJuntaGeneralId(e.target.value)}
-            disabled={tipo !== 'Junta Individual'}
-            className="h-11 rounded-xl border border-gray-200 bg-gray-50 px-3 outline-none focus:ring-2 focus:ring-donezo-primary disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-          >
-            <option value="">Sin vinculacion a junta general</option>
-            {juntasGenerales.map((jg) => (
-              <option key={jg.id} value={jg.id}>
-                {jg.nombre_junta} ({jg.rif_junta || 'sin rif'})
-              </option>
-            ))}
-          </select>
-          <input
-            type="text"
-            value={cuotaParticipacion}
-            onChange={(e) => setCuotaParticipacion(e.target.value)}
-            placeholder="Cuota participacion (si vincula)"
-            disabled={tipo !== 'Junta Individual' || !juntaGeneralId}
-            className="h-11 rounded-xl border border-gray-200 bg-gray-50 px-3 outline-none focus:ring-2 focus:ring-donezo-primary disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-          />
-          <div className="lg:col-span-2">
-            <button
-              type="button"
-              onClick={() => { void handleCreate(); }}
-              disabled={creating}
-              className="h-11 w-full rounded-xl bg-emerald-600 px-4 text-sm font-black text-white transition hover:opacity-90 disabled:opacity-50"
-            >
-              {creating ? 'Registrando junta...' : 'Registrar junta de condominio'}
-            </button>
+      <article className="relative overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-white via-emerald-50/30 to-cyan-50/30 p-5 shadow-sm dark:border-gray-800 dark:from-donezo-card-dark dark:via-donezo-card-dark dark:to-donezo-card-dark">
+        <div className="absolute -right-12 -top-12 h-36 w-36 rounded-full bg-emerald-100/60 blur-2xl dark:bg-emerald-900/20" />
+        <div className="absolute -bottom-10 -left-10 h-32 w-32 rounded-full bg-cyan-100/50 blur-2xl dark:bg-cyan-900/20" />
+        <div className="relative">
+          <div className="flex flex-wrap items-center gap-3">
+            <h3 className="text-xl font-black text-gray-900 dark:text-white">Panel de Soporte Habioo</h3>
+            <span className="rounded-full border border-emerald-200 bg-emerald-100 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+              Registro guiado
+            </span>
           </div>
-          <div className="lg:col-span-4">
-            {createMessage ? (
-              <p className={`text-sm font-semibold ${createError ? 'text-red-600' : 'text-emerald-600'}`}>
-                {createMessage}
-              </p>
-            ) : null}
-          </div>
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            Carga una junta nueva en tres pasos: identidad, administradora y vinculacion.
+          </p>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
+        <div className="relative mt-5 grid grid-cols-1 gap-4 xl:grid-cols-12">
+          <div className="rounded-2xl border border-gray-200/80 bg-white/90 p-4 shadow-sm backdrop-blur xl:col-span-5 dark:border-gray-700 dark:bg-gray-900/50">
+            <p className="mb-3 text-xs font-black uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">Identidad de la junta</p>
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-300">Tipo de junta</label>
+                <select
+                  value={tipo}
+                  onChange={(e) => {
+                    const next = (e.target.value === 'Junta Individual' ? 'Junta Individual' : 'Junta General');
+                    setTipo(next);
+                    if (next === 'Junta General') {
+                      setJuntaGeneralId('');
+                      setCuotaParticipacion('');
+                    }
+                  }}
+                  className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 outline-none transition focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                >
+                  <option value="Junta General">Junta General</option>
+                  <option value="Junta Individual">Junta Individual</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-300">Nombre de la junta</label>
+                <input
+                  type="text"
+                  value={nombreJunta}
+                  onChange={(e) => setNombreJunta(e.target.value)}
+                  placeholder="Ej: Torre Norte Condominio"
+                  className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 outline-none transition focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-300">RIF de la junta</label>
+                  <input
+                    type="text"
+                    value={rifJunta}
+                    onChange={(e) => setRifJunta(maskJuntaRif(e.target.value))}
+                    placeholder="J123456789"
+                    className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 font-mono outline-none transition focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-300">Estado</label>
+                  <select
+                    value={estadoVenezuela}
+                    onChange={(e) => setEstadoVenezuela(e.target.value)}
+                    className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 outline-none transition focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                  >
+                    {ESTADOS_VENEZUELA.map((estado) => (
+                      <option key={estado} value={estado}>{estado}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-gray-200/80 bg-white/90 p-4 shadow-sm backdrop-blur xl:col-span-4 dark:border-gray-700 dark:bg-gray-900/50">
+            <p className="mb-3 text-xs font-black uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">Administradora (opcional)</p>
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-300">Nombre</label>
+                <input
+                  type="text"
+                  value={adminNombre}
+                  onChange={(e) => setAdminNombre(e.target.value)}
+                  placeholder="Ej: Maria Perez"
+                  className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 outline-none transition focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-300">Cedula/RIF</label>
+                <input
+                  type="text"
+                  value={adminCedula}
+                  onChange={(e) => setAdminCedula(maskAdminDoc(e.target.value))}
+                  placeholder="V-12345678 o J-12345678-9"
+                  className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 font-mono outline-none transition focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                />
+              </div>
+              {showAdminAccessFields ? (
+                <>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-300">Clave de acceso</label>
+                    <input
+                      type="text"
+                      value={adminPassword}
+                      onChange={(e) => setAdminPassword(e.target.value)}
+                      placeholder="Si va vacia, usa cedula/RIF"
+                      className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 outline-none transition focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-300">Email</label>
+                    <input
+                      type="email"
+                      value={adminEmail}
+                      onChange={(e) => setAdminEmail(e.target.value)}
+                      placeholder="correo@dominio.com"
+                      className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 outline-none transition focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-300">Telefono</label>
+                    <input
+                      type="text"
+                      value={adminTelefono}
+                      onChange={(e) => setAdminTelefono(maskPhoneVe(e.target.value))}
+                      placeholder="+58 412-123-4567"
+                      className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 font-mono outline-none transition focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                    />
+                  </div>
+                </>
+              ) : (
+                <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-300">
+                  Para habilitar acceso de administradora, completa nombre y cédula/RIF.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-gray-200/80 bg-white/90 p-4 shadow-sm backdrop-blur xl:col-span-3 dark:border-gray-700 dark:bg-gray-900/50">
+            <p className="mb-3 text-xs font-black uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">Vinculacion jerarquica</p>
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-300">Junta general vinculada</label>
+                <select
+                  value={juntaGeneralId}
+                  onChange={(e) => setJuntaGeneralId(e.target.value)}
+                  disabled={tipo !== 'Junta Individual'}
+                  className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 outline-none transition focus:ring-2 focus:ring-donezo-primary disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                >
+                  <option value="">Sin vinculacion a junta general</option>
+                  {juntasGenerales.map((jg) => (
+                    <option key={jg.id} value={jg.id}>
+                      {jg.nombre_junta} ({jg.rif_junta || 'sin rif'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-300">Cuota de participacion</label>
+                <input
+                  type="text"
+                  value={cuotaParticipacion}
+                  onChange={(e) => setCuotaParticipacion(maskCuota(e.target.value))}
+                  placeholder="Ej: 12.5000"
+                  disabled={tipo !== 'Junta Individual' || !juntaGeneralId}
+                  className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 font-mono outline-none transition focus:ring-2 focus:ring-donezo-primary disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => { void handleCreate(); }}
+                disabled={creating}
+                className="mt-1 h-11 w-full rounded-xl bg-emerald-600 px-4 text-sm font-black text-white transition hover:opacity-90 disabled:opacity-50"
+              >
+                {creating ? 'Registrando junta...' : 'Registrar junta de condominio'}
+              </button>
+            </div>
+          </div>
+
+          {createMessage ? (
+            <div className="xl:col-span-12">
+              <p className={`rounded-xl border px-3 py-2 text-sm font-semibold ${
+                createError
+                  ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-900/20 dark:text-red-300'
+                  : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-900/20 dark:text-emerald-300'
+              }`}>
+                {createMessage}
+              </p>
+            </div>
+          ) : null}
+        </div>
+      </article>
+
+      <article className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
+        <div className="mb-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
+          <label className="text-xs font-semibold text-gray-600 dark:text-gray-300">Buscar juntas</label>
           <input
             type="text"
             value={search}
@@ -428,6 +572,7 @@ const SoporteSuperUsuario: FC = () => {
             placeholder="Buscar junta, RIF o administradora..."
             className="h-11 rounded-xl border border-gray-200 bg-gray-50 px-3 outline-none focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
           />
+          <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 lg:col-span-2">Motivo de soporte</label>
           <input
             type="text"
             value={motivo}
@@ -437,9 +582,6 @@ const SoporteSuperUsuario: FC = () => {
             className="h-11 rounded-xl border border-gray-200 bg-gray-50 px-3 outline-none focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white lg:col-span-2"
           />
         </div>
-      </article>
-
-      <article className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
         {loading ? (
           <p className="py-8 text-center text-gray-500">Cargando juntas...</p>
         ) : filtered.length === 0 ? (

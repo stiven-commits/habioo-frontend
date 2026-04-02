@@ -1,7 +1,8 @@
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import habiooLogoColor from '../assets/brand/habioo_logo_color.svg';
 
 const Error500 = () => {
+  const navigate = useNavigate();
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background relative overflow-hidden">
       <div
@@ -37,12 +38,12 @@ const Error500 = () => {
           Algo salió mal de nuestro lado. Estamos trabajando para solucionarlo lo antes posible.
         </p>
 
-        <Link
-          to="/login"
+        <button
+          onClick={() => navigate(-1)}
           className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-8 py-3.5 rounded-xl font-semibold text-base hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
         >
-          Volver al login
-        </Link>
+          Volver atrás
+        </button>
 
         <img src={habiooLogoColor} alt="Habioo" className="mt-16 h-8 opacity-40" />
       </div>

@@ -1,5 +1,6 @@
 ﻿import { useState } from 'react';
 import type { FC, ChangeEvent, FormEvent } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config/api';
 import { sanitizeCedulaRif, isValidCedulaRif } from '../utils/validators';
@@ -25,6 +26,7 @@ interface LoginResponse {
 const Login: FC<LoginProps> = () => {
   const [cedula, setCedula] = useState<string>('');
   const [password, setPassword] = useState<string>('');
+  const [showPassword, setShowPassword] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
   const navigate = useNavigate();
 
@@ -88,14 +90,24 @@ const Login: FC<LoginProps> = () => {
 
           <div>
             <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Contraseña</label>
-            <input
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-              required
-              className="w-full p-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-donezo-green outline-none transition-all dark:text-white"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="••••••••"
+                value={password}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                required
+                className="w-full p-4 pr-12 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-donezo-green outline-none transition-all dark:text-white"
+              />
+              <button
+                type="button"
+                title="Ver contraseña"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           <button

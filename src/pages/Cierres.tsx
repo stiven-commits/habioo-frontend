@@ -10,6 +10,7 @@ interface CierresProps {}
 
 interface OutletContextType {
   userRole?: string;
+  condominioTipo?: string;
 }
 
 interface Propiedad {
@@ -118,7 +119,8 @@ const dedupeAlicuotas = (values: string[] = []): string[] => {
 };
 
 const Cierres: FC<CierresProps> = () => {
-  const { userRole } = useOutletContext<OutletContextType>();
+  const { userRole, condominioTipo } = useOutletContext<OutletContextType>();
+  const isJuntaGeneral = String(condominioTipo || '').trim().toLowerCase() === 'junta general';
   const { showConfirm } = useDialog() as DialogContextType;
   const [data, setData] = useState<PreliminarData>({
     mes_actual: '',
@@ -151,7 +153,9 @@ const Cierres: FC<CierresProps> = () => {
     try {
       const [resPreliminar, resProps, resBancos, resBcv] = await Promise.all([
         fetch(`${API_BASE_URL}/preliminar`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API_BASE_URL}/propiedades-admin`, { headers: { Authorization: `Bearer ${token}` } }),
+        isJuntaGeneral
+          ? Promise.resolve(new Response(JSON.stringify({ status: 'success', propiedades: [] }), { headers: { 'Content-Type': 'application/json' } }))
+          : fetch(`${API_BASE_URL}/propiedades-admin`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API_BASE_URL}/bancos`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch('https://ve.dolarapi.com/v1/dolares/oficial')
       ]);

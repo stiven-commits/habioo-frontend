@@ -19,6 +19,7 @@ interface GastosProps {}
 
 interface OutletContextType {
   userRole?: string;
+  condominioTipo?: string;
 }
 
 type ActiveTab = 'Todos' | 'Comun' | 'Zona' | 'Individual' | 'Extra';
@@ -241,7 +242,8 @@ const toSingleDate = (value: Date | Date[] | null): Date | null => {
 };
 
 const Gastos: FC<GastosProps> = () => {
-  const { userRole } = useOutletContext<OutletContextType>();
+  const { userRole, condominioTipo } = useOutletContext<OutletContextType>();
+  const isJuntaGeneral = String(condominioTipo || '').trim().toLowerCase() === 'junta general';
   const { showConfirm } = useDialog() as DialogContextType;
 
   const [gastosAgrupados, setGastosAgrupados] = useState<GastoAgrupado[]>([]);
@@ -272,21 +274,29 @@ const Gastos: FC<GastosProps> = () => {
   const fetchData = async (): Promise<void> => {
     const token = localStorage.getItem('habioo_token');
     try {
-      const [resGastos, resProv, resZonas, resProps, resBancos, resFondos] = await Promise.all([
+      const [resGastos, resProv, resBancos, resFondos] = await Promise.all([
         fetch(`${API_BASE_URL}/gastos`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API_BASE_URL}/proveedores`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API_BASE_URL}/zonas`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API_BASE_URL}/propiedades-admin`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API_BASE_URL}/bancos`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API_BASE_URL}/fondos`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
+      let resZonas: Response | null = null;
+      let resProps: Response | null = null;
+      if (!isJuntaGeneral) {
+        const results = await Promise.all([
+          fetch(`${API_BASE_URL}/zonas`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${API_BASE_URL}/propiedades-admin`, { headers: { Authorization: `Bearer ${token}` } }),
+        ]);
+        [resZonas, resProps] = results;
+      }
+
       const dataGastos: GastosApiResponse = await resGastos.json();
       const dataProv: ProveedoresApiResponse = await resProv.json();
-      const dataZonas: ZonasApiResponse = await resZonas.json();
-      const dataProps: PropiedadesApiResponse = await resProps.json();
       const dataBancos: BancosApiResponse = await resBancos.json();
       const dataFondos: FondosApiResponse = await resFondos.json();
+      const dataZonas: ZonasApiResponse | null = resZonas ? await resZonas.json() : null;
+      const dataProps: PropiedadesApiResponse | null = resProps ? await resProps.json() : null;
 
       if (dataGastos.status === 'success') {
         const agrupados = dataGastos.gastos.reduce<Record<string, GastoAgrupado>>((acc, curr) => {
@@ -344,8 +354,12 @@ const Gastos: FC<GastosProps> = () => {
       }
 
       if (dataProv.status === 'success') setProveedores(dataProv.proveedores);
-      if (dataZonas.status === 'success') setZonas((dataZonas.zonas || []).filter((z: Zona) => z.activa));
-      if (dataProps.status === 'success') setPropiedades(dataProps.propiedades || []);
+      if (dataZonas?.status === 'success') setZonas((dataZonas.zonas || []).filter((z: Zona) => z.activa));
+      if (dataProps?.status === 'success') setPropiedades(dataProps.propiedades || []);
+      if (isJuntaGeneral) {
+        setZonas([]);
+        setPropiedades([]);
+      }
       if (dataBancos.status === 'success') setBancos(dataBancos.bancos || []);
       if (dataFondos.status === 'success') setFondos(dataFondos.fondos || []);
     } catch (error) {
@@ -357,7 +371,7 @@ const Gastos: FC<GastosProps> = () => {
 
   useEffect(() => {
     if (userRole === 'Administrador') fetchData();
-  }, [userRole]);
+  }, [userRole, condominioTipo]);
 
   useEffect(() => {
     setCurrentPage(1);

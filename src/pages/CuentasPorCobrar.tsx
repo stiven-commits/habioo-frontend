@@ -15,6 +15,7 @@ interface CuentasPorCobrarProps { }
 
 interface OutletContextType {
   userRole?: string;
+  condominioTipo?: string;
 }
 
 type ActiveTab = 'Deudores' | 'Todos';
@@ -109,6 +110,38 @@ interface PagosPendientesResponse {
   pagos?: PagoPendienteAprobacion[];
 }
 
+interface JuntaGeneralResumenRow {
+  miembro_id: number;
+  nombre_junta_individual: string;
+  rif: string;
+  vinculada: boolean;
+  condominio_individual_id: number | null;
+  cuota_participacion: number;
+  saldo_usd_generado: number;
+  saldo_usd_pagado: number;
+  saldo_usd_pendiente: number;
+  porcentaje_morosidad: number;
+  estado_cuenta: string;
+}
+
+interface JuntaGeneralMetricas {
+  total_juntas: number;
+  total_vinculadas: number;
+  total_usd_generado: number;
+  total_usd_pagado: number;
+  total_usd_pendiente: number;
+  porcentaje_morosidad_global: number;
+}
+
+interface JuntaGeneralResumenResponse {
+  status: string;
+  data?: {
+    juntas?: JuntaGeneralResumenRow[];
+    metricas?: JuntaGeneralMetricas;
+  };
+  message?: string;
+}
+
 interface PendingCountMap {
   [propiedadId: number]: number;
 }
@@ -148,8 +181,11 @@ const parseNumberInput = (value: string | number | undefined | null): number => 
 };
 
 const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
-  const { userRole } = useOutletContext<OutletContextType>();
+  const { userRole, condominioTipo } = useOutletContext<OutletContextType>();
+  const isJuntaGeneral = String(condominioTipo || '').trim().toLowerCase() === 'junta general';
   const [propiedades, setPropiedades] = useState<Propiedad[]>([]);
+  const [juntasResumen, setJuntasResumen] = useState<JuntaGeneralResumenRow[]>([]);
+  const [metricasGeneral, setMetricasGeneral] = useState<JuntaGeneralMetricas | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
 
@@ -248,6 +284,29 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
     }
   };
 
+  const fetchGeneralResumen = async (): Promise<void> => {
+    const token = localStorage.getItem('habioo_token');
+    try {
+      const res = await fetch(`${API_BASE_URL}/juntas-generales/resumen`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data: JuntaGeneralResumenResponse = await res.json();
+      if (res.ok && data.status === 'success') {
+        setJuntasResumen(Array.isArray(data.data?.juntas) ? data.data?.juntas || [] : []);
+        setMetricasGeneral(data.data?.metricas || null);
+      } else {
+        setJuntasResumen([]);
+        setMetricasGeneral(null);
+      }
+    } catch (error) {
+      console.error(error);
+      setJuntasResumen([]);
+      setMetricasGeneral(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchPendingCounts = async (): Promise<void> => {
     try {
       const token = localStorage.getItem('habioo_token');
@@ -272,12 +331,16 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
 
   useEffect(() => {
     if (userRole === 'Administrador') {
-      fetchData();
-      fetchPendingCounts();
-      fetchCuentasBancarias();
-      fetchGastosExtras();
+      if (isJuntaGeneral) {
+        fetchGeneralResumen();
+      } else {
+        fetchData();
+        fetchPendingCounts();
+        fetchCuentasBancarias();
+        fetchGastosExtras();
+      }
     }
-  }, [userRole]);
+  }, [userRole, isJuntaGeneral]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -553,6 +616,57 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
 
   if (userRole !== 'Administrador') return <p className="p-6">No tienes permisos.</p>;
   if (loading) return <p className="text-gray-500 dark:text-gray-400">Cargando cuentas por cobrar...</p>;
+
+  if (isJuntaGeneral) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white dark:bg-donezo-card-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
+          <h3 className="text-2xl font-black text-gray-800 dark:text-white">Cuentas por Cobrar</h3>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Estado de cuenta entre Junta General y Juntas Individuales (sin detalle de inmuebles).
+          </p>
+          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
+            <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
+              <p className="text-xs font-bold uppercase text-gray-500">Total juntas</p>
+              <p className="mt-1 text-2xl font-black text-gray-900 dark:text-white">{metricasGeneral?.total_juntas || 0}</p>
+            </div>
+            <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
+              <p className="text-xs font-bold uppercase text-gray-500">USD generado</p>
+              <p className="mt-1 text-2xl font-black text-gray-900 dark:text-white">${formatMoney(metricasGeneral?.total_usd_generado || 0)}</p>
+            </div>
+            <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
+              <p className="text-xs font-bold uppercase text-gray-500">USD pagado</p>
+              <p className="mt-1 text-2xl font-black text-emerald-600 dark:text-emerald-400">${formatMoney(metricasGeneral?.total_usd_pagado || 0)}</p>
+            </div>
+            <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
+              <p className="text-xs font-bold uppercase text-gray-500">USD pendiente</p>
+              <p className="mt-1 text-2xl font-black text-red-600 dark:text-red-400">${formatMoney(metricasGeneral?.total_usd_pendiente || 0)}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-donezo-card-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+          {juntasResumen.length === 0 ? (
+            <div className="py-10 text-center text-gray-500 dark:text-gray-400">No hay juntas individuales registradas para mostrar.</div>
+          ) : (
+            <DataTable
+              columns={[
+                { key: 'junta', header: 'Junta Individual', className: 'font-semibold text-gray-900 dark:text-white', render: (r) => r.nombre_junta_individual },
+                { key: 'rif', header: 'RIF', className: 'font-mono text-gray-700 dark:text-gray-300', render: (r) => r.rif || '-' },
+                { key: 'cuota', header: 'Cuota', headerClassName: 'text-right', className: 'text-right font-mono', render: (r) => `${Number(r.cuota_participacion || 0).toFixed(4)}%` },
+                { key: 'generado', header: 'Generado USD', headerClassName: 'text-right', className: 'text-right font-mono', render: (r) => `$${formatMoney(r.saldo_usd_generado || 0)}` },
+                { key: 'pagado', header: 'Pagado USD', headerClassName: 'text-right', className: 'text-right font-mono text-emerald-600 dark:text-emerald-400', render: (r) => `$${formatMoney(r.saldo_usd_pagado || 0)}` },
+                { key: 'pendiente', header: 'Pendiente USD', headerClassName: 'text-right', className: 'text-right font-mono text-red-600 dark:text-red-400', render: (r) => `$${formatMoney(r.saldo_usd_pendiente || 0)}` },
+                { key: 'estado', header: 'Estado', className: 'text-xs font-bold', render: (r) => r.estado_cuenta },
+              ]}
+              data={juntasResumen}
+              keyExtractor={(r) => r.miembro_id}
+            />
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

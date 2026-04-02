@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import habiooLogoColor from '../assets/brand/habioo_logo_color.svg';
 
 const NotFound = () => {
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     console.error('404 Error: User attempted to access non-existent route:', location.pathname);
@@ -65,12 +66,12 @@ const NotFound = () => {
           La ruta <span className="font-mono bg-[#00503b]/5 px-2 py-0.5 rounded text-sm">{location.pathname}</span> no existe en nuestro sistema.
         </p>
 
-        <Link
-          to="/login"
+        <button
+          onClick={() => navigate(-1)}
           className="inline-flex items-center gap-2 bg-[#00503b] text-white px-8 py-3.5 rounded-xl font-semibold text-base hover:bg-[#003d2d] transition-colors shadow-lg shadow-[#00503b]/20"
         >
-          Volver al login
-        </Link>
+          Volver atrás
+        </button>
 
         <img src={habiooLogoColor} alt="Habioo" className="mt-16 h-8 opacity-40" />
       </div>

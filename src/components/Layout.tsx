@@ -236,11 +236,13 @@ const Layout: React.FC<LayoutProps> = () => {
         });
 
         if (!res.ok) {
-          if (tryRestoreSuperBackup()) return;
-          localStorage.removeItem('habioo_token');
-          localStorage.removeItem('habioo_user');
-          localStorage.removeItem('habioo_session');
-          navigate('/');
+          if (res.status === 401) {
+            if (tryRestoreSuperBackup()) return;
+            localStorage.removeItem('habioo_token');
+            localStorage.removeItem('habioo_user');
+            localStorage.removeItem('habioo_session');
+            navigate('/');
+          }
           return;
         }
 
@@ -266,11 +268,8 @@ const Layout: React.FC<LayoutProps> = () => {
         setUserRole(normalizedRole);
         localStorage.setItem('habioo_session', JSON.stringify(currentSession || {}));
       } catch {
-        if (tryRestoreSuperBackup()) return;
-        localStorage.removeItem('habioo_token');
-        localStorage.removeItem('habioo_user');
-        localStorage.removeItem('habioo_session');
-        navigate('/');
+        // Error de red o servidor no disponible — no cerrar sesión
+        return;
       }
     };
 
@@ -861,9 +860,13 @@ const Layout: React.FC<LayoutProps> = () => {
 
         <nav className={`flex-1 px-3 py-4 space-y-1.5 overflow-y-auto ${sidebarCollapsed ? 'items-center' : ''}`}>
           <p className={sectionTitleClass}>Principal</p>
-          <Link to={userRole === 'SuperUsuario' ? '/soporte/condominios' : '/dashboard'} className={navClass(userRole === 'SuperUsuario' ? '/soporte/condominios' : '/dashboard')} title={userRole === 'SuperUsuario' ? 'Soporte' : 'Dashboard'}>
+          <Link
+            to={userRole === 'SuperUsuario' ? '/soporte/condominios' : (esJuntaGeneral ? '/junta-general' : '/dashboard')}
+            className={navClass(userRole === 'SuperUsuario' ? '/soporte/condominios' : (esJuntaGeneral ? '/junta-general' : '/dashboard'))}
+            title={userRole === 'SuperUsuario' ? 'Soporte' : (esJuntaGeneral ? 'Junta General' : 'Dashboard')}
+          >
             <LayoutDashboard size={18} />
-            {!sidebarCollapsed && <span>{userRole === 'SuperUsuario' ? 'Soporte' : 'Dashboard'}</span>}
+            {!sidebarCollapsed && <span>{userRole === 'SuperUsuario' ? 'Soporte' : (esJuntaGeneral ? 'Junta General' : 'Dashboard')}</span>}
           </Link>
 
           {userRole === 'SuperUsuario' && (
@@ -882,12 +885,6 @@ const Layout: React.FC<LayoutProps> = () => {
                 <Link to="/inmuebles" className={navClass('/inmuebles')} title="Inmuebles">
                   <Building2 size={18} />
                   {!sidebarCollapsed && <span>Inmuebles</span>}
-                </Link>
-              )}
-              {esJuntaGeneral && (
-                <Link to="/junta-general" className={navClass('/junta-general')} title="Junta General">
-                  <Building2 size={18} />
-                  {!sidebarCollapsed && <span>Junta General</span>}
                 </Link>
               )}
               <Link to="/proveedores" className={navClass('/proveedores')} title="Proveedores">
@@ -1067,7 +1064,7 @@ const Layout: React.FC<LayoutProps> = () => {
             </header>
           )}
 
-          <Outlet context={{ user, userRole, misPropiedades, propiedadActiva }} />
+          <Outlet context={{ user, userRole, misPropiedades, propiedadActiva, condominioTipo }} />
         </div>
       </main>
 
