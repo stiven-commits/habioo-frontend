@@ -2,6 +2,7 @@
 import { API_BASE_URL } from '../config/api';
 import DataTable from '../components/ui/DataTable';
 import StatusBadge from '../components/ui/StatusBadge';
+import { useDialog } from '../components/ui/DialogProvider';
 
 interface JuntaResumenRow {
   miembro_id: number;
@@ -42,6 +43,10 @@ interface ApiResp<T> {
   status: 'success' | 'error';
   data?: T;
   message?: string;
+}
+
+interface PerfilData {
+  rif?: string | null;
 }
 
 type EstadoMiembro = 'PENDIENTE' | 'VINCULADO' | 'EXPIRADO' | 'INACTIVO';
@@ -109,12 +114,14 @@ const estadoCuentaBadge = (estado: string) => {
 };
 
 const JuntaGeneral: FC = () => {
+  const { showAlert, showConfirm } = useDialog();
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
   const [metricas, setMetricas] = useState<JuntaMetricas | null>(null);
   const [resumen, setResumen] = useState<JuntaResumenRow[]>([]);
   const [miembros, setMiembros] = useState<MiembroRow[]>([]);
+  const [rifGeneral, setRifGeneral] = useState<string>('');
 
   const [nombre, setNombre] = useState<string>('');
   const [rif, setRif] = useState<string>('');
@@ -137,13 +144,15 @@ const JuntaGeneral: FC = () => {
     setLoading(true);
     setError('');
     try {
-      const [resResumen, resMiembros] = await Promise.all([
+      const [resResumen, resMiembros, resPerfil] = await Promise.all([
         fetch(`${API_BASE_URL}/juntas-generales/resumen`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API_BASE_URL}/juntas-generales/miembros?include_inactivos=true`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_BASE_URL}/api/perfil`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
       const dataResumen: ApiResp<{ juntas: JuntaResumenRow[]; metricas: JuntaMetricas }> = await resResumen.json();
       const dataMiembros: ApiResp<MiembroRow[]> = await resMiembros.json();
+      const dataPerfil: ApiResp<PerfilData> = await resPerfil.json();
 
       if (!resResumen.ok || dataResumen.status !== 'success') {
         setError(dataResumen.message || 'No se pudo cargar el resumen de junta general.');
@@ -153,10 +162,17 @@ const JuntaGeneral: FC = () => {
         setError(dataMiembros.message || 'No se pudo cargar la lista de juntas individuales.');
         return;
       }
+      if (!resPerfil.ok || dataPerfil.status !== 'success') {
+        const msg = dataPerfil.message || 'No se pudo cargar el RIF de la junta general para validar duplicados.';
+        setError(msg);
+        void showAlert({ title: 'Validación incompleta', message: msg, variant: 'warning' });
+        return;
+      }
 
       setResumen(dataResumen.data?.juntas || []);
       setMetricas(dataResumen.data?.metricas || null);
       setMiembros(dataMiembros.data || []);
+      setRifGeneral(normalizeJuntaRif(dataPerfil.data?.rif || ''));
     } catch {
       setError('Error de conexión al cargar la vista de junta general.');
     } finally {
@@ -209,11 +225,27 @@ const JuntaGeneral: FC = () => {
 
   const handleCrear = async (): Promise<void> => {
     if (!nombre.trim() || !rif.trim()) {
-      setError('Debes indicar nombre y RIF de la junta individual.');
+      const msg = 'Debes indicar nombre y RIF de la junta individual.';
+      setError(msg);
+      void showAlert({ title: 'Datos incompletos', message: msg, variant: 'warning' });
       return;
     }
     if (!isValidJuntaRif(normalizeJuntaRif(rif))) {
-      setError('El RIF debe comenzar con J y contener solo números luego del prefijo.');
+      const msg = 'El RIF debe comenzar con J y contener solo números luego del prefijo.';
+      setError(msg);
+      void showAlert({ title: 'RIF inválido', message: msg, variant: 'warning' });
+      return;
+    }
+    if (!rifGeneral) {
+      const msg = 'Debes configurar el RIF de la Junta General en Perfil antes de registrar juntas individuales.';
+      setError(msg);
+      void showAlert({ title: 'Falta configuración', message: msg, variant: 'warning' });
+      return;
+    }
+    if (rifGeneral && normalizeJuntaRif(rif) === rifGeneral) {
+      const msg = 'No puedes registrar una junta individual con el mismo RIF de la Junta General.';
+      setError(msg);
+      void showAlert({ title: 'RIF duplicado', message: msg, variant: 'danger' });
       return;
     }
 
@@ -252,11 +284,27 @@ const JuntaGeneral: FC = () => {
   const handleGuardarEdicion = async (): Promise<void> => {
     if (!editingId) return;
     if (!editNombre.trim() || !editRif.trim()) {
-      setError('Para guardar, indica nombre y RIF válidos.');
+      const msg = 'Para guardar, indica nombre y RIF válidos.';
+      setError(msg);
+      void showAlert({ title: 'Datos incompletos', message: msg, variant: 'warning' });
       return;
     }
     if (!isValidJuntaRif(normalizeJuntaRif(editRif))) {
-      setError('El RIF debe comenzar con J y contener solo números luego del prefijo.');
+      const msg = 'El RIF debe comenzar con J y contener solo números luego del prefijo.';
+      setError(msg);
+      void showAlert({ title: 'RIF inválido', message: msg, variant: 'warning' });
+      return;
+    }
+    if (!rifGeneral) {
+      const msg = 'Debes configurar el RIF de la Junta General en Perfil antes de editar vinculaciones.';
+      setError(msg);
+      void showAlert({ title: 'Falta configuración', message: msg, variant: 'warning' });
+      return;
+    }
+    if (rifGeneral && normalizeJuntaRif(editRif) === rifGeneral) {
+      const msg = 'No puedes usar el mismo RIF de la Junta General.';
+      setError(msg);
+      void showAlert({ title: 'RIF duplicado', message: msg, variant: 'danger' });
       return;
     }
 
@@ -293,7 +341,14 @@ const JuntaGeneral: FC = () => {
   };
 
   const handleDesactivar = async (row: MiembroRow): Promise<void> => {
-    if (!window.confirm(`¿Deseas desactivar a ${row.nombre_referencia}?`)) return;
+    const confirmed = await showConfirm({
+      title: 'Eliminar vínculo',
+      message: `¿Deseas eliminar el vínculo de ${row.nombre_referencia}? Si tiene historial, quedará inactiva para conservar trazabilidad.`,
+      confirmText: 'Sí, continuar',
+      cancelText: 'Cancelar',
+      variant: 'warning',
+    });
+    if (!confirmed) return;
 
     setWorkingId(row.id);
     setError('');
@@ -648,3 +703,4 @@ const JuntaGeneral: FC = () => {
 };
 
 export default JuntaGeneral;
+
