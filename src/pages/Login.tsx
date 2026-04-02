@@ -23,6 +23,13 @@ interface LoginResponse {
   message?: string;
 }
 
+interface PerfilResponse {
+  status?: 'success' | 'error';
+  data?: {
+    tipo?: string | null;
+  };
+}
+
 const Login: FC<LoginProps> = () => {
   const [cedula, setCedula] = useState<string>('');
   const [password, setPassword] = useState<string>('');
@@ -57,7 +64,32 @@ const Login: FC<LoginProps> = () => {
         localStorage.setItem('habioo_user', JSON.stringify(data.user ?? {}));
         localStorage.setItem('habioo_session', JSON.stringify(data.session ?? {}));
         const role = String(data.session?.role || '').trim();
-        navigate(role === 'SuperUsuario' ? '/soporte/condominios' : '/dashboard');
+
+        if (role === 'SuperUsuario') {
+          navigate('/soporte/condominios');
+          return;
+        }
+
+        // Para administradores, resolvemos tipo real del condominio antes de navegar.
+        if (role === 'Administrador' && data.token) {
+          try {
+            const perfilResponse = await fetch(`${API_BASE_URL}/api/perfil`, {
+              headers: { Authorization: `Bearer ${data.token}` },
+            });
+            if (perfilResponse.ok) {
+              const perfilData: PerfilResponse = await perfilResponse.json();
+              const tipo = String(perfilData?.data?.tipo || '').trim().toLowerCase();
+              if (tipo === 'junta general') {
+                navigate('/junta-general');
+                return;
+              }
+            }
+          } catch {
+            // Si el perfil falla, usamos fallback seguro al dashboard.
+          }
+        }
+
+        navigate('/dashboard');
       } else {
         setMessage('Error: ' + (data.message ?? 'Credenciales inválidas.'));
       }

@@ -3,6 +3,8 @@ import { API_BASE_URL } from '../config/api';
 import DataTable from '../components/ui/DataTable';
 import StatusBadge from '../components/ui/StatusBadge';
 import { useDialog } from '../components/ui/DialogProvider';
+import DatePicker from '../components/ui/DatePicker';
+import SearchableCombobox, { type SearchableComboboxOption } from '../components/ui/SearchableCombobox';
 
 interface JuntaResumenRow {
   miembro_id: number;
@@ -13,6 +15,9 @@ interface JuntaResumenRow {
   saldo_usd_generado: number;
   saldo_usd_pagado: number;
   saldo_usd_pendiente: number;
+  saldo_bs_generado: number;
+  saldo_bs_pagado: number;
+  saldo_bs_pendiente: number;
   porcentaje_morosidad: number;
   estado_cuenta: 'SOLVENTE' | 'ABONADO' | 'PENDIENTE' | string;
 }
@@ -23,7 +28,39 @@ interface JuntaMetricas {
   total_usd_generado: number;
   total_usd_pagado: number;
   total_usd_pendiente: number;
+  total_bs_generado: number;
+  total_bs_pagado: number;
+  total_bs_pendiente: number;
   porcentaje_morosidad_global: number;
+}
+
+interface ConciliacionRow {
+  detalle_id: number;
+  aviso_id: number;
+  mes_origen: string;
+  miembro_id: number | null;
+  junta_nombre: string;
+  rif: string | null;
+  gasto_id: number | null;
+  concepto: string | null;
+  monto_usd: number;
+  monto_bs: number;
+  pagado_usd: number;
+  pagado_bs: number;
+  pendiente_usd: number;
+  pendiente_bs: number;
+  estado_detalle: string | null;
+  estado_conciliacion: 'CONCILIADO' | 'ABONADO' | 'PENDIENTE' | 'PENDIENTE_VINCULACION' | string;
+}
+
+interface ConciliacionMetricas {
+  total_registros: number;
+  total_monto_usd: number;
+  total_monto_bs: number;
+  total_pagado_usd: number;
+  total_pagado_bs: number;
+  total_pendiente_usd: number;
+  total_pendiente_bs: number;
 }
 
 interface MiembroRow {
@@ -31,6 +68,8 @@ interface MiembroRow {
   nombre_referencia: string;
   rif: string;
   cuota_participacion: number;
+  zona_id?: number | null;
+  zona_nombre?: string | null;
   condominio_individual_id: number | null;
   codigo_invitacion?: string | null;
   codigo_expira_at?: string | null;
@@ -47,6 +86,12 @@ interface ApiResp<T> {
 
 interface PerfilData {
   rif?: string | null;
+}
+
+interface ZonaItem {
+  id: number;
+  nombre: string;
+  activa: boolean;
 }
 
 type EstadoMiembro = 'PENDIENTE' | 'VINCULADO' | 'EXPIRADO' | 'INACTIVO';
@@ -113,6 +158,27 @@ const estadoCuentaBadge = (estado: string) => {
   return <StatusBadge color="red" border>{estado}</StatusBadge>;
 };
 
+const estadoConciliacionBadge = (estado: string) => {
+  if (estado === 'CONCILIADO') return <StatusBadge color="emerald" border>Conciliado</StatusBadge>;
+  if (estado === 'ABONADO') return <StatusBadge color="amber" border>Abonado</StatusBadge>;
+  if (estado === 'PENDIENTE_VINCULACION') return <StatusBadge color="blue" border>Pendiente Vinculacion</StatusBadge>;
+  return <StatusBadge color="red" border>Pendiente</StatusBadge>;
+};
+
+const toYm = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+};
+
+const ymToDate = (value: string): Date | null => {
+  const [yearRaw, monthRaw] = String(value || '').split('-');
+  const year = parseInt(yearRaw || '', 10);
+  const month = parseInt(monthRaw || '', 10);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) return null;
+  return new Date(year, month - 1, 1);
+};
+
 const JuntaGeneral: FC = () => {
   const { showAlert, showConfirm } = useDialog();
   const [loading, setLoading] = useState<boolean>(true);
@@ -121,11 +187,20 @@ const JuntaGeneral: FC = () => {
   const [metricas, setMetricas] = useState<JuntaMetricas | null>(null);
   const [resumen, setResumen] = useState<JuntaResumenRow[]>([]);
   const [miembros, setMiembros] = useState<MiembroRow[]>([]);
+  const [zonas, setZonas] = useState<ZonaItem[]>([]);
   const [rifGeneral, setRifGeneral] = useState<string>('');
+  const [filtroMesConciliacion, setFiltroMesConciliacion] = useState<string>('');
+  const [filtroMiembroConciliacion, setFiltroMiembroConciliacion] = useState<string>('');
+  const [filtroEstadoConciliacion, setFiltroEstadoConciliacion] = useState<string>('');
+  const [loadingConciliacion, setLoadingConciliacion] = useState<boolean>(false);
+  const [conciliacionError, setConciliacionError] = useState<string>('');
+  const [conciliacionRows, setConciliacionRows] = useState<ConciliacionRow[]>([]);
+  const [conciliacionMetricas, setConciliacionMetricas] = useState<ConciliacionMetricas | null>(null);
 
   const [nombre, setNombre] = useState<string>('');
   const [rif, setRif] = useState<string>('');
   const [cuota, setCuota] = useState<string>('');
+  const [zonaId, setZonaId] = useState<string>('');
 
   const [filtroEstado, setFiltroEstado] = useState<'TODOS' | EstadoMiembro>('TODOS');
   const [busqueda, setBusqueda] = useState<string>('');
@@ -134,25 +209,85 @@ const JuntaGeneral: FC = () => {
   const [editNombre, setEditNombre] = useState<string>('');
   const [editRif, setEditRif] = useState<string>('');
   const [editCuota, setEditCuota] = useState<string>('');
+  const [editZonaId, setEditZonaId] = useState<string>('');
 
   const [workingId, setWorkingId] = useState<number | null>(null);
   const [saving, setSaving] = useState<boolean>(false);
 
   const token = useMemo(() => localStorage.getItem('habioo_token') || '', []);
+  const filtroMesConciliacionDate = useMemo(() => ymToDate(filtroMesConciliacion), [filtroMesConciliacion]);
+  const opcionesJuntasConciliacion = useMemo<SearchableComboboxOption[]>(
+    () => [
+      { value: '', label: 'Todas las juntas', searchText: 'todas' },
+      ...miembros
+        .filter((m) => m.activo !== false)
+        .map((m) => ({
+          value: String(m.id),
+          label: m.nombre_referencia,
+          searchText: `${m.rif || ''} ${m.nombre_referencia || ''}`,
+        })),
+    ],
+    [miembros]
+  );
+
+  const fetchConciliacion = async (
+    mes: string = filtroMesConciliacion,
+    miembroId: string = filtroMiembroConciliacion,
+    estado: string = filtroEstadoConciliacion
+  ): Promise<void> => {
+    setLoadingConciliacion(true);
+    setConciliacionError('');
+    try {
+      const params = new URLSearchParams();
+      if (mes) params.set('mes', mes);
+      if (miembroId) params.set('miembro_id', miembroId);
+      if (estado) params.set('estado', estado);
+      const query = params.toString();
+      const resConciliacion = await fetch(`${API_BASE_URL}/juntas-generales/conciliacion${query ? `?${query}` : ''}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const rawText = await resConciliacion.text();
+      let dataConciliacion: ApiResp<{ metricas: ConciliacionMetricas; registros: ConciliacionRow[] }> | null = null;
+      try {
+        dataConciliacion = rawText ? JSON.parse(rawText) as ApiResp<{ metricas: ConciliacionMetricas; registros: ConciliacionRow[] }> : null;
+      } catch {
+        dataConciliacion = null;
+      }
+
+      if (!resConciliacion.ok || !dataConciliacion || dataConciliacion.status !== 'success') {
+        const msg = dataConciliacion?.message || 'No se pudo cargar la conciliación en este momento.';
+        setConciliacionError(msg);
+        setConciliacionRows([]);
+        setConciliacionMetricas(null);
+        return;
+      }
+      setConciliacionMetricas(dataConciliacion.data?.metricas || null);
+      setConciliacionRows(dataConciliacion.data?.registros || []);
+    } catch {
+      setConciliacionError('Error de conexión al cargar conciliación.');
+      setConciliacionRows([]);
+      setConciliacionMetricas(null);
+    } finally {
+      setLoadingConciliacion(false);
+    }
+  };
 
   const fetchData = async (): Promise<void> => {
     setLoading(true);
     setError('');
     try {
-      const [resResumen, resMiembros, resPerfil] = await Promise.all([
+      const [resResumen, resMiembros, resPerfil, resZonas] = await Promise.all([
         fetch(`${API_BASE_URL}/juntas-generales/resumen`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API_BASE_URL}/juntas-generales/miembros?include_inactivos=true`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API_BASE_URL}/api/perfil`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_BASE_URL}/zonas`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
       const dataResumen: ApiResp<{ juntas: JuntaResumenRow[]; metricas: JuntaMetricas }> = await resResumen.json();
       const dataMiembros: ApiResp<MiembroRow[]> = await resMiembros.json();
       const dataPerfil: ApiResp<PerfilData> = await resPerfil.json();
+      const dataZonas = await resZonas.json();
 
       if (!resResumen.ok || dataResumen.status !== 'success') {
         setError(dataResumen.message || 'No se pudo cargar el resumen de junta general.');
@@ -173,6 +308,8 @@ const JuntaGeneral: FC = () => {
       setMetricas(dataResumen.data?.metricas || null);
       setMiembros(dataMiembros.data || []);
       setRifGeneral(normalizeJuntaRif(dataPerfil.data?.rif || ''));
+      setZonas(Array.isArray(dataZonas?.zonas) ? dataZonas.zonas : []);
+      await fetchConciliacion(filtroMesConciliacion, filtroMiembroConciliacion, filtroEstadoConciliacion);
     } catch {
       setError('Error de conexión al cargar la vista de junta general.');
     } finally {
@@ -183,6 +320,12 @@ const JuntaGeneral: FC = () => {
   useEffect(() => {
     void fetchData();
   }, []);
+
+  useEffect(() => {
+    if (!loading) {
+      void fetchConciliacion(filtroMesConciliacion, filtroMiembroConciliacion, filtroEstadoConciliacion);
+    }
+  }, [filtroMesConciliacion, filtroMiembroConciliacion, filtroEstadoConciliacion]);
 
   const miembrosFiltrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
@@ -200,6 +343,7 @@ const JuntaGeneral: FC = () => {
     setNombre('');
     setRif('');
     setCuota('');
+    setZonaId('');
   };
 
   const startEditing = (row: MiembroRow): void => {
@@ -212,6 +356,7 @@ const JuntaGeneral: FC = () => {
         .replace(/(\.\d*?)0+$/, '$1')
         .replace('.', ',')
     );
+    setEditZonaId(row.zona_id ? String(row.zona_id) : '');
     setError('');
     setSuccess('');
   };
@@ -221,6 +366,7 @@ const JuntaGeneral: FC = () => {
     setEditNombre('');
     setEditRif('');
     setEditCuota('');
+    setEditZonaId('');
   };
 
   const handleCrear = async (): Promise<void> => {
@@ -263,6 +409,7 @@ const JuntaGeneral: FC = () => {
           nombre_referencia: nombre.trim(),
           rif: normalizeJuntaRif(rif),
           cuota_participacion: parseAlicuotaInput(cuota),
+          zona_id: zonaId ? Number(zonaId) : null,
         }),
       });
       const data: ApiResp<Record<string, unknown>> = await res.json();
@@ -322,6 +469,7 @@ const JuntaGeneral: FC = () => {
           nombre_referencia: editNombre.trim(),
           rif: normalizeJuntaRif(editRif),
           cuota_participacion: parseAlicuotaInput(editCuota),
+          zona_id: editZonaId ? Number(editZonaId) : null,
         }),
       });
       const data: ApiResp<Record<string, unknown>> = await res.json();
@@ -388,6 +536,7 @@ const JuntaGeneral: FC = () => {
           nombre_referencia: row.nombre_referencia,
           rif: normalizeJuntaRif(row.rif),
           cuota_participacion: row.cuota_participacion,
+          zona_id: row.zona_id ?? null,
         }),
       });
       const data: ApiResp<Record<string, unknown>> = await res.json();
@@ -453,9 +602,21 @@ const JuntaGeneral: FC = () => {
           <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-6">
             <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800"><p className="text-xs text-gray-500">Juntas</p><p className="text-lg font-black">{metricas.total_juntas}</p></div>
             <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800"><p className="text-xs text-gray-500">Vinculadas</p><p className="text-lg font-black">{metricas.total_vinculadas}</p></div>
-            <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800"><p className="text-xs text-gray-500">Generado USD</p><p className="text-lg font-black">{toMoney(metricas.total_usd_generado)}</p></div>
-            <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800"><p className="text-xs text-gray-500">Pagado USD</p><p className="text-lg font-black text-emerald-600">{toMoney(metricas.total_usd_pagado)}</p></div>
-            <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800"><p className="text-xs text-gray-500">Pendiente USD</p><p className="text-lg font-black text-red-600">{toMoney(metricas.total_usd_pendiente)}</p></div>
+            <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800">
+              <p className="text-xs text-gray-500">Generado</p>
+              <p className="text-sm font-black">USD {toMoney(metricas.total_usd_generado)}</p>
+              <p className="text-sm font-black text-gray-700 dark:text-gray-200">Bs {toMoney(metricas.total_bs_generado)}</p>
+            </div>
+            <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800">
+              <p className="text-xs text-gray-500">Pagado</p>
+              <p className="text-sm font-black text-emerald-600">USD {toMoney(metricas.total_usd_pagado)}</p>
+              <p className="text-sm font-black text-emerald-600">Bs {toMoney(metricas.total_bs_pagado)}</p>
+            </div>
+            <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800">
+              <p className="text-xs text-gray-500">Pendiente</p>
+              <p className="text-sm font-black text-red-600">USD {toMoney(metricas.total_usd_pendiente)}</p>
+              <p className="text-sm font-black text-red-600">Bs {toMoney(metricas.total_bs_pendiente)}</p>
+            </div>
             <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800"><p className="text-xs text-gray-500">Morosidad Global</p><p className="text-lg font-black">{metricas.porcentaje_morosidad_global.toFixed(2)}%</p></div>
           </div>
         )}
@@ -465,7 +626,7 @@ const JuntaGeneral: FC = () => {
         <h4 className="text-lg font-black text-gray-900 dark:text-white">Registrar Junta Individual</h4>
         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Si la junta ya existe en Habioo, se vincula automáticamente por RIF.</p>
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-12">
-          <label className="md:col-span-5 text-xs font-semibold text-gray-600 dark:text-gray-300">
+          <label className="md:col-span-4 text-xs font-semibold text-gray-600 dark:text-gray-300">
             Nombre de la junta
             <input
               value={nombre}
@@ -474,7 +635,7 @@ const JuntaGeneral: FC = () => {
               className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
             />
           </label>
-          <label className="md:col-span-3 text-xs font-semibold text-gray-600 dark:text-gray-300">
+          <label className="md:col-span-2 text-xs font-semibold text-gray-600 dark:text-gray-300">
             RIF
             <input
               value={rif}
@@ -492,6 +653,19 @@ const JuntaGeneral: FC = () => {
               className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-right text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
             />
           </label>
+          <label className="md:col-span-2 text-xs font-semibold text-gray-600 dark:text-gray-300">
+            Zona (opcional)
+            <select
+              value={zonaId}
+              onChange={(e) => setZonaId(e.target.value)}
+              className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+            >
+              <option value="">Sin zona</option>
+              {zonas.filter((z) => z.activa !== false).map((z) => (
+                <option key={`zona-create-${z.id}`} value={String(z.id)}>{z.nombre}</option>
+              ))}
+            </select>
+          </label>
           <div className="md:col-span-2 flex items-end">
             <button
               type="button"
@@ -508,7 +682,7 @@ const JuntaGeneral: FC = () => {
       <article className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
         <h4 className="text-lg font-black text-gray-900 dark:text-white">Estado de Cuenta por Junta</h4>
         <DataTable
-          tableStyle={{ minWidth: '920px' }}
+          tableStyle={{ minWidth: '1140px' }}
           data={resumen}
           keyExtractor={(row) => row.miembro_id}
           columns={[
@@ -516,11 +690,116 @@ const JuntaGeneral: FC = () => {
             { key: 'rif', header: 'RIF', className: 'font-mono', render: (row) => row.rif || '-' },
             { key: 'estado', header: 'Estado Cuenta', render: (row) => estadoCuentaBadge(row.estado_cuenta) },
             { key: 'generado', header: 'Generado USD', headerClassName: 'text-right', className: 'text-right', render: (row) => toMoney(row.saldo_usd_generado) },
+            { key: 'generado_bs', header: 'Generado Bs', headerClassName: 'text-right', className: 'text-right', render: (row) => toMoney(row.saldo_bs_generado) },
             { key: 'pagado', header: 'Pagado USD', headerClassName: 'text-right', className: 'text-right text-emerald-600', render: (row) => toMoney(row.saldo_usd_pagado) },
+            { key: 'pagado_bs', header: 'Pagado Bs', headerClassName: 'text-right', className: 'text-right text-emerald-600', render: (row) => toMoney(row.saldo_bs_pagado) },
             { key: 'pendiente', header: 'Pendiente USD', headerClassName: 'text-right', className: 'text-right text-red-600', render: (row) => toMoney(row.saldo_usd_pendiente) },
+            { key: 'pendiente_bs', header: 'Pendiente Bs', headerClassName: 'text-right', className: 'text-right text-red-600', render: (row) => toMoney(row.saldo_bs_pendiente) },
             { key: 'morosidad', header: '% Morosidad', headerClassName: 'text-right', className: 'text-right', render: (row) => `${row.porcentaje_morosidad.toFixed(2)}%` },
           ]}
         />
+      </article>
+
+      <article className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h4 className="text-lg font-black text-gray-900 dark:text-white">Conciliación por Período</h4>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Seguimiento por gasto de origen Junta General y su estado de pago en cada junta individual.</p>
+          </div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
+            <DatePicker
+              selected={filtroMesConciliacionDate}
+              onChange={(date) => setFiltroMesConciliacion(date ? toYm(date) : '')}
+              placeholderText="Filtrar por período"
+              className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+              wrapperClassName="w-full"
+            />
+            <SearchableCombobox
+              options={opcionesJuntasConciliacion}
+              value={filtroMiembroConciliacion}
+              onChange={setFiltroMiembroConciliacion}
+              placeholder="Buscar junta..."
+              className="h-10 rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+              emptyMessage="Sin juntas encontradas"
+            />
+            <select
+              value={filtroEstadoConciliacion}
+              onChange={(e) => setFiltroEstadoConciliacion(e.target.value)}
+              className="h-10 rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+            >
+              <option value="">Todos los estados</option>
+              <option value="CONCILIADO">Conciliado</option>
+              <option value="ABONADO">Abonado</option>
+              <option value="PENDIENTE">Pendiente</option>
+              <option value="PENDIENTE_VINCULACION">Pendiente vinculación</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => {
+                setFiltroMesConciliacion('');
+                setFiltroMiembroConciliacion('');
+                setFiltroEstadoConciliacion('');
+              }}
+              className="h-10 rounded-xl border border-gray-300 bg-white px-3 text-xs font-black text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+            >
+              Limpiar
+            </button>
+          </div>
+        </div>
+
+        {conciliacionMetricas && (
+          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800">
+              <p className="text-xs text-gray-500">Registros</p>
+              <p className="text-lg font-black">{conciliacionMetricas.total_registros}</p>
+            </div>
+            <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800">
+              <p className="text-xs text-gray-500">Monto</p>
+              <p className="text-sm font-black">USD {toMoney(conciliacionMetricas.total_monto_usd)}</p>
+              <p className="text-sm font-black text-gray-700 dark:text-gray-200">Bs {toMoney(conciliacionMetricas.total_monto_bs)}</p>
+            </div>
+            <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800">
+              <p className="text-xs text-gray-500">Pagado</p>
+              <p className="text-sm font-black text-emerald-600">USD {toMoney(conciliacionMetricas.total_pagado_usd)}</p>
+              <p className="text-sm font-black text-emerald-600">Bs {toMoney(conciliacionMetricas.total_pagado_bs)}</p>
+            </div>
+            <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800">
+              <p className="text-xs text-gray-500">Pendiente</p>
+              <p className="text-sm font-black text-red-600">USD {toMoney(conciliacionMetricas.total_pendiente_usd)}</p>
+              <p className="text-sm font-black text-red-600">Bs {toMoney(conciliacionMetricas.total_pendiente_bs)}</p>
+            </div>
+          </div>
+        )}
+
+        {loadingConciliacion ? (
+          <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Cargando conciliación...</p>
+        ) : (
+          <div className="mt-4">
+            {conciliacionError ? (
+              <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-300">
+                {conciliacionError}
+              </div>
+            ) : null}
+            <DataTable
+              tableStyle={{ minWidth: '1320px' }}
+              data={conciliacionRows}
+              keyExtractor={(row) => `${row.detalle_id}`}
+              columns={[
+                { key: 'periodo', header: 'Período', className: 'font-semibold', render: (row) => row.mes_origen || '-' },
+                { key: 'junta', header: 'Junta', className: 'font-semibold', render: (row) => row.junta_nombre || '-' },
+                { key: 'rif', header: 'RIF', className: 'font-mono', render: (row) => row.rif || '-' },
+                { key: 'concepto', header: 'Concepto', className: 'text-gray-700 dark:text-gray-300', render: (row) => row.concepto || 'Gasto automático Junta General' },
+                { key: 'monto_usd', header: 'Monto USD', headerClassName: 'text-right', className: 'text-right', render: (row) => toMoney(row.monto_usd) },
+                { key: 'monto_bs', header: 'Monto Bs', headerClassName: 'text-right', className: 'text-right', render: (row) => toMoney(row.monto_bs) },
+                { key: 'pagado_usd', header: 'Pagado USD', headerClassName: 'text-right', className: 'text-right text-emerald-600', render: (row) => toMoney(row.pagado_usd) },
+                { key: 'pagado_bs', header: 'Pagado Bs', headerClassName: 'text-right', className: 'text-right text-emerald-600', render: (row) => toMoney(row.pagado_bs) },
+                { key: 'pendiente_usd', header: 'Pendiente USD', headerClassName: 'text-right', className: 'text-right text-red-600', render: (row) => toMoney(row.pendiente_usd) },
+                { key: 'pendiente_bs', header: 'Pendiente Bs', headerClassName: 'text-right', className: 'text-right text-red-600', render: (row) => toMoney(row.pendiente_bs) },
+                { key: 'estado', header: 'Conciliación', render: (row) => estadoConciliacionBadge(row.estado_conciliacion) },
+              ]}
+            />
+          </div>
+        )}
       </article>
 
       <article className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
@@ -559,6 +838,7 @@ const JuntaGeneral: FC = () => {
               { key: 'nombre', header: 'Junta', className: 'font-semibold', render: (row) => row.nombre_referencia },
               { key: 'rif', header: 'RIF', className: 'font-mono', render: (row) => row.rif },
               { key: 'cuota', header: 'Alícuota %', headerClassName: 'text-right', className: 'text-right', render: (row) => Number(row.cuota_participacion || 0).toFixed(6).replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1') },
+              { key: 'zona', header: 'Zona', render: (row) => row.zona_nombre || 'Sin zona' },
               { key: 'estado', header: 'Estado', render: (row) => estadoBadge(getMiembroEstado(row)) },
               {
                 key: 'codigo',
@@ -650,7 +930,7 @@ const JuntaGeneral: FC = () => {
             </div>
           </div>
           <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-12">
-            <label className="md:col-span-5 text-xs font-semibold text-gray-600 dark:text-gray-300">
+            <label className="md:col-span-4 text-xs font-semibold text-gray-600 dark:text-gray-300">
               Nombre
               <input
                 value={editNombre}
@@ -658,7 +938,7 @@ const JuntaGeneral: FC = () => {
                 className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
               />
             </label>
-            <label className="md:col-span-3 text-xs font-semibold text-gray-600 dark:text-gray-300">
+            <label className="md:col-span-2 text-xs font-semibold text-gray-600 dark:text-gray-300">
               RIF
               <input
                 value={editRif}
@@ -673,6 +953,19 @@ const JuntaGeneral: FC = () => {
                 onChange={(e) => setEditCuota(formatAlicuotaInput(e.target.value))}
                 className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-right text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
               />
+            </label>
+            <label className="md:col-span-2 text-xs font-semibold text-gray-600 dark:text-gray-300">
+              Zona
+              <select
+                value={editZonaId}
+                onChange={(e) => setEditZonaId(e.target.value)}
+                className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+              >
+                <option value="">Sin zona</option>
+                {zonas.filter((z) => z.activa !== false).map((z) => (
+                  <option key={`zona-edit-${z.id}`} value={String(z.id)}>{z.nombre}</option>
+                ))}
+              </select>
             </label>
             <div className="md:col-span-2 flex items-end gap-2">
               <button

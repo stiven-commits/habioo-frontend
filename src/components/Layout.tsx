@@ -919,12 +919,10 @@ const Layout: React.FC<LayoutProps> = () => {
               </Link>
 
               <p className={`mt-6 ${sectionTitleClass}`}>Configuracion</p>
-              {!esJuntaGeneral && (
-                <Link to="/zonas" className={navClass('/zonas')} title="Áreas">
-                  <MapPin size={18} />
-                  {!sidebarCollapsed && <span>Áreas</span>}
-                </Link>
-              )}
+              <Link to="/zonas" className={navClass('/zonas')} title="Áreas / Sectores">
+                <MapPin size={18} />
+                {!sidebarCollapsed && <span>Áreas / Sectores</span>}
+              </Link>
               <Link to="/perfil" className={navClass('/perfil')} title="Perfil Condominio">
                 <Settings size={18} />
                 {!sidebarCollapsed && <span>Perfil</span>}
