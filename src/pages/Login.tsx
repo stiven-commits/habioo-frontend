@@ -1,7 +1,7 @@
 ﻿import { useState } from 'react';
 import type { FC, ChangeEvent, FormEvent } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config/api';
 import { sanitizeCedulaRif, isValidCedulaRif } from '../utils/validators';
 import habiooLogoColor from '../assets/brand/habioo_logo_color.svg';
@@ -151,6 +151,12 @@ const Login: FC<LoginProps> = () => {
         </form>
 
         {message && <p className="mt-4 text-center font-bold text-red-500 animate-pulse">{message}</p>}
+        <p className="mt-5 text-center text-sm text-gray-600 dark:text-gray-400">
+          ¿Aún no tienes junta registrada?{' '}
+          <Link to="/registro-junta" className="font-bold text-donezo-primary hover:underline">
+            Registrar junta
+          </Link>
+        </p>
       </div>
     </div>
   );

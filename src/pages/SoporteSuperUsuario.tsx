@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FC } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { API_BASE_URL } from '../config/api';
 import DataTable from '../components/ui/DataTable';
 
@@ -85,7 +85,7 @@ const maskJuntaRif = (value: string): string => {
 const maskAdminDoc = (value: string): string => {
   const raw = String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   if (!raw) return '';
-  const first = raw[0];
+  const first = raw.charAt(0);
   if (/[VEJPG]/.test(first)) {
     return `${first}-${raw.slice(1).replace(/\D/g, '').slice(0, 9)}`;
   }
@@ -107,8 +107,9 @@ const maskPhoneVe = (value: string): string => {
 const maskCuota = (value: string): string => {
   const cleaned = String(value || '').replace(',', '.').replace(/[^0-9.]/g, '');
   const parts = cleaned.split('.');
-  if (parts.length === 1) return parts[0];
-  return `${parts[0]}.${parts.slice(1).join('').slice(0, 6)}`;
+  const integerPart = parts[0] ?? '';
+  if (parts.length === 1) return integerPart;
+  return `${integerPart}.${parts.slice(1).join('').slice(0, 6)}`;
 };
 const ESTADOS_VENEZUELA: string[] = [
   'Amazonas',
@@ -138,6 +139,7 @@ const ESTADOS_VENEZUELA: string[] = [
 ];
 
 const SoporteSuperUsuario: FC = () => {
+  const navigate = useNavigate();
   const { userRole } = useOutletContext<OutletContextType>();
   const [loading, setLoading] = useState<boolean>(true);
   const [rows, setRows] = useState<CondominioSoporte[]>([]);
@@ -264,8 +266,11 @@ const SoporteSuperUsuario: FC = () => {
       localStorage.setItem('habioo_token', data.token);
       localStorage.setItem('habioo_user', JSON.stringify(data.user || {}));
       localStorage.setItem('habioo_session', JSON.stringify(data.session || {}));
-      const destino = data.condominio?.tipo === 'Junta General' ? '/junta-general' : '/dashboard';
-      window.location.assign(destino);
+      const tipoCondominio = String(data.condominio?.tipo || '').trim().toLowerCase();
+      const destino = tipoCondominio === 'junta general'
+        ? `/soporte/${condominioId}/junta-general`
+        : `/soporte/${condominioId}/dashboard`;
+      navigate(destino, { replace: true });
     } catch {
       setMessage('Error de conexion al entrar en modo soporte.');
     } finally {

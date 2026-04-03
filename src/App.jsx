@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Login from './pages/Login';
+import RegistroJunta from './pages/RegistroJunta';
 import DashboardHome from './pages/DashboardHome';
 import Proveedores from './pages/Proveedores';
 import Gastos from './pages/Gastos';
@@ -38,6 +39,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/registro-junta" element={<RegistroJunta />} />
           <Route path="/error-403" element={<Error403 />} />
           <Route path="/error-500" element={<Error500 />} />
           <Route path="/error-503" element={<Error503 />} />
@@ -67,6 +69,22 @@ export default function App() {
             <Route path="/propietario/notificaciones" element={<NotificacionesPropietario />} />
             <Route path="/mis-cartas-consulta" element={<EncuestasPropietario />} />
             <Route path="/soporte/condominios" element={<SoporteSuperUsuario />} />
+            {/* Rutas de soporte con condominioId en URL — permite multi-tab y deep links */}
+            <Route path="/soporte/:condominioId/dashboard" element={<DashboardHome />} />
+            <Route path="/soporte/:condominioId/junta-general" element={<JuntaGeneral />} />
+            <Route path="/soporte/:condominioId/perfil" element={<PerfilCondominio />} />
+            <Route path="/soporte/:condominioId/proveedores" element={<Proveedores />} />
+            <Route path="/soporte/:condominioId/gastos" element={<Gastos />} />
+            <Route path="/soporte/:condominioId/cierres" element={<Cierres />} />
+            <Route path="/soporte/:condominioId/inmuebles" element={<Propiedades />} />
+            <Route path="/soporte/:condominioId/cuentas-cobrar" element={<CuentasPorCobrar />} />
+            <Route path="/soporte/:condominioId/bancos" element={<Bancos />} />
+            <Route path="/soporte/:condominioId/estado-cuentas" element={<EstadoCuentasBancarias />} />
+            <Route path="/soporte/:condominioId/zonas" element={<Zonas />} />
+            <Route path="/soporte/:condominioId/avisos-cobro" element={<HistorialAvisos />} />
+            <Route path="/soporte/:condominioId/aviso-cobro/:id" element={<VistaAvisoCobro />} />
+            <Route path="/soporte/:condominioId/alquileres" element={<VistaAlquileres />} />
+            <Route path="/soporte/:condominioId/carta-consulta" element={<EncuestasAdmin />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -28,6 +28,8 @@ interface DatePickerProps {
   popperClassName?: string;
   calendarClassName?: string;
   icon?: React.ReactNode;
+  inputTestId?: string;
+  buttonTestId?: string;
 }
 
 const DATE_FORMAT = 'dd/MM/yyyy';
@@ -50,6 +52,8 @@ const DatePicker: React.FC<DatePickerProps> = ({
   disabled = false,
   required = false,
   locale = es,
+  inputTestId,
+  buttonTestId,
 }) => {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
@@ -159,6 +163,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
   return (
     <div ref={rootRef} className={`relative ${wrapperClassName}`}>
       <input
+        data-testid={inputTestId}
         type="text"
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
@@ -183,6 +188,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
       />
 
       <button
+        data-testid={buttonTestId}
         type="button"
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}

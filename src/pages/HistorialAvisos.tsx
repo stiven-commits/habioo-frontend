@@ -4,14 +4,18 @@ import DataTable from '../components/ui/DataTable';
 import DateRangePicker from '../components/ui/DateRangePicker';
 import { es } from 'date-fns/locale/es';
 import { useNavigate, useOutletContext } from 'react-router-dom';
+import { API_BASE_URL } from '../config/api';
 import { formatMoney } from '../utils/currency';
+import { metodoDivisionLabel } from '../utils/juntaGeneralAvisos';
 import VistaAvisoCobro from '../components/recibos/VistaAvisoCobro';
 import StatusBadge from '../components/ui/StatusBadge';
+import EstadoConciliacionBadge from '../components/junta-general/EstadoConciliacionBadge';
 
 interface HistorialAvisosProps {}
 
 interface OutletContextType {
   userRole?: string;
+  condominioTipo?: string;
 }
 
 type EstadoFiltro = 'Todos' | 'Pagados' | 'Abonado' | 'Pendiente';
@@ -30,6 +34,41 @@ interface Recibo {
 interface RecibosResponse {
   status: string;
   recibos?: Recibo[];
+}
+
+interface AvisoGeneral {
+  aviso_id: number;
+  mes_origen: string;
+  metodo_division: string;
+  tasa_referencia: number;
+  total_usd: number;
+  total_bs: number;
+  pagado_usd: number;
+  pagado_bs: number;
+  pendiente_usd: number;
+  pendiente_bs: number;
+  juntas_total: number;
+  juntas_vinculadas: number;
+  pendientes_vinculacion: number;
+  estado_aviso: 'CONCILIADO' | 'ABONADO' | 'PENDIENTE' | 'PENDIENTE_VINCULACION' | string;
+  created_at?: string;
+}
+
+interface AvisosGeneralesResponse {
+  status: 'success' | 'error';
+  data?: {
+    avisos?: AvisoGeneral[];
+    metricas?: {
+      total_avisos: number;
+      total_usd: number;
+      total_bs: number;
+      pagado_usd: number;
+      pagado_bs: number;
+      pendiente_usd: number;
+      pendiente_bs: number;
+    };
+  };
+  message?: string;
 }
 
 const ymdToDate = (ymd: string): Date | null => {
@@ -54,11 +93,24 @@ const toSingleDate = (value: Date | Date[] | null): Date | null => {
 };
 
 const HistorialAvisos: FC<HistorialAvisosProps> = () => {
-  const { userRole } = useOutletContext<OutletContextType>();
+  const { userRole, condominioTipo } = useOutletContext<OutletContextType>();
   const navigate = useNavigate();
+  const isJuntaGeneral = String(condominioTipo || '').trim().toLowerCase() === 'junta general';
 
   const [recibos, setRecibos] = useState<Recibo[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [avisosGeneral, setAvisosGeneral] = useState<AvisoGeneral[]>([]);
+  const [metricasAvisosGeneral, setMetricasAvisosGeneral] = useState<{
+    total_avisos: number;
+    total_usd: number;
+    total_bs: number;
+    pagado_usd: number;
+    pagado_bs: number;
+    pendiente_usd: number;
+    pendiente_bs: number;
+  } | null>(null);
+  const [mesGeneral, setMesGeneral] = useState<string>('');
+  const [estadoGeneral, setEstadoGeneral] = useState<string>('');
 
   const [currentPage, setCurrentPage] = useState<number>(1);
   const ITEMS_PER_PAGE = 15;
@@ -170,7 +222,7 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
     }
 
     try {
-      const resRecibos = await fetch('https://auth.habioo.cloud/recibos-historial', {
+      const resRecibos = await fetch(`${API_BASE_URL}/recibos-historial`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -190,9 +242,56 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
     }
   };
 
+  const fetchAvisosGeneral = async (): Promise<void> => {
+    const token = localStorage.getItem('habioo_token');
+    if (!token) {
+      navigate('/');
+      return;
+    }
+
+    try {
+      const params = new URLSearchParams();
+      if (mesGeneral) params.set('mes', mesGeneral);
+      if (estadoGeneral) params.set('estado', estadoGeneral);
+      const query = params.toString();
+      const resAvisos = await fetch(`${API_BASE_URL}/juntas-generales/avisos${query ? `?${query}` : ''}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (resAvisos.status === 401) {
+        localStorage.removeItem('habioo_token');
+        localStorage.removeItem('habioo_user');
+        navigate('/');
+        return;
+      }
+
+      const dataA: AvisosGeneralesResponse = await resAvisos.json();
+      if (dataA.status === 'success') {
+        setAvisosGeneral(Array.isArray(dataA.data?.avisos) ? dataA.data?.avisos || [] : []);
+        setMetricasAvisosGeneral(dataA.data?.metricas || null);
+      } else {
+        setAvisosGeneral([]);
+        setMetricasAvisosGeneral(null);
+      }
+    } catch (error) {
+      console.error(error);
+      setAvisosGeneral([]);
+      setMetricasAvisosGeneral(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    if (userRole === 'Administrador') void fetchData();
-  }, [userRole]);
+    if (userRole !== 'Administrador') return;
+    if (isJuntaGeneral) {
+      setRecibos([]);
+      setLoading(true);
+      void fetchAvisosGeneral();
+      return;
+    }
+    void fetchData();
+  }, [userRole, isJuntaGeneral, mesGeneral, estadoGeneral]);
 
   const mapEstadoTab = (estado: string): Exclude<EstadoFiltro, 'Todos'> => {
     if (['Pagado', 'Solvente', 'Validado', 'Recibo'].includes(estado)) return 'Pagados';
@@ -238,6 +337,129 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
   const minDateHasta = ymdToDate(fechaDesde);
 
   if (userRole !== 'Administrador') return <p className="p-6">Acceso Denegado</p>;
+  if (isJuntaGeneral) {
+    return (
+      <div className="space-y-6">
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h3 className="text-xl font-black text-gray-900 dark:text-white">Avisos de Cobro - Junta General</h3>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Historial de avisos emitidos a juntas individuales y su estado de pago.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <label className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                Mes
+                <input
+                  type="month"
+                  value={mesGeneral}
+                  onChange={(e) => setMesGeneral(e.target.value)}
+                  className="mt-1 h-10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                />
+              </label>
+              <label className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                Estado
+                <select
+                  value={estadoGeneral}
+                  onChange={(e) => setEstadoGeneral(e.target.value)}
+                  className="mt-1 h-10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                >
+                  <option value="">Todos</option>
+                  <option value="CONCILIADO">Conciliado</option>
+                  <option value="ABONADO">Abonado</option>
+                  <option value="PENDIENTE">Pendiente</option>
+                  <option value="PENDIENTE_VINCULACION">Pendiente por vincular</option>
+                </select>
+              </label>
+              <div className="flex items-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMesGeneral('');
+                    setEstadoGeneral('');
+                  }}
+                  className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-bold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                >
+                  Limpiar
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {metricasAvisosGeneral && (
+            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800">
+                <p className="text-xs text-gray-500">Avisos emitidos</p>
+                <p className="text-lg font-black">{metricasAvisosGeneral.total_avisos}</p>
+              </div>
+              <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800">
+                <p className="text-xs text-gray-500">Generado</p>
+                <p className="text-sm font-black">USD {formatMoney(metricasAvisosGeneral.total_usd)}</p>
+                <p className="text-sm font-black text-gray-700 dark:text-gray-200">Bs {formatMoney(metricasAvisosGeneral.total_bs)}</p>
+              </div>
+              <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800">
+                <p className="text-xs text-gray-500">Pagado</p>
+                <p className="text-sm font-black text-emerald-600">USD {formatMoney(metricasAvisosGeneral.pagado_usd)}</p>
+                <p className="text-sm font-black text-emerald-600">Bs {formatMoney(metricasAvisosGeneral.pagado_bs)}</p>
+              </div>
+              <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800">
+                <p className="text-xs text-gray-500">Pendiente</p>
+                <p className="text-sm font-black text-red-600">USD {formatMoney(metricasAvisosGeneral.pendiente_usd)}</p>
+                <p className="text-sm font-black text-red-600">Bs {formatMoney(metricasAvisosGeneral.pendiente_bs)}</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
+          <DataTable
+            loading={loading}
+            data={avisosGeneral}
+            keyExtractor={(row) => row.aviso_id}
+            emptyMessage="No hay avisos de cobro para los filtros seleccionados."
+            columns={[
+              { key: 'aviso', header: 'Aviso', render: (row) => <span className="font-mono font-bold">#{row.aviso_id}</span> },
+              { key: 'periodo', header: 'Período', render: (row) => row.mes_origen || '-' },
+              {
+                key: 'metodo',
+                header: 'Método',
+                render: (row) => metodoDivisionLabel(row.metodo_division),
+              },
+              { key: 'juntas', header: 'Juntas', render: (row) => `${row.juntas_vinculadas}/${row.juntas_total}` },
+              { key: 'monto_usd', header: 'Monto USD', className: 'text-right font-bold', render: (row) => formatMoney(row.total_usd) },
+              { key: 'monto_bs', header: 'Monto Bs', className: 'text-right font-bold', render: (row) => formatMoney(row.total_bs) },
+              { key: 'pendiente_usd', header: 'Pendiente USD', className: 'text-right font-bold text-red-600', render: (row) => formatMoney(row.pendiente_usd) },
+              {
+                key: 'estado',
+                header: 'Estado',
+                render: (row) => <EstadoConciliacionBadge estado={row.estado_aviso} />,
+              },
+              {
+                key: 'acciones',
+                header: 'Acciones',
+                render: (row) => (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const params = new URLSearchParams();
+                      params.set('tab', 'conciliacion');
+                      if (row.mes_origen) params.set('mes', row.mes_origen);
+                      navigate(`/junta-general?${params.toString()}`);
+                    }}
+                    className="rounded-lg border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-black text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                  >
+                    Ver conciliación
+                  </button>
+                ),
+              },
+              { key: 'fecha', header: 'Fecha emisión', render: (row) => row.created_at ? new Date(row.created_at).toLocaleDateString('es-VE') : '-' },
+            ]}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 relative">
@@ -450,5 +672,3 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
 };
 
 export default HistorialAvisos;
-
-

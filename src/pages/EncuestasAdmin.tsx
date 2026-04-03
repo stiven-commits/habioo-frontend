@@ -1,5 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { FC, ChangeEvent } from 'react';
+import { DayPicker } from 'react-day-picker';
+import 'react-day-picker/style.css';
 import { API_BASE_URL } from '../config/api';
 import { useDialog } from '../components/ui/DialogProvider';
 import DataTable from '../components/ui/DataTable';
@@ -124,6 +126,174 @@ const FORM_INITIAL: EncuestaForm = {
   opciones: ['', ''],
 };
 
+const pad2 = (value: number): string => String(value).padStart(2, '0');
+
+const formatDateTimeLocalValue = (date: Date): string => (
+  `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}T${pad2(date.getHours())}:${pad2(date.getMinutes())}`
+);
+
+const parseDateTimeLocalValue = (value: string): Date | null => {
+  if (!value) return null;
+  const [datePart, timePart = '00:00'] = value.split('T');
+  const dateTokens = String(datePart || '').split('-');
+  const timeTokens = String(timePart || '00:00').split(':');
+  const year = Number.parseInt(dateTokens[0] ?? '', 10);
+  const month = Number.parseInt(dateTokens[1] ?? '', 10);
+  const day = Number.parseInt(dateTokens[2] ?? '', 10);
+  const hours = Number.parseInt(timeTokens[0] ?? '', 10);
+  const minutes = Number.parseInt(timeTokens[1] ?? '', 10);
+  if ([year, month, day, hours, minutes].some((v) => Number.isNaN(v))) return null;
+  return new Date(year, month - 1, day, hours, minutes, 0, 0);
+};
+
+const formatDateTimeDisplay = (value: string): string => {
+  const date = parseDateTimeLocalValue(value);
+  if (!date) return '';
+  return date.toLocaleString('es-VE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+interface CartaConsultaDateTimePickerProps {
+  value: string;
+  onChange: (next: string) => void;
+  minDate: Date;
+}
+
+const CartaConsultaDateTimePicker: FC<CartaConsultaDateTimePickerProps> = ({ value, onChange, minDate }) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const selected = useMemo(() => parseDateTimeLocalValue(value), [value]);
+  const [open, setOpen] = useState(false);
+  const [month, setMonth] = useState<Date>(selected ?? minDate);
+
+  useEffect(() => {
+    if (selected) setMonth(selected);
+  }, [selected]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onMouseDown = (event: MouseEvent): void => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (!containerRef.current?.contains(target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, [open]);
+
+  const baseDate = selected ?? minDate;
+  const hour24 = baseDate.getHours();
+  const minute = baseDate.getMinutes();
+  const ampm = hour24 >= 12 ? 'PM' : 'AM';
+  const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+
+  const commit = (nextDate: Date): void => {
+    const normalized = nextDate < minDate ? minDate : nextDate;
+    onChange(formatDateTimeLocalValue(normalized));
+  };
+
+  const handleDateSelect = (date: Date | undefined): void => {
+    if (!date) return;
+    commit(new Date(date.getFullYear(), date.getMonth(), date.getDate(), hour24, minute, 0, 0));
+  };
+
+  const handleHourChange = (nextHour12: number): void => {
+    const normalizedHour24 = (nextHour12 % 12) + (ampm === 'PM' ? 12 : 0);
+    commit(new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), normalizedHour24, minute, 0, 0));
+  };
+
+  const handleMinuteChange = (nextMinute: number): void => {
+    commit(new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), hour24, nextMinute, 0, 0));
+  };
+
+  const handleAmPmChange = (nextAmPm: 'AM' | 'PM'): void => {
+    const nextHour24 = (hour12 % 12) + (nextAmPm === 'PM' ? 12 : 0);
+    commit(new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), nextHour24, minute, 0, 0));
+  };
+
+  const nowLabel = formatDateTimeDisplay(formatDateTimeLocalValue(minDate));
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white outline-none focus:ring-2 focus:ring-donezo-primary text-sm text-left"
+      >
+        {value ? formatDateTimeDisplay(value) : 'Selecciona fecha y hora'}
+      </button>
+
+      {open && (
+        <div className="absolute left-0 z-30 mt-2 w-[320px] sm:w-[360px] rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 shadow-2xl">
+          <div className="mb-3">
+            <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">Hora de cierre</p>
+            <div className="grid grid-cols-3 gap-2">
+              <select
+                value={hour12}
+                onChange={(e) => handleHourChange(Number(e.target.value))}
+                className="w-full rounded-lg border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1.5 text-sm"
+              >
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
+                  <option key={h} value={h}>{pad2(h)}</option>
+                ))}
+              </select>
+              <select
+                value={minute}
+                onChange={(e) => handleMinuteChange(Number(e.target.value))}
+                className="w-full rounded-lg border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1.5 text-sm"
+              >
+                {Array.from({ length: 60 }, (_, i) => i).map((m) => (
+                  <option key={m} value={m}>{pad2(m)}</option>
+                ))}
+              </select>
+              <select
+                value={ampm}
+                onChange={(e) => handleAmPmChange(e.target.value as 'AM' | 'PM')}
+                className="w-full rounded-lg border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1.5 text-sm"
+              >
+                <option value="AM">AM</option>
+                <option value="PM">PM</option>
+              </select>
+            </div>
+          </div>
+
+          <DayPicker
+            mode="single"
+            month={month}
+            onMonthChange={setMonth}
+            selected={selected ?? undefined}
+            onSelect={handleDateSelect}
+            disabled={{ before: new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate()) }}
+            showOutsideDays
+            weekStartsOn={1}
+            classNames={{
+              chevron: 'fill-donezo-primary',
+              day_selected: 'bg-donezo-primary text-white hover:bg-donezo-primary',
+              day_today: 'text-donezo-primary font-bold',
+            }}
+          />
+
+          <div className="mt-2 flex items-center justify-between">
+            <p className="text-[11px] text-gray-500 dark:text-gray-400">Minimo: {nowLabel}</p>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="text-xs font-semibold text-donezo-primary hover:underline"
+            >
+              Listo
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 // ─── Subcomponentes ───────────────────────────────────────────────────────────
 
 const BarraProgreso: FC<{ conteo: ConteoPorOpcion[]; totalVotos: number; metodoDivision: string }> = ({ conteo, totalVotos, metodoDivision }) => {
@@ -199,6 +369,7 @@ const EncuestasAdmin: FC = () => {
   const [encuestas, setEncuestas] = useState<Encuesta[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [accessDeniedMessage, setAccessDeniedMessage] = useState<string>('');
 
   const [form, setForm] = useState<EncuestaForm>(FORM_INITIAL);
 
@@ -224,7 +395,13 @@ const EncuestasAdmin: FC = () => {
       const res = await fetch(`${API_BASE_URL}/encuestas/${condominioId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = (await res.json()) as { status: string; encuestas?: Encuesta[] };
+      const data = (await res.json()) as { status: string; encuestas?: Encuesta[]; message?: string; error?: string };
+      if (res.status === 403) {
+        setAccessDeniedMessage(data.message ?? data.error ?? 'No tienes permisos para gestionar cartas consulta en este condominio.');
+        setEncuestas([]);
+        return;
+      }
+      setAccessDeniedMessage('');
       if (data.status === 'success') setEncuestas(data.encuestas ?? []);
     } catch (err: unknown) {
       console.error(err);
@@ -304,6 +481,16 @@ const EncuestasAdmin: FC = () => {
   const handleSubmit = async (e: { preventDefault: () => void }): Promise<void> => {
     e.preventDefault();
 
+    if (!form.fecha_fin) {
+      await showAlert({ title: 'Fecha requerida', message: 'Debes seleccionar la fecha y hora de cierre.', variant: 'warning' });
+      return;
+    }
+
+    if (new Date(form.fecha_fin) <= new Date()) {
+      await showAlert({ title: 'Fecha inválida', message: 'La fecha de cierre debe ser posterior al momento actual.', variant: 'warning' });
+      return;
+    }
+
     if (form.tipo === 'MULTIPLE') {
       const validas = form.opciones.filter((o) => o.trim().length > 0);
       if (validas.length < 2) {
@@ -328,6 +515,10 @@ const EncuestasAdmin: FC = () => {
         body: JSON.stringify(body),
       });
       const data = (await res.json()) as { status: string; message?: string; error?: string };
+      if (res.status === 403) {
+        await showAlert({ title: 'Sin permisos', message: data.message ?? data.error ?? 'No autorizado.', variant: 'warning' });
+        return;
+      }
       if (data.status === 'success') {
         await showAlert({ title: 'Carta Consulta creada', message: data.message ?? 'La carta consulta fue publicada exitosamente.', variant: 'success' });
         setForm(FORM_INITIAL);
@@ -352,6 +543,11 @@ const EncuestasAdmin: FC = () => {
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
           Crea cartas consulta para que los propietarios voten desde su portal. Los resultados son en tiempo real.
         </p>
+        {accessDeniedMessage && (
+          <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200">
+            {accessDeniedMessage}
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6 items-start">
@@ -444,14 +640,10 @@ const EncuestasAdmin: FC = () => {
 
               {/* Fecha de cierre */}
               <FormField label="Fecha y Hora de Cierre" required hint="Después de esta fecha la carta consulta quedará cerrada y no aceptará más votos.">
-                <input
-                  type="datetime-local"
-                  name="fecha_fin"
+                <CartaConsultaDateTimePicker
                   value={form.fecha_fin}
-                  onChange={handleChange}
-                  required
-                  min={new Date().toISOString().slice(0, 16)}
-                  className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white outline-none focus:ring-2 focus:ring-donezo-primary text-sm"
+                  onChange={(next) => setForm((prev) => ({ ...prev, fecha_fin: next }))}
+                  minDate={new Date()}
                 />
               </FormField>
 
@@ -577,3 +769,5 @@ const EncuestasAdmin: FC = () => {
 };
 
 export default EncuestasAdmin;
+
+

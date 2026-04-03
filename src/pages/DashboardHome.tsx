@@ -23,6 +23,7 @@ import {
 } from 'recharts';
 import { API_BASE_URL } from '../config/api';
 import { formatMoney } from '../utils/currency';
+import StatusBadge from '../components/ui/StatusBadge';
 
 interface DashboardHomeProps {}
 
@@ -35,6 +36,7 @@ interface DashboardUser {
 interface OutletContextType {
   user?: DashboardUser;
   userRole?: UserRole;
+  condominioTipo?: string;
 }
 
 interface BalanceRow {
@@ -104,6 +106,21 @@ interface GraficosState {
   dataGastos: GastoRow[];
 }
 
+interface JuntaNotificacion {
+  id: number;
+  tipo: string;
+  titulo: string;
+  mensaje: string;
+  leida: boolean;
+  created_at?: string;
+}
+
+interface JuntaNotificacionesResponse {
+  status: 'success' | 'error';
+  data?: JuntaNotificacion[];
+  message?: string;
+}
+
 const COLORS: string[] = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 const toSafeNumber = (...values: unknown[]): number => {
   for (const value of values) {
@@ -114,7 +131,8 @@ const toSafeNumber = (...values: unknown[]): number => {
 };
 
 const DashboardHome: FC<DashboardHomeProps> = () => {
-  const { user, userRole } = useOutletContext<OutletContextType>();
+  const { user, userRole, condominioTipo } = useOutletContext<OutletContextType>();
+  const isJuntaGeneral = String(condominioTipo || '').trim().toLowerCase() === 'junta general';
   const [kpis, setKpis] = useState<KpisState>({
     liquidez: 0,
     porCobrar: 0,
@@ -132,9 +150,13 @@ const DashboardHome: FC<DashboardHomeProps> = () => {
     solicitudesAlquilerPendientes: 0,
     pagosAlquilerReportados: 0,
   });
+  const [notificaciones, setNotificaciones] = useState<JuntaNotificacion[]>([]);
+  const [notificacionesLoading, setNotificacionesLoading] = useState<boolean>(false);
+  const [notificacionesBusyId, setNotificacionesBusyId] = useState<number | null>(null);
 
   useEffect(() => {
     if (userRole !== 'Administrador') return;
+    if (isJuntaGeneral) return;
     const token = localStorage.getItem('habioo_token');
     if (!token) return;
 
@@ -237,13 +259,84 @@ const DashboardHome: FC<DashboardHomeProps> = () => {
     };
 
     void fetchDashboardData();
-  }, [userRole]);
+  }, [userRole, isJuntaGeneral]);
+
+  useEffect(() => {
+    if (userRole !== 'Administrador') return;
+    if (isJuntaGeneral) return;
+    const token = localStorage.getItem('habioo_token');
+    if (!token) return;
+
+    const fetchNotificaciones = async (): Promise<void> => {
+      setNotificacionesLoading(true);
+      try {
+        const res = await fetch(`${API_BASE_URL}/juntas-generales/notificaciones`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data: JuntaNotificacionesResponse = await res.json();
+        if (!res.ok || data.status !== 'success') {
+          setNotificaciones([]);
+          return;
+        }
+        setNotificaciones(Array.isArray(data.data) ? data.data : []);
+      } catch {
+        setNotificaciones([]);
+      } finally {
+        setNotificacionesLoading(false);
+      }
+    };
+
+    void fetchNotificaciones();
+  }, [userRole, isJuntaGeneral]);
+
+  const marcarNotificacionLeida = async (id: number): Promise<void> => {
+    const token = localStorage.getItem('habioo_token');
+    if (!token) return;
+    setNotificacionesBusyId(id);
+    try {
+      const res = await fetch(`${API_BASE_URL}/juntas-generales/notificaciones/${id}/leida`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      setNotificaciones((prev) => prev.map((n) => (n.id === id ? { ...n, leida: true } : n)));
+    } finally {
+      setNotificacionesBusyId(null);
+    }
+  };
+
+  const marcarTodasLeidas = async (): Promise<void> => {
+    const token = localStorage.getItem('habioo_token');
+    if (!token) return;
+    setNotificacionesBusyId(-1);
+    try {
+      const res = await fetch(`${API_BASE_URL}/juntas-generales/notificaciones/leidas/todas`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      setNotificaciones((prev) => prev.map((n) => ({ ...n, leida: true })));
+    } finally {
+      setNotificacionesBusyId(null);
+    }
+  };
 
   if (userRole !== 'Administrador') {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
         <p className="text-gray-700 dark:text-gray-200">
           Esta vista de panel principal esta disponible para la Junta de Condominio.
+        </p>
+      </div>
+    );
+  }
+
+  if (isJuntaGeneral) {
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+        <p className="text-gray-700 dark:text-gray-200">
+          Esta vista de panel por inmuebles no aplica para Junta General.
+          Usa el módulo <b>Junta General</b> para conciliación y estado de cuenta entre juntas.
         </p>
       </div>
     );
@@ -418,6 +511,69 @@ const DashboardHome: FC<DashboardHomeProps> = () => {
           )}
         </article>
       </section>
+
+      {!isJuntaGeneral && (
+        <section className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Notificaciones internas</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Vinculación, avisos y movimientos entre Junta General e Individual.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => { void marcarTodasLeidas(); }}
+              disabled={notificacionesBusyId !== null || notificaciones.every((n) => n.leida)}
+              className="h-9 rounded-lg border border-gray-300 bg-white px-3 text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+            >
+              Marcar todas leídas
+            </button>
+          </div>
+
+          {notificacionesLoading ? (
+            <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Cargando notificaciones...</p>
+          ) : notificaciones.length === 0 ? (
+            <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">No hay notificaciones por ahora.</p>
+          ) : (
+            <div className="mt-4 space-y-2">
+              {notificaciones.slice(0, 12).map((n) => (
+                <div
+                  key={n.id}
+                  className={`rounded-lg border px-3 py-2 ${
+                    n.leida
+                      ? 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/60'
+                      : 'border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-gray-900 dark:text-white">{n.titulo || 'Notificación'}</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-300">{n.mensaje || '-'}</p>
+                      <p className="mt-1 text-[11px] text-gray-500">{n.created_at ? new Date(n.created_at).toLocaleString('es-VE') : ''}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {n.leida ? (
+                        <StatusBadge color="gray" border>Leída</StatusBadge>
+                      ) : (
+                        <>
+                          <StatusBadge color="blue" border>Nueva</StatusBadge>
+                          <button
+                            type="button"
+                            onClick={() => { void marcarNotificacionLeida(n.id); }}
+                            disabled={notificacionesBusyId !== null}
+                            className="rounded-lg border border-blue-200 bg-white px-2 py-1 text-[11px] font-bold text-blue-700 hover:bg-blue-50 disabled:opacity-60 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                          >
+                            Marcar leída
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 };

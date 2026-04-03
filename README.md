@@ -2,7 +2,7 @@
 
 Documento tecnico y funcional del estado actual del sistema.
 
-- Ultima actualizacion: 2026-03-29
+- Ultima actualizacion: 2026-04-02
 - Frontend: React + Vite + Tailwind
 - Backend: Node.js + Express + PostgreSQL
 
@@ -24,9 +24,12 @@ Fuente: `habioo-frontend/src/App.jsx`
 
 ### Publicas
 - `/` -> Login
+- `/login` -> Login
+- `/registro-junta` -> RegistroJunta
 
 ### Junta (admin)
 - `/dashboard` -> DashboardHome
+- `/junta-general` -> JuntaGeneral
 - `/perfil` -> PerfilCondominio
 - `/proveedores` -> Proveedores
 - `/gastos` -> Gastos
@@ -111,6 +114,16 @@ Fuente: `habioo-frontend/src/App.jsx`
 - Acceso como soporte a cualquier condominio mediante sesion controlada.
 - Endpoints dedicados: `GET /support/condominios`, `POST /support/entrar`, `POST /support/salir`.
 
+### 3.6 Junta General (flujo jerarquico)
+- CRUD de juntas individuales vinculadas (fantasma/vinculada).
+- Generacion de codigo de invitacion por miembro y aceptacion desde Junta Individual.
+- Cierre de ciclo General -> Individual con distribucion por partes iguales o alicuota.
+- Propagacion de cargo a Junta Individual como gasto de origen Junta General.
+- Estado de cuenta General <-> Individual en USD/Bs.
+- Conciliacion por periodo/junta/estado.
+- Notificaciones internas de vinculacion y pagos relacionados.
+- Registro publico de nuevas juntas en `/registro-junta` (sin depender de soporte).
+
 ---
 
 ## 4) Reglas de negocio relevantes
@@ -126,6 +139,10 @@ Fuente: `habioo-frontend/src/App.jsx`
   - **sin limite fijo de 48 horas en la logica actual**.
 - Zonas con historial contable no permiten cambios estructurales de inmuebles.
 - Fondos con movimientos no se eliminan sin cumplir validaciones.
+- Junta General no puede ver ni gestionar detalle de inmuebles.
+- Junta General opera `Zonas/Sectores` sobre juntas individuales (incluyendo fantasmas).
+- Si una junta individual ya fue incluida en aviso de cobro de Junta General, su vinculo no puede editarse/eliminarse.
+- Endpoints legacy de inmuebles para Junta General retornan 403.
 
 ---
 
@@ -138,6 +155,8 @@ Fuente: `habioo-auth/index.ts` + `habioo-auth/routes/*`
 - `POST /register`
 - `POST /login`
 - `GET /me`
+- `GET /condominios/juntas-generales-disponibles`
+- `POST /condominios/registro`
 
 ### Perfil condominio (`/api/perfil`)
 - `GET /api/perfil/`
@@ -267,8 +286,22 @@ Fuente: `habioo-auth/index.ts` + `habioo-auth/routes/*`
 
 ### Soporte / SuperUsuario
 - `GET /support/condominios`
+- `GET /support/juntas-generales`
+- `POST /support/condominios/crear`
 - `POST /support/entrar`
 - `POST /support/salir`
+
+### Junta General
+- `GET /juntas-generales/resumen`
+- `GET /juntas-generales/miembros?include_inactivos=true`
+- `POST /juntas-generales/miembros`
+- `PUT /juntas-generales/miembros/:id`
+- `DELETE /juntas-generales/miembros/:id`
+- `POST /juntas-generales/miembros/:id/invitacion`
+- `POST /juntas-generales/aceptar-invitacion`
+- `GET /juntas-generales/conciliacion`
+- `GET /juntas-generales/notificaciones`
+- `POST /juntas-generales/notificaciones/:id/leida`
 
 ### Chat
 - `POST /chat/ask`
@@ -285,6 +318,10 @@ Fuente: `habioo-auth/index.ts` + `habioo-auth/routes/*`
 - `recibos` (con `snapshot_jsonb`), `pagos`
 - `cuentas_bancarias`, `fondos`, `movimientos_fondos`
 - `cortes_estado_cuenta_fondos` (snapshots mensuales por aviso)
+- `junta_general_miembros`
+- `junta_general_avisos`, `junta_general_aviso_detalles`
+- `junta_general_notificaciones`
+- `junta_general_auditoria_eventos`
 - tablas de encuestas y respuestas
 - tablas de alquileres y reservaciones
 
@@ -306,3 +343,32 @@ Fuente: `habioo-auth/index.ts` + `habioo-auth/routes/*`
 
 ### Nota de sesion
 - Si cambias entre entornos y aparece `401`, limpiar `localStorage` y volver a iniciar sesion.
+
+---
+
+## 8) Estado del Plan Junta General (al 2026-04-02)
+
+### Completado
+- Sprint 1: base operativa, soporte, migracion legacy y jerarquia inicial.
+- Sprint 1 (operativo): registro publico de juntas (`/registro-junta` + APIs de registro).
+- Sprint 2: vinculacion por codigo, CRUD de miembros y validaciones de RIF.
+- Sprint 3: distribucion General -> Individual con trazabilidad (`origen_*`) y miembros fantasma.
+- Sprint 4: conciliacion, estado de cuenta General<->Individual, pagos a Junta General como proveedor.
+
+### En progreso
+- Sprint 5:
+  - reglas 1:1 de editar/eliminar vinculo por historial de avisos (implementado),
+  - endurecimiento de permisos jerarquicos en modulos de inmuebles (implementado en modulos clave),
+  - auditoria de eventos criticos de vinculacion (implementado),
+  - notificaciones internas ampliadas (implementado parcialmente; falta cierre total de cobertura).
+
+### Pendiente
+- Sprint 6 completo: pruebas unitarias, integracion, E2E, QA formal, manual operativo y plan de despliegue/rollback.
+
+### Avance Sprint 6 (actual)
+- Base de test unitario backend agregada en `habioo-auth/tests/juntaGeneral.unit.test.js` (script `npm test` en `habioo-auth`).
+- Test de integracion API agregados en `habioo-auth/tests/api.integration.test.js` (flujos de permisos y resumen Junta General).
+- Test E2E frontend agregados con Playwright en `tests/e2e/junta-general.spec.ts` (script `npm run e2e`).
+- Manual operativo: `../docs/junta-general/MANUAL_OPERATIVO_JUNTA_GENERAL.md`.
+- Plan despliegue/rollback: `../docs/junta-general/DESPLIEGUE_Y_ROLLBACK_JUNTA_GENERAL.md`.
+- Checklist QA formal: `../docs/junta-general/QA_CHECKLIST_STAGING.md` (pendiente corrida completa en staging).

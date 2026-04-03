@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FC } from 'react';
 import { DollarSign, MapPin, Pencil, Plus } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { useOutletContext } from 'react-router-dom';
 import ModalNuevoAlquiler from '../components/alquileres/ModalNuevoAlquiler';
 import VistaSolicitudesAlquiler from '../components/alquileres/VistaSolicitudesAlquiler';
 import { API_BASE_URL } from '../config/api';
@@ -11,6 +12,8 @@ interface Alquiler {
   descripcion: string | null;
   costo_usd: string | number;
   deposito_usd: string | number;
+  zona_id?: number | null;
+  zona_nombre?: string | null;
   activo: boolean;
 }
 
@@ -20,7 +23,17 @@ interface AlquileresResponse {
   message?: string;
 }
 
+interface ZonaItem {
+  id: number;
+  nombre: string;
+  activa?: boolean;
+}
+
 type AlquilerTab = 'espacios' | 'solicitudes';
+
+interface LayoutOutletContext {
+  condominioTipo?: string;
+}
 
 const toNumber = (value: string | number | null | undefined): number => {
   const n = parseFloat(String(value ?? 0));
@@ -32,6 +45,8 @@ const formatUsd = (value: string | number | null | undefined): string => {
 };
 
 const VistaAlquileres: FC = () => {
+  const { condominioTipo } = useOutletContext<LayoutOutletContext>();
+  const esJuntaGeneral = String(condominioTipo || '').trim().toLowerCase() === 'junta general';
   const [activeTab, setActiveTab] = useState<AlquilerTab>('espacios');
   const [alquileres, setAlquileres] = useState<Alquiler[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -39,6 +54,7 @@ const VistaAlquileres: FC = () => {
   const [editingAlquiler, setEditingAlquiler] = useState<Alquiler | null>(null);
   const [updatingEstadoId, setUpdatingEstadoId] = useState<number | null>(null);
   const [error, setError] = useState<string>('');
+  const [zonas, setZonas] = useState<ZonaItem[]>([]);
 
   const fetchAlquileres = useCallback(async (): Promise<void> => {
     setIsLoading(true);
@@ -68,6 +84,32 @@ const VistaAlquileres: FC = () => {
   useEffect(() => {
     void fetchAlquileres();
   }, [fetchAlquileres]);
+
+  useEffect(() => {
+    const fetchZonas = async (): Promise<void> => {
+      try {
+        const token = localStorage.getItem('habioo_token');
+        const response = await fetch(`${API_BASE_URL}/zonas`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await response.json();
+        if (!response.ok || data?.status !== 'success') {
+          setZonas([]);
+          return;
+        }
+        setZonas(Array.isArray(data?.zonas) ? data.zonas : []);
+      } catch {
+        setZonas([]);
+      }
+    };
+    void fetchZonas();
+  }, []);
+
+  useEffect(() => {
+    if (esJuntaGeneral && activeTab !== 'espacios') {
+      setActiveTab('espacios');
+    }
+  }, [esJuntaGeneral, activeTab]);
 
   const toggleAmenidadEstado = async (item: Alquiler): Promise<void> => {
     if (updatingEstadoId !== null) return;
@@ -163,6 +205,12 @@ const VistaAlquileres: FC = () => {
                   {item.activo ? 'Activo' : 'Inactivo'}
                 </span>
               </header>
+
+              {item.zona_nombre ? (
+                <p className="mt-2 inline-flex items-center rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-sky-700 dark:border-sky-800 dark:bg-sky-900/30 dark:text-sky-300">
+                  Área / Sector: {item.zona_nombre}
+                </p>
+              ) : null}
 
               <div className="mt-4 flex items-center gap-2">
                 <div className="h-9 w-9 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 flex items-center justify-center">
@@ -260,25 +308,39 @@ const VistaAlquileres: FC = () => {
           >
             Espacios
           </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('solicitudes')}
-            className={`rounded-xl px-4 py-2 text-sm font-bold transition-colors ${
-              activeTab === 'solicitudes'
-                ? 'bg-donezo-primary text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
-            }`}
-          >
-            Ver Solicitudes
-          </button>
+          {!esJuntaGeneral && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('solicitudes')}
+              className={`rounded-xl px-4 py-2 text-sm font-bold transition-colors ${
+                activeTab === 'solicitudes'
+                  ? 'bg-donezo-primary text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+              }`}
+            >
+              Ver Solicitudes
+            </button>
+          )}
         </div>
       </div>
 
-      {activeTab === 'espacios' ? renderEspacios() : <VistaSolicitudesAlquiler />}
+      {activeTab === 'espacios' ? (
+        renderEspacios()
+      ) : esJuntaGeneral ? (
+        <div className="rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-white p-5 shadow-sm dark:border-amber-900/40 dark:from-amber-900/20 dark:to-donezo-card-dark">
+          <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+            En Junta General solo está disponible la gestión de espacios. Las solicitudes y pagos por inmueble se administran en cada Junta Individual.
+          </p>
+        </div>
+      ) : (
+        <VistaSolicitudesAlquiler />
+      )}
 
       <ModalNuevoAlquiler
         isOpen={isModalOpen}
         mode={editingAlquiler ? 'edit' : 'create'}
+        zonas={zonas}
+        isJuntaGeneral={esJuntaGeneral}
         initialData={editingAlquiler}
         onClose={() => {
           setIsModalOpen(false);

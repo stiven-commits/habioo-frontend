@@ -9,8 +9,8 @@ export interface Column<T> {
 }
 
 interface DataTableProps<T> {
-  columns: Column<T>[];
-  data: T[];
+  columns?: Column<T>[];
+  data?: T[] | null;
   loading?: boolean;
   emptyMessage?: string;
   keyExtractor: (row: T, index: number) => string | number;
@@ -35,12 +35,15 @@ function DataTable<T>({
   renderFooter,
   tableStyle,
 }: DataTableProps<T>) {
+  const safeColumns = Array.isArray(columns) ? columns : [];
+  const safeData = Array.isArray(data) ? data : [];
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-left text-sm" style={tableStyle}>
         <thead className="sticky top-0 z-20 bg-gray-50 dark:bg-gray-800">
           <tr className="border-b border-gray-200 dark:border-gray-700">
-            {columns.map((col) => (
+            {safeColumns.map((col) => (
               <th
                 key={col.key}
                 className={`p-3 font-bold uppercase text-[11px] text-gray-500 dark:text-gray-400 ${col.headerClassName ?? ''}`}
@@ -53,21 +56,21 @@ function DataTable<T>({
         <tbody>
           {loading ? (
             <tr>
-              <td colSpan={columns.length} className="p-8 text-center text-sm text-gray-400 dark:text-gray-500">
+              <td colSpan={Math.max(safeColumns.length, 1)} className="p-8 text-center text-sm text-gray-400 dark:text-gray-500">
                 <div className="flex items-center justify-center gap-2">
                   <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-donezo-primary" />
                   Cargando...
                 </div>
               </td>
             </tr>
-          ) : data.length === 0 ? (
+          ) : safeData.length === 0 ? (
             <tr>
-              <td colSpan={columns.length} className="p-8 text-center text-sm text-gray-400 dark:text-gray-500">
+              <td colSpan={Math.max(safeColumns.length, 1)} className="p-8 text-center text-sm text-gray-400 dark:text-gray-500">
                 {emptyMessage}
               </td>
             </tr>
           ) : (
-            data.map((row, index) => (
+            safeData.map((row, index) => (
               <Fragment key={keyExtractor(row, index)}>
                 <tr
                   className={
@@ -77,7 +80,7 @@ function DataTable<T>({
                   }
                   onDoubleClick={onRowDoubleClick ? () => onRowDoubleClick(row, index) : undefined}
                 >
-                  {columns.map((col) => (
+                  {safeColumns.map((col) => (
                     <td key={col.key} className={`p-3 ${col.className ?? ''}`}>
                       {col.render(row, index)}
                     </td>

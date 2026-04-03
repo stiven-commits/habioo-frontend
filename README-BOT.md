@@ -2,7 +2,7 @@
 
 Guia operativa para asistentes IA y soporte funcional.
 
-- Ultima actualizacion: 2026-03-29
+- Ultima actualizacion: 2026-04-02
 - Objetivo: orientar acciones segun rol, modulos y restricciones reales del sistema.
 
 ---
@@ -19,6 +19,7 @@ Habioo es una plataforma de gestion de condominios con dos vistas principales:
 
 ### Junta
 - `/dashboard`
+- `/junta-general`
 - `/perfil`
 - `/proveedores`
 - `/gastos`
@@ -32,6 +33,10 @@ Habioo es una plataforma de gestion de condominios con dos vistas principales:
 - `/carta-consulta`
 - `/avisos-cobro`
 - `/aviso-cobro/:id`
+
+### Publicas
+- `/login`
+- `/registro-junta`
 
 ### Propietario
 - `/propietario/gastos`
@@ -127,6 +132,13 @@ Usar esta guia cuando el usuario pida "donde hago X". El agente debe mencionar r
   - Editar: icono lapiz por tarjeta.
   - Eliminar: icono basurero (si aplica).
 
+- `Junta General` (`/junta-general`):
+  - Registrar junta individual: bloque `Registrar Junta Individual`.
+  - Estado de cuenta por junta: tabla `Estado de Cuenta por Junta`.
+  - Conciliacion por periodo: filtro de mes, junta y estado.
+  - Vinculacion de juntas: acciones `Editar`, `Codigo`, `Eliminar vinculo`.
+  - Regla: si una junta ya tiene historial en aviso de cobro, queda bloqueada para editar o eliminar vinculo.
+
 - `Alquileres` (`/alquileres`, Junta):
   - Tabs: `Espacios` / `Solicitudes`.
   - Crear amenidad: boton `+ Nuevo Alquiler` en tab Espacios.
@@ -221,6 +233,10 @@ Existen 2 modos:
 - Rollback de pago bloqueado si pago no esta `Validado` o si tiene recibo asociado.
 - Zonas con historial contable no permiten cambios estructurales de inmuebles.
 - Fondos con movimientos no se eliminan sin cumplir validaciones.
+- Junta General no puede ver ni gestionar detalle de inmuebles.
+- Junta General usa Zonas/Sectores sobre juntas individuales (incluyendo fantasmas), no sobre inmuebles.
+- Junta General no puede acceder a endpoints legacy de inmuebles por URL/API directa (403).
+- Registro operativo de juntas disponible en `/registro-junta`.
 
 ---
 
@@ -228,6 +244,8 @@ Existen 2 modos:
 
 ### Auth y perfil
 - `POST /login`, `GET /me`
+- `GET /condominios/juntas-generales-disponibles`
+- `POST /condominios/registro`
 - `GET/PUT /api/perfil/`
 - `PUT /api/perfil/password`
 
@@ -261,6 +279,17 @@ Existen 2 modos:
 - Encuestas: `POST /encuestas`, `GET /encuestas/:condominio_id`, `POST /encuestas/:id/votar`, `GET /encuestas/:id/resultados`
 - Alquileres: `GET/POST/PUT/PATCH /alquileres...`, `POST /alquileres/reservar`, `POST /alquileres/reservaciones/:id/pagar`, `PUT /alquileres/reservaciones/:id/aprobar-pago`
 - Chat: `POST /chat/ask`
+- Junta General:
+  - `GET /juntas-generales/resumen`
+  - `GET /juntas-generales/miembros?include_inactivos=true`
+  - `POST /juntas-generales/miembros`
+  - `PUT /juntas-generales/miembros/:id`
+  - `DELETE /juntas-generales/miembros/:id`
+  - `POST /juntas-generales/miembros/:id/invitacion`
+  - `POST /juntas-generales/aceptar-invitacion`
+  - `GET /juntas-generales/conciliacion`
+  - `GET /juntas-generales/notificaciones`
+  - `POST /juntas-generales/notificaciones/:id/leida`
 
 ---
 
@@ -285,3 +314,29 @@ Actualizar este archivo cuando cambie cualquiera de estos puntos:
 - rutas frontend,
 - reglas de rollback/ajuste,
 - nuevos modulos visibles en menu.
+
+---
+
+## 9) Estado Junta General (al 2026-04-02)
+
+### Completado
+- Sprint 1: registro desde soporte, migracion legacy, jerarquia base y bloqueo de inmuebles para Junta General.
+- Sprint 1 (extra): flujo operativo publico de registro en `/registro-junta`.
+- Sprint 2: CRUD miembros, codigos de invitacion, aceptar invitacion, estados de vinculacion y validaciones de RIF.
+- Sprint 3: cierre y distribucion General -> Individual con trazabilidad, miembros fantasma y UX de preliminar/cierre.
+- Sprint 4: conciliacion, estado de cuenta General<->Individual, pagos a Junta General como proveedor y filtros.
+- Sprint 5 (parcial): reglas 1:1 editar/eliminar por historial, endurecimiento de permisos jerarquicos, auditoria de vinculacion y notificaciones ampliadas.
+
+### Pendiente
+- Sprint 5: completar cobertura total de permisos/auditoria/notificaciones en todos los modulos.
+- Sprint 6: pruebas automatizadas, QA formal, manual operativo y despliegue/rollback.
+
+### Documentacion Sprint 6 disponible
+- `../docs/junta-general/QA_CHECKLIST_STAGING.md`
+- `../docs/junta-general/MANUAL_OPERATIVO_JUNTA_GENERAL.md`
+- `../docs/junta-general/DESPLIEGUE_Y_ROLLBACK_JUNTA_GENERAL.md`
+
+### Pruebas automatizadas Sprint 6 disponibles
+- Backend unit: `habioo-auth/tests/juntaGeneral.unit.test.js`
+- Backend integracion API: `habioo-auth/tests/api.integration.test.js`
+- Frontend E2E (Playwright): `tests/e2e/junta-general.spec.ts`

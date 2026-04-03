@@ -20,6 +20,8 @@ interface ModalNuevoAlquilerProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  zonas?: Array<{ id: number; nombre: string; activa?: boolean }>;
+  isJuntaGeneral?: boolean;
   mode?: 'create' | 'edit';
   initialData?: {
     id: number;
@@ -27,6 +29,7 @@ interface ModalNuevoAlquilerProps {
     descripcion: string | null;
     costo_usd: string | number;
     deposito_usd: string | number;
+    zona_id?: number | null;
   } | null;
 }
 
@@ -150,10 +153,19 @@ const MarkdownEditorField: FC<MarkdownEditorFieldProps> = ({ value, placeholder,
   );
 };
 
-const ModalNuevoAlquiler: FC<ModalNuevoAlquilerProps> = ({ isOpen, onClose, onSuccess, mode = 'create', initialData = null }) => {
+const ModalNuevoAlquiler: FC<ModalNuevoAlquilerProps> = ({
+  isOpen,
+  onClose,
+  onSuccess,
+  zonas = [],
+  isJuntaGeneral = false,
+  mode = 'create',
+  initialData = null,
+}) => {
   const [nombre, setNombre] = useState<string>('');
   const [costoUsd, setCostoUsd] = useState<string>('');
   const [depositoUsd, setDepositoUsd] = useState<string>('');
+  const [zonaId, setZonaId] = useState<string>('');
   const [descripcion, setDescripcion] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
@@ -170,6 +182,7 @@ const ModalNuevoAlquiler: FC<ModalNuevoAlquilerProps> = ({ isOpen, onClose, onSu
       setNombre(initialData.nombre || '');
       setCostoUsd(String(initialData.costo_usd ?? ''));
       setDepositoUsd(String(initialData.deposito_usd ?? ''));
+      setZonaId(initialData.zona_id ? String(initialData.zona_id) : '');
       setDescripcion(initialData.descripcion || '');
       setError('');
       return;
@@ -181,6 +194,7 @@ const ModalNuevoAlquiler: FC<ModalNuevoAlquilerProps> = ({ isOpen, onClose, onSu
     setNombre('');
     setCostoUsd('');
     setDepositoUsd('');
+    setZonaId('');
     setDescripcion('');
     setError('');
   };
@@ -230,6 +244,7 @@ const ModalNuevoAlquiler: FC<ModalNuevoAlquilerProps> = ({ isOpen, onClose, onSu
           descripcion: descripcionTrim || null,
           costo_usd: costoNum,
           deposito_usd: depositoNum,
+          zona_id: zonaId ? Number(zonaId) : null,
         }),
       });
 
@@ -292,6 +307,26 @@ const ModalNuevoAlquiler: FC<ModalNuevoAlquilerProps> = ({ isOpen, onClose, onSu
                       className="h-11 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
+                    {isJuntaGeneral ? 'Área / Sector (Juntas)' : 'Área / Sector'}
+                  </label>
+                  <select
+                    value={zonaId}
+                    onChange={(event) => setZonaId(event.target.value)}
+                    className="h-11 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="">Sin área / sector</option>
+                    {zonas
+                      .filter((z) => z.activa !== false)
+                      .map((z) => (
+                        <option key={`alquiler-zona-${z.id}`} value={String(z.id)}>
+                          {z.nombre}
+                        </option>
+                      ))}
+                  </select>
                 </div>
 
                 <div>

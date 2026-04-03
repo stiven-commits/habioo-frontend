@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate, useMatch } from 'react-router-dom';
 import { API_BASE_URL } from '../config/api';
 import AIChatWidget from './AIChatWidget';
 import habiooIsoHabioBlanco from '../assets/brand/habioo_iso_habio_blanco.svg';
@@ -189,6 +189,12 @@ const Layout: React.FC<LayoutProps> = () => {
   const formSubmitLockRef = useRef<WeakMap<HTMLFormElement, number>>(new WeakMap<HTMLFormElement, number>());
   const location = useLocation();
   const navigate = useNavigate();
+  // Detecta si estamos dentro de una sesión de soporte con condominioId en la URL
+  const soporteMatch = useMatch('/soporte/:condominioId/*');
+  const soporteCondominioId = soporteMatch?.params?.condominioId ?? null;
+  // Helper: genera la URL correcta según si estamos en modo soporte con ID en URL o no
+  const navTo = (path: string): string =>
+    soporteCondominioId ? `/soporte/${soporteCondominioId}${path}` : path;
 
   const pushFloating = (item: FloatingNotification): void => {
     setFloatingNotifications((prev: FloatingNotification[]) => [item, ...prev].slice(0, 4));
@@ -455,6 +461,9 @@ const Layout: React.FC<LayoutProps> = () => {
 
   useEffect(() => {
     if (userRole !== 'Administrador') return;
+    const tipoCondominio = String(condominioTipo || '').trim().toLowerCase();
+    if (!tipoCondominio) return;
+    if (tipoCondominio === 'junta general') return;
 
     let isActive = true;
     let timer: ReturnType<typeof setInterval> | null = null;
@@ -504,11 +513,12 @@ const Layout: React.FC<LayoutProps> = () => {
       isActive = false;
       if (timer) clearInterval(timer);
     };
-  }, [userRole]);
+  }, [userRole, condominioTipo]);
 
   useEffect(() => {
     if (userRole !== 'Administrador') return;
-    if (String(condominioTipo || '').trim().toLowerCase() !== 'junta general') return;
+    const tipoCondominio = String(condominioTipo || '').trim().toLowerCase();
+    if (!tipoCondominio) return;
 
     let isActive = true;
     let timer: ReturnType<typeof setInterval> | null = null;
@@ -544,8 +554,10 @@ const Layout: React.FC<LayoutProps> = () => {
 
           pushFloating({
             key: `jg-notif-${n.id}-${Date.now()}`,
-            title: n.titulo || 'Notificación Junta General',
-            message: n.mensaje || 'Tienes una nueva notificación de junta general.',
+            title: n.titulo || (tipoCondominio === 'junta general' ? 'Notificación Junta General' : 'Notificación interna'),
+            message: n.mensaje || (tipoCondominio === 'junta general'
+              ? 'Tienes una nueva notificación de junta general.'
+              : 'Tienes una nueva notificación interna de tu vinculación con Junta General.'),
             tone: 'info',
           });
         });
@@ -569,6 +581,18 @@ const Layout: React.FC<LayoutProps> = () => {
 
   useEffect(() => {
     if (userRole !== 'Administrador') return;
+    if (String(condominioTipo || '').trim().toLowerCase() !== 'junta general') return;
+    const blockedForGeneral = new Set<string>(['/dashboard', '/inmuebles']);
+    if (blockedForGeneral.has(location.pathname)) {
+      navigate('/junta-general', { replace: true });
+    }
+  }, [userRole, condominioTipo, location.pathname, navigate]);
+
+  useEffect(() => {
+    if (userRole !== 'Administrador') return;
+    const tipoCondominio = String(condominioTipo || '').trim().toLowerCase();
+    if (!tipoCondominio) return;
+    if (tipoCondominio === 'junta general') return;
 
     let isActive = true;
     let timer: ReturnType<typeof setInterval> | null = null;
@@ -644,7 +668,7 @@ const Layout: React.FC<LayoutProps> = () => {
       isActive = false;
       if (timer) clearInterval(timer);
     };
-  }, [userRole]);
+  }, [userRole, condominioTipo]);
 
   const toggleTheme: React.MouseEventHandler<HTMLButtonElement> = () => {
     setTheme((previousTheme: Theme) => (previousTheme === 'dark' ? 'light' : 'dark'));
@@ -741,20 +765,37 @@ const Layout: React.FC<LayoutProps> = () => {
     '/junta-general': 'Junta General',
   };
 
-  const hideOuterPageHeader =
-    location.pathname === '/estado-cuentas'
-    || location.pathname === '/cuentas-cobrar'
-    || location.pathname === '/gastos'
-    || location.pathname === '/proveedores';
+  // En rutas de soporte /soporte/:id/seccion, resolvemos el título por la sección final
+  const resolvedPageTitle = (() => {
+    if (soporteCondominioId) {
+      const sectionPath = location.pathname.replace(`/soporte/${soporteCondominioId}`, '');
+      return pageTitles[sectionPath] ?? pageTitles[location.pathname] ?? 'Bienvenido';
+    }
+    return pageTitles[location.pathname] ?? 'Bienvenido';
+  })();
 
-  const navClass = (path: string): string =>
-    `group flex items-center rounded-xl transition-all duration-200 font-semibold ${
+  const hideOuterPageHeader = (() => {
+    const effectivePath = soporteCondominioId
+      ? location.pathname.replace(`/soporte/${soporteCondominioId}`, '')
+      : location.pathname;
+    return effectivePath === '/estado-cuentas'
+      || effectivePath === '/cuentas-cobrar'
+      || effectivePath === '/gastos'
+      || effectivePath === '/proveedores';
+  })();
+
+  const navClass = (path: string): string => {
+    const fullPath = navTo(path);
+    const isActive = location.pathname === fullPath
+      || (path === '/soporte/condominios' && location.pathname === '/soporte/condominios');
+    return `group flex items-center rounded-xl transition-all duration-200 font-semibold ${
       sidebarCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'
     } ${
-      location.pathname === path
+      isActive
         ? 'bg-[#0b472a] text-white shadow-[inset_0_0_0_1px_rgba(110,231,183,0.15)]'
         : 'text-emerald-50/90 hover:bg-[#0c5331] hover:text-white'
     }`;
+  };
 
   const sectionTitleClass = `px-1 text-[11px] font-black uppercase tracking-[0.14em] text-emerald-200/55 ${
     sidebarCollapsed ? 'hidden' : ''
@@ -861,7 +902,7 @@ const Layout: React.FC<LayoutProps> = () => {
         <nav className={`flex-1 px-3 py-4 space-y-1.5 overflow-y-auto ${sidebarCollapsed ? 'items-center' : ''}`}>
           <p className={sectionTitleClass}>Principal</p>
           <Link
-            to={userRole === 'SuperUsuario' ? '/soporte/condominios' : (esJuntaGeneral ? '/junta-general' : '/dashboard')}
+            to={userRole === 'SuperUsuario' ? '/soporte/condominios' : navTo(esJuntaGeneral ? '/junta-general' : '/dashboard')}
             className={navClass(userRole === 'SuperUsuario' ? '/soporte/condominios' : (esJuntaGeneral ? '/junta-general' : '/dashboard'))}
             title={userRole === 'SuperUsuario' ? 'Soporte' : (esJuntaGeneral ? 'Junta General' : 'Dashboard')}
           >
@@ -882,56 +923,56 @@ const Layout: React.FC<LayoutProps> = () => {
           {userRole === 'Administrador' && (
             <>
               {!esJuntaGeneral && (
-                <Link to="/inmuebles" className={navClass('/inmuebles')} title="Inmuebles">
+                <Link to={navTo('/inmuebles')} className={navClass('/inmuebles')} title="Inmuebles">
                   <Building2 size={18} />
                   {!sidebarCollapsed && <span>Inmuebles</span>}
                 </Link>
               )}
-              <Link to="/proveedores" className={navClass('/proveedores')} title="Proveedores">
+              <Link to={navTo('/proveedores')} className={navClass('/proveedores')} title="Proveedores">
                 <Handshake size={18} />
                 {!sidebarCollapsed && <span>Proveedores</span>}
               </Link>
-              <Link to="/gastos" className={navClass('/gastos')} title="Gastos">
+              <Link to={navTo('/gastos')} className={navClass('/gastos')} title="Gastos">
                 <Receipt size={18} />
                 {!sidebarCollapsed && <span>Gastos</span>}
               </Link>
-              <Link to="/cierres" className={navClass('/cierres')} title="Cierres">
+              <Link to={navTo('/cierres')} className={navClass('/cierres')} title="Cierres">
                 <FileCheck2 size={18} />
                 {!sidebarCollapsed && <span>Cierres</span>}
               </Link>
 
               <p className={`mt-6 ${sectionTitleClass}`}>Finanzas</p>
-              <Link to="/cuentas-cobrar" className={navClass('/cuentas-cobrar')} title="Cuentas por Cobrar">
+              <Link to={navTo('/cuentas-cobrar')} className={navClass('/cuentas-cobrar')} title="Cuentas por Cobrar">
                 <WalletCards size={18} />
                 {!sidebarCollapsed && <span>Cuentas por Cobrar</span>}
               </Link>
-              <Link to="/bancos" className={navClass('/bancos')} title="Bancos">
+              <Link to={navTo('/bancos')} className={navClass('/bancos')} title="Bancos">
                 <Landmark size={18} />
                 {!sidebarCollapsed && <span>Bancos</span>}
               </Link>
-              <Link to="/estado-cuentas" className={navClass('/estado-cuentas')} title="Estado de Cuentas">
+              <Link to={navTo('/estado-cuentas')} className={navClass('/estado-cuentas')} title="Estado de Cuentas">
                 <BookOpen size={18} />
                 {!sidebarCollapsed && <span>Estado de Cuentas</span>}
               </Link>
-              <Link to="/avisos-cobro" className={navClass('/avisos-cobro')} title="Avisos de Cobro">
+              <Link to={navTo('/avisos-cobro')} className={navClass('/avisos-cobro')} title="Avisos de Cobro">
                 <Bell size={18} />
                 {!sidebarCollapsed && <span>Avisos de Cobro</span>}
               </Link>
 
               <p className={`mt-6 ${sectionTitleClass}`}>Configuracion</p>
-              <Link to="/zonas" className={navClass('/zonas')} title="Áreas / Sectores">
+              <Link to={navTo('/zonas')} className={navClass('/zonas')} title="Áreas / Sectores">
                 <MapPin size={18} />
                 {!sidebarCollapsed && <span>Áreas / Sectores</span>}
               </Link>
-              <Link to="/perfil" className={navClass('/perfil')} title="Perfil Condominio">
+              <Link to={navTo('/perfil')} className={navClass('/perfil')} title="Perfil Condominio">
                 <Settings size={18} />
                 {!sidebarCollapsed && <span>Perfil</span>}
               </Link>
-              <Link to="/alquileres" className={navClass('/alquileres')} title="Alquileres">
+              <Link to={navTo('/alquileres')} className={navClass('/alquileres')} title="Alquileres">
                 <CalendarDays size={18} />
                 {!sidebarCollapsed && <span>Alquileres</span>}
               </Link>
-              <Link to="/carta-consulta" className={navClass('/carta-consulta')} title="Cartas Consulta">
+              <Link to={navTo('/carta-consulta')} className={navClass('/carta-consulta')} title="Cartas Consulta">
                 <ClipboardList size={18} />
                 {!sidebarCollapsed && <span>Cartas Consulta</span>}
               </Link>
@@ -1053,9 +1094,9 @@ const Layout: React.FC<LayoutProps> = () => {
         </header>
 
         <div className="p-4 md:p-8">
-          {location.pathname !== '/dashboard' && !hideOuterPageHeader && (
+          {navTo('/dashboard') !== location.pathname && !hideOuterPageHeader && (
             <header className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{pageTitles[location.pathname] || 'Bienvenido'}</h2>
+              <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{resolvedPageTitle}</h2>
               <p className="text-gray-500 text-sm dark:text-gray-400">
                 {userRole === 'Propietario' && propiedadActiva ? propiedadResumen : 'Gestion central del condominio'}
               </p>

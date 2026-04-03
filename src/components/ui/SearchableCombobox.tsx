@@ -15,6 +15,8 @@ interface SearchableComboboxProps {
   className?: string;
   disabled?: boolean;
   emptyMessage?: string;
+  searchInputTestId?: string;
+  buttonTestId?: string;
 }
 
 const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
@@ -25,6 +27,8 @@ const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
   className = '',
   disabled = false,
   emptyMessage = 'Sin resultados',
+  searchInputTestId,
+  buttonTestId,
 }) => {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -85,6 +89,7 @@ const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
   return (
     <div ref={rootRef} className="relative">
       <input
+        data-testid={searchInputTestId}
         ref={inputRef}
         type="text"
         value={query}
@@ -99,6 +104,7 @@ const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
       />
       {!disabled && (
         <button
+          data-testid={buttonTestId}
           type="button"
           onClick={() => {
             setQuery('');
@@ -106,11 +112,11 @@ const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
             setOpen(true);
             inputRef.current?.focus();
           }}
-          className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
-          title="Limpiar selección"
-          aria-label="Limpiar selección"
+          className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+          title="Limpiar seleccion"
+          aria-label="Limpiar seleccion"
         >
-          ×
+          x
         </button>
       )}
       {open && !disabled && createPortal(
