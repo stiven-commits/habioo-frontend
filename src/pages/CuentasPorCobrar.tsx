@@ -10,6 +10,7 @@ import DataTable from '../components/ui/DataTable';
 import ModalRegistrarPago from '../components/ModalRegistrarPago';
 import { ModalEstadoCuenta } from '../components/propiedades/PropiedadesModals';
 import FormField from '../components/ui/FormField';
+import DatePicker from '../components/ui/DatePicker';
 
 interface CuentasPorCobrarProps { }
 
@@ -180,6 +181,20 @@ const parseNumberInput = (value: string | number | undefined | null): number => 
   return parseFloat(String(value).replace(/\./g, '').replace(',', '.')) || 0;
 };
 
+const toYmdLocal = (date: Date): string => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+const ymdToDateLocal = (ymd: string): Date | null => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
+  const [y, m, d] = ymd.split('-').map(Number);
+  const parsed = new Date(y, (m || 1) - 1, d || 1);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
 const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
   const { userRole, condominioTipo } = useOutletContext<OutletContextType>();
   const isJuntaGeneral = String(condominioTipo || '').trim().toLowerCase() === 'junta general';
@@ -211,6 +226,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
   const [montoBsAjuste, setMontoBsAjuste] = useState<string>('');
   const [tasaBcvAjuste, setTasaBcvAjuste] = useState<string>('');
   const [conceptoAjuste, setConceptoAjuste] = useState<string>('');
+  const [fechaOperacionAjuste, setFechaOperacionAjuste] = useState<string>(toYmdLocal(new Date()));
   const [isFetchingBCV, setIsFetchingBCV] = useState<boolean>(false);
   const [isSavingAjuste, setIsSavingAjuste] = useState<boolean>(false);
   const [showAprobacionModal, setShowAprobacionModal] = useState<boolean>(false);
@@ -392,6 +408,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
     setMontoBsAjuste('');
     setTasaBcvAjuste('');
     setConceptoAjuste('');
+    setFechaOperacionAjuste(toYmdLocal(new Date()));
     setDestinoIngreso('CUENTA');
     if (cuentasBancarias.length > 0) {
       const defaultCta = cuentasBancarias.find((c: any) => c.es_predeterminada);
@@ -518,6 +535,10 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
       alert('Debe ingresar un monto en Bs y una tasa BCV valida.');
       return;
     }
+    if (!fechaOperacionAjuste) {
+      alert('Debe seleccionar la fecha de operacion del ajuste.');
+      return;
+    }
     if (ajusteModo === 'COMPLETO' && ajusteTipo === 'FAVOR' && destinoIngreso === 'CUENTA' && !cuentaBancariaSeleccionada) {
       alert('Debe seleccionar una cuenta bancaria de destino para el ingreso.');
       return;
@@ -538,6 +559,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
         es_gasto_extra: ajusteModo === 'SOLO_INMUEBLE' ? false : (ajusteTipo === 'FAVOR' && destinoIngreso === 'EXTRA'),
         gasto_extra_id: ajusteModo === 'SOLO_INMUEBLE' ? null : (ajusteTipo === 'FAVOR' && destinoIngreso === 'EXTRA' ? Number(gastoExtraSeleccionado) : null),
         subtipo_favor: ajusteModo === 'SOLO_INMUEBLE' ? undefined : (ajusteTipo === 'FAVOR' && destinoIngreso === 'CUENTA' ? subtipoFavor : undefined),
+        fecha_operacion: fechaOperacionAjuste,
         nota: `${(conceptoAjuste || 'Ajuste manual').trim()} | [bs_raw:${parseNumberInput(montoBsAjuste).toFixed(2)}] | [tasa_raw:${parseNumberInput(tasaBcvAjuste).toFixed(6)}]`
       };
       const res = await fetch(`${API_BASE_URL}/propiedades-admin/${selectedPropAjuste.id}/ajustar-saldo`, {
@@ -604,7 +626,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
 
   const estadoCuentaFiltrado: EstadoCuentaMovimientoConSaldo[] = dataConSaldo.filter((m: EstadoCuentaMovimientoConSaldo) => {
     if (!fechaDesde && !fechaHasta) return true;
-    const movYmd = toYmdVE((m.fecha_registro as string) || (m.fecha_operacion as string));
+    const movYmd = toYmdVE((m.fecha_operacion as string) || (m.fecha_registro as string));
     if (!movYmd) return false;
     if (fechaDesde && movYmd < fechaDesde) return false;
     if (fechaHasta && movYmd > fechaHasta) return false;
@@ -1060,6 +1082,17 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                 </div>
               )}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="md:col-span-3">
+                  <FormField label="Fecha de Operacion">
+                    <DatePicker
+                      selected={ymdToDateLocal(fechaOperacionAjuste)}
+                      onChange={(date) => setFechaOperacionAjuste(date ? toYmdLocal(date) : '')}
+                      className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
+                      placeholderText="dd/mm/yyyy"
+                      required
+                    />
+                  </FormField>
+                </div>
                 <div className="md:col-span-3">
                   <FormField label="Concepto">
                     <input
