@@ -18,6 +18,42 @@ interface ChatAskApiResponse {
 
 const CHAT_STORAGE_KEY = 'habioo_chat_history';
 const MAX_CHAT_MESSAGES = 13;
+
+const fixMojibake = (value: string): string =>
+  value
+    .replace(/Â¿/g, '¿')
+    .replace(/Â¡/g, '¡')
+    .replace(/Ã¡/g, 'á')
+    .replace(/Ã©/g, 'é')
+    .replace(/Ã­/g, 'í')
+    .replace(/Ã³/g, 'ó')
+    .replace(/Ãº/g, 'ú')
+    .replace(/Ã±/g, 'ñ')
+    .replace(/Ã/g, 'Á')
+    .replace(/Ã‰/g, 'É')
+    .replace(/Ã/g, 'Í')
+    .replace(/Ã“/g, 'Ó')
+    .replace(/Ãš/g, 'Ú')
+    .replace(/Ã‘/g, 'Ñ');
+
+const normalizeAssistantText = (value: string): string => {
+  let text = fixMojibake(value).replace(/\r\n/g, '\n').trim();
+  const headingFixes: Array<{ pattern: RegExp; replacement: string }> = [
+    { pattern: /^\?\s*Que debes hacer:/gim, replacement: '🔹 Qué debes hacer:' },
+    { pattern: /^\?\?\s*Quien puede hacerlo:/gim, replacement: '👤 Quién puede hacerlo:' },
+    { pattern: /^\?\?\s*Pasos a seguir:/gim, replacement: '🧭 Pasos a seguir:' },
+    { pattern: /^\?\?\s*Resultado esperado:/gim, replacement: '✅ Resultado esperado:' },
+    { pattern: /^\?\?\s*Nota importante:/gim, replacement: '⚠️ Nota importante:' },
+    { pattern: /^\?\?\s*Base legal consultada:/gim, replacement: '📚 Base legal consultada:' },
+    { pattern: /^\?\?\s*Que indica la ley:/gim, replacement: '📖 Qué indica la ley:' },
+    { pattern: /^\?\s*Que significa en la practica:/gim, replacement: '🔎 Qué significa en la práctica:' },
+  ];
+  headingFixes.forEach(({ pattern, replacement }) => {
+    text = text.replace(pattern, replacement);
+  });
+  return text;
+};
+
 const WELCOME_MESSAGE: ChatMessage = {
   role: 'ai',
   text: '¡Hola! Soy el asistente de Habioo. ¿En qué te puedo ayudar hoy?',
@@ -34,6 +70,11 @@ const isChatMessage = (value: unknown): value is ChatMessage => {
   return (item.role === 'user' || item.role === 'ai') && typeof item.text === 'string';
 };
 
+const normalizeLoadedMessage = (message: ChatMessage): ChatMessage => ({
+  ...message,
+  text: message.role === 'ai' ? normalizeAssistantText(message.text) : fixMojibake(message.text),
+});
+
 const AIChatWidget: FC = () => {
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
@@ -42,7 +83,7 @@ const AIChatWidget: FC = () => {
       if (!raw) return [WELCOME_MESSAGE];
       const parsed = JSON.parse(raw) as unknown;
       if (!Array.isArray(parsed)) return [WELCOME_MESSAGE];
-      const valid = parsed.filter(isChatMessage);
+      const valid = parsed.filter(isChatMessage).map(normalizeLoadedMessage);
       return valid.length > 0 ? clampMessages(valid) : [WELCOME_MESSAGE];
     } catch {
       return [WELCOME_MESSAGE];
@@ -97,7 +138,10 @@ const AIChatWidget: FC = () => {
         setMessages((prev) =>
           clampMessages([
             ...prev,
-            { role: 'ai', text: String(data.message || 'No pude procesar tu solicitud en este momento.') },
+            {
+              role: 'ai',
+              text: normalizeAssistantText(String(data.message || 'No pude procesar tu solicitud en este momento.')),
+            },
           ]),
         );
         return;
@@ -110,7 +154,9 @@ const AIChatWidget: FC = () => {
             ? JSON.stringify(data.respuesta)
             : 'Sin respuesta del asistente.';
 
-      setMessages((prev) => clampMessages([...prev, { role: 'ai', text: respuestaTexto }]));
+      setMessages((prev) =>
+        clampMessages([...prev, { role: 'ai', text: normalizeAssistantText(respuestaTexto) }]),
+      );
     } catch {
       setMessages((prev) =>
         clampMessages([...prev, { role: 'ai', text: 'Error de conexión con el asistente. Inténtalo nuevamente.' }]),

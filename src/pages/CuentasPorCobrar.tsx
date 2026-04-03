@@ -7,7 +7,7 @@ import { toYmdVE } from '../utils/datetime';
 import { API_BASE_URL } from '../config/api';
 import ModalBase from '../components/ui/ModalBase';
 import DataTable from '../components/ui/DataTable';
-import ModalRegistrarPago from '../components/ModalRegistrarPago';
+import ModalRegistrarPago, { BANCOS_VENEZUELA } from '../components/ModalRegistrarPago';
 import { ModalEstadoCuenta } from '../components/propiedades/PropiedadesModals';
 import FormField from '../components/ui/FormField';
 import DatePicker from '../components/ui/DatePicker';
@@ -190,8 +190,12 @@ const toYmdLocal = (date: Date): string => {
 
 const ymdToDateLocal = (ymd: string): Date | null => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
-  const [y, m, d] = ymd.split('-').map(Number);
-  const parsed = new Date(y, (m || 1) - 1, d || 1);
+  const [yPart, mPart, dPart] = ymd.split('-');
+  const y = Number(yPart);
+  const m = Number(mPart);
+  const d = Number(dPart);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+  const parsed = new Date(y, m - 1, d);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
@@ -226,6 +230,8 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
   const [montoBsAjuste, setMontoBsAjuste] = useState<string>('');
   const [tasaBcvAjuste, setTasaBcvAjuste] = useState<string>('');
   const [conceptoAjuste, setConceptoAjuste] = useState<string>('');
+  const [referenciaAjuste, setReferenciaAjuste] = useState<string>('');
+  const [bancoOrigenAjuste, setBancoOrigenAjuste] = useState<string>('');
   const [fechaOperacionAjuste, setFechaOperacionAjuste] = useState<string>(toYmdLocal(new Date()));
   const [isFetchingBCV, setIsFetchingBCV] = useState<boolean>(false);
   const [isSavingAjuste, setIsSavingAjuste] = useState<boolean>(false);
@@ -408,6 +414,8 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
     setMontoBsAjuste('');
     setTasaBcvAjuste('');
     setConceptoAjuste('');
+    setReferenciaAjuste('');
+    setBancoOrigenAjuste('');
     setFechaOperacionAjuste(toYmdLocal(new Date()));
     setDestinoIngreso('CUENTA');
     if (cuentasBancarias.length > 0) {
@@ -560,6 +568,8 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
         gasto_extra_id: ajusteModo === 'SOLO_INMUEBLE' ? null : (ajusteTipo === 'FAVOR' && destinoIngreso === 'EXTRA' ? Number(gastoExtraSeleccionado) : null),
         subtipo_favor: ajusteModo === 'SOLO_INMUEBLE' ? undefined : (ajusteTipo === 'FAVOR' && destinoIngreso === 'CUENTA' ? subtipoFavor : undefined),
         fecha_operacion: fechaOperacionAjuste,
+        referencia_origen: referenciaAjuste.trim() || undefined,
+        banco_origen: bancoOrigenAjuste.trim() || undefined,
         nota: `${(conceptoAjuste || 'Ajuste manual').trim()} | [bs_raw:${parseNumberInput(montoBsAjuste).toFixed(2)}] | [tasa_raw:${parseNumberInput(tasaBcvAjuste).toFixed(6)}]`
       };
       const res = await fetch(`${API_BASE_URL}/propiedades-admin/${selectedPropAjuste.id}/ajustar-saldo`, {
@@ -787,6 +797,26 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                           {isDeuda ? 'Deuda' : isFavor ? 'A Favor' : 'Al Día'}
                         </div>
                       </>
+                    );
+                  },
+                },
+                {
+                  key: 'notificacion',
+                  header: 'Notificación',
+                  className: 'text-center',
+                  render: (p) => {
+                    const pendientes = Number(pendingByPropiedad[p.id] || 0);
+                    if (pendientes > 0) {
+                      return (
+                        <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-700 dark:border-amber-800/50 dark:bg-amber-900/20 dark:text-amber-300">
+                          Pendiente aprobacion ({pendientes})
+                        </span>
+                      );
+                    }
+                    return (
+                      <span className="text-xs font-semibold text-gray-400 dark:text-gray-500">
+                        Sin pendientes
+                      </span>
                     );
                   },
                 },
@@ -1081,8 +1111,8 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                   El saldo a favor se aplicara solo al estado de cuenta del inmueble. No afectara cuentas bancarias ni fondos.
                 </div>
               )}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="md:col-span-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
                   <FormField label="Fecha de Operacion">
                     <DatePicker
                       selected={ymdToDateLocal(fechaOperacionAjuste)}
@@ -1093,7 +1123,60 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                     />
                   </FormField>
                 </div>
-                <div className="md:col-span-3">
+                <div>
+                  <FormField label="Banco de Origen">
+                    <select
+                      value={bancoOrigenAjuste}
+                      onChange={(e: ChangeEvent<HTMLSelectElement>) => setBancoOrigenAjuste(e.target.value)}
+                      className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
+                    >
+                      <option value="">Seleccione...</option>
+                      {BANCOS_VENEZUELA.map((banco) => (
+                        <option key={banco} value={banco}>{banco}</option>
+                      ))}
+                    </select>
+                  </FormField>
+                </div>
+                <div className="md:col-span-2">
+                  <FormField label="Referencia">
+                    <input
+                      type="text"
+                      value={referenciaAjuste}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => setReferenciaAjuste(e.target.value)}
+                      className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
+                      placeholder="Ref / Comprobante (opcional)"
+                    />
+                  </FormField>
+                </div>
+                <FormField label="Tasa BCV">
+                  <input
+                    type="text"
+                    value={tasaBcvAjuste}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setTasaBcvAjuste(formatNumberInput(e.target.value, 3))}
+                    className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                    placeholder="Ej: 36,500"
+                  />
+                  <div className="mt-2">
+                    <button
+                      type="button"
+                      onClick={fetchBCVAjuste}
+                      disabled={isFetchingBCV}
+                      className="w-full p-2.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-900/30 dark:border-blue-800/50 dark:text-blue-400 font-bold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-60"
+                    >
+                      {isFetchingBCV ? 'Consultando...' : 'BCV'}
+                    </button>
+                  </div>
+                </FormField>
+                <FormField label="Monto (Bs)">
+                  <input
+                    type="text"
+                    value={montoBsAjuste}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setMontoBsAjuste(formatNumberInput(e.target.value))}
+                    className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                    placeholder="0,00"
+                  />
+                </FormField>
+                <div className="md:col-span-2">
                   <FormField label="Concepto">
                     <input
                       type="text"
@@ -1104,38 +1187,17 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                     />
                   </FormField>
                 </div>
-                <FormField label="Monto (Bs)">
-                  <input
-                    type="text"
-                    value={montoBsAjuste}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setMontoBsAjuste(formatNumberInput(e.target.value))}
-                    className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
-                    placeholder="0,00"
-                  />
-                </FormField>
-                <FormField label="Tasa BCV">
-                  <input
-                    type="text"
-                    value={tasaBcvAjuste}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setTasaBcvAjuste(formatNumberInput(e.target.value, 3))}
-                    className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
-                    placeholder="Ej: 36,500"
-                  />
-                </FormField>
-                <button
-                  type="button"
-                  onClick={fetchBCVAjuste}
-                  disabled={isFetchingBCV}
-                  className="w-full p-2.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-900/30 dark:border-blue-800/50 dark:text-blue-400 font-bold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-60"
-                >
-                  {isFetchingBCV ? 'Consultando...' : 'BCV'}
-                </button>
               </div>
 
               <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-3">
                 <p className="text-xs uppercase font-bold text-gray-500 mb-1">Equivalente en USD</p>
                 <p className="text-xl font-black text-gray-800 dark:text-white">${formatMoney(montoUsdAjuste)}</p>
               </div>
+
+              {/*
+                Orden solicitado:
+                Fecha + Banco, Referencia, Tasa BCV, Monto y Concepto al final.
+              */}
             </div>
 
             <div className="flex justify-end gap-3 pt-6">

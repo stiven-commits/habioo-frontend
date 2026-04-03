@@ -88,6 +88,16 @@ interface DialogContextType {
   showConfirm: (options: ConfirmOptions) => Promise<boolean>;
 }
 
+export const BANCOS_VENEZUELA: string[] = [
+  'Banco de Venezuela (BDV)', 'Banesco Banco Universal', 'Banco Mercantil', 'BBVA Provincial',
+  'Banco Nacional de Crédito (BNC)', 'Bancamiga Banco Universal', 'Banplus Banco Universal',
+  'Banco del Tesoro', 'Banco del Caribe (Bancaribe)', 'Banco Fondo Común (BFC)', 'Banco Caroní',
+  'Banco Activo', 'Banco Venezolano de Crédito (BVC)', 'Banco Sofitasa', '100% Banco',
+  'Delsur Banco Universal', 'Banco Agrícola de Venezuela', 'Banco Bicentenario', 'Banco Plaza',
+  'Banco Exterior', 'Banco de la Fuerza Armada Nacional Bolivariana (Banfanb)',
+  'Banco Digital de los Trabajadores (BDT)', 'N58 Banco Digital', 'Bancrecer', 'Bangente', 'R4 Banco Microfinanciero'
+];
+
 const getLocalYmd = (): string => {
   const now = new Date();
   const year = now.getFullYear();
@@ -163,16 +173,6 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
       }
     }
   }, [isOpen, cuentasConFondos]); // Importante: No poner formPago en las dependencias para evitar ciclos infinitos
-
-  const BANCOS_VENEZUELA: string[] = [
-    'Banco de Venezuela (BDV)', 'Banesco Banco Universal', 'Banco Mercantil', 'BBVA Provincial',
-    'Banco Nacional de Crédito (BNC)', 'Bancamiga Banco Universal', 'Banplus Banco Universal',
-    'Banco del Tesoro', 'Banco del Caribe (Bancaribe)', 'Banco Fondo Común (BFC)', 'Banco Caroní',
-    'Banco Activo', 'Banco Venezolano de Crédito (BVC)', 'Banco Sofitasa', '100% Banco',
-    'Delsur Banco Universal', 'Banco Agrícola de Venezuela', 'Banco Bicentenario', 'Banco Plaza',
-    'Banco Exterior', 'Banco de la Fuerza Armada Nacional Bolivariana (Banfanb)',
-    'Banco Digital de los Trabajadores (BDT)', 'N58 Banco Digital', 'Bancrecer', 'Bangente', 'R4 Banco Microfinanciero'
-  ];
 
   const getMetodosCuenta = (cuenta?: BancoCuenta): Array<FormPagoState['metodo_pago']> => {
     if (!cuenta) return [];
