@@ -3,6 +3,7 @@ import type { ChangeEvent, FC } from 'react';
 import DateRangePicker from '../ui/DateRangePicker';
 import { es } from 'date-fns/locale/es';
 import { useOutletContext } from 'react-router-dom';
+import * as XLSX from 'xlsx';
 import { API_BASE_URL } from '../../config/api';
 import { ModalRegistrarEgreso, ModalTransferencia } from '../BancosModals';
 import ModalDetalleMovimiento, { type IMovimientoDetalle } from './ModalDetalleMovimiento';
@@ -1012,6 +1013,53 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     return '-';
   };
 
+  const handleExportExcel = (): void => {
+    const normalizarTexto = (value: string): string => (
+      value
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9_-]+/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_+|_+$/g, '')
+    );
+
+    const getNombreVista = (): string => {
+      if (activeTab === 'cuenta') return 'cuenta_bancaria';
+      if (activeTab === 'sin-fondo') return 'transito_extra';
+      const fondoId = parseInt(activeTab.replace('fondo-', ''), 10);
+      const fondo = fondosCuenta.find((f) => parseInt(String(f.id), 10) === fondoId);
+      const nombreFondo = String(fondo?.nombre || `fondo_${fondoId || 'seleccionado'}`);
+      return `fondo_${normalizarTexto(nombreFondo) || 'seleccionado'}`;
+    };
+
+    const cuentaSlug = normalizarTexto(cuentaActual ? getCuentaLabel(cuentaActual) : 'sin_cuenta') || 'sin_cuenta';
+    const vistaSlug = getNombreVista();
+    const fechaDescarga = new Date().toISOString().slice(0, 10);
+    const filename = `estado_cuenta_${cuentaSlug}_${vistaSlug}_${fechaDescarga}.xlsx`;
+
+    const rows = sortedMovimientosPorVista.map((movimiento, index) => {
+      const montoUsdVista = getMontoUsdVista(movimiento);
+      return {
+        '#': index + 1,
+        'Fecha operacion': formatFecha(movimiento.fecha),
+        'Fecha registro': formatFecha(movimiento.fecha_registro),
+        Referencia: movimiento.referencia || '-',
+        Inmueble: getInmuebleVista(movimiento),
+        Descripcion: getConceptoVista(movimiento),
+        Tipo: movimiento.tipo,
+        'Monto (Bs)': getMontoBsVista(movimiento),
+        'Cargo (USD)': movimiento.tipo === 'EGRESO' ? montoUsdVista : 0,
+        'Abono (USD)': movimiento.tipo === 'INGRESO' ? montoUsdVista : 0,
+        'Tasa BCV': toNumber(movimiento.tasa_cambio),
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Estado de Cuenta');
+    XLSX.writeFile(workbook, filename);
+  };
+
   const handleSort = (key: SortKey): void => {
     setSortConfig((prev) => {
       if (prev.key === key) {
@@ -1497,6 +1545,13 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                 className="px-3 py-2 rounded-lg text-xs font-bold bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300"
               >
                 Limpiar
+              </button>
+              <button
+                type="button"
+                onClick={handleExportExcel}
+                className="px-3 py-2 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800"
+              >
+                Descargar Excel
               </button>
               <button
                 type="button"
