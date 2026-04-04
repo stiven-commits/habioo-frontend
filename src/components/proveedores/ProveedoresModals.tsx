@@ -110,6 +110,9 @@ const CATEGORIAS_RUBROS: Record<string, string[]> = {
     'Productos biologicos y derivados',
     'Fertilizantes y acondicionadores de suelo'
   ],
+  'Banca': [
+    'Entidad Bancaria'
+  ],
   'Electronica e iluminacion': [
     'Electronica residencial y comercial',
     'Iluminacion de interiores',
