@@ -99,6 +99,11 @@ const CATEGORIAS_RUBROS: Record<string, string[]> = {
     'Impermeabilizacion de tanques',
     'Tratamiento y filtracion de agua'
   ],
+  'Servicios basicos': [
+    'Servicio de agua',
+    'Servicio de electricidad',
+    'Servicio de gas'
+  ],
   'Agroindustria y derivados': [
     'Agroindustria y derivados',
     'Suministro agroindustrial',

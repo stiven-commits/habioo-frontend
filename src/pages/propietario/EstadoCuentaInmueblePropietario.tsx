@@ -348,7 +348,14 @@ const EstadoCuentaInmueblePropietario: FC = () => {
                 key: 'concepto',
                 header: 'Concepto',
                 className: 'font-medium text-gray-800 dark:text-gray-200 break-words',
-                render: (m) => m.tipo === 'RECIBO' ? m.concepto : `${m.tipo === 'PAGO' ? 'PAGO' : 'AJUSTE'} ${m.concepto}`,
+                render: (m) => {
+                  const concepto = String(m.concepto || '').trim();
+                  if (m.tipo === 'RECIBO') return concepto;
+                  const esPago = m.tipo === 'PAGO';
+                  if (esPago && /^pago\b/i.test(concepto)) return concepto;
+                  if (!esPago && /^ajuste\b/i.test(concepto)) return concepto;
+                  return `${esPago ? 'PAGO' : 'AJUSTE'} ${concepto}`.trim();
+                },
               },
               {
                 key: 'cargos',

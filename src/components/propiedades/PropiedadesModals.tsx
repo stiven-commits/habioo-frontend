@@ -711,7 +711,19 @@ export const ModalEstadoCuenta: FC<ModalEstadoCuentaProps> = ({
               columns={[
                 { key: 'fecha_op', header: 'Fecha Op.', className: 'text-gray-600 dark:text-gray-300 font-mono text-xs', render: (m) => formatDateVE(m.fecha_operacion) },
                 { key: 'fecha_reg', header: 'Ingreso al Sistema', className: 'text-gray-400 font-mono text-[10px]', render: (m) => formatDateVE(m.fecha_registro) },
-                { key: 'concepto', header: 'Concepto', className: 'font-medium text-gray-800 dark:text-gray-200', render: (m) => m.tipo === 'RECIBO' ? m.concepto : `${m.tipo === 'PAGO' ? 'PAGO' : 'AJUSTE'} ${m.concepto}` },
+                {
+                  key: 'concepto',
+                  header: 'Concepto',
+                  className: 'font-medium text-gray-800 dark:text-gray-200',
+                  render: (m) => {
+                    const concepto = String(m.concepto || '').trim();
+                    if (m.tipo === 'RECIBO') return concepto;
+                    const esPago = m.tipo === 'PAGO';
+                    if (esPago && /^pago\b/i.test(concepto)) return concepto;
+                    if (!esPago && /^ajuste\b/i.test(concepto)) return concepto;
+                    return `${esPago ? 'PAGO' : 'AJUSTE'} ${concepto}`.trim();
+                  }
+                },
                 { key: 'monto_bs', header: 'Monto Bs', headerClassName: 'text-right', className: 'text-right font-mono text-gray-700 dark:text-gray-300', render: (m) => m.monto_bs > 0 ? `Bs ${formatMoney(m.monto_bs)}` : '-' },
                 { key: 'tasa', header: 'Tasa', headerClassName: 'text-right', className: 'text-right font-mono text-gray-700 dark:text-gray-300', render: (m) => m.tasa_cambio > 0 ? formatMoney(m.tasa_cambio) : '-' },
                 { key: 'cargos', header: 'Cargos (Deuda)', headerClassName: 'text-right', className: 'text-right text-red-500 font-mono font-medium', render: (m) => m.cargo > 0 ? `$${formatMoney(m.cargo)}` : '-' },
