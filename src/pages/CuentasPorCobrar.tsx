@@ -547,6 +547,14 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
       alert('Debe seleccionar la fecha de operacion del ajuste.');
       return;
     }
+    if (!referenciaAjuste.trim()) {
+      alert('Debe ingresar la referencia del ajuste.');
+      return;
+    }
+    if (!bancoOrigenAjuste.trim()) {
+      alert('Debe seleccionar el banco de origen.');
+      return;
+    }
     if (ajusteModo === 'COMPLETO' && ajusteTipo === 'FAVOR' && destinoIngreso === 'CUENTA' && !cuentaBancariaSeleccionada) {
       alert('Debe seleccionar una cuenta bancaria de destino para el ingreso.');
       return;
@@ -1124,11 +1132,12 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                   </FormField>
                 </div>
                 <div>
-                  <FormField label="Banco de Origen">
+                  <FormField label="Banco de Origen" required>
                     <select
                       value={bancoOrigenAjuste}
                       onChange={(e: ChangeEvent<HTMLSelectElement>) => setBancoOrigenAjuste(e.target.value)}
                       className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
+                      required
                     >
                       <option value="">Seleccione...</option>
                       {BANCOS_VENEZUELA.map((banco) => (
@@ -1138,13 +1147,14 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                   </FormField>
                 </div>
                 <div className="md:col-span-2">
-                  <FormField label="Referencia">
+                  <FormField label="Referencia" required>
                     <input
                       type="text"
                       value={referenciaAjuste}
                       onChange={(e: ChangeEvent<HTMLInputElement>) => setReferenciaAjuste(e.target.value)}
                       className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
-                      placeholder="Ref / Comprobante (opcional)"
+                      placeholder="Ref / Comprobante"
+                      required
                     />
                   </FormField>
                 </div>

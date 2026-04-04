@@ -217,8 +217,17 @@ const AIChatWidget: FC = () => {
                   : 'bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-100 rounded-bl-md'
               }`}
             >
-              <div className="prose prose-sm dark:prose-invert break-words whitespace-pre-wrap">
-                <ReactMarkdown>{message.text}</ReactMarkdown>
+              <div className="prose prose-sm dark:prose-invert max-w-none break-words prose-p:my-1 prose-headings:my-1 prose-ul:my-1 prose-ol:my-1">
+                <ReactMarkdown
+                  components={{
+                    p: ({ children }) => <p className="my-1 leading-relaxed">{children}</p>,
+                    ul: ({ children }) => <ul className="my-1 pl-5">{children}</ul>,
+                    ol: ({ children }) => <ol className="my-1 pl-5">{children}</ol>,
+                    li: ({ children }) => <li className="my-0.5">{children}</li>,
+                  }}
+                >
+                  {message.text}
+                </ReactMarkdown>
               </div>
             </div>
           </div>
