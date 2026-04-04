@@ -1037,7 +1037,21 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     const fechaDescarga = new Date().toISOString().slice(0, 10);
     const filename = `estado_cuenta_${cuentaSlug}_${vistaSlug}_${fechaDescarga}.xlsx`;
 
-    const rows = sortedMovimientosPorVista.map((movimiento, index) => {
+    const rangoAplicado = Boolean(fechaDesde || fechaHasta);
+    const hoy = new Date();
+    const haceDosMeses = new Date(hoy);
+    haceDosMeses.setMonth(haceDosMeses.getMonth() - 2);
+    haceDosMeses.setHours(0, 0, 0, 0);
+
+    const movimientosExportar = rangoAplicado
+      ? sortedMovimientosPorVista
+      : sortedMovimientosPorVista.filter((movimiento) => {
+        const fechaMov = new Date(String(movimiento.fecha || ''));
+        if (Number.isNaN(fechaMov.getTime())) return false;
+        return fechaMov >= haceDosMeses && fechaMov <= hoy;
+      });
+
+    const rows = movimientosExportar.map((movimiento, index) => {
       const montoUsdVista = getMontoUsdVista(movimiento);
       return {
         '#': index + 1,
