@@ -52,10 +52,6 @@ interface NotificacionesResponse {
   data?: NotificacionPago[];
 }
 
-interface BcvApiResponse {
-  promedio?: number | string;
-}
-
 interface PropiedadPreseleccionada {
   id: number;
   identificador: string;
@@ -77,23 +73,10 @@ const EstadoCuentaInmueblePropietario: FC = () => {
   const [fechaDesde, setFechaDesde] = useState<Date | null>(null);
   const [fechaHasta, setFechaHasta] = useState<Date | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-  const [sortColumn, setSortColumn] = useState<SortColumn>('fecha_operacion');
+  const [sortColumn, setSortColumn] = useState<SortColumn>('fecha_registro');
   const [pendingApprovals, setPendingApprovals] = useState<number>(0);
   const [showPayModal, setShowPayModal] = useState<boolean>(false);
   const [selectedPropPago, setSelectedPropPago] = useState<PropiedadPreseleccionada | null>(null);
-  const [tasaBcvActual, setTasaBcvActual] = useState<number | null>(null);
-
-  const fetchBcvRate = async (): Promise<number | null> => {
-    try {
-      const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
-      if (!response.ok) return null;
-      const json: BcvApiResponse = (await response.json()) as BcvApiResponse;
-      const rate = toNumber(json?.promedio);
-      return rate > 0 ? rate : null;
-    } catch {
-      return null;
-    }
-  };
 
   const fetchEstadoCuentaInmueble = async (propiedadId: number): Promise<void> => {
     setLoading(true);
@@ -114,28 +97,6 @@ const EstadoCuentaInmueblePropietario: FC = () => {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    let isMounted = true;
-    let intervalId: ReturnType<typeof setInterval> | null = null;
-
-    const fetchTasaBcvActual = async (): Promise<void> => {
-      const rate = await fetchBcvRate();
-      if (isMounted && rate && rate > 0) {
-        setTasaBcvActual(rate);
-      }
-    };
-
-    void fetchTasaBcvActual();
-    intervalId = setInterval(() => {
-      void fetchTasaBcvActual();
-    }, 2 * 60 * 60 * 1000);
-
-    return () => {
-      isMounted = false;
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, []);
 
   useEffect(() => {
     const fetchEstadoCuenta = async (): Promise<void> => {
@@ -231,7 +192,7 @@ const EstadoCuentaInmueblePropietario: FC = () => {
 
   const totalCargo = useMemo(() => movimientosFiltrados.reduce((acc, m) => acc + toNumber(m.cargo), 0), [movimientosFiltrados]);
   const totalAbono = useMemo(() => movimientosFiltrados.reduce((acc, m) => acc + toNumber(m.abono), 0), [movimientosFiltrados]);
-  const saldoFinal = toNumber(movimientosFiltrados.at(-1)?.saldoFila);
+  const saldoFinal = totalCargo - totalAbono;
   const saldoFinalColor = saldoFinal > 0 ? 'red' : saldoFinal < 0 ? 'emerald' : 'gray';
   const saldoActualInmueble = toNumber(movimientosConSaldo.at(-1)?.saldoFila);
 
@@ -358,15 +319,29 @@ const EstadoCuentaInmueblePropietario: FC = () => {
                 },
               },
               {
+                key: 'monto_bs',
+                header: 'Monto Bs',
+                headerClassName: 'text-right hidden md:table-cell',
+                className: 'hidden text-right font-mono text-gray-700 dark:text-gray-300 md:table-cell',
+                render: (m) => toNumber(m.monto_bs) > 0 ? `Bs ${formatMoney(toNumber(m.monto_bs))}` : '-',
+              },
+              {
+                key: 'tasa',
+                header: 'Tasa',
+                headerClassName: 'text-right hidden md:table-cell',
+                className: 'hidden text-right font-mono text-gray-700 dark:text-gray-300 md:table-cell',
+                render: (m) => toNumber(m.tasa_cambio) > 0 ? formatMoney(toNumber(m.tasa_cambio)) : '-',
+              },
+              {
                 key: 'cargos',
-                header: 'Cargos',
+                header: 'Cargos (Deuda)',
                 headerClassName: 'text-right hidden md:table-cell',
                 className: 'hidden text-right font-mono font-medium text-red-500 md:table-cell',
                 render: (m) => toNumber(m.cargo) > 0 ? `$${formatMoney(toNumber(m.cargo))}` : '-',
               },
               {
                 key: 'abonos',
-                header: 'Abonos',
+                header: 'Abonos (Pago)',
                 headerClassName: 'text-right hidden md:table-cell',
                 className: 'hidden text-right font-mono font-medium text-green-500 md:table-cell',
                 render: (m) => toNumber(m.abono) > 0 ? `$${formatMoney(toNumber(m.abono))}` : '-',
@@ -381,20 +356,6 @@ const EstadoCuentaInmueblePropietario: FC = () => {
                     ${formatMoney(toNumber(m.saldoFila))}
                   </span>
                 ),
-              },
-              {
-                key: 'tasa',
-                header: 'Tasa BCV (hoy)',
-                headerClassName: 'text-right hidden md:table-cell',
-                className: 'hidden text-right font-mono text-gray-700 dark:text-gray-300 md:table-cell',
-                render: () => tasaBcvActual && tasaBcvActual > 0 ? formatMoney(tasaBcvActual) : '-',
-              },
-              {
-                key: 'monto_bs',
-                header: 'Monto Bs (BCV hoy)',
-                headerClassName: 'text-right hidden md:table-cell',
-                className: 'hidden text-right font-mono text-gray-700 dark:text-gray-300 md:table-cell',
-                render: (m) => tasaBcvActual && tasaBcvActual > 0 ? `Bs ${formatMoney((toNumber(m.cargo) - toNumber(m.abono)) * tasaBcvActual)}` : '-',
               },
             ]}
             data={movimientosFiltrados}

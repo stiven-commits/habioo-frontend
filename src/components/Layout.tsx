@@ -2,6 +2,7 @@
 import { Link, Outlet, useLocation, useNavigate, useMatch } from 'react-router-dom';
 import { API_BASE_URL } from '../config/api';
 import AIChatWidget from './AIChatWidget';
+import ModalBase from './ui/ModalBase';
 import habiooIsoHabioBlanco from '../assets/brand/habioo_iso_habio_blanco.svg';
 import {
   Bell,
@@ -136,6 +137,12 @@ interface FloatingNotification {
   tone: 'success' | 'danger' | 'info';
 }
 
+interface SessionEndedEventDetail {
+  reason?: string;
+  status?: number;
+  url?: string;
+}
+
 type UserRole = 'Administrador' | 'Propietario' | 'SuperUsuario';
 type Theme = 'light' | 'dark';
 
@@ -177,6 +184,8 @@ const Layout: React.FC<LayoutProps> = () => {
   const [misPropiedades, setMisPropiedades] = useState<MisPropiedad[]>([]);
   const [propiedadActiva, setPropiedadActiva] = useState<MisPropiedad | null>(null);
   const [floatingNotifications, setFloatingNotifications] = useState<FloatingNotification[]>([]);
+  const [sessionEndedModalOpen, setSessionEndedModalOpen] = useState<boolean>(false);
+  const [sessionEndedMessage, setSessionEndedMessage] = useState<string>('Tu sesion se cerro. Inicia sesion nuevamente para continuar.');
   const seenNotificacionesRef = useRef<Record<number, string>>({});
   const notificacionesBootstrappedRef = useRef<boolean>(false);
   const seenPagosPendientesAdminRef = useRef<Set<number>>(new Set<number>());
@@ -201,6 +210,19 @@ const Layout: React.FC<LayoutProps> = () => {
     window.setTimeout(() => {
       setFloatingNotifications((prev: FloatingNotification[]) => prev.filter((n: FloatingNotification) => n.key !== item.key));
     }, 9000);
+  };
+
+  const clearAuthStorage = (): void => {
+    localStorage.removeItem('habioo_token');
+    localStorage.removeItem('habioo_user');
+    localStorage.removeItem('habioo_session');
+    localStorage.removeItem('habioo_propiedad_activa_id');
+    localStorage.removeItem('habioo_condominio_activo_id');
+  };
+
+  const openSessionEndedModal = (message?: string): void => {
+    setSessionEndedMessage(message || 'Tu sesion se cerro. Inicia sesion nuevamente para continuar.');
+    setSessionEndedModalOpen(true);
   };
 
   useEffect(() => {
@@ -244,10 +266,7 @@ const Layout: React.FC<LayoutProps> = () => {
         if (!res.ok) {
           if (res.status === 401) {
             if (tryRestoreSuperBackup()) return;
-            localStorage.removeItem('habioo_token');
-            localStorage.removeItem('habioo_user');
-            localStorage.removeItem('habioo_session');
-            navigate('/');
+            openSessionEndedModal('Tu sesion expiro o fue cerrada. Debes iniciar sesion de nuevo para seguir operando.');
           }
           return;
         }
@@ -256,10 +275,7 @@ const Layout: React.FC<LayoutProps> = () => {
         const currentUser = data.user ?? parseStoredUser(userData);
         const currentSession = (data.session || (storedSessionRaw ? parseStoredSession(storedSessionRaw) : null)) as SessionData | null;
         if (!currentUser) {
-          localStorage.removeItem('habioo_token');
-          localStorage.removeItem('habioo_user');
-          localStorage.removeItem('habioo_session');
-          navigate('/');
+          openSessionEndedModal('Tu sesion expiro o fue cerrada. Debes iniciar sesion de nuevo para seguir operando.');
           return;
         }
 
@@ -281,6 +297,23 @@ const Layout: React.FC<LayoutProps> = () => {
 
     void validateSession();
   }, [navigate]);
+
+  useEffect(() => {
+    const onSessionEnded = (event: Event): void => {
+      const custom = event as CustomEvent<SessionEndedEventDetail>;
+      const reason = String(custom.detail?.reason || '');
+      if (reason === 'unauthorized') {
+        openSessionEndedModal('Tu sesion expiro o fue cerrada por seguridad. Debes iniciar sesion nuevamente para continuar.');
+        return;
+      }
+      openSessionEndedModal();
+    };
+
+    window.addEventListener('habioo:session-ended', onSessionEnded as EventListener);
+    return () => {
+      window.removeEventListener('habioo:session-ended', onSessionEnded as EventListener);
+    };
+  }, []);
 
   useEffect(() => {
     if (theme === 'dark') document.documentElement.classList.add('dark');
@@ -685,7 +718,12 @@ const Layout: React.FC<LayoutProps> = () => {
   };
 
   const handleLogout = (): void => {
-    localStorage.clear();
+    openSessionEndedModal('Sesion cerrada correctamente.');
+  };
+
+  const handleSessionEndedAcknowledge = (): void => {
+    clearAuthStorage();
+    setSessionEndedModalOpen(false);
     navigate('/');
   };
 
@@ -1107,6 +1145,27 @@ const Layout: React.FC<LayoutProps> = () => {
         </div>
       </main>
 
+            {sessionEndedModalOpen && (
+        <ModalBase
+          onClose={handleSessionEndedAcknowledge}
+          title="Sesion cerrada"
+          subtitle="Para evitar operaciones incompletas, debes iniciar sesion nuevamente."
+          maxWidth="max-w-md"
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-300">{sessionEndedMessage}</p>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handleSessionEndedAcknowledge}
+                className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700"
+              >
+                Ir al inicio de sesion
+              </button>
+            </div>
+          </div>
+        </ModalBase>
+      )}
       {floatingNotifications.length > 0 && (
         <div className="fixed right-4 top-24 z-[80] w-[340px] max-w-[92vw] space-y-2">
           {floatingNotifications.map((n: FloatingNotification) => (
@@ -1144,3 +1203,5 @@ const Layout: React.FC<LayoutProps> = () => {
 };
 
 export default Layout;
+
+

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { API_BASE_URL } from '../../config/api';
@@ -17,7 +17,11 @@ interface OutletContextType {
 interface NotificacionPago {
   id: number;
   referencia: string | null;
+  monto_origen: string | number;
   monto_usd: string | number;
+  tasa_cambio: string | number | null;
+  moneda: string | null;
+  metodo: string | null;
   estado: string;
   fecha_pago: string | null;
   nota: string | null;
@@ -67,14 +71,14 @@ const NotificacionesPropietario: FC = () => {
   }, [propiedadActiva?.id_propiedad]);
 
   if (userRole !== 'Propietario') {
-    return <p className="p-6 text-gray-500 dark:text-gray-400">No tienes permisos para ver esta sección.</p>;
+    return <p className="p-6 text-gray-500 dark:text-gray-400">No tienes permisos para ver esta seccion.</p>;
   }
 
   return (
     <section className="space-y-5">
       <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Noficaciones generados por el sistema.
+          Notificaciones generadas por el sistema.
         </p>
 
         <div className="mt-4 space-y-3">
@@ -84,9 +88,13 @@ const NotificacionesPropietario: FC = () => {
             <p className="text-sm text-gray-500 dark:text-gray-400">No hay notificaciones por ahora.</p>
           ) : (
             items.map((n) => {
+              const moneda = String(n.moneda || 'USD').toUpperCase() === 'USD' ? 'USD' : 'BS';
+              const montoUsd = toNumber(n.monto_usd);
+              const montoOrigen = toNumber(n.monto_origen);
+              const tasa = toNumber(n.tasa_cambio);
               const estado =
                 n.estado === 'PendienteAprobacion'
-                  ? 'En aprobación'
+                  ? 'En aprobacion'
                   : n.estado === 'Validado'
                     ? 'Aprobado'
                     : n.estado === 'Rechazado'
@@ -106,8 +114,16 @@ const NotificacionesPropietario: FC = () => {
                     Pago #{n.id} {n.referencia ? `· Ref: ${n.referencia}` : ''}
                   </p>
                   <p className="text-sm font-bold text-gray-800 dark:text-gray-100">
-                    Monto: ${formatMoney(toNumber(n.monto_usd))}
+                    Monto reportado: {moneda === 'USD' ? '$' : 'Bs '}{formatMoney(moneda === 'USD' ? montoUsd : montoOrigen)} ({moneda})
                   </p>
+                  {moneda === 'BS' && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Tasa: {tasa > 0 ? formatMoney(tasa) : '-'} · Equivalente USD: ${formatMoney(montoUsd)}
+                    </p>
+                  )}
+                  {n.metodo && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Metodo: {n.metodo}</p>
+                  )}
                   {n.fecha_pago && (
                     <p className="text-xs text-gray-500 dark:text-gray-400">Fecha reportada: {String(n.fecha_pago).slice(0, 10)}</p>
                   )}
@@ -127,4 +143,3 @@ const NotificacionesPropietario: FC = () => {
 };
 
 export default NotificacionesPropietario;
-

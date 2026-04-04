@@ -226,12 +226,7 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (resRecibos.status === 401) {
-        localStorage.removeItem('habioo_token');
-        localStorage.removeItem('habioo_user');
-        navigate('/');
-        return;
-      }
+      if (resRecibos.status === 401) return;
 
       const dataR: RecibosResponse = await resRecibos.json();
       if (dataR.status === 'success') setRecibos(dataR.recibos || []);
@@ -258,12 +253,7 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (resAvisos.status === 401) {
-        localStorage.removeItem('habioo_token');
-        localStorage.removeItem('habioo_user');
-        navigate('/');
-        return;
-      }
+      if (resAvisos.status === 401) return;
 
       const dataA: AvisosGeneralesResponse = await resAvisos.json();
       if (dataA.status === 'success') {

@@ -7,6 +7,7 @@ import { API_BASE_URL, PROD_API_BASE_URL } from './config/api'
 if (typeof window !== 'undefined') {
   window.__HABIOO_API_BASE__ = API_BASE_URL
   const originalFetch = window.fetch.bind(window)
+  let sessionEndEventDispatched = false
 
   const getTargetErrorPath = (status) => {
     if (status === 403) return '/error-403'
@@ -60,6 +61,20 @@ if (typeof window !== 'undefined') {
       && (effectiveUrl.startsWith(API_BASE_URL) || effectiveUrl.startsWith(PROD_API_BASE_URL))
 
     if (isApiCall) {
+      if (response.status === 401) {
+        const hasToken = Boolean(localStorage.getItem('habioo_token'))
+        if (hasToken && !sessionEndEventDispatched) {
+          sessionEndEventDispatched = true
+          window.dispatchEvent(new CustomEvent('habioo:session-ended', {
+            detail: {
+              reason: 'unauthorized',
+              status: 401,
+              url: effectiveUrl,
+            },
+          }))
+        }
+        return response
+      }
       if (isExpectedHierarchy403(response.status, effectiveUrl)) {
         return response
       }

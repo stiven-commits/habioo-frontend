@@ -102,6 +102,10 @@ interface PagoPendienteAprobacion {
   fecha_pago?: string | null;
   estado: string;
   nota?: string | null;
+  metodo?: string | null;
+  banco_origen?: string | null;
+  cedula_origen?: string | null;
+  telefono_origen?: string | null;
   es_ajuste_historico?: boolean;
 }
 
@@ -928,14 +932,26 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
               <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
                 {pagosPendientes.map((pago: PagoPendienteAprobacion) => (
                   <article key={pago.id} className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900/30">
+                    {(() => {
+                      const monedaPago = String(pago.moneda || 'USD').toUpperCase() === 'USD' ? 'USD' : 'BS';
+                      const montoMostrar = monedaPago === 'USD' ? toNumber(pago.monto_usd) : toNumber(pago.monto_origen);
+                      return (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
                       <p><span className="font-bold">Pago:</span> #{pago.id}</p>
                       <p><span className="font-bold">Ref:</span> {pago.referencia || 'Sin referencia'}</p>
-                      <p><span className="font-bold">Monto:</span> {String(pago.moneda || 'USD').toUpperCase() === 'USD' ? '$' : 'Bs '} {formatMoney(pago.moneda?.toUpperCase() === 'USD' ? toNumber(pago.monto_usd) : toNumber(pago.monto_origen))}</p>
+                      <p><span className="font-bold">Monto:</span> {monedaPago === 'USD' ? '$' : 'Bs '} {formatMoney(montoMostrar)}</p>
+                      <p><span className="font-bold">Moneda:</span> {monedaPago}</p>
                       <p className={pago.es_ajuste_historico ? 'text-red-600 dark:text-red-300 font-semibold' : ''}>
                         <span className="font-bold">Fecha:</span> {pago.fecha_pago ? String(pago.fecha_pago).slice(0, 10) : '-'}
                       </p>
+                      <p><span className="font-bold">Metodo:</span> {pago.metodo || '-'}</p>
+                      <p><span className="font-bold">Banco origen:</span> {pago.banco_origen || '-'}</p>
+                      <p><span className="font-bold">Cedula/RIF origen:</span> {pago.cedula_origen || '-'}</p>
+                      <p><span className="font-bold">Telefono origen:</span> {pago.telefono_origen || '-'}</p>
+                      <p className="md:col-span-2"><span className="font-bold">Nota:</span> {pago.nota || '-'}</p>
                     </div>
+                      );
+                    })()}
                     {pago.es_ajuste_historico && (
                       <div className="mt-2 inline-flex items-center rounded-full border border-red-300 bg-red-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-red-700 dark:border-red-700 dark:bg-red-900/20 dark:text-red-300">
                         SOLICITUD DE AJUSTE HISTORICO
