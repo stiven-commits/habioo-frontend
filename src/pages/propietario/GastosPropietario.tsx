@@ -113,8 +113,8 @@ const GastosPropietario: FC = () => {
   };
 
   const sortIndicator = (column: SortColumn): string => {
-    if (sortColumn !== column) return 'â†•';
-    return sortDirection === 'asc' ? 'â†‘' : 'â†“';
+    if (sortColumn !== column) return '↕';
+    return sortDirection === 'asc' ? '↑' : '↓';
   };
 
   const gastosFiltrados = useMemo(() => {
@@ -272,5 +272,4 @@ const GastosPropietario: FC = () => {
 };
 
 export default GastosPropietario;
-
 

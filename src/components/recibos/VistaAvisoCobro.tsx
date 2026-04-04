@@ -257,6 +257,7 @@ const isNonCommonGasto = (tipo: string | undefined): boolean => {
   const t = normalizeTipo(tipo);
   return t === 'zona' || t === 'no comun' || t === 'no_comun' || t === 'individual';
 };
+const isIndividualGasto = (tipo: string | undefined): boolean => normalizeTipo(tipo) === 'individual';
 
 const getScopeLabel = (gasto: IAvisoGasto): string => {
   const t = normalizeTipo(gasto.tipo);
@@ -386,9 +387,19 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
     void fetchSnapshot();
   }, [effectiveReciboId]);
 
+  const gastosIndividuales = useMemo(
+    () => avisoData.gastos.filter((gasto) => isIndividualGasto(gasto.tipo)),
+    [avisoData.gastos],
+  );
+
+  const gastosNoIndividuales = useMemo(
+    () => avisoData.gastos.filter((gasto) => !isIndividualGasto(gasto.tipo)),
+    [avisoData.gastos],
+  );
+
   const totals = useMemo(
     () =>
-      avisoData.gastos.reduce(
+      gastosNoIndividuales.reduce(
         (acc, gasto) => ({
           total_bs: acc.total_bs + gasto.total_bs,
           total_usd: acc.total_usd + gasto.total_usd,
@@ -397,7 +408,21 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
         }),
         { total_bs: 0, total_usd: 0, cuota_bs: 0, cuota_usd: 0 },
       ),
-    [avisoData.gastos],
+    [gastosNoIndividuales],
+  );
+
+  const totalsIndividuales = useMemo(
+    () =>
+      gastosIndividuales.reduce(
+        (acc, gasto) => ({
+          total_bs: acc.total_bs + gasto.total_bs,
+          total_usd: acc.total_usd + gasto.total_usd,
+          cuota_bs: acc.cuota_bs + gasto.cuota_bs,
+          cuota_usd: acc.cuota_usd + gasto.cuota_usd,
+        }),
+        { total_bs: 0, total_usd: 0, cuota_bs: 0, cuota_usd: 0 },
+      ),
+    [gastosIndividuales],
   );
 
   const nonCommonGastos = useMemo(
@@ -406,16 +431,24 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
   );
 
   const gastosFijos = useMemo(
-    () => avisoData.gastos.filter((gasto) => isFixedClasificacion(gasto.clasificacion)),
-    [avisoData.gastos],
+    () => gastosNoIndividuales.filter((gasto) => isFixedClasificacion(gasto.clasificacion)),
+    [gastosNoIndividuales],
   );
 
   const gastosVariables = useMemo(
-    () => avisoData.gastos.filter((gasto) => !isFixedClasificacion(gasto.clasificacion)),
-    [avisoData.gastos],
+    () => gastosNoIndividuales.filter((gasto) => !isFixedClasificacion(gasto.clasificacion)),
+    [gastosNoIndividuales],
   );
 
   const estadoRecibo = normalizeEstado(avisoData.estado_recibo);
+  const montoAvisoBs = useMemo(
+    () => Number((avisoData.saldo_cuenta.con_aviso_bs - avisoData.saldo_cuenta.antes_aviso_bs).toFixed(2)),
+    [avisoData.saldo_cuenta.antes_aviso_bs, avisoData.saldo_cuenta.con_aviso_bs],
+  );
+  const montoAvisoUsd = useMemo(
+    () => Number((avisoData.saldo_cuenta.con_aviso_usd - avisoData.saldo_cuenta.antes_aviso_usd).toFixed(2)),
+    [avisoData.saldo_cuenta.antes_aviso_usd, avisoData.saldo_cuenta.con_aviso_usd],
+  );
   const adminLogoUrl = resolveAssetUrl(avisoData.administradora.logo_url);
   const condoLogoUrl = resolveAssetUrl(avisoData.condominio.logo_url || null);
   const hasCondoLogo = Boolean(condoLogoUrl);
@@ -476,22 +509,22 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
 
         <section className="aviso-top-grid mb-6 grid grid-cols-1 gap-3 md:grid-cols-2">
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">Inmueble</p>
+            <p className="text-[9px] font-black uppercase tracking-wider text-slate-500">Inmueble</p>
             <p className="mt-1 text-lg font-black text-slate-800">{avisoData.inmueble.identificador || 'N/A'}</p>
             <p className="mt-1 text-sm font-semibold text-slate-700">{avisoData.inmueble.titular_mostrado || avisoData.inmueble.propietario}</p>
             <p className="mt-2 text-xs font-bold uppercase tracking-wider text-slate-500">Alícuota: {formatMoney(toNumber(avisoData.inmueble.alicuota))}%</p>
-            <p className="mt-1 text-sm font-black text-slate-700">Por alícuota en este aviso: Bs {formatMoney(totals.cuota_bs)} / $ {formatMoney(totals.cuota_usd)}</p>
+            <p className="mt-1 text-sm font-black text-slate-700">Por alícuota en este aviso: Bs {formatMoney(montoAvisoBs)} / $ {formatMoney(montoAvisoUsd)}</p>
           </div>
           <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
-            <p className="text-[11px] font-black uppercase tracking-wider text-indigo-600">Estado de Cuenta (Propietario)</p>
+            <p className="text-[9px] font-black uppercase tracking-wider text-indigo-600">Estado de Cuenta (Propietario)</p>
             <div className="mt-2 grid grid-cols-2 gap-3 text-sm">
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-wider text-indigo-500">Saldo antes del aviso</p>
+                <p className="text-[9px] font-bold uppercase tracking-wider text-indigo-500">Saldo antes del aviso</p>
                 <p className="font-black text-indigo-800">Bs {formatMoney(avisoData.saldo_cuenta.antes_aviso_bs)}</p>
                 <p className="font-black text-indigo-800">$ {formatMoney(avisoData.saldo_cuenta.antes_aviso_usd)}</p>
               </div>
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-wider text-indigo-500">Saldo con aviso generado</p>
+                <p className="text-[9px] font-bold uppercase tracking-wider text-indigo-500">Saldo con aviso generado</p>
                 <p className="font-black text-indigo-800">Bs {formatMoney(avisoData.saldo_cuenta.con_aviso_bs)}</p>
                 <p className="font-black text-indigo-800">$ {formatMoney(avisoData.saldo_cuenta.con_aviso_usd)}</p>
               </div>
@@ -500,7 +533,7 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
         </section>
 
         <section className="mb-8">
-          <h3 className="mb-3 text-lg font-black text-gray-900">Detalle de Gastos del Mes</h3>
+          <h3 className="mb-3 text-md font-black text-gray-900">Detalle de Gastos del Mes</h3>
           <div className="mb-3 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs text-indigo-700">
             {nonCommonGastos.length === 0
               ? 'No hay cargos no comunes (zona/individual) en este aviso.'
@@ -509,7 +542,7 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
           <div className="overflow-hidden rounded-xl border border-gray-200">
             <table className="w-full text-sm">
               <thead className="bg-indigo-50 text-indigo-700">
-                <tr className="text-left uppercase tracking-wider text-[11px]">
+                <tr className="text-left uppercase tracking-wider text-[9px]">
                   <th className="px-4 py-3 font-extrabold">Descripcion del Gasto</th>
                   <th className="px-4 py-3 text-right font-extrabold">Total Gasto (Bs)</th>
                   <th className="px-4 py-3 text-right font-extrabold">Total Gasto ($)</th>
@@ -519,7 +552,7 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 <tr className="bg-slate-50">
-                  <td colSpan={5} className="px-4 py-2 text-[11px] font-black uppercase tracking-wider text-slate-700">
+                  <td colSpan={5} className="px-4 py-2 text-[9px] font-black uppercase tracking-wider text-slate-700">
                     Gastos Fijos ({gastosFijos.length})
                   </td>
                 </tr>
@@ -529,9 +562,9 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
                       <p className="font-semibold text-gray-800">{gasto.concepto}</p>
                       {gasto.nota ? <p className="mt-1 text-xs text-gray-500">Nota: {gasto.nota}</p> : null}
                       {isNonCommonGasto(gasto.tipo) ? (
-                        <p className="mt-1 text-[11px] font-semibold text-amber-700">Cargo no comun: {getScopeLabel(gasto)}</p>
+                        <p className="mt-1 text-[9px] font-semibold text-amber-700">Cargo no comun: {getScopeLabel(gasto)}</p>
                       ) : (
-                        <p className="mt-1 text-[11px] text-emerald-700">Cargo comun</p>
+                        <p className="mt-1 text-[9px] text-emerald-700">Cargo comun</p>
                       )}
                     </td>
                     <td className="px-4 py-3 text-right font-semibold text-gray-700">Bs {formatMoney(gasto.total_bs)}</td>
@@ -541,7 +574,7 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
                   </tr>
                 ))}
                 <tr className="bg-slate-50">
-                  <td colSpan={5} className="px-4 py-2 text-[11px] font-black uppercase tracking-wider text-slate-700">
+                  <td colSpan={5} className="px-4 py-2 text-[9px] font-black uppercase tracking-wider text-slate-700">
                     Gastos Variables ({gastosVariables.length})
                   </td>
                 </tr>
@@ -551,9 +584,9 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
                       <p className="font-semibold text-gray-800">{gasto.concepto}</p>
                       {gasto.nota ? <p className="mt-1 text-xs text-gray-500">Nota: {gasto.nota}</p> : null}
                       {isNonCommonGasto(gasto.tipo) ? (
-                        <p className="mt-1 text-[11px] font-semibold text-amber-700">Cargo no comun: {getScopeLabel(gasto)}</p>
+                        <p className="mt-1 text-[9px] font-semibold text-amber-700">Cargo no comun: {getScopeLabel(gasto)}</p>
                       ) : (
-                        <p className="mt-1 text-[11px] text-emerald-700">Cargo comun</p>
+                        <p className="mt-1 text-[9px] text-emerald-700">Cargo comun</p>
                       )}
                     </td>
                     <td className="px-4 py-3 text-right font-semibold text-gray-700">Bs {formatMoney(gasto.total_bs)}</td>
@@ -576,12 +609,55 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
           </div>
         </section>
 
+        {gastosIndividuales.length > 0 ? (
+          <section className="mb-8">
+            <h3 className="mb-3 text-md font-black text-amber-700">Cargos Individuales del Inmueble</h3>
+            <div className="overflow-hidden rounded-xl border border-amber-200">
+              <table className="w-full text-sm">
+                <thead className="bg-amber-50 text-amber-700">
+                  <tr className="text-left uppercase tracking-wider text-[9px]">
+                    <th className="px-4 py-3 font-extrabold">Descripcion del Gasto</th>
+                    <th className="px-4 py-3 text-right font-extrabold">Total Gasto (Bs)</th>
+                    <th className="px-4 py-3 text-right font-extrabold">Total Gasto ($)</th>
+                    <th className="px-4 py-3 text-right font-extrabold">Cargo Inmueble (Bs)</th>
+                    <th className="px-4 py-3 text-right font-extrabold">Cargo Inmueble ($)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-amber-100">
+                  {gastosIndividuales.map((gasto) => (
+                    <tr key={`individual-${gasto.id}`} className="hover:bg-amber-50/40">
+                      <td className="px-4 py-3 text-gray-700">
+                        <p className="font-semibold text-gray-800">{gasto.concepto}</p>
+                        {gasto.nota ? <p className="mt-1 text-xs text-gray-500">Nota: {gasto.nota}</p> : null}
+                        <p className="mt-1 text-[9px] font-semibold text-amber-700">Cargo individual 100%</p>
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-gray-700">Bs {formatMoney(gasto.total_bs)}</td>
+                      <td className="px-4 py-3 text-right font-semibold text-gray-700">$ {formatMoney(gasto.total_usd)}</td>
+                      <td className="px-4 py-3 text-right font-bold text-amber-800">Bs {formatMoney(gasto.cuota_bs)}</td>
+                      <td className="px-4 py-3 text-right font-bold text-amber-800">$ {formatMoney(gasto.cuota_usd)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-amber-100/60">
+                  <tr>
+                    <td className="px-4 py-3 font-black text-amber-900">TOTAL INDIVIDUALES</td>
+                    <td className="px-4 py-3 text-right font-black text-amber-900">Bs {formatMoney(totalsIndividuales.total_bs)}</td>
+                    <td className="px-4 py-3 text-right font-black text-amber-900">$ {formatMoney(totalsIndividuales.total_usd)}</td>
+                    <td className="px-4 py-3 text-right font-black text-amber-900">Bs {formatMoney(totalsIndividuales.cuota_bs)}</td>
+                    <td className="px-4 py-3 text-right font-black text-amber-900">$ {formatMoney(totalsIndividuales.cuota_usd)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </section>
+        ) : null}
+
         <section className="mb-8">
-          <h3 className="mb-3 text-lg font-black text-emerald-600">Estado de Cuentas y Proyeccion de Fondos</h3>
+          <h3 className="mb-3 text-md font-black text-emerald-600">Estado de Cuentas y Proyeccion de Fondos</h3>
           <div className="overflow-hidden rounded-xl border border-gray-200">
             <table className="w-full text-sm">
               <thead className="bg-teal-50 text-teal-700">
-                <tr className="text-left uppercase tracking-wider text-[11px]">
+                <tr className="text-left uppercase tracking-wider text-[9px]">
                   <th className="px-4 py-3 font-extrabold">Cuenta / Fondo</th>
                   <th className="px-4 py-3 text-right font-extrabold">Saldo Actual (Bs)</th>
                   <th className="px-4 py-3 text-right font-extrabold">Saldo Actual ($)</th>
@@ -606,10 +682,10 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
 
         {hasCuentaPrincipal ? (
           <section className="mb-8">
-            <h3 className="mb-3 text-lg font-black text-gray-900">Datos Bancarios para Pago</h3>
+            <h3 className="mb-3 text-md font-black text-gray-900">Datos Bancarios para Pago</h3>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div className="rounded-xl border border-gray-200 bg-white p-4">
-                <p className="text-[11px] font-black uppercase tracking-wider text-gray-500">Cuenta Principal</p>
+                <p className="text-[9px] font-black uppercase tracking-wider text-gray-500">Cuenta Principal</p>
                 <p className="mt-1 text-sm font-bold text-gray-800">{avisoData.cuenta_principal.nombre_banco || 'N/A'}</p>
                 <p className="text-sm text-gray-700">Cuenta: {avisoData.cuenta_principal.numero_cuenta || 'N/A'}</p>
                 <p className="text-sm text-gray-700">RIF: {avisoData.cuenta_principal.cedula_rif || ''}</p>
@@ -619,7 +695,7 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
               </div>
               {avisoData.cuenta_principal.acepta_pago_movil ? (
                 <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-                  <p className="text-[11px] font-black uppercase tracking-wider text-emerald-700">Pago Móvil</p>
+                  <p className="text-[9px] font-black uppercase tracking-wider text-emerald-700">Pago Móvil</p>
                   <p className="mt-1 text-sm font-bold text-emerald-800">{avisoData.cuenta_principal.nombre_banco || 'N/A'}</p>
                   <p className="text-sm text-emerald-800">Teléfono: {avisoData.cuenta_principal.pago_movil_telefono || avisoData.cuenta_principal.telefono || 'N/A'}</p>
                   <p className="text-sm text-emerald-800">RIF: {avisoData.cuenta_principal.pago_movil_cedula_rif || avisoData.cuenta_principal.cedula_rif || ''}</p>
@@ -634,7 +710,7 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
         ) : null}
 
         <section>
-          <h3 className="mb-3 text-lg font-black text-gray-900">Mensajes Importantes</h3>
+          <h3 className="mb-3 text-md font-black text-gray-900">Mensajes Importantes</h3>
           <div className="aviso-mensajes-grid grid grid-cols-1 gap-3 md:grid-cols-2">
             {(avisoData.mensajes.length > 0 ? avisoData.mensajes : fallbackAvisoData.mensajes).map((mensaje, index) => (
               <div key={index} className="rounded-md border-l-4 border-yellow-400 bg-yellow-50 p-4 text-sm text-yellow-800">
