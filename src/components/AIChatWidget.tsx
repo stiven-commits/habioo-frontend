@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState, type FC, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FC } from 'react';
 import { MessageCircle, Send, Trash2, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { API_BASE_URL } from '../config/api';
+import DatePicker from './ui/DatePicker';
 
 type ChatRole = 'user' | 'ai';
 
@@ -19,6 +20,16 @@ interface ChatAskApiResponse {
 const CHAT_STORAGE_KEY = 'habioo_chat_history';
 const MAX_CHAT_MESSAGES = 13;
 
+const DATE_REQUEST_PATTERN = /fecha\b.{0,25}pago|pago\b.{0,25}fecha|dd[\s/]?mm[\s/]?aa|d[ií]a[\s/]mes[\s/]a[ñn]|d[ií]me.{0,15}fecha|indica.{0,15}fecha|ingresa.{0,15}fecha|selecciona.{0,15}fecha|cu[aá]l.{0,15}fecha/i;
+
+const isAskingForDate = (messages: ChatMessage[]): boolean => {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]!;
+    if (m.role === 'ai') return DATE_REQUEST_PATTERN.test(m.text);
+  }
+  return false;
+};
+
 const fixMojibake = (value: string): string =>
   value
     .replace(/Â¿/g, '¿')
@@ -29,12 +40,12 @@ const fixMojibake = (value: string): string =>
     .replace(/Ã³/g, 'ó')
     .replace(/Ãº/g, 'ú')
     .replace(/Ã±/g, 'ñ')
-    .replace(/Ã/g, 'Á')
+    .replace(/Ã/g, 'Á')
     .replace(/Ã‰/g, 'É')
-    .replace(/Ã/g, 'Í')
-    .replace(/Ã“/g, 'Ó')
+    .replace(/Ã/g, 'Í')
+    .replace(/Ã"/g, 'Ó')
     .replace(/Ãš/g, 'Ú')
-    .replace(/Ã‘/g, 'Ñ');
+    .replace(/Ã'/g, 'Ñ');
 
 const normalizeAssistantText = (value: string): string => {
   let text = fixMojibake(value).replace(/\r\n/g, '\n').trim();
@@ -58,6 +69,11 @@ const WELCOME_MESSAGE: ChatMessage = {
   role: 'ai',
   text: '¡Hola! Soy el asistente de Habioo. ¿En qué te puedo ayudar hoy?',
 };
+
+const QUICK_ACTIONS = [
+  { label: '💳 Reportar pago', message: 'Quiero reportar un pago' },
+  { label: '💬 Consultar', message: 'Tengo una consulta' },
+];
 
 const clampMessages = (items: ChatMessage[]): ChatMessage[] => {
   if (items.length <= MAX_CHAT_MESSAGES) return items;
@@ -91,6 +107,7 @@ const AIChatWidget: FC = () => {
   });
   const [input, setInput] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [pickerDate, setPickerDate] = useState<Date | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -105,21 +122,24 @@ const AIChatWidget: FC = () => {
     localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages));
   }, [messages]);
 
+  const dateMode = isAskingForDate(messages);
+  const showQuickActions = messages.length === 1 && messages[0]?.role === 'ai' && !isLoading;
+
   const clearChat = (): void => {
     setMessages([WELCOME_MESSAGE]);
+    setPickerDate(null);
+    setInput('');
     localStorage.removeItem(CHAT_STORAGE_KEY);
   };
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
-    e.preventDefault();
-
-    const textoDelUsuario = input.trim();
+  const sendMessage = async (texto: string): Promise<void> => {
+    const textoDelUsuario = texto.trim();
     if (!textoDelUsuario || isLoading) return;
 
     const token = localStorage.getItem('habioo_token');
-
     setMessages((prev) => clampMessages([...prev, { role: 'user', text: textoDelUsuario }]));
     setInput('');
+    setPickerDate(null);
     setIsLoading(true);
 
     try {
@@ -164,6 +184,20 @@ const AIChatWidget: FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>): void => {
+    e.preventDefault();
+    void sendMessage(input);
+  };
+
+  const handleDateChange = (date: Date | null): void => {
+    setPickerDate(date);
+    if (!date) return;
+    const d = String(date.getDate()).padStart(2, '0');
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const y = date.getFullYear();
+    setInput(`${d}/${m}/${y}`);
   };
 
   if (!isOpen) {
@@ -233,6 +267,21 @@ const AIChatWidget: FC = () => {
           </div>
         ))}
 
+        {showQuickActions && (
+          <div className="flex flex-wrap gap-2">
+            {QUICK_ACTIONS.map((action) => (
+              <button
+                key={action.label}
+                type="button"
+                onClick={() => void sendMessage(action.message)}
+                className="px-3 py-1.5 rounded-full text-xs font-medium border border-emerald-500 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors"
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {isLoading && (
           <div className="flex justify-start">
             <div className="max-w-[85%] px-3 py-2 rounded-2xl rounded-bl-md text-sm bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
@@ -245,15 +294,27 @@ const AIChatWidget: FC = () => {
       </div>
 
       <form
-        onSubmit={(e) => void handleSubmit(e)}
+        onSubmit={handleSubmit}
         className="p-3 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
       >
+        {dateMode && (
+          <div className="mb-2">
+            <DatePicker
+              selected={pickerDate}
+              onChange={handleDateChange}
+              maxDate={new Date()}
+              placeholderText="Selecciona la fecha de pago"
+              className="w-full h-9 rounded-lg border border-emerald-400 bg-slate-50 dark:bg-slate-800 px-3 pr-8 text-sm text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500"
+              wrapperClassName="w-full"
+            />
+          </div>
+        )}
         <div className="flex items-center gap-2">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Escribe tu mensaje..."
+            placeholder={dateMode ? 'DD/MM/AAAA o escribe la fecha...' : 'Escribe tu mensaje...'}
             className="flex-1 h-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100"
           />
           <button
