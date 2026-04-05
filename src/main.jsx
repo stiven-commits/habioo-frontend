@@ -9,6 +9,30 @@ if (typeof window !== 'undefined') {
   const originalFetch = window.fetch.bind(window)
   let sessionEndEventDispatched = false
 
+  const refreshSessionFromHeaders = (response) => {
+    const refreshedToken = response.headers.get('x-habioo-refreshed-token')
+    if (!refreshedToken) return
+
+    localStorage.setItem('habioo_token', refreshedToken)
+    const refreshedExpiresAt = response.headers.get('x-habioo-session-expires-at')
+    if (!refreshedExpiresAt) return
+
+    const rawSession = localStorage.getItem('habioo_session')
+    let session = {}
+    if (rawSession) {
+      try {
+        const parsed = JSON.parse(rawSession)
+        if (parsed && typeof parsed === 'object') session = parsed
+      } catch {
+        session = {}
+      }
+    }
+    localStorage.setItem('habioo_session', JSON.stringify({
+      ...session,
+      expires_at: refreshedExpiresAt,
+    }))
+  }
+
   const getTargetErrorPath = (status) => {
     if (status === 403) return '/error-403'
     if (status === 500) return '/error-500'
@@ -61,6 +85,7 @@ if (typeof window !== 'undefined') {
       && (effectiveUrl.startsWith(API_BASE_URL) || effectiveUrl.startsWith(PROD_API_BASE_URL))
 
     if (isApiCall) {
+      refreshSessionFromHeaders(response)
       if (response.status === 401) {
         const hasToken = Boolean(localStorage.getItem('habioo_token'))
         if (hasToken && !sessionEndEventDispatched) {

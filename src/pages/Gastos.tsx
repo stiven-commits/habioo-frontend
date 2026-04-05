@@ -40,6 +40,11 @@ interface GastoCuota {
   tasa_cambio?: string | number;
   monto_total_usd?: string | number;
   monto_pagado_usd?: string | number;
+  monto_pagado_proveedor_usd?: string | number;
+  monto_recaudado_usd?: string | number;
+  has_real_pago_proveedor?: boolean;
+  cuotas_historicas?: string | number;
+  monto_historico_proveedor_usd?: string | number;
   total_cuotas: number;
   nota?: string;
   clasificacion?: string;
@@ -68,6 +73,11 @@ interface GastoAgrupado {
   tasa_cambio: string | number;
   monto_total_usd: string | number;
   monto_pagado_usd: string | number;
+  monto_pagado_proveedor_usd: string | number;
+  monto_recaudado_usd: string | number;
+  has_real_pago_proveedor?: boolean;
+  cuotas_historicas?: string | number;
+  monto_historico_proveedor_usd?: string | number;
   total_cuotas: number;
   nota?: string;
   clasificacion?: string;
@@ -193,14 +203,36 @@ const parseSoportes = (value: unknown): string[] => {
   return trimmed ? [trimmed] : [];
 };
 
-const parseNotaToFields = (nota?: string): { numero_documento: string; nota: string } => {
+const parseNotaToFields = (nota?: string): {
+  numero_documento: string;
+  nota: string;
+  cuotas_historicas: string;
+  monto_historico_proveedor_usd: string;
+} => {
   const raw = String(nota || '').trim();
-  if (!raw) return { numero_documento: '', nota: '' };
-  const match = raw.match(/^Nro\.\s*recibo\/factura:\s*([^|]+?)(?:\s*\|\s*(.*))?$/i);
-  if (!match) return { numero_documento: '', nota: raw };
+  if (!raw) return { numero_documento: '', nota: '', cuotas_historicas: '0', monto_historico_proveedor_usd: '' };
+  const cuotasMatch = raw.match(/\[hist\.cuotas:(\d+)\]/i);
+  const proveedorUsdMatch = raw.match(/\[hist\.proveedor_usd:([0-9]+(?:\.[0-9]+)?)\]/i);
+  const clean = raw
+    .replace(/\s*\|\s*\[hist\.cuotas:\d+\]/gi, '')
+    .replace(/\s*\|\s*\[hist\.proveedor_usd:[0-9]+(?:\.[0-9]+)?\]/gi, '')
+    .replace(/\[hist\.cuotas:\d+\]/gi, '')
+    .replace(/\[hist\.proveedor_usd:[0-9]+(?:\.[0-9]+)?\]/gi, '')
+    .trim();
+  const match = clean.match(/^Nro\.\s*recibo\/factura:\s*([^|]+?)(?:\s*\|\s*(.*))?$/i);
+  if (!match) {
+    return {
+      numero_documento: '',
+      nota: clean,
+      cuotas_historicas: cuotasMatch?.[1] || '0',
+      monto_historico_proveedor_usd: proveedorUsdMatch?.[1] ? formatMoney(Number(proveedorUsdMatch[1])) : '',
+    };
+  }
   return {
     numero_documento: String(match[1] || '').trim(),
     nota: String(match[2] || '').trim(),
+    cuotas_historicas: cuotasMatch?.[1] || '0',
+    monto_historico_proveedor_usd: proveedorUsdMatch?.[1] ? formatMoney(Number(proveedorUsdMatch[1])) : '',
   };
 };
 
@@ -314,6 +346,11 @@ const Gastos: FC<GastosProps> = () => {
               tasa_cambio: curr.tasa_cambio ?? 0,
               monto_total_usd: curr.monto_total_usd ?? 0,
               monto_pagado_usd: curr.monto_pagado_usd || 0,
+              monto_pagado_proveedor_usd: curr.monto_pagado_proveedor_usd || 0,
+              monto_recaudado_usd: curr.monto_recaudado_usd || 0,
+              has_real_pago_proveedor: Boolean(curr.has_real_pago_proveedor),
+              cuotas_historicas: curr.cuotas_historicas ?? 0,
+              monto_historico_proveedor_usd: curr.monto_historico_proveedor_usd ?? 0,
               total_cuotas: curr.total_cuotas,
               tipo: curr.tipo || 'Comun',
               clasificacion: curr.clasificacion || 'Variable',
@@ -340,9 +377,18 @@ const Gastos: FC<GastosProps> = () => {
             toNumber(gastoActual.monto_pagado_usd),
             toNumber(curr.monto_pagado_usd)
           );
-          if (toNumber(curr.monto_pagado_usd) > 0) {
+          gastoActual.monto_pagado_proveedor_usd = Math.max(
+            toNumber(gastoActual.monto_pagado_proveedor_usd),
+            toNumber(curr.monto_pagado_proveedor_usd)
+          );
+          gastoActual.monto_recaudado_usd = Math.max(
+            toNumber(gastoActual.monto_recaudado_usd),
+            toNumber(curr.monto_recaudado_usd)
+          );
+          if (curr.has_real_pago_proveedor) {
             gastoActual.canDelete = false;
           }
+          gastoActual.has_real_pago_proveedor = Boolean(gastoActual.has_real_pago_proveedor || curr.has_real_pago_proveedor);
           gastoActual.cuotas.push(curr);
           if (curr.estado !== 'Pendiente') {
             gastoActual.canDelete = false;
@@ -417,7 +463,7 @@ const Gastos: FC<GastosProps> = () => {
 
   const getEstadoPago = (gasto: GastoAgrupado): 'Pendiente' | 'Abonado' | 'Pagado' => {
     const total = toNumber(gasto.monto_total_usd);
-    const pagado = toNumber(gasto.monto_pagado_usd);
+    const pagado = toNumber(gasto.monto_pagado_proveedor_usd);
     if (pagado <= 0) return 'Pendiente';
     if (pagado < total) return 'Abonado';
     return 'Pagado';
@@ -487,7 +533,7 @@ const Gastos: FC<GastosProps> = () => {
 
   const getExtraProgress = (gasto: GastoAgrupado): ExtraProgress => {
     const total = toNumber(gasto?.monto_total_usd);
-    const pagado = toNumber(gasto?.monto_pagado_usd);
+    const pagado = toNumber(gasto?.monto_recaudado_usd);
     const safeTotal = Number.isFinite(total) && total > 0 ? total : 0;
     const safePagado = Number.isFinite(pagado) ? Math.max(0, pagado) : 0;
     if (safeTotal <= 0) return { pagado: safePagado, total: safeTotal, pct: 0, isComplete: false };
@@ -757,7 +803,7 @@ const Gastos: FC<GastosProps> = () => {
                     className: 'text-center',
                     render: (g) => {
                       const montoTotal = toNumber(g.monto_total_usd);
-                      const montoPagado = toNumber(g.monto_pagado_usd);
+                      const montoPagado = toNumber(g.monto_pagado_proveedor_usd);
                       const progresoPago = montoTotal > 0 ? Math.min(100, (montoPagado / montoTotal) * 100) : 0;
                       const estadoPago: 'Pendiente' | 'Abonado' | 'Pagado' =
                         montoPagado <= 0 ? 'Pendiente' : montoPagado < montoTotal ? 'Abonado' : 'Pagado';
@@ -786,7 +832,7 @@ const Gastos: FC<GastosProps> = () => {
                     render: (g) => (
                       <DropdownMenu width={208} items={[
                         { label: 'Ver pagos', onClick: () => { setGastoVerPagos(g); setIsModalVerPagosOpen(true); } },
-                        { label: 'Registrar pago', onClick: () => { void handleRegistrarPago(g); }, disabled: toNumber(g.monto_pagado_usd) >= toNumber(g.monto_total_usd) },
+                        { label: 'Registrar pago', onClick: () => { void handleRegistrarPago(g); }, disabled: toNumber(g.monto_pagado_proveedor_usd) >= toNumber(g.monto_total_usd) },
                         { label: 'Editar gasto', onClick: () => handleEditGasto(g), disabled: !g.canEdit },
                         { label: 'Eliminar', onClick: () => { void handleDelete(g.gasto_id); }, variant: 'danger', disabled: !g.canDelete },
                       ]} />
@@ -882,6 +928,8 @@ const Gastos: FC<GastosProps> = () => {
                     tasa_cambio: formatMoney(toNumber(gastoEnEdicion.tasa_cambio), 3),
                     total_cuotas: String(gastoEnEdicion.total_cuotas || 1),
                     nota: notaFields.nota,
+                    cuotas_historicas: notaFields.cuotas_historicas,
+                    monto_historico_proveedor_usd: notaFields.monto_historico_proveedor_usd,
                     clasificacion: String(gastoEnEdicion.clasificacion || 'Variable') === 'Fijo' ? 'Fijo' : 'Variable',
                     asignacion_tipo: (gastoEnEdicion.tipo === 'No Comun' ? 'Zona' : (gastoEnEdicion.tipo || 'Comun')) as 'Comun' | 'Zona' | 'Individual' | 'Extra',
                     zona_id: String(gastoEnEdicion.cuotas[0]?.zona_id || ''),
@@ -907,7 +955,7 @@ const Gastos: FC<GastosProps> = () => {
           gasto={{
             gasto_id: gastoPagar.gasto_id,
             monto_usd: gastoPagar.monto_total_usd,
-            monto_pagado_usd: gastoPagar.monto_pagado_usd,
+            monto_pagado_usd: gastoPagar.monto_pagado_proveedor_usd,
             proveedor: gastoPagar.proveedor,
             concepto: gastoPagar.concepto,
           }}

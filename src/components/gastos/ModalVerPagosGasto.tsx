@@ -17,6 +17,7 @@ interface PagoDetalle {
   fecha_pago: string | null;
   fecha_registro: string | null;
   nota: string | null;
+  es_ajuste_historico?: boolean | null;
 }
 
 interface PagosDetalleResponse {
@@ -107,6 +108,11 @@ const ModalVerPagosGasto: React.FC<ModalVerPagosGastoProps> = ({ isOpen, onClose
                     <>
                       <div className="font-semibold text-slate-700 dark:text-slate-100">{pago.fondo_nombre || 'Sin fondo / tránsito'}</div>
                       <div className="text-xs text-slate-500 dark:text-slate-300">{pago.banco_nombre || 'Banco N/A'}</div>
+                      {Boolean(pago.es_ajuste_historico) && (
+                        <span className="mt-1 inline-flex rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-700 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                          Histórico
+                        </span>
+                      )}
                     </>
                   ),
                 },

@@ -258,11 +258,13 @@ const isNonCommonGasto = (tipo: string | undefined): boolean => {
   return t === 'zona' || t === 'no comun' || t === 'no_comun' || t === 'individual';
 };
 const isIndividualGasto = (tipo: string | undefined): boolean => normalizeTipo(tipo) === 'individual';
+const isExtraGasto = (tipo: string | undefined): boolean => normalizeTipo(tipo) === 'extra';
 
 const getScopeLabel = (gasto: IAvisoGasto): string => {
   const t = normalizeTipo(gasto.tipo);
   if (t === 'individual') return `Individual${gasto.propiedad_identificador ? ` (${gasto.propiedad_identificador})` : ''}`;
   if (t === 'zona' || t === 'no comun' || t === 'no_comun') return `Zona${gasto.zona_nombre ? ` (${gasto.zona_nombre})` : ''}`;
+  if (t === 'extra') return 'Extra';
   return 'Comun';
 };
 
@@ -534,6 +536,9 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
 
         <section className="mb-8">
           <h3 className="mb-3 text-md font-black text-gray-900">Detalle de Gastos del Mes</h3>
+          <div className="mb-3 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+            El monto a pagar en este aviso corresponde a la columna <strong>Por Alícuota</strong>. La columna <strong>Total Gasto</strong> muestra el monto global del gasto/proyecto.
+          </div>
           <div className="mb-3 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs text-indigo-700">
             {nonCommonGastos.length === 0
               ? 'No hay cargos no comunes (zona/individual) en este aviso.'
@@ -563,9 +568,14 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
                       {gasto.nota ? <p className="mt-1 text-xs text-gray-500">Nota: {gasto.nota}</p> : null}
                       {isNonCommonGasto(gasto.tipo) ? (
                         <p className="mt-1 text-[9px] font-semibold text-amber-700">Cargo no comun: {getScopeLabel(gasto)}</p>
+                      ) : isExtraGasto(gasto.tipo) ? (
+                        <p className="mt-1 text-[9px] font-semibold text-fuchsia-700">Cargo extra</p>
                       ) : (
                         <p className="mt-1 text-[9px] text-emerald-700">Cargo comun</p>
                       )}
+                      <p className="mt-1 text-[10px] font-black text-emerald-700">
+                        Cuota de este aviso: Bs {formatMoney(gasto.cuota_bs)} / $ {formatMoney(gasto.cuota_usd)}
+                      </p>
                     </td>
                     <td className="px-4 py-3 text-right font-semibold text-gray-700">Bs {formatMoney(gasto.total_bs)}</td>
                     <td className="px-4 py-3 text-right font-semibold text-gray-700">$ {formatMoney(gasto.total_usd)}</td>
@@ -585,9 +595,14 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
                       {gasto.nota ? <p className="mt-1 text-xs text-gray-500">Nota: {gasto.nota}</p> : null}
                       {isNonCommonGasto(gasto.tipo) ? (
                         <p className="mt-1 text-[9px] font-semibold text-amber-700">Cargo no comun: {getScopeLabel(gasto)}</p>
+                      ) : isExtraGasto(gasto.tipo) ? (
+                        <p className="mt-1 text-[9px] font-semibold text-fuchsia-700">Cargo extra</p>
                       ) : (
                         <p className="mt-1 text-[9px] text-emerald-700">Cargo comun</p>
                       )}
+                      <p className="mt-1 text-[10px] font-black text-emerald-700">
+                        Cuota de este aviso: Bs {formatMoney(gasto.cuota_bs)} / $ {formatMoney(gasto.cuota_usd)}
+                      </p>
                     </td>
                     <td className="px-4 py-3 text-right font-semibold text-gray-700">Bs {formatMoney(gasto.total_bs)}</td>
                     <td className="px-4 py-3 text-right font-semibold text-gray-700">$ {formatMoney(gasto.total_usd)}</td>
@@ -598,9 +613,9 @@ const VistaAvisoCobro = ({ reciboId = null }: VistaAvisoCobroProps) => {
               </tbody>
               <tfoot className="bg-gray-100">
                 <tr>
-                  <td className="px-4 py-3 font-black text-gray-900">TOTAL</td>
-                  <td className="px-4 py-3 text-right font-black text-gray-900">Bs {formatMoney(totals.total_bs)}</td>
-                  <td className="px-4 py-3 text-right font-black text-gray-900">$ {formatMoney(totals.total_usd)}</td>
+                  <td className="px-4 py-3 font-black text-gray-900">TOTAL A PAGAR (ESTE AVISO)</td>
+                  <td className="px-4 py-3 text-right font-black text-gray-500">-</td>
+                  <td className="px-4 py-3 text-right font-black text-gray-500">-</td>
                   <td className="px-4 py-3 text-right font-black text-gray-900">Bs {formatMoney(totals.cuota_bs)}</td>
                   <td className="px-4 py-3 text-right font-black text-gray-900">$ {formatMoney(totals.cuota_usd)}</td>
                 </tr>

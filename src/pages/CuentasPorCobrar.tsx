@@ -614,7 +614,11 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
 
   // Logica de filtrado por pestanas
   const baseProperties = activeTab === 'Deudores'
-    ? propiedades.filter((p: Propiedad) => toNumber(p.saldo_actual) > 0)
+    ? propiedades.filter((p: Propiedad) => {
+      const saldo = toNumber(p.saldo_actual);
+      const pendientes = Number(pendingByPropiedad[p.id] || 0);
+      return saldo > 0 || pendientes > 0;
+    })
     : propiedades;
 
   const filteredProperties = baseProperties.filter(

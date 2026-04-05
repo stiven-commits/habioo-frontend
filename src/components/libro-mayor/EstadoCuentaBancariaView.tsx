@@ -691,7 +691,14 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       return matchId?.[1] ? Number(matchId[1]) : 0;
     };
 
-    return [...movimientosDirectos, ...ingresosConsolidados, ...ajustesConsolidados].sort((a, b) => {
+    const movimientosDirectosCuenta = movimientosDirectos.filter((mov) => {
+      const hasFondoId = toNullableInt((mov as { fondo_id?: unknown }).fondo_id) !== null;
+      const hasFondoOrigen = toNullableInt((mov as { fondo_origen_id?: unknown }).fondo_origen_id) !== null;
+      const hasFondoDestino = toNullableInt((mov as { fondo_destino_id?: unknown }).fondo_destino_id) !== null;
+      return hasFondoId || hasFondoOrigen || hasFondoDestino;
+    });
+
+    return [...movimientosDirectosCuenta, ...ingresosConsolidados, ...ajustesConsolidados].sort((a, b) => {
       const ordenA = getExecutionOrder(a);
       const ordenB = getExecutionOrder(b);
       if (ordenA !== ordenB) return ordenB - ordenA;

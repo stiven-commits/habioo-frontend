@@ -50,6 +50,17 @@ const ModalDetallesGasto: FC<ModalDetallesGastoProps> = ({ gasto, onClose }) => 
     return [trimmed];
   };
   const soportesAdjuntos = normalizeSoportes(gasto.imagenes);
+  const notaRaw = String(gasto.nota || '').trim();
+  const cuotasHistoricasMatch = notaRaw.match(/\[hist\.cuotas:(\d+)\]/i);
+  const pagoHistoricoMatch = notaRaw.match(/\[hist\.proveedor_usd:([0-9]+(?:\.[0-9]+)?)\]/i);
+  const cuotasHistoricas = cuotasHistoricasMatch?.[1] ? parseInt(cuotasHistoricasMatch[1], 10) : 0;
+  const pagoHistoricoProveedorUsd = pagoHistoricoMatch?.[1] ? Number(pagoHistoricoMatch[1]) : 0;
+  const notaLimpia = notaRaw
+    .replace(/\s*\|\s*\[hist\.cuotas:\d+\]/gi, '')
+    .replace(/\s*\|\s*\[hist\.proveedor_usd:[0-9]+(?:\.[0-9]+)?\]/gi, '')
+    .replace(/\[hist\.cuotas:\d+\]/gi, '')
+    .replace(/\[hist\.proveedor_usd:[0-9]+(?:\.[0-9]+)?\]/gi, '')
+    .trim();
 
   return (
     <ModalBase onClose={onClose} title="Inspección de Gasto" maxWidth="max-w-md">
@@ -70,8 +81,25 @@ const ModalDetallesGasto: FC<ModalDetallesGastoProps> = ({ gasto, onClose }) => 
           </p>
           <p>
             <strong className="text-gray-800 dark:text-white">Notas:</strong>{' '}
-            {gasto.nota && String(gasto.nota).trim() ? gasto.nota : 'Sin notas'}
+            {notaLimpia ? notaLimpia : 'Sin notas'}
           </p>
+          {(cuotasHistoricas > 0 || pagoHistoricoProveedorUsd > 0) && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-900 dark:border-amber-800/50 dark:bg-amber-900/20 dark:text-amber-200">
+              <p className="text-xs font-black uppercase tracking-wider">Contexto histórico</p>
+              <div className="mt-2 space-y-1 text-sm">
+                {cuotasHistoricas > 0 && (
+                  <p>
+                    <strong>Cuotas ya transcurridas:</strong> {cuotasHistoricas}
+                  </p>
+                )}
+                {pagoHistoricoProveedorUsd > 0 && (
+                  <p>
+                    <strong>Pago histórico al proveedor:</strong> ${formatMoney(pagoHistoricoProveedorUsd)}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
           
           <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl my-2 border border-gray-200 dark:border-gray-700">
             <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 pb-2 mb-2 text-xs">
