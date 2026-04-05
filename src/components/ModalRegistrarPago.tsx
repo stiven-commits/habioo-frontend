@@ -45,7 +45,7 @@ interface Fondo {
 interface CuentasResponse {
   status: string;
   bancos?: BancoCuenta[];
-  data?: BancoCuenta;
+  data?: BancoCuenta | BancoCuenta[];
 }
 
 interface FondosResponse {
@@ -57,10 +57,6 @@ interface PagoResponse {
   status: string;
   message?: string;
   error?: string;
-}
-
-interface BcvResponse {
-  promedio?: number | string;
 }
 
 interface FormPagoState {
@@ -85,6 +81,7 @@ interface ConfirmOptions {
 }
 
 interface DialogContextType {
+  showAlert: (options: { title: string; message: string; variant: 'warning' | 'danger' | 'success' }) => Promise<void>;
   showConfirm: (options: ConfirmOptions) => Promise<boolean>;
 }
 
@@ -140,6 +137,17 @@ const initialFormPago = (): FormPagoState => ({
   telefono_origen: ''
 });
 
+const inferCuentaMoneda = (cuenta?: BancoCuenta): 'USD' | 'BS' => {
+  if (!cuenta) return 'BS';
+  const moneda = String(cuenta.moneda || '').trim().toUpperCase();
+  if (moneda === 'USD') return 'USD';
+  const tipo = String(cuenta.tipo || '').trim().toUpperCase();
+  if (tipo.includes('USD') || tipo.includes('ZELLE')) return 'USD';
+  const apodo = String(cuenta.apodo || '').trim().toUpperCase();
+  if (apodo.includes('USD')) return 'USD';
+  return 'BS';
+};
+
 const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
   propiedadPreseleccionada,
   reciboId = null,
@@ -148,7 +156,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const { showConfirm } = useDialog() as DialogContextType;
+  const { showConfirm, showAlert } = useDialog() as DialogContextType;
   const [cuentasBancarias, setCuentasBancarias] = useState<BancoCuenta[]>([]);
   const [cuentasConFondos, setCuentasConFondos] = useState<BancoCuenta[]>([]);
   const [loadingCuentas, setLoadingCuentas] = useState<boolean>(true);
@@ -161,7 +169,11 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
   useEffect(() => {
     // Solo auto-completamos si la modal está abierta, hay cuentas y el usuario NO ha seleccionado una manualmente
     if (isOpen && cuentasConFondos && cuentasConFondos.length > 0 && !formPago.cuenta_id) {
-      const cuentaPorDefecto = cuentasConFondos.find((c: BancoCuenta) => c.es_predeterminada) ?? cuentasConFondos[0];
+      const cuentaPorDefecto =
+        cuentasConFondos.find((c: BancoCuenta) => c.es_predeterminada && inferCuentaMoneda(c) === 'BS') ??
+        cuentasConFondos.find((c: BancoCuenta) => c.es_predeterminada) ??
+        cuentasConFondos.find((c: BancoCuenta) => inferCuentaMoneda(c) === 'BS') ??
+        cuentasConFondos[0];
       
       if (cuentaPorDefecto) {
         const metodos = getMetodosCuenta(cuentaPorDefecto);
@@ -204,12 +216,28 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
         const token = localStorage.getItem('habioo_token');
 
         if (soloCuentaPrincipal && condominioId) {
-          const resPrincipal = await fetch(`${API_BASE_URL}/api/propietario/cuenta-principal/${condominioId}`, {
+          const resPrincipal = await fetch(`${API_BASE_URL}/api/propietario/cuentas/${condominioId}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const dataPrincipal: CuentasResponse = await resPrincipal.json();
-          const cuenta = resPrincipal.ok && dataPrincipal.status === 'success' ? dataPrincipal.data : undefined;
-          const principal = cuenta ? [cuenta] : [];
+          const cuentasRaw =
+            resPrincipal.ok && dataPrincipal.status === 'success'
+              ? (Array.isArray(dataPrincipal.data) ? dataPrincipal.data : [])
+              : [];
+          const cuentas = Array.isArray(cuentasRaw) ? cuentasRaw : [];
+
+          const principalBs = cuentas.find((c: BancoCuenta) => c.es_predeterminada && inferCuentaMoneda(c) === 'BS');
+          const principalUsd = cuentas.find((c: BancoCuenta) => c.es_predeterminada && inferCuentaMoneda(c) === 'USD');
+          const fallbackBs = cuentas.find((c: BancoCuenta) => inferCuentaMoneda(c) === 'BS');
+          const fallbackUsd = cuentas.find((c: BancoCuenta) => inferCuentaMoneda(c) === 'USD');
+
+          const selected = [
+            principalBs || fallbackBs || null,
+            principalUsd || fallbackUsd || null,
+          ].filter((c): c is BancoCuenta => Boolean(c));
+          const principal = selected.filter(
+            (c: BancoCuenta, idx: number, arr: BancoCuenta[]) => arr.findIndex((x) => String(x.id) === String(c.id)) === idx
+          );
           setCuentasBancarias(principal);
           setCuentasConFondos(principal);
           return;
@@ -300,26 +328,8 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
     applyFormChange(field, newVal);
   };
 
-  const [isFetchingBCV, setIsFetchingBCV] = useState<boolean>(false);
+  const [isLoadingAutoRate, setIsLoadingAutoRate] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-
-  const fetchBCV = async (): Promise<void> => {
-    setIsFetchingBCV(true);
-    try {
-      const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
-      if (!response.ok) throw new Error('API Error');
-      const json: BcvResponse = await response.json();
-      if (json && json.promedio) {
-        const rateNumber = parseFloat(String(json.promedio));
-        const usdRate = Number.isFinite(rateNumber) ? rateNumber.toFixed(3).replace('.', ',') : String(json.promedio).replace('.', ',');
-        applyFormChange('tasa_cambio', formatCurrencyInput(usdRate, 3));
-      } else alert('No se pudo encontrar la tasa del BCV actual.');
-    } catch {
-      alert('Error de conexión o API. No se pudo obtener la tasa BCV.');
-    } finally {
-      setIsFetchingBCV(false);
-    }
-  };
 
   const selectedBank = cuentasConFondos.find((b: BancoCuenta) => b.id.toString() === formPago.cuenta_id);
   const metodosCuentaSeleccionada = getMetodosCuenta(selectedBank);
@@ -336,9 +346,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
   const tipoCuentaSeleccionada = String(cuentaSeleccionada?.tipo || '').toUpperCase();
   const esMetodoUsd = formPago.metodo_pago === 'Zelle' || (formPago.metodo_pago === 'Efectivo' && !tipoCuentaSeleccionada.includes('BS'));
   const esCuentaUsd =
-    cuentaSeleccionada?.moneda === 'USD' ||
-    nombreCuentaSeleccionada.includes('USD') ||
-    tipoCuentaSeleccionada.includes('USD') ||
+    inferCuentaMoneda(cuentaSeleccionada) === 'USD' ||
     esMetodoUsd;
   const requiresTasa = formPago.metodo_pago === 'Transferencia' || formPago.metodo_pago === 'Pago Movil';
 
@@ -364,6 +372,44 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
     setFormPago((prev: FormPagoState) => ({ ...prev, referencia: referenciaSugerida }));
   }, [esCuentaUsd, formPago.metodo_pago, formPago.referencia, nombreCuentaSeleccionada]);
 
+  useEffect(() => {
+    if (!isOpen || !formPago.cuenta_id || esCuentaUsd || !requiresTasa) return;
+    let cancelled = false;
+
+    const loadAutoBcv = async (): Promise<void> => {
+      setIsLoadingAutoRate(true);
+      try {
+        const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
+        if (!response.ok) throw new Error('API Error');
+        const json = await response.json() as { promedio?: number | string };
+        const rateNumber = parseFloat(String(json?.promedio ?? ''));
+        if (!Number.isFinite(rateNumber) || rateNumber <= 0) throw new Error('BCV invalid');
+        const formattedRate = formatCurrencyInput(rateNumber.toFixed(3).replace('.', ','), 3);
+
+        if (cancelled) return;
+        setFormPago((prev: FormPagoState) => {
+          if (prev.tasa_cambio === formattedRate) return prev;
+          const updated: FormPagoState = { ...prev, tasa_cambio: formattedRate };
+          setConversionUSD(getConversionUSD(updated));
+          return updated;
+        });
+      } catch {
+        if (!cancelled) {
+          await showAlert({
+            title: 'BCV no disponible',
+            message: 'No se pudo cargar la tasa BCV automática. Intente nuevamente.',
+            variant: 'warning',
+          });
+        }
+      } finally {
+        if (!cancelled) setIsLoadingAutoRate(false);
+      }
+    };
+
+    void loadAutoBcv();
+    return () => { cancelled = true; };
+  }, [isOpen, formPago.cuenta_id, esCuentaUsd, requiresTasa, showAlert]);
+
   const handleSubmitPago = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     if (isSubmitting) return;
@@ -381,6 +427,10 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
     }
     if (esCuentaUsd && parseInputNumber(montoUsdDirecto) <= 0) {
       alert('Error: ingrese un monto pagado (USD) válido.');
+      return;
+    }
+    if (requiresTasa && !esCuentaUsd && parseInputNumber(formPago.tasa_cambio) <= 0) {
+      alert('Error: no hay una tasa BCV válida disponible para calcular el equivalente en USD.');
       return;
     }
     const ok = await showConfirm({
@@ -524,12 +574,20 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                       <input type="text" name="monto_origen" value={formPago.monto_origen} onChange={handlePagoChange} placeholder="0,00" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
                     </FormField>
                     <FormField label="Tasa de Cambio" required>
-                      <input type="text" name="tasa_cambio" value={formPago.tasa_cambio} onChange={handlePagoChange} placeholder="Ej: 36,500" required className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" />
+                      <input
+                        type="text"
+                        name="tasa_cambio"
+                        value={formPago.tasa_cambio}
+                        readOnly
+                        placeholder={isLoadingAutoRate ? 'Cargando tasa BCV...' : 'Tasa BCV automática'}
+                        required
+                        className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 dark:bg-gray-800/70 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary"
+                      />
                     </FormField>
                   </div>
-                  <button type="button" onClick={fetchBCV} disabled={isFetchingBCV} className="h-full min-h-[118px] w-full bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/40 dark:text-blue-400 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-donezo-primary disabled:opacity-60" title="Consultar tasa actual del BCV">
-                    {isFetchingBCV ? '⌛...' : 'BCV'}
-                  </button>
+                  <div className="h-full min-h-[118px] w-full bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center text-center px-3">
+                    Tasa BCV automática
+                  </div>
                 </div>
               ) : (
                 <FormField label="Monto Pagado" required>

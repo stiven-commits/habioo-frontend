@@ -167,6 +167,13 @@ const resolveTipoMoneda = (tipo: string): { moneda: 'BS' | 'USD' | null; blocked
   return { moneda: null, blocked: false };
 };
 
+const inferBancoMoneda = (banco: Banco): 'BS' | 'USD' => {
+  const forced = resolveTipoMoneda(String(banco.tipo || '')).moneda;
+  if (forced) return forced;
+  const text = `${String(banco.apodo || '')} ${String(banco.nombre_banco || '')} ${String(banco.tipo || '')}`.toUpperCase();
+  return text.includes('USD') || text.includes('ZELLE') ? 'USD' : 'BS';
+};
+
 const Bancos: FC<BancosProps> = () => {
   const { userRole } = useOutletContext<OutletContextType>();
   const { showAlert, showConfirm } = useDialog() as DialogContextType;
@@ -496,6 +503,11 @@ const Bancos: FC<BancosProps> = () => {
   if (userRole !== 'Administrador') return <p className="p-6 text-gray-500">No tienes permisos para ver esta seccion.</p>;
   if (loading) return <p className="p-6 text-gray-500">Cargando cuentas...</p>;
 
+  const cuentasBs = bancos.filter((b) => inferBancoMoneda(b) === 'BS');
+  const cuentasUsd = bancos.filter((b) => inferBancoMoneda(b) === 'USD');
+  const hasPrincipalBs = cuentasBs.some((b) => b.es_predeterminada);
+  const hasPrincipalUsd = cuentasUsd.some((b) => b.es_predeterminada);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -507,12 +519,13 @@ const Bancos: FC<BancosProps> = () => {
         }
       />
 
-      {bancos.length > 0 && !bancos.some(b => b.es_predeterminada) && (
+      {bancos.length > 0 && ((!hasPrincipalBs && cuentasBs.length > 0) || (!hasPrincipalUsd && cuentasUsd.length > 0)) && (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-500 p-4 rounded-xl shadow-sm">
           <p className="text-yellow-800 dark:text-yellow-300 font-medium text-sm">
-            <strong className="block mb-1 text-base">⚠️ Falta asignar una cuenta principal</strong>
-            Es obligatorio asignar una cuenta bancaria principal (predeterminada) ya que esta información será compartida con los inmuebles para que notifiquen sus pagos. 
-            Por favor, haz clic en el botón <span className="font-bold">Hacer Principal</span> en alguna de las cuentas abajo para continuar.
+            <strong className="block mb-1 text-base">⚠️ Falta asignar cuenta principal por moneda</strong>
+            Debe existir una cuenta principal en Bs y otra en USD (si hay cuentas de ese tipo) para que los inmuebles registren pagos correctamente.
+            {!hasPrincipalBs && cuentasBs.length > 0 ? <span className="block">Pendiente principal Bs.</span> : null}
+            {!hasPrincipalUsd && cuentasUsd.length > 0 ? <span className="block">Pendiente principal USD.</span> : null}
           </p>
         </div>
       )}
@@ -598,10 +611,10 @@ const Bancos: FC<BancosProps> = () => {
                   {b.es_predeterminada ? (
                     <div className="flex-1 inline-flex items-center justify-center gap-1.5 bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[11px] font-bold px-3 py-2.5 cursor-default border-r border-gray-200 dark:border-gray-700">
                       <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-                      Principal
+                      Principal {inferBancoMoneda(b)}
                     </div>
                   ) : (
-                    <button onClick={() => handleSetPredeterminada(b.id)} className="flex-1 text-[11px] text-gray-600 hover:text-gray-800 font-bold bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 px-3 py-2.5 transition-colors border-r border-gray-200 dark:border-gray-700">Hacer Principal</button>
+                    <button onClick={() => handleSetPredeterminada(b.id)} className="flex-1 text-[11px] text-gray-600 hover:text-gray-800 font-bold bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 px-3 py-2.5 transition-colors border-r border-gray-200 dark:border-gray-700">Hacer Principal {inferBancoMoneda(b)}</button>
                   )}
                   <button onClick={() => handleDelete(b.id)} className="flex items-center justify-center px-4 py-2 bg-gray-50 hover:bg-red-50 dark:bg-gray-800 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 text-sm transition-colors" title="Eliminar cuenta">Eliminar</button>
                 </div>
