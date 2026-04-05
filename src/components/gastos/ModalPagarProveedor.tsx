@@ -9,6 +9,8 @@ interface GastoPagoProveedor {
   gasto_id: number | string;
   monto_usd: number | string;
   monto_pagado_usd: number | string;
+  proveedor?: string;
+  concepto?: string;
 }
 
 interface ICuentaBancaria {
@@ -434,8 +436,15 @@ const ModalPagarProveedor: React.FC<ModalPagarProveedorProps> = ({ isOpen, onClo
 
   if (!isOpen) return null;
 
+  const proveedorLabel = String(gasto.proveedor || '').trim();
+  const conceptoLabel = String(gasto.concepto || '').trim();
+  const detalleHeader = [proveedorLabel, conceptoLabel].filter(Boolean).join(' · ');
+  const subtitle = detalleHeader
+    ? `${detalleHeader}`
+    : 'Registre el pago al proveedor completando los siguientes campos.';
+
   return (
-    <ModalBase onClose={onClose} title="Pagar proveedor" subtitle="Orígenes reactivos por banco seleccionado" maxWidth="max-w-6xl" disableClose={saving}>
+    <ModalBase onClose={onClose} title="Pagar proveedor" subtitle={subtitle} maxWidth="max-w-6xl" disableClose={saving}>
       {saving && (
         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-white/70 backdrop-blur-sm dark:bg-donezo-card-dark/70 rounded-3xl">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-300 border-t-donezo-primary" />
