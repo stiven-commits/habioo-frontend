@@ -69,6 +69,7 @@ interface PagoProveedorForm {
 
 interface TransferenciaForm {
   fondo_origen_id: string;
+  fondo_destino_id: string;
   monto_origen: string;
   referencia: string;
   fecha: string;
@@ -562,13 +563,13 @@ export const ModalTransferencia: React.FC<ModalActionProps> = ({ onClose, onSucc
 
   const [fondos, setFondos] = useState<Fondo[]>([]);
   const [cuentas, setCuentas] = useState<CuentaBancaria[]>([]);
-  const [saldosFondos, setSaldosFondos] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [isSubmittingTransfer, setIsSubmittingTransfer] = useState<boolean>(false);
   const [cuentaDestinoId, setCuentaDestinoId] = useState<string>('');
 
   const [form, setForm] = useState<TransferenciaForm>({
     fondo_origen_id: '',
+    fondo_destino_id: '',
     monto_origen: '',
     referencia: '',
     fecha: new Date().toISOString().split('T')[0] ?? '',
@@ -577,6 +578,7 @@ export const ModalTransferencia: React.FC<ModalActionProps> = ({ onClose, onSucc
   const resetTransferForm = (): void => {
     setForm({
       fondo_origen_id: '',
+      fondo_destino_id: '',
       monto_origen: '',
       referencia: '',
       fecha: new Date().toISOString().split('T')[0] ?? '',
@@ -614,42 +616,6 @@ export const ModalTransferencia: React.FC<ModalActionProps> = ({ onClose, onSucc
     fetchData();
   }, []);
 
-  useEffect(() => {
-    const token = localStorage.getItem('habioo_token') || '';
-    const cuentasUnicas = Array.from(new Set(
-      fondos
-        .map((f) => String(f.cuenta_bancaria_id || ''))
-        .filter((id) => id !== '')
-    ));
-    if (!token || cuentasUnicas.length === 0) {
-      setSaldosFondos({});
-      return;
-    }
-
-    let cancelled = false;
-    const loadSaldos = async (): Promise<void> => {
-      try {
-        const results = await Promise.all(
-          cuentasUnicas.map(async (cuentaId) => {
-            const fondosCuenta = fondos.filter((f) => String(f.cuenta_bancaria_id) === cuentaId);
-            const saldos = await fetchSaldosFondosPorCuenta(cuentaId, token, fondosCuenta);
-            return saldos;
-          })
-        );
-        if (cancelled) return;
-        const merged: Record<string, number> = {};
-        results.forEach((part) => {
-          Object.entries(part).forEach(([k, v]) => { merged[k] = v; });
-        });
-        setSaldosFondos(merged);
-      } catch {
-        if (!cancelled) setSaldosFondos({});
-      }
-    };
-    void loadSaldos();
-    return () => { cancelled = true; };
-  }, [fondos]);
-
   const fondoOrigen = fondos.find((f) => f.id.toString() === form.fondo_origen_id);
   const cuentaOrigenId = fondoOrigen?.cuenta_bancaria_id?.toString() || '';
   const monedaOrigen = String(fondoOrigen?.moneda || '').toUpperCase();
@@ -680,10 +646,10 @@ export const ModalTransferencia: React.FC<ModalActionProps> = ({ onClose, onSucc
       label: formatFondoOrigenLabel(
         f,
         cuentaById.get(String(f.cuenta_bancaria_id || '')),
-        saldosFondos[String(f.id)]
+        undefined
       ),
     })),
-    [fondos, cuentaById, saldosFondos],
+    [fondos, cuentaById],
   );
   const opcionesCuentaDestino = useMemo<ComboboxOption[]>(
     () => cuentasDestinoDisponibles.map((cuenta) => ({
@@ -692,32 +658,22 @@ export const ModalTransferencia: React.FC<ModalActionProps> = ({ onClose, onSucc
     })),
     [cuentasDestinoDisponibles],
   );
-
-  const distribucionPreview = useMemo(() => {
-    if (!fondoOrigen || !cuentaDestinoId || cuentaDestinoSinFondos || montoOrigenNum <= 0) return [];
-    const noOperativos = fondosDestinoCuenta.filter((f) => !f.es_operativo);
-    const principal = fondosDestinoCuenta.find((f) => f.es_operativo) || fondosDestinoCuenta[0];
-    const items = noOperativos.map((f) => {
-      const pct = parseNumber(f.porcentaje_asignacion || 0);
-      const monto = Number(((montoOrigenNum * pct) / 100).toFixed(2));
-      return { id: String(f.id), nombre: f.nombre, pct, monto };
-    });
-    const usado = Number(items.reduce((acc, item) => acc + item.monto, 0).toFixed(2));
-    const resto = Number((montoOrigenNum - usado).toFixed(2));
-    if (principal && resto !== 0) {
-      const idx = items.findIndex((item) => item.id === String(principal.id));
-      if (idx >= 0) {
-        const current = items[idx];
-        if (current) current.monto = Number((current.monto + resto).toFixed(2));
-      }
-      else items.push({ id: String(principal.id), nombre: principal.nombre, pct: Number((100 - noOperativos.reduce((acc, f) => acc + parseNumber(f.porcentaje_asignacion || 0), 0)).toFixed(2)), monto: resto });
-    }
-    return items;
-  }, [cuentaDestinoId, cuentaDestinoSinFondos, fondoOrigen, fondosDestinoCuenta, montoOrigenNum]);
+  const opcionesFondoDestino = useMemo<ComboboxOption[]>(
+    () => fondosDestinoCuenta.map((fondo) => ({
+      value: String(fondo.id),
+      label: formatFondoOrigenLabel(
+        fondo,
+        cuentaById.get(String(fondo.cuenta_bancaria_id || '')),
+        undefined,
+      ),
+    })),
+    [fondosDestinoCuenta, cuentaById],
+  );
 
   const isTransferFormValid = Boolean(
     form.fondo_origen_id &&
     cuentaDestinoId &&
+    form.fondo_destino_id &&
     montoOrigenNum > 0 &&
     form.referencia.trim() &&
     form.fecha &&
@@ -728,8 +684,8 @@ export const ModalTransferencia: React.FC<ModalActionProps> = ({ onClose, onSucc
     e.preventDefault();
     if (isSubmittingTransfer) return;
 
-    if (!form.fondo_origen_id || !cuentaDestinoId) {
-      await showAlert({ title: 'Campos requeridos', message: 'Seleccione fondo de origen y cuenta destino.', variant: 'warning' });
+    if (!form.fondo_origen_id || !cuentaDestinoId || !form.fondo_destino_id) {
+      await showAlert({ title: 'Campos requeridos', message: 'Seleccione fondo de origen, cuenta destino y fondo destino.', variant: 'warning' });
       return;
     }
     if (cuentaDestinoSinFondos) {
@@ -751,7 +707,7 @@ export const ModalTransferencia: React.FC<ModalActionProps> = ({ onClose, onSucc
 
     const ok = await showConfirm({
       title: 'Confirmar transferencia',
-      message: `Se transferirán ${form.monto_origen} ${fondoOrigen.moneda} y se distribuirán automáticamente en los fondos de la cuenta destino según sus porcentajes.`,
+      message: `Se transferirán ${form.monto_origen} ${fondoOrigen.moneda} al fondo destino seleccionado (100% del monto).`,
       confirmText: 'Transferir',
       cancelText: 'Cancelar',
       variant: 'warning',
@@ -766,6 +722,7 @@ export const ModalTransferencia: React.FC<ModalActionProps> = ({ onClose, onSucc
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           ...form,
+          fondo_destino_id: Number(form.fondo_destino_id),
           cuenta_destino_id: Number(cuentaDestinoId),
           monto_origen: montoOrigenNum,
           tasa_cambio: null,
@@ -787,7 +744,7 @@ export const ModalTransferencia: React.FC<ModalActionProps> = ({ onClose, onSucc
   };
 
   return (
-    <ModalBase onClose={handleCloseTransferModal} title="Transferir Dinero" maxWidth="max-w-md">
+    <ModalBase onClose={handleCloseTransferModal} title="Transferir Dinero" maxWidth="max-w-2xl">
 
         {loading ? <p className="text-center text-gray-500">Cargando fondos...</p> : (
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -796,7 +753,7 @@ export const ModalTransferencia: React.FC<ModalActionProps> = ({ onClose, onSucc
                 required
                 value={form.fondo_origen_id}
                 onChange={(next) => {
-                  setForm({ ...form, fondo_origen_id: next });
+                  setForm({ ...form, fondo_origen_id: next, fondo_destino_id: '' });
                   setCuentaDestinoId('');
                 }}
                 options={opcionesFondoOrigen}
@@ -810,7 +767,10 @@ export const ModalTransferencia: React.FC<ModalActionProps> = ({ onClose, onSucc
                 <SearchableCombobox
                   required
                   value={cuentaDestinoId}
-                  onChange={setCuentaDestinoId}
+                  onChange={(next) => {
+                    setCuentaDestinoId(next);
+                    setForm((prev) => ({ ...prev, fondo_destino_id: '' }));
+                  }}
                   options={opcionesCuentaDestino}
                   placeholder="Buscar cuenta destino..."
                   className="w-full p-3 rounded-xl border border-indigo-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-indigo-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-indigo-400 font-semibold"
@@ -823,31 +783,28 @@ export const ModalTransferencia: React.FC<ModalActionProps> = ({ onClose, onSucc
               </FormField>
             )}
 
-            
-
             {fondoOrigen && cuentaDestinoId && !cuentaDestinoSinFondos && (
+              <FormField label={<span className="text-purple-700 dark:text-purple-300">Fondo Destino</span>} required>
+                <SearchableCombobox
+                  required
+                  value={form.fondo_destino_id}
+                  onChange={(next) => setForm((prev) => ({ ...prev, fondo_destino_id: next }))}
+                  options={opcionesFondoDestino}
+                  placeholder="Buscar fondo destino..."
+                  className="w-full p-3 rounded-xl border border-purple-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-purple-700 dark:text-gray-100 outline-none focus:ring-2 focus:ring-purple-400 font-semibold"
+                />
+              </FormField>
+            )}
+
+            {fondoOrigen && cuentaDestinoId && form.fondo_destino_id && !cuentaDestinoSinFondos && (
               <div className="animate-fadeIn space-y-4 border-t border-gray-100 dark:border-gray-800 pt-4 mt-4">
                 <div className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 dark:border-blue-800/60 dark:bg-blue-900/20 dark:text-blue-300">
-                  Al confirmar, el monto se distribuirá automáticamente entre los fondos de la cuenta destino según sus porcentajes de asignación.
+                  Al confirmar, el 100% del monto se acreditará en el fondo destino seleccionado.
                 </div>
 
                 <FormField label="Monto a Enviar" required>
                   <input required type="text" value={form.monto_origen} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, monto_origen: formatNumberInput(e.target.value, 2) })} placeholder="Ej: 1.500,00" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
                 </FormField>
-
-                {form.monto_origen && distribucionPreview.length > 0 && (
-                  <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-xl border border-green-100 dark:border-green-800/50 space-y-2">
-                    <div className="text-xs font-bold text-green-700 dark:text-green-300 uppercase">Distribución automática en cuenta destino</div>
-                    <div className="space-y-1 text-sm">
-                      {distribucionPreview.map((item) => (
-                        <div key={item.id} className="flex items-center justify-between text-green-800 dark:text-green-200">
-                          <span>{item.nombre} ({item.pct.toFixed(2)}%)</span>
-                          <span className="font-bold">{fondoOrigen.moneda === 'USD' ? '$' : 'Bs '}{formatMoney(item.monto)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
 
                 <div className="grid grid-cols-2 gap-3">
                   <FormField label="Referencia" required>
