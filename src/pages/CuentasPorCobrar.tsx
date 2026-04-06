@@ -153,15 +153,20 @@ interface PendingCountMap {
 
 const toNumber = (value: string | number | undefined | null): number => parseFloat(String(value ?? 0)) || 0;
 const inferBancoMoneda = (cuenta: any): 'USD' | 'BS' => {
+  // El tipo tiene prioridad para tipos que implican claramente una moneda
+  const tipo = String(cuenta?.tipo || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const isStrongUsd = tipo === 'zelle' || tipo === 'efectivo usd' || tipo === 'transferencia internacional'
+    || tipo.includes('usd') || tipo.includes('zelle') || tipo.includes('internacional');
+  if (isStrongUsd) return 'USD';
+  const isStrongBs = tipo === 'transferencia' || tipo === 'deposito' || tipo === 'pago movil'
+    || tipo === 'efectivo bs' || tipo.includes('movil') || tipo.includes('transferencia');
+  if (isStrongBs) return 'BS';
+  // Para tipos ambiguos, usar el campo almacenado en BD
   const stored = String(cuenta?.moneda || '').toUpperCase();
   if (stored === 'USD') return 'USD';
   if (stored === 'BS') return 'BS';
-  // Fallback para cuentas sin campo moneda almacenado
-  const tipo = String(cuenta?.tipo || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  const isUsd = tipo.includes('zelle') || tipo.includes('usd') || tipo.includes('internacional') || tipo.includes('panama')
-    || (tipo.includes('efectivo') && tipo.includes('usd'));
-  if (isUsd) return 'USD';
-  const text = `${String(cuenta?.apodo || '')} ${String(cuenta?.nombre_banco || '')} ${String(cuenta?.tipo || '')}`.toUpperCase();
+  // Último recurso: inferir del nombre/apodo
+  const text = `${String(cuenta?.apodo || '')} ${String(cuenta?.nombre_banco || '')}`.toUpperCase();
   return text.includes('USD') || text.includes('ZELLE') ? 'USD' : 'BS';
 };
 
