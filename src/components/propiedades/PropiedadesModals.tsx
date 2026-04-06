@@ -697,11 +697,6 @@ export const ModalEstadoCuenta: FC<ModalEstadoCuentaProps> = ({
               Limpiar
             </button>
           </div>
-          {showAjuste && (
-            <button onClick={() => handleOpenAjuste(selectedPropCuenta)} className="bg-yellow-50 text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800/50 px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-all flex items-center gap-2">
-              Ajustar Saldo Manual
-            </button>
-          )}
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 bg-white dark:bg-donezo-card-dark custom-scrollbar">

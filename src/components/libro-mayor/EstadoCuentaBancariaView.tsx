@@ -574,6 +574,24 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     const movimientosDirectos: IMovimiento[] = [];
     const ingresosPorPago = new Map<string, IMovimiento[]>();
     const ingresosPorAjuste = new Map<string, IMovimiento[]>();
+    const getInmuebleTexto = (mov: IMovimiento): string => {
+      const inmuebleApi = String(mov.inmueble || '').trim();
+      if (inmuebleApi) return inmuebleApi;
+      const concepto = String(mov.concepto || '');
+      const matchConcepto = concepto.match(/Inmueble:\s*([^|]+)/i);
+      if (matchConcepto?.[1]) return matchConcepto[1].trim();
+      const matchNota = concepto.match(/Inmueble\s*[:\-]\s*([A-Za-z0-9\-_.\/ ]+)/i);
+      if (matchNota?.[1]) return matchNota[1].trim();
+      return '';
+    };
+    const getClaveReferenciaInmuebleFecha = (mov: IMovimiento): string => {
+      const referencia = String(mov.referencia || '').trim();
+      const inmueble = getInmuebleTexto(mov).trim();
+      const fechaDia = String(mov.fecha || '').slice(0, 10);
+      if (!referencia || !inmueble || !fechaDia) return '';
+      return `${fechaDia}|${referencia.toUpperCase()}|${inmueble.toUpperCase()}`;
+    };
+    const pagoKeyByRefInmFecha = new Map<string, string>();
     const getFechaRegistroGrupo = (grupo: IMovimiento[]): string => {
       const candidatas = grupo
         .map((item) => String(item.fecha_registro ?? '').trim())
@@ -581,6 +599,20 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       if (candidatas.length === 0) return '';
       return candidatas.sort((a, b) => (new Date(b).getTime() || 0) - (new Date(a).getTime() || 0))[0] || '';
     };
+
+    movimientosConApertura.forEach((mov) => {
+      const rawId = String(mov.id || '');
+      const esIngresoEnFondo = mov.tipo === 'INGRESO'
+        && /^ING-MF-\d+$/i.test(rawId)
+        && toNullableInt((mov as { fondo_id?: unknown }).fondo_id) !== null;
+      if (!esIngresoEnFondo) return;
+      if (!(mov.pago_id && Number.isFinite(mov.pago_id))) return;
+      const pagoClave = String(mov.pago_id);
+      const claveRefInmFecha = getClaveReferenciaInmuebleFecha(mov);
+      if (claveRefInmFecha) {
+        pagoKeyByRefInmFecha.set(claveRefInmFecha, `pago-${pagoClave}`);
+      }
+    });
 
     movimientosConApertura.forEach((mov) => {
       const pagoId = mov.pago_id ? String(mov.pago_id) : '';
@@ -593,7 +625,10 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       const esAjusteReferenciado = /^AJ-/i.test(referencia);
       const pagoMatchLegacy = concepto.match(/Pago de Recibo #(\d+)/i);
       const pagoMatchRef = concepto.match(/Pago Ref:\s*([^\s|]+)/i);
-      const pagoClave = pagoId || (pagoMatchLegacy?.[1] || '') || (pagoMatchRef?.[1] || '');
+      const pagoClaveDirecta = pagoId || (pagoMatchLegacy?.[1] || '') || (pagoMatchRef?.[1] || '');
+      const claveRefInmFecha = getClaveReferenciaInmuebleFecha(mov);
+      const pagoKeyAsociada = claveRefInmFecha ? pagoKeyByRefInmFecha.get(claveRefInmFecha) : '';
+      const pagoClave = pagoClaveDirecta || (pagoKeyAsociada ? pagoKeyAsociada.replace(/^pago-/, '') : '');
 
       if (esIngresoEnFondo && !esAjusteReferenciado && pagoClave) {
         const groupKey = `pago-${pagoClave}`;
@@ -712,11 +747,90 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   const movimientosBasePorVista = useMemo(() => {
     if (activeTab === 'cuenta') return movimientosCuentaConsolidados;
     if (activeTab === 'sin-fondo') {
-      return movimientosConApertura.filter((movimiento) => {
+      const candidatos = movimientosConApertura.filter((movimiento) => {
         const hasFondoId = toNullableInt((movimiento as { fondo_id?: unknown }).fondo_id) !== null;
         const hasFondoOrigen = toNullableInt((movimiento as { fondo_origen_id?: unknown }).fondo_origen_id) !== null;
         const hasFondoDestino = toNullableInt((movimiento as { fondo_destino_id?: unknown }).fondo_destino_id) !== null;
-        return !hasFondoId && !hasFondoOrigen && !hasFondoDestino;
+        const rawId = String((movimiento as { id?: unknown }).id || '');
+        const esAjusteManualConFondo = /^ING-MF-\d+$/i.test(rawId)
+          && !Number.isFinite((movimiento as { pago_id?: unknown }).pago_id as number)
+          && !Boolean((movimiento as { es_apertura?: unknown }).es_apertura);
+        return (!hasFondoId && !hasFondoOrigen && !hasFondoDestino) || esAjusteManualConFondo;
+      });
+
+      const getInmuebleTexto = (mov: IMovimiento): string => {
+        const inmuebleApi = String(mov.inmueble || '').trim();
+        if (inmuebleApi) return inmuebleApi;
+        const concepto = String(mov.concepto || '');
+        const matchConcepto = concepto.match(/Inmueble:\s*([^|]+)/i);
+        if (matchConcepto?.[1]) return matchConcepto[1].trim();
+        const matchNota = concepto.match(/Inmueble\s*[:\-]\s*([A-Za-z0-9\-_.\/ ]+)/i);
+        if (matchNota?.[1]) return matchNota[1].trim();
+        return '-';
+      };
+
+      const grupos = new Map<string, IMovimiento[]>();
+      const sueltos: IMovimiento[] = [];
+
+      candidatos.forEach((mov) => {
+        if (mov.tipo !== 'INGRESO' || Boolean(mov.es_apertura)) {
+          sueltos.push(mov);
+          return;
+        }
+        const referencia = String(mov.referencia || '').trim();
+        const fechaDia = String(mov.fecha || '').slice(0, 10);
+        const inmueble = getInmuebleTexto(mov);
+        if (!referencia || !fechaDia || !inmueble || inmueble === '-') {
+          sueltos.push(mov);
+          return;
+        }
+        const key = `${fechaDia}|${referencia.toUpperCase()}|${inmueble.toUpperCase()}`;
+        const lista = grupos.get(key) || [];
+        lista.push(mov);
+        grupos.set(key, lista);
+      });
+
+      const consolidados: IMovimiento[] = [];
+      grupos.forEach((grupo, key) => {
+        if (grupo.length <= 1) {
+          const item = grupo[0];
+          if (item) consolidados.push(item);
+          return;
+        }
+
+        const basePago = grupo.find((g) => Number.isFinite(g.pago_id as number)) ?? grupo[0];
+        if (!basePago) return;
+
+        const pagoId = basePago.pago_id ?? null;
+        const montoUsdTotal = grupo.reduce((acc, item) => acc + toNumber(item.monto_usd), 0);
+        const montoBsTotal = grupo.reduce((acc, item) => acc + toNumber(item.monto_bs), 0);
+        const fechaRegistro = grupo
+          .map((item) => String(item.fecha_registro || '').trim())
+          .filter(Boolean)
+          .sort((a, b) => (new Date(b).getTime() || 0) - (new Date(a).getTime() || 0))[0] || '';
+        const conceptoPago = grupo.find((g) => /pago\s+ref|pago\s+de\s+recibo/i.test(String(g.concepto || '')))?.concepto;
+
+        consolidados.push({
+          ...basePago,
+          id: Number.isFinite(pagoId as number) ? `ING-CONS-${String(pagoId)}` : `ING-CONS-REF-${key}`,
+          fecha_registro: fechaRegistro,
+          concepto: String(conceptoPago || basePago.concepto || 'Ingreso consolidado'),
+          monto_usd: Number(montoUsdTotal.toFixed(2)),
+          monto_bs: Number(montoBsTotal.toFixed(2)),
+          fondo_id: null,
+          fondo_origen_id: null,
+          fondo_destino_id: null,
+          fondo_nombre: '',
+          pago_id: Number.isFinite(pagoId as number) ? Number(pagoId) : null,
+          inmueble: getInmuebleTexto(basePago),
+        });
+      });
+
+      return [...sueltos, ...consolidados].sort((a, b) => {
+        const fechaA = new Date(a.fecha || '').getTime();
+        const fechaB = new Date(b.fecha || '').getTime();
+        if (fechaA !== fechaB) return fechaB - fechaA;
+        return String(b.id).localeCompare(String(a.id));
       });
     }
 
@@ -1097,6 +1211,9 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
 
   const extractPagoIdForRollback = (movimiento: IMovimiento): string | null => {
     if (movimiento.tipo !== 'INGRESO') return null;
+    const concepto = String(movimiento.concepto || '');
+    // El backend no permite rollback directo cuando el pago está atado a un recibo.
+    if (/pago\s+de\s+recibo\s*#/i.test(concepto)) return null;
     if (movimiento.pago_id && Number.isFinite(movimiento.pago_id)) return String(movimiento.pago_id);
     const rawId = String(movimiento.id || '');
     const consolidatedMatch = rawId.match(/^ING-CONS-(\d+)$/i);
@@ -1127,8 +1244,9 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     const rawId = String(movimiento.id || '');
     const match = rawId.match(/^EGR-MF-(\d+)$/i);
     if (!match?.[1]) return null;
-    // Usamos el prefijo técnico EGR-MF para identificar egresos manuales reversibles.
-    // El concepto puede variar libremente según lo escriba el usuario.
+    const concepto = String(movimiento.concepto || '');
+    // Alinear con backend: solo egresos manuales con la marca técnica son reversibles.
+    if (!/egreso manual libro mayor/i.test(concepto)) return null;
     return match[1];
   };
 

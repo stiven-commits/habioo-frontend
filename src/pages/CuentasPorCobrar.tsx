@@ -152,6 +152,19 @@ interface PendingCountMap {
 }
 
 const toNumber = (value: string | number | undefined | null): number => parseFloat(String(value ?? 0)) || 0;
+const inferBancoMoneda = (cuenta: any): 'USD' | 'BS' => {
+  const stored = String(cuenta?.moneda || '').toUpperCase();
+  if (stored === 'USD') return 'USD';
+  if (stored === 'BS') return 'BS';
+  // Fallback para cuentas sin campo moneda almacenado
+  const tipo = String(cuenta?.tipo || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const isUsd = tipo.includes('zelle') || tipo.includes('usd') || tipo.includes('internacional') || tipo.includes('panama')
+    || (tipo.includes('efectivo') && tipo.includes('usd'));
+  if (isUsd) return 'USD';
+  const text = `${String(cuenta?.apodo || '')} ${String(cuenta?.nombre_banco || '')} ${String(cuenta?.tipo || '')}`.toUpperCase();
+  return text.includes('USD') || text.includes('ZELLE') ? 'USD' : 'BS';
+};
+
 const getCuentaLabel = (cuenta: any): string => {
   const nombreBanco = String(cuenta?.nombre_banco || cuenta?.nombre || '').trim();
   const apodo = String(cuenta?.apodo || '').trim();
@@ -228,7 +241,6 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
   const [fechaDesde, setFechaDesde] = useState<string>('');
   const [fechaHasta, setFechaHasta] = useState<string>('');
   const [showAjusteModal, setShowAjusteModal] = useState<boolean>(false);
-  const [ajusteModo, setAjusteModo] = useState<'COMPLETO' | 'SOLO_INMUEBLE'>('COMPLETO');
   const [selectedPropAjuste, setSelectedPropAjuste] = useState<Propiedad | null>(null);
   const [ajusteTipo, setAjusteTipo] = useState<'DEUDA' | 'FAVOR'>('DEUDA');
   const [montoBsAjuste, setMontoBsAjuste] = useState<string>('');
@@ -247,12 +259,14 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
   const [rechazoDraft, setRechazoDraft] = useState<Record<number, string>>({});
   const [pendingByPropiedad, setPendingByPropiedad] = useState<PendingCountMap>({});
   const [rejectingPagoId, setRejectingPagoId] = useState<number | null>(null);
-  const [destinoIngreso, setDestinoIngreso] = useState<'CUENTA' | 'EXTRA'>('CUENTA');
+  const [destinoIngreso, setDestinoIngreso] = useState<'CUENTA' | 'EXTRA' | 'SOLO_INMUEBLE'>('CUENTA');
   const [subtipoFavor, setSubtipoFavor] = useState<'directo' | 'distribuido'>('directo');
   const [cuentaBancariaSeleccionada, setCuentaBancariaSeleccionada] = useState<string>('');
   const [cuentasBancarias, setCuentasBancarias] = useState<any[]>([]);
   const [gastosExtras, setGastosExtras] = useState<any[]>([]);
   const [gastoExtraSeleccionado, setGastoExtraSeleccionado] = useState<string>('');
+  const [monedaAjuste, setMonedaAjuste] = useState<'USD' | 'BS'>('USD');
+  const [montoUsdDirecto, setMontoUsdDirecto] = useState<string>('');
 
   const fetchGastosExtras = async (): Promise<void> => {
     try {
@@ -291,9 +305,13 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
     }
   };
 
-  const montoUsdAjuste = parseNumberInput(tasaBcvAjuste) > 0
-    ? (parseNumberInput(montoBsAjuste) / parseNumberInput(tasaBcvAjuste))
-    : 0;
+  const esUsdDirecto = ajusteTipo === 'FAVOR' && monedaAjuste === 'USD';
+  const montoUsdAjuste = esUsdDirecto
+    ? parseNumberInput(montoUsdDirecto)
+    : (parseNumberInput(tasaBcvAjuste) > 0
+        ? (parseNumberInput(montoBsAjuste) / parseNumberInput(tasaBcvAjuste))
+        : 0);
+  const cuentaPrincipal = cuentasBancarias.find((c: any) => c.es_predeterminada) ?? null;
 
   const fetchData = async (): Promise<void> => {
     const token = localStorage.getItem('habioo_token');
@@ -411,9 +429,8 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
     setEstadoCuentaModalOpen(true);
   };
 
-  const handleOpenAjuste = (prop: Propiedad, mode: 'COMPLETO' | 'SOLO_INMUEBLE' = 'COMPLETO'): void => {
+  const handleOpenAjuste = (prop: Propiedad): void => {
     setSelectedPropAjuste(prop);
-    setAjusteModo(mode);
     setAjusteTipo('DEUDA');
     setMontoBsAjuste('');
     setTasaBcvAjuste('');
@@ -422,9 +439,12 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
     setBancoOrigenAjuste('');
     setFechaOperacionAjuste(toYmdLocal(new Date()));
     setDestinoIngreso('CUENTA');
+    setMonedaAjuste('USD');
+    setMontoUsdDirecto('');
     if (cuentasBancarias.length > 0) {
-      const defaultCta = cuentasBancarias.find((c: any) => c.es_predeterminada);
-      setCuentaBancariaSeleccionada(defaultCta ? String(defaultCta.id) : String(cuentasBancarias[0].id));
+      const firstUsd = cuentasBancarias.find((c: any) => inferBancoMoneda(c) === 'USD');
+      const defaultCta = firstUsd || cuentasBancarias.find((c: any) => c.es_predeterminada) || cuentasBancarias[0];
+      setCuentaBancariaSeleccionada(String(defaultCta.id));
     }
     if (gastosExtras.length > 0) {
       setGastoExtraSeleccionado(String(gastosExtras[0].id));
@@ -543,7 +563,11 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
   const handleGuardarAjuste = async (): Promise<void> => {
     if (!selectedPropAjuste?.id) return;
     const montoUsd = montoUsdAjuste;
-    if (montoUsd <= 0) {
+    if (esUsdDirecto && montoUsd <= 0) {
+      alert('Debe ingresar un monto en USD valido.');
+      return;
+    }
+    if (!esUsdDirecto && montoUsd <= 0) {
       alert('Debe ingresar un monto en Bs y una tasa BCV valida.');
       return;
     }
@@ -559,12 +583,16 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
       alert('Debe seleccionar el banco de origen.');
       return;
     }
-    if (ajusteModo === 'COMPLETO' && ajusteTipo === 'FAVOR' && destinoIngreso === 'CUENTA' && !cuentaBancariaSeleccionada) {
+    if (ajusteTipo === 'FAVOR' && destinoIngreso === 'CUENTA' && !cuentaBancariaSeleccionada) {
       alert('Debe seleccionar una cuenta bancaria de destino para el ingreso.');
       return;
     }
-    if (ajusteModo === 'COMPLETO' && ajusteTipo === 'FAVOR' && destinoIngreso === 'EXTRA' && !gastoExtraSeleccionado) {
+    if (ajusteTipo === 'FAVOR' && destinoIngreso === 'EXTRA' && !gastoExtraSeleccionado) {
       alert('Debe seleccionar el Gasto Extra procesado.');
+      return;
+    }
+    if (ajusteTipo === 'FAVOR' && destinoIngreso === 'EXTRA' && !cuentaPrincipal) {
+      alert('No hay una cuenta bancaria marcada como predeterminada. Vaya al perfil de Bancos y configure una cuenta principal antes de usar esta operacion.');
       return;
     }
     setIsSavingAjuste(true);
@@ -573,16 +601,22 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
       const payload = {
         tipo_ajuste: ajusteTipo === 'DEUDA' ? 'CARGAR_DEUDA' : 'AGREGAR_FAVOR',
         monto: Number(montoUsd.toFixed(2)),
-        monto_bs: parseNumberInput(montoBsAjuste),
-        tasa_cambio: parseNumberInput(tasaBcvAjuste),
-        cuenta_bancaria_id: ajusteModo === 'SOLO_INMUEBLE' ? null : (ajusteTipo === 'FAVOR' && destinoIngreso === 'CUENTA' ? Number(cuentaBancariaSeleccionada) : null),
-        es_gasto_extra: ajusteModo === 'SOLO_INMUEBLE' ? false : (ajusteTipo === 'FAVOR' && destinoIngreso === 'EXTRA'),
-        gasto_extra_id: ajusteModo === 'SOLO_INMUEBLE' ? null : (ajusteTipo === 'FAVOR' && destinoIngreso === 'EXTRA' ? Number(gastoExtraSeleccionado) : null),
-        subtipo_favor: ajusteModo === 'SOLO_INMUEBLE' ? undefined : (ajusteTipo === 'FAVOR' && destinoIngreso === 'CUENTA' ? subtipoFavor : undefined),
+        monto_bs: esUsdDirecto ? null : parseNumberInput(montoBsAjuste),
+        tasa_cambio: esUsdDirecto ? null : parseNumberInput(tasaBcvAjuste),
+        cuenta_bancaria_id: ajusteTipo === 'FAVOR' && destinoIngreso === 'CUENTA'
+          ? Number(cuentaBancariaSeleccionada)
+          : ajusteTipo === 'FAVOR' && destinoIngreso === 'EXTRA' && cuentaPrincipal
+            ? Number(cuentaPrincipal.id)
+            : null,
+        es_gasto_extra: ajusteTipo === 'FAVOR' && destinoIngreso === 'EXTRA',
+        gasto_extra_id: ajusteTipo === 'FAVOR' && destinoIngreso === 'EXTRA' ? Number(gastoExtraSeleccionado) : null,
+        subtipo_favor: ajusteTipo === 'FAVOR' && destinoIngreso === 'CUENTA' ? subtipoFavor : undefined,
         fecha_operacion: fechaOperacionAjuste,
         referencia_origen: referenciaAjuste.trim() || undefined,
         banco_origen: bancoOrigenAjuste.trim() || undefined,
-        nota: `${(conceptoAjuste || 'Ajuste manual').trim()} | [bs_raw:${parseNumberInput(montoBsAjuste).toFixed(2)}] | [tasa_raw:${parseNumberInput(tasaBcvAjuste).toFixed(6)}]`
+        nota: esUsdDirecto
+          ? `${(conceptoAjuste || 'Ajuste manual').trim()} | [usd_directo:${montoUsd.toFixed(2)}]`
+          : `${(conceptoAjuste || 'Ajuste manual').trim()} | [bs_raw:${parseNumberInput(montoBsAjuste).toFixed(2)}] | [tasa_raw:${parseNumberInput(tasaBcvAjuste).toFixed(6)}]`
       };
       const res = await fetch(`${API_BASE_URL}/propiedades-admin/${selectedPropAjuste.id}/ajustar-saldo`, {
         method: 'POST',
@@ -658,9 +692,6 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
     if (fechaHasta && movYmd > fechaHasta) return false;
     return true;
   });
-
-  const totalCargo = estadoCuentaFiltrado.reduce((acc: number, m: EstadoCuentaMovimientoConSaldo) => acc + toNumber(m.cargo), 0);
-  const totalAbono = estadoCuentaFiltrado.reduce((acc: number, m: EstadoCuentaMovimientoConSaldo) => acc + toNumber(m.abono), 0);
 
   if (userRole !== 'Administrador') return <p className="p-6">No tienes permisos.</p>;
   if (loading) return <p className="text-gray-500 dark:text-gray-400">Cargando cuentas por cobrar...</p>;
@@ -913,7 +944,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
             saldo_actual: 0,
             alicuota: 0,
             prop_cedula: '',
-          } as Propiedad, 'SOLO_INMUEBLE');
+          } as Propiedad);
         }}
         loadingCuenta={loadingCuenta}
         estadoCuentaFiltrado={estadoCuentaFiltrado}
@@ -1046,98 +1077,154 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                 </button>
               </div>
 
-              {ajusteTipo === 'FAVOR' && ajusteModo === 'COMPLETO' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pb-3 border-b border-gray-100 dark:border-gray-800">
-                  <div className="md:col-span-2">
-                    <FormField label="Destino del Ingreso">
-                      <div className="flex gap-6">
-                        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
-                          <input
-                            type="radio"
-                            checked={destinoIngreso === 'CUENTA'}
-                            onChange={() => setDestinoIngreso('CUENTA')}
-                            className="text-donezo-primary focus:ring-donezo-primary"
-                          />
-                          A cuenta bancaria
-                        </label>
-                        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
-                          <input
-                            type="radio"
-                            checked={destinoIngreso === 'EXTRA'}
-                            onChange={() => { setDestinoIngreso('EXTRA'); setCuentaBancariaSeleccionada(''); }}
-                            className="text-donezo-primary focus:ring-donezo-primary"
-                          />
-                          A gasto extra (Sin cuenta)
-                        </label>
-                      </div>
-                    </FormField>
+              {ajusteTipo === 'FAVOR' && (
+                <>
+                  {/* Selector de moneda */}
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-bold text-gray-600 dark:text-gray-300">Moneda:</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMonedaAjuste('USD');
+                        const firstUsd = cuentasBancarias.find((c: any) => inferBancoMoneda(c) === 'USD');
+                        if (firstUsd) setCuentaBancariaSeleccionada(String(firstUsd.id));
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${monedaAjuste === 'USD'
+                        ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800/50'
+                        : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}
+                    >
+                      USD
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMonedaAjuste('BS');
+                        const firstBs = cuentasBancarias.find((c: any) => inferBancoMoneda(c) === 'BS');
+                        if (firstBs) setCuentaBancariaSeleccionada(String(firstBs.id));
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${monedaAjuste === 'BS'
+                        ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800/50'
+                        : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}
+                    >
+                      Bs
+                    </button>
                   </div>
-                  {destinoIngreso === 'CUENTA' && (
+
+                  {/* Destino del ingreso */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pb-3 border-b border-gray-100 dark:border-gray-800">
                     <div className="md:col-span-2">
-                      <FormField label="Cuenta Bancaria Receptora">
-                        <select
-                          value={cuentaBancariaSeleccionada}
-                          onChange={(e: ChangeEvent<HTMLSelectElement>) => setCuentaBancariaSeleccionada(e.target.value)}
-                          className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-medium"
-                        >
-                          <option value="">Seleccione una cuenta...</option>
-                          {cuentasBancarias.map((c: any) => (
-                            <option key={c.id} value={c.id}>{getCuentaLabel(c)}</option>
-                          ))}
-                        </select>
-                      </FormField>
-                    </div>
-                  )}
-                  {destinoIngreso === 'CUENTA' && (
-                    <div className="md:col-span-2">
-                      <FormField label="Distribucion en Fondos">
-                        <div className="flex gap-3">
-                          <button
-                            type="button"
-                            onClick={() => setSubtipoFavor('directo')}
-                            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border transition-colors ${subtipoFavor === 'directo' ? 'bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}
-                          >
-                            Directo<br /><span className="font-normal opacity-70">100% al fondo principal</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setSubtipoFavor('distribuido')}
-                            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border transition-colors ${subtipoFavor === 'distribuido' ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}
-                          >
-                            Distribuido<br /><span className="font-normal opacity-70">Por % de fondos</span>
-                          </button>
+                      <FormField label="Destino del Ingreso">
+                        <div className="flex gap-6">
+                          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+                            <input
+                              type="radio"
+                              checked={destinoIngreso === 'CUENTA'}
+                              onChange={() => setDestinoIngreso('CUENTA')}
+                              className="text-donezo-primary focus:ring-donezo-primary"
+                            />
+                            A cuenta bancaria
+                          </label>
+                          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+                            <input
+                              type="radio"
+                              checked={destinoIngreso === 'EXTRA'}
+                              onChange={() => { setDestinoIngreso('EXTRA'); setCuentaBancariaSeleccionada(''); }}
+                              className="text-donezo-primary focus:ring-donezo-primary"
+                            />
+                            A gasto extra
+                          </label>
+                          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+                            <input
+                              type="radio"
+                              checked={destinoIngreso === 'SOLO_INMUEBLE'}
+                              onChange={() => { setDestinoIngreso('SOLO_INMUEBLE'); setCuentaBancariaSeleccionada(''); }}
+                              className="text-donezo-primary focus:ring-donezo-primary"
+                            />
+                            Solo inmueble
+                          </label>
                         </div>
                       </FormField>
                     </div>
-                  )}
-                  {destinoIngreso === 'EXTRA' && (
-                    <div className="md:col-span-2">
-                      <FormField label="Gasto Extra a Rebajar">
-                        {gastosExtras.length === 0 ? (
-                          <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">No hay gastos extras disponibles. Asegurese que hayan sido generados en recibos o avisos.</p>
-                        ) : (
+                    {destinoIngreso === 'CUENTA' && (
+                      <div className="md:col-span-2">
+                        <FormField label="Cuenta Bancaria Receptora">
                           <select
-                            value={gastoExtraSeleccionado}
-                            onChange={(e: ChangeEvent<HTMLSelectElement>) => setGastoExtraSeleccionado(e.target.value)}
+                            value={cuentaBancariaSeleccionada}
+                            onChange={(e: ChangeEvent<HTMLSelectElement>) => setCuentaBancariaSeleccionada(e.target.value)}
                             className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-medium"
                           >
-                            <option value="">Seleccione un gasto extra...</option>
-                            {gastosExtras.map((g: any) => (
-                              <option key={g.id} value={g.id}>
-                                {g.concepto} - Deuda act.: ${parseFloat(String(g.deuda_restante)).toFixed(2)}
-                              </option>
-                            ))}
+                            <option value="">Seleccione una cuenta...</option>
+                            {cuentasBancarias
+                              .filter((c: any) => inferBancoMoneda(c) === monedaAjuste)
+                              .map((c: any) => (
+                                <option key={c.id} value={c.id}>{getCuentaLabel(c)}</option>
+                              ))}
                           </select>
+                        </FormField>
+                      </div>
+                    )}
+                    {destinoIngreso === 'CUENTA' && (
+                      <div className="md:col-span-2">
+                        <FormField label="Distribucion en Fondos">
+                          <div className="flex gap-3">
+                            <button
+                              type="button"
+                              onClick={() => setSubtipoFavor('directo')}
+                              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border transition-colors ${subtipoFavor === 'directo' ? 'bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}
+                            >
+                              Directo<br /><span className="font-normal opacity-70">100% al fondo principal</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSubtipoFavor('distribuido')}
+                              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border transition-colors ${subtipoFavor === 'distribuido' ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}
+                            >
+                              Distribuido<br /><span className="font-normal opacity-70">Por % de fondos</span>
+                            </button>
+                          </div>
+                        </FormField>
+                      </div>
+                    )}
+                    {destinoIngreso === 'EXTRA' && (
+                      <div className="md:col-span-2 space-y-3">
+                        <FormField label="Gasto Extra a Rebajar">
+                          {gastosExtras.length === 0 ? (
+                            <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">No hay gastos extras disponibles. Asegurese que hayan sido generados en recibos o avisos.</p>
+                          ) : (
+                            <select
+                              value={gastoExtraSeleccionado}
+                              onChange={(e: ChangeEvent<HTMLSelectElement>) => setGastoExtraSeleccionado(e.target.value)}
+                              className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-medium"
+                            >
+                              <option value="">Seleccione un gasto extra...</option>
+                              {gastosExtras.map((g: any) => (
+                                <option key={g.id} value={g.id}>
+                                  {g.concepto} - Deuda act.: ${parseFloat(String(g.deuda_restante)).toFixed(2)}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </FormField>
+                        {cuentaPrincipal ? (
+                          <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-300">
+                            El pago se registrara en el inmueble y se acreditara 100% al fondo principal de: <span className="font-black">{getCuentaLabel(cuentaPrincipal)}</span>
+                          </div>
+                        ) : (
+                          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-700 dark:border-red-800/50 dark:bg-red-900/20 dark:text-red-300">
+                            No hay cuenta bancaria predeterminada configurada. Vaya a Bancos y marque una cuenta como principal antes de usar esta operacion.
+                          </div>
                         )}
-                      </FormField>
-                    </div>
-                  )}
-                </div>
-              )}
-              {ajusteTipo === 'FAVOR' && ajusteModo === 'SOLO_INMUEBLE' && (
-                <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs font-semibold text-blue-700 dark:border-blue-900/50 dark:bg-blue-900/20 dark:text-blue-300">
-                  El saldo a favor se aplicara solo al estado de cuenta del inmueble. No afectara cuentas bancarias ni fondos.
-                </div>
+                      </div>
+                    )}
+                    {destinoIngreso === 'SOLO_INMUEBLE' && (
+                      <div className="md:col-span-2">
+                        <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs font-semibold text-blue-700 dark:border-blue-900/50 dark:bg-blue-900/20 dark:text-blue-300">
+                          El saldo a favor se aplicara solo al estado de cuenta del inmueble. No afectara cuentas bancarias ni fondos.
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
@@ -1178,34 +1265,50 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                     />
                   </FormField>
                 </div>
-                <FormField label="Tasa BCV">
-                  <input
-                    type="text"
-                    value={tasaBcvAjuste}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setTasaBcvAjuste(formatNumberInput(e.target.value, 3))}
-                    className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
-                    placeholder="Ej: 36,500"
-                  />
-                  <div className="mt-2">
-                    <button
-                      type="button"
-                      onClick={fetchBCVAjuste}
-                      disabled={isFetchingBCV}
-                      className="w-full p-2.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-900/30 dark:border-blue-800/50 dark:text-blue-400 font-bold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-60"
-                    >
-                      {isFetchingBCV ? 'Consultando...' : 'BCV'}
-                    </button>
+                {esUsdDirecto ? (
+                  <div className="md:col-span-2">
+                    <FormField label="Monto (USD)" required>
+                      <input
+                        type="text"
+                        value={montoUsdDirecto}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => setMontoUsdDirecto(formatNumberInput(e.target.value, 2))}
+                        className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                        placeholder="0,00"
+                      />
+                    </FormField>
                   </div>
-                </FormField>
-                <FormField label="Monto (Bs)">
-                  <input
-                    type="text"
-                    value={montoBsAjuste}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setMontoBsAjuste(formatNumberInput(e.target.value))}
-                    className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
-                    placeholder="0,00"
-                  />
-                </FormField>
+                ) : (
+                  <>
+                    <FormField label="Tasa BCV">
+                      <input
+                        type="text"
+                        value={tasaBcvAjuste}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => setTasaBcvAjuste(formatNumberInput(e.target.value, 3))}
+                        className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                        placeholder="Ej: 36,500"
+                      />
+                      <div className="mt-2">
+                        <button
+                          type="button"
+                          onClick={fetchBCVAjuste}
+                          disabled={isFetchingBCV}
+                          className="w-full p-2.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-900/30 dark:border-blue-800/50 dark:text-blue-400 font-bold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-60"
+                        >
+                          {isFetchingBCV ? 'Consultando...' : 'BCV'}
+                        </button>
+                      </div>
+                    </FormField>
+                    <FormField label="Monto (Bs)">
+                      <input
+                        type="text"
+                        value={montoBsAjuste}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => setMontoBsAjuste(formatNumberInput(e.target.value))}
+                        className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                        placeholder="0,00"
+                      />
+                    </FormField>
+                  </>
+                )}
                 <div className="md:col-span-2">
                   <FormField label="Concepto">
                     <input
@@ -1219,15 +1322,12 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                 </div>
               </div>
 
-              <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-3">
-                <p className="text-xs uppercase font-bold text-gray-500 mb-1">Equivalente en USD</p>
-                <p className="text-xl font-black text-gray-800 dark:text-white">${formatMoney(montoUsdAjuste)}</p>
-              </div>
-
-              {/*
-                Orden solicitado:
-                Fecha + Banco, Referencia, Tasa BCV, Monto y Concepto al final.
-              */}
+              {!esUsdDirecto && (
+                <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-3">
+                  <p className="text-xs uppercase font-bold text-gray-500 mb-1">Equivalente en USD</p>
+                  <p className="text-xl font-black text-gray-800 dark:text-white">${formatMoney(montoUsdAjuste)}</p>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-3 pt-6">

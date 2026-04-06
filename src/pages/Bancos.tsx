@@ -18,7 +18,7 @@ interface OutletContextType {
   userRole?: string;
 }
 
-type TipoCuenta = 'Transferencia' | 'Pago Movil' | 'Zelle' | 'Efectivo BS' | 'Efectivo USD' | 'Efectivo';
+type TipoCuenta = 'Transferencia' | 'Deposito' | 'Pago Movil' | 'Zelle' | 'Transferencia Internacional' | 'Efectivo BS' | 'Efectivo USD' | 'Efectivo';
 type DialogVariant = 'warning' | 'danger' | 'success';
 
 interface DialogAlertOptions {
@@ -43,6 +43,9 @@ interface Banco {
   nombre_banco: string;
   apodo: string;
   tipo: TipoCuenta | string;
+  moneda?: string;
+  swift?: string;
+  aba?: string;
   nombre_titular: string;
   cedula_rif?: string;
   numero_cuenta?: string;
@@ -96,6 +99,8 @@ interface FormState {
   acepta_pago_movil: boolean;
   pago_movil_telefono: string;
   pago_movil_cedula_rif: string;
+  swift: string;
+  aba: string;
 }
 
 type FormField = keyof FormState;
@@ -113,12 +118,26 @@ const initialForm: FormState = {
   acepta_pago_movil: false,
   pago_movil_telefono: '',
   pago_movil_cedula_rif: '',
+  swift: '',
+  aba: '',
 };
 
 const normalizeTipo = (value: string): string => value
   .toLowerCase()
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '');
+
+const formatSwift = (value: string): string =>
+  value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 11);
+
+const formatAba = (value: string): string => {
+  const digits = value.replace(/\D/g, '').slice(0, 9);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+};
+
+const parseAba = (formatted: string): string => formatted.replace(/-/g, '');
 
 const formatNumeroCuenta = (value: string): string => {
   const digits = String(value || '').replace(/\D/g, '');
@@ -145,13 +164,15 @@ const resolveTipoMoneda = (tipo: string): { moneda: 'BS' | 'USD' | null; blocked
     || t.includes('panama')
     || (t.includes('efectivo') && t.includes('usd'))
     || t.includes('internacional')
-    || t.includes('usd');
+    || t.includes('usd')
+    || t === 'transferencia internacional';
   if (isInternational) {
     return { moneda: 'USD', blocked: true };
   }
 
   const isNational = t.includes('pago movil')
     || t.includes('transferencia')
+    || t.includes('deposito')
     || t.includes('nacional')
     || t.includes('ves')
     || (t.includes('bs') && !t.includes('usd'));
@@ -190,7 +211,6 @@ const Bancos: FC<BancosProps> = () => {
   const [editingBanco, setEditingBanco] = useState<Banco | null>(null);
 
   const [form, setForm] = useState<FormState>(initialForm);
-  const monedaRule = resolveTipoMoneda(form.tipo);
 
   const bancosVenezuela: string[] = [
     '0102 - Banco de Venezuela',
@@ -245,19 +265,17 @@ const Bancos: FC<BancosProps> = () => {
     if (userRole === 'Administrador') fetchData();
   }, [userRole]);
 
-  useEffect(() => {
-    if (!monedaRule.moneda) return;
-    const forcedMoneda: 'BS' | 'USD' = monedaRule.moneda;
-    setForm((prev: FormState) => (prev.moneda === forcedMoneda ? prev : { ...prev, moneda: forcedMoneda }));
-  }, [form.tipo]);
 
   const mapBancoToForm = (banco: Banco): FormState => {
     const tipo = String(banco.tipo || 'Transferencia');
+    const monedaStored = String(banco.moneda || '').toUpperCase();
     const monedaForced = resolveTipoMoneda(tipo).moneda;
     return {
       ...initialForm,
       tipo,
-      moneda: monedaForced || 'BS',
+      moneda: (monedaStored === 'USD' || monedaStored === 'BS'
+        ? monedaStored as 'BS' | 'USD'
+        : (monedaForced ?? 'BS')),
       nombre_banco: String(banco.nombre_banco || ''),
       apodo: String(banco.apodo || ''),
       nombre_titular: String(banco.nombre_titular || ''),
@@ -268,6 +286,8 @@ const Bancos: FC<BancosProps> = () => {
       acepta_pago_movil: Boolean(banco.acepta_pago_movil ?? tipo === 'Pago Movil'),
       pago_movil_telefono: String(banco.pago_movil_telefono || banco.telefono || ''),
       pago_movil_cedula_rif: String(banco.pago_movil_cedula_rif || banco.cedula_rif || ''),
+      swift: String(banco.swift || ''),
+      aba: banco.aba ? formatAba(String(banco.aba)) : '',
     };
   };
 
@@ -307,18 +327,46 @@ const Bancos: FC<BancosProps> = () => {
       setForm((prev: FormState) => ({ ...prev, [field]: checked }));
       return;
     }
+    if (field === 'moneda') {
+      const defaultTipo = value === 'USD' ? 'Zelle' : 'Transferencia';
+      setForm((prev: FormState) => ({
+        ...prev,
+        moneda: value as 'BS' | 'USD',
+        tipo: defaultTipo,
+        nombre_banco: '',
+        acepta_transferencia: defaultTipo === 'Transferencia',
+        acepta_pago_movil: false,
+        pago_movil_telefono: '',
+        pago_movil_cedula_rif: '',
+        swift: '',
+        aba: '',
+      }));
+      return;
+    }
     if (field === 'tipo') {
       const isTransferencia = value === 'Transferencia';
+      const isDeposito = value === 'Deposito';
       const isPagoMovil = value === 'Pago Movil';
+      const isTransIntl = value === 'Transferencia Internacional';
       setForm((prev: FormState) => ({
         ...prev,
         tipo: value,
         nombre_banco: '',
-        acepta_transferencia: isTransferencia,
+        swift: '',
+        aba: '',
+        acepta_transferencia: isTransferencia || isDeposito || isTransIntl,
         acepta_pago_movil: isPagoMovil ? true : (isTransferencia ? prev.acepta_pago_movil : false),
         pago_movil_telefono: isPagoMovil ? (prev.pago_movil_telefono || prev.telefono) : (isTransferencia ? prev.pago_movil_telefono : ''),
         pago_movil_cedula_rif: isPagoMovil ? (prev.pago_movil_cedula_rif || prev.cedula_rif) : (isTransferencia ? prev.pago_movil_cedula_rif : ''),
       }));
+      return;
+    }
+    if (field === 'swift') {
+      setForm((prev: FormState) => ({ ...prev, swift: formatSwift(value) }));
+      return;
+    }
+    if (field === 'aba') {
+      setForm((prev: FormState) => ({ ...prev, aba: formatAba(value) }));
       return;
     }
     if (field === 'telefono') {
@@ -348,7 +396,7 @@ const Bancos: FC<BancosProps> = () => {
     e.preventDefault();
     if (isSavingCuenta || cuentaSubmitLockRef.current) return;
     const token = localStorage.getItem('habioo_token');
-    if (['Transferencia', 'Pago Movil'].includes(form.tipo) && !isValidCedulaRif(form.cedula_rif)) {
+    if (['Transferencia', 'Deposito', 'Pago Movil'].includes(form.tipo) && !isValidCedulaRif(form.cedula_rif)) {
       await showAlert({ title: 'Dato invalido', message: 'La cédula/RIF debe iniciar con V, E, J o G y contener solo números.', variant: 'warning' });
       return;
     }
@@ -370,6 +418,16 @@ const Bancos: FC<BancosProps> = () => {
       await showAlert({ title: 'Dato invalido', message: 'El correo de Zelle no tiene un formato válido.', variant: 'warning' });
       return;
     }
+    if (form.tipo === 'Transferencia Internacional') {
+      if (form.swift.length !== 8 && form.swift.length !== 11) {
+        await showAlert({ title: 'Dato invalido', message: 'El codigo SWIFT/BIC debe tener 8 u 11 caracteres alfanumericos.', variant: 'warning' });
+        return;
+      }
+      if (parseAba(form.aba).length !== 9) {
+        await showAlert({ title: 'Dato invalido', message: 'El numero ABA debe tener exactamente 9 digitos.', variant: 'warning' });
+        return;
+      }
+    }
 
     try {
       cuentaSubmitLockRef.current = true;
@@ -381,6 +439,8 @@ const Bancos: FC<BancosProps> = () => {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           ...form,
+          swift: form.tipo === 'Transferencia Internacional' ? form.swift : undefined,
+          aba: form.tipo === 'Transferencia Internacional' ? parseAba(form.aba) : undefined,
           acepta_transferencia: form.tipo === 'Transferencia' ? true : form.tipo === 'Pago Movil' ? false : form.acepta_transferencia,
           acepta_pago_movil: form.tipo === 'Pago Movil' ? true : form.tipo === 'Transferencia' ? form.acepta_pago_movil : false,
           pago_movil_telefono: form.tipo === 'Pago Movil' ? form.telefono : (form.acepta_pago_movil ? form.pago_movil_telefono : ''),
@@ -570,6 +630,9 @@ const Bancos: FC<BancosProps> = () => {
                   {b.tipo === 'Zelle' && (
                     <StatusBadge color="blue" shape="tag" size="md" border className="shadow-sm">Zelle</StatusBadge>
                   )}
+                  {b.tipo === 'Transferencia Internacional' && (
+                    <StatusBadge color="blue" shape="tag" size="md" border className="shadow-sm">Wire Transfer</StatusBadge>
+                  )}
                   <StatusBadge color="gray" shape="tag" size="md">{b.apodo}</StatusBadge>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm text-gray-600 dark:text-gray-400">
@@ -580,6 +643,12 @@ const Bancos: FC<BancosProps> = () => {
                       <strong className="text-gray-800 dark:text-gray-300 font-medium">{b.tipo === 'Zelle' ? 'Correo:' : 'N Cuenta:'}</strong>{' '}
                       {b.tipo === 'Zelle' ? b.numero_cuenta : formatNumeroCuenta(b.numero_cuenta)}
                     </p>
+                  )}
+                  {b.tipo === 'Transferencia Internacional' && b.swift && (
+                    <p><strong className="text-gray-800 dark:text-gray-300 font-medium">SWIFT/BIC:</strong> <span className="font-mono tracking-widest">{b.swift}</span></p>
+                  )}
+                  {b.tipo === 'Transferencia Internacional' && b.aba && (
+                    <p><strong className="text-gray-800 dark:text-gray-300 font-medium">ABA:</strong> <span className="font-mono tracking-widest">{formatAba(String(b.aba))}</span></p>
                   )}
                   {b.telefono && <p><strong className="text-gray-800 dark:text-gray-300 font-medium">Telefono:</strong> {b.telefono}</p>}
                   {(b.acepta_pago_movil || b.tipo === 'Pago Movil') && b.pago_movil_telefono && (
@@ -628,17 +697,55 @@ const Bancos: FC<BancosProps> = () => {
         <ModalBase onClose={closeCuentaModal} title={editingBanco ? 'Editar Cuenta Bancaria' : 'Nueva Cuenta Bancaria'} maxWidth="max-w-6xl" disableClose={isSavingCuenta}>
           <form onSubmit={handleSubmit}>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+
+                {/* Selector de moneda */}
+                <div className="md:col-span-3">
+                  <FormField label="Moneda" required>
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        name="moneda"
+                        onClick={() => handleChange({ target: { name: 'moneda', value: 'BS' } } as ChangeEvent<HTMLSelectElement>)}
+                        className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-bold border transition-colors ${form.moneda === 'BS'
+                          ? 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700'
+                          : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                      >
+                        Bs (Bolivares)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleChange({ target: { name: 'moneda', value: 'USD' } } as ChangeEvent<HTMLSelectElement>)}
+                        className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-bold border transition-colors ${form.moneda === 'USD'
+                          ? 'bg-green-50 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700'
+                          : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                      >
+                        USD (Dolares)
+                      </button>
+                    </div>
+                  </FormField>
+                </div>
+
+                {/* Tipo de cuenta filtrado por moneda */}
                 <FormField label="Tipo de Cuenta" required>
                   <select name="tipo" value={form.tipo} onChange={handleChange} required className="w-full p-3 bg-blue-50 dark:bg-gray-800 text-blue-800 dark:text-white border border-blue-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold">
-                    <option value="Transferencia" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Transferencia (Bs)</option>
-                    <option value="Pago Movil" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Pago Movil (Bs)</option>
-                    <option value="Zelle" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Zelle (USD)</option>
-                    <option value="Efectivo BS" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Efectivo / Caja Chica (Bs)</option>
-                    <option value="Efectivo USD" className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">Efectivo / Caja Chica (USD)</option>
+                    {form.moneda === 'USD' ? (
+                      <>
+                        <option value="Zelle">Zelle</option>
+                        <option value="Transferencia Internacional">Transferencia Internacional</option>
+                        <option value="Efectivo USD">Efectivo USD</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="Transferencia">Transferencia</option>
+                        <option value="Deposito">Deposito</option>
+                        <option value="Pago Movil">Pago Movil</option>
+                        <option value="Efectivo BS">Efectivo / Caja Chica (Bs)</option>
+                      </>
+                    )}
                   </select>
                 </FormField>
 
-                {['Transferencia', 'Pago Movil'].includes(form.tipo) && (
+                {['Transferencia', 'Deposito', 'Pago Movil'].includes(form.tipo) && (
                   <FormField label="Institucion Bancaria" required>
                     <select name="nombre_banco" value={form.nombre_banco} onChange={handleChange} required className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white">
                       <option value="" disabled className="text-gray-400">Seleccione el banco...</option>
@@ -649,69 +756,73 @@ const Bancos: FC<BancosProps> = () => {
                   </FormField>
                 )}
 
-                {form.tipo === 'Zelle' && (
+                {form.tipo === 'Transferencia Internacional' && (
                   <FormField label="Nombre del Banco (EEUU)" required>
-                    <input type="text" name="nombre_banco" value={form.nombre_banco} onChange={handleChange} required placeholder="Ej: Wells Fargo, BofA..." className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" />
+                    <input type="text" name="nombre_banco" value={form.nombre_banco} onChange={handleChange} required placeholder="Ej: Wells Fargo, Bank of America..." className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" />
                   </FormField>
                 )}
 
                 <FormField label="Apodo (Referencia)" required>
-                  <input type="text" name="apodo" value={form.apodo} onChange={handleChange} required placeholder={form.tipo.startsWith('Efectivo') ? 'Ej: Caja Chica Conserjeria' : 'Ej: Principal / Pagos Bs'} className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" />
+                  <input type="text" name="apodo" value={form.apodo} onChange={handleChange} required placeholder={form.tipo.startsWith('Efectivo') ? 'Ej: Caja Chica Conserjeria' : form.moneda === 'USD' ? 'Ej: Zelle Principal' : 'Ej: Principal / Pagos Bs'} className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" />
                 </FormField>
 
                 <FormField label={form.tipo.startsWith('Efectivo') ? 'Custodio / Responsable' : 'Nombre del Titular'} required>
                   <input type="text" name="nombre_titular" value={form.nombre_titular} onChange={handleChange} required placeholder="Ej: Junta de Condominio" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" />
                 </FormField>
 
-                {['Transferencia', 'Pago Movil'].includes(form.tipo) && (
+                {['Transferencia', 'Deposito', 'Pago Movil'].includes(form.tipo) && (
                   <FormField label="Cedula / RIF" required>
                     <input type="text" name="cedula_rif" value={form.cedula_rif} onChange={handleCedulaChange} pattern="^[VEJG]-?[0-9]{5,9}$" required placeholder="Ej: J-123456789" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono" />
                   </FormField>
                 )}
 
-                {form.tipo === 'Transferencia' && (
+                {['Transferencia', 'Deposito'].includes(form.tipo) && (
                   <div className="space-y-3 md:col-span-3">
                     <FormField label="Numero de Cuenta" required>
                       <input type="text" name="numero_cuenta" value={form.numero_cuenta} onChange={handleChange} required placeholder="20 digitos" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono" />
                     </FormField>
-                    <label className="inline-flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
-                      <input
-                        type="checkbox"
-                        name="acepta_pago_movil"
-                        checked={form.acepta_pago_movil}
-                        onChange={handleChange}
-                        className="h-4 w-4 rounded border-gray-300 text-donezo-primary focus:ring-donezo-primary"
-                      />
-                      Esta cuenta tambien recibe Pago Movil
-                    </label>
-                    {form.acepta_pago_movil && (
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <FormField label="Telefono Pago Movil" required>
+                    {form.tipo === 'Transferencia' && (
+                      <>
+                        <label className="inline-flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
                           <input
-                            type="text"
-                            name="pago_movil_telefono"
-                            value={form.pago_movil_telefono}
+                            type="checkbox"
+                            name="acepta_pago_movil"
+                            checked={form.acepta_pago_movil}
                             onChange={handleChange}
-                            inputMode="numeric"
-                            pattern="^[0-9]{7,15}$"
-                            required
-                            placeholder="Ej: 04141234567"
-                            className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                            className="h-4 w-4 rounded border-gray-300 text-donezo-primary focus:ring-donezo-primary"
                           />
-                        </FormField>
-                        <FormField label="Cedula/RIF Pago Movil" required>
-                          <input
-                            type="text"
-                            name="pago_movil_cedula_rif"
-                            value={form.pago_movil_cedula_rif}
-                            onChange={handlePagoMovilCedulaChange}
-                            pattern="^[VEJG]-?[0-9]{5,9}$"
-                            required
-                            placeholder="Ej: V-12345678"
-                            className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
-                          />
-                        </FormField>
-                      </div>
+                          Esta cuenta tambien recibe Pago Movil
+                        </label>
+                        {form.acepta_pago_movil && (
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <FormField label="Telefono Pago Movil" required>
+                              <input
+                                type="text"
+                                name="pago_movil_telefono"
+                                value={form.pago_movil_telefono}
+                                onChange={handleChange}
+                                inputMode="numeric"
+                                pattern="^[0-9]{7,15}$"
+                                required
+                                placeholder="Ej: 04141234567"
+                                className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                              />
+                            </FormField>
+                            <FormField label="Cedula/RIF Pago Movil" required>
+                              <input
+                                type="text"
+                                name="pago_movil_cedula_rif"
+                                value={form.pago_movil_cedula_rif}
+                                onChange={handlePagoMovilCedulaChange}
+                                pattern="^[VEJG]-?[0-9]{5,9}$"
+                                required
+                                placeholder="Ej: V-12345678"
+                                className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                              />
+                            </FormField>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
@@ -720,6 +831,48 @@ const Bancos: FC<BancosProps> = () => {
                   <FormField label="Telefono" required>
                     <input type="text" name="telefono" value={form.telefono} onChange={handleChange} inputMode="numeric" pattern="^[0-9]{7,15}$" required placeholder="Ej: 04141234567" className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono" />
                   </FormField>
+                )}
+
+                {form.tipo === 'Transferencia Internacional' && (
+                  <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <FormField label="Numero de Cuenta (Beneficiario)" required>
+                      <input
+                        type="text"
+                        name="numero_cuenta"
+                        value={form.numero_cuenta}
+                        onChange={handleChange}
+                        required
+                        placeholder="Ej: 123456789"
+                        className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                      />
+                    </FormField>
+                    <FormField label="SWIFT / BIC" required>
+                      <input
+                        type="text"
+                        name="swift"
+                        value={form.swift}
+                        onChange={handleChange}
+                        required
+                        placeholder="Ej: BOFAUS3N"
+                        maxLength={11}
+                        className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono tracking-widest uppercase"
+                      />
+                      <p className="mt-1 text-[11px] text-gray-400">8 u 11 caracteres alfanumericos · se formatea en mayusculas automaticamente</p>
+                    </FormField>
+                    <FormField label="ABA (Routing Number)" required>
+                      <input
+                        type="text"
+                        name="aba"
+                        value={form.aba}
+                        onChange={handleChange}
+                        required
+                        placeholder="XXX-XXX-XXX"
+                        inputMode="numeric"
+                        className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono tracking-widest"
+                      />
+                      <p className="mt-1 text-[11px] text-gray-400">9 digitos · formato XXX-XXX-XXX</p>
+                    </FormField>
+                  </div>
                 )}
 
                 {form.tipo === 'Zelle' && (
