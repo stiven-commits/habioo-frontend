@@ -5,7 +5,7 @@ import { es } from 'date-fns/locale/es';
 import { useOutletContext } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { API_BASE_URL } from '../../config/api';
-import { ModalRegistrarEgreso, ModalTransferencia } from '../BancosModals';
+import { ModalRegistrarEgreso, ModalTransferencia } from '../bancos';
 import ModalDetalleMovimiento, { type IMovimientoDetalle } from './ModalDetalleMovimiento';
 import DataTable, { type Column } from '../ui/DataTable';
 import { useDialog } from '../ui/DialogProvider';
