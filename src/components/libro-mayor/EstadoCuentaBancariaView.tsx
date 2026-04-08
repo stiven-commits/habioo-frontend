@@ -156,6 +156,22 @@ interface MovimientosResponse {
   data?: Array<Partial<IMovimiento>>;
 }
 
+interface IExtraInfo {
+  pago_id: number;
+  fecha: string;
+  referencia: string | null;
+  inmueble: string | null;
+  concepto: string;
+  monto_bs: number | null;
+  monto_usd: number;
+  fondo_destino: string | null;
+}
+
+interface ExtrasInfoResponse {
+  status: string;
+  extras?: IExtraInfo[];
+}
+
 interface BcvResponse {
   promedio?: string | number;
 }
@@ -268,6 +284,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   const [fondos, setFondos] = useState<Fondo[]>([]);
   const [selectedCuenta, setSelectedCuenta] = useState<string>('');
   const [movimientos, setMovimientos] = useState<IMovimiento[]>([]);
+  const [extrasInfo, setExtrasInfo] = useState<IExtraInfo[]>([]);
   const [activeTab, setActiveTab] = useState<ActiveTab>('cuenta');
   const [ownerVista, setOwnerVista] = useState<'actual' | 'corte'>('actual');
   const [ownerCortes, setOwnerCortes] = useState<CorteFondo[]>([]);
@@ -478,6 +495,27 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     }
   };
 
+  const fetchExtrasInfo = async (cuentaId: string): Promise<void> => {
+    if (mode !== 'admin' || !cuentaId) {
+      setExtrasInfo([]);
+      return;
+    }
+    const token = localStorage.getItem('habioo_token');
+    try {
+      const res = await fetch(`${API_BASE_URL}/bancos-admin/${cuentaId}/extras-info`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data: ExtrasInfoResponse = await res.json();
+      if (!res.ok || data.status !== 'success') {
+        setExtrasInfo([]);
+        return;
+      }
+      setExtrasInfo(Array.isArray(data.extras) ? data.extras : []);
+    } catch {
+      setExtrasInfo([]);
+    }
+  };
+
   const fetchCortesOwner = async (cuentaId: string, anio: string, mes: string): Promise<void> => {
     if (mode !== 'owner' || !ownerCondominioId) return;
     const token = localStorage.getItem('habioo_token');
@@ -538,6 +576,10 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   useEffect(() => {
     fetchMovimientos(selectedCuenta);
   }, [selectedCuenta, mode, ownerCondominioId]);
+
+  useEffect(() => {
+    void fetchExtrasInfo(selectedCuenta);
+  }, [selectedCuenta, mode]);
 
   useEffect(() => {
     if (mode !== 'owner') return;
@@ -921,6 +963,31 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       return concepto.includes(txt) || inmueble.includes(txt) || referencia.includes(txt) || montoRaw.includes(txt) || montoFmt.includes(txt);
     });
   }, [movimientosBasePorVista, searchTerm]);
+
+  const extrasInfoPorVista = useMemo(() => {
+    const txt = searchTerm.trim().toLowerCase();
+    if (!txt) return extrasInfo;
+    return extrasInfo.filter((row) => {
+      const fecha = formatFecha(row.fecha).toLowerCase();
+      const referencia = String(row.referencia || '').toLowerCase();
+      const inmueble = String(row.inmueble || '').toLowerCase();
+      const concepto = String(row.concepto || '').toLowerCase();
+      const fondoDestino = String(row.fondo_destino || 'Fondo principal').toLowerCase();
+      const montoBs = toNumber(row.monto_bs);
+      const montoUsd = toNumber(row.monto_usd);
+      const montoRaw = `${montoBs.toFixed(2)} ${montoUsd.toFixed(2)}`.toLowerCase();
+      const montoFmt = `${formatCurrency(montoBs)} ${formatCurrency(montoUsd)}`.toLowerCase();
+      return (
+        fecha.includes(txt)
+        || referencia.includes(txt)
+        || inmueble.includes(txt)
+        || concepto.includes(txt)
+        || fondoDestino.includes(txt)
+        || montoRaw.includes(txt)
+        || montoFmt.includes(txt)
+      );
+    });
+  }, [extrasInfo, searchTerm]);
 
   const sortedMovimientosPorVista = useMemo(() => {
     const getInmuebleTexto = (mov: IMovimiento): string => {
@@ -1843,9 +1910,48 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
           </p>
         </div>
 
+        {!loading && activeTab === 'sin-fondo' && extrasInfoPorVista.length > 0 && (
+          <div className="px-5 pt-4 pb-2 space-y-3">
+            <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 dark:border-amber-900/60 dark:bg-amber-900/20">
+              <p className="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                Extras Aplicados Al Fondo Principal (Informativo)
+              </p>
+              <p className="mt-1 text-xs text-amber-800/90 dark:text-amber-200/90">
+                Estos montos ya fueron acreditados al fondo principal; aquí se muestran para seguimiento.
+              </p>
+            </div>
+            <DataTable<IExtraInfo>
+              columns={[
+                { key: 'fecha', header: 'Fecha', className: 'font-mono text-xs text-gray-600', render: (row) => formatFecha(row.fecha) },
+                { key: 'referencia', header: 'Referencia', className: 'font-mono text-xs text-gray-500', render: (row) => row.referencia || '-' },
+                { key: 'inmueble', header: 'Inmueble', className: 'font-semibold text-gray-700 dark:text-gray-300', render: (row) => row.inmueble || '-' },
+                { key: 'concepto', header: 'Descripción', className: 'font-medium text-gray-800 dark:text-gray-200', render: (row) => row.concepto },
+                {
+                  key: 'monto_bs',
+                  header: 'Extra (Bs)',
+                  headerClassName: 'text-right',
+                  className: 'text-right font-black font-mono text-amber-700 dark:text-amber-300',
+                  render: (row) => row.monto_bs && row.monto_bs > 0 ? `Bs ${formatCurrency(row.monto_bs)}` : '-'
+                },
+                {
+                  key: 'monto_usd',
+                  header: 'Extra ($)',
+                  headerClassName: 'text-right',
+                  className: 'text-right font-black font-mono text-amber-700 dark:text-amber-300',
+                  render: (row) => `+${formatCurrency(row.monto_usd)}`
+                },
+                { key: 'fondo_destino', header: 'Fondo destino', className: 'font-semibold text-gray-700 dark:text-gray-300', render: (row) => row.fondo_destino || 'Fondo principal' },
+              ]}
+              data={extrasInfoPorVista}
+              keyExtractor={(row, index) => `extra-${row.pago_id}-${index}`}
+              emptyMessage="No hay extras aplicados para esta cuenta."
+            />
+          </div>
+        )}
+
         {loading ? (
           <p className="text-center text-gray-500 py-10">Generando estado de cuenta...</p>
-        ) : movimientosPorVista.length === 0 ? (
+        ) : movimientosPorVista.length === 0 && !(activeTab === 'sin-fondo' && extrasInfoPorVista.length > 0) ? (
           <p className="text-center text-gray-400 py-10 font-medium">No hay movimientos registrados en esta cuenta.</p>
         ) : (
           <DataTable<IMovimiento>
