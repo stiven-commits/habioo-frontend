@@ -229,6 +229,36 @@ const parseFilterDate = (value: string): Date | null => {
   return Number.isNaN(d.getTime()) ? null : d;
 };
 
+const getCuentaStorageKey = (mode: ViewMode, ownerCondominioId?: number): string => (
+  mode === 'owner'
+    ? `habioo_estado_cuenta_selected_owner_${String(ownerCondominioId || '')}`
+    : 'habioo_estado_cuenta_selected_admin'
+);
+
+const isCuentaEnUsd = (cuenta: CuentaBancaria): boolean => {
+  const moneda = String(cuenta.moneda || '').trim().toUpperCase();
+  const tipo = String(cuenta.tipo || '').trim().toUpperCase();
+  const nombreBanco = String(cuenta.nombre_banco || '').trim().toUpperCase();
+  const apodo = String(cuenta.apodo || '').trim().toUpperCase();
+  const source = `${moneda} ${tipo} ${nombreBanco} ${apodo}`;
+  return source.includes('USD') || source.includes('ZELLE') || source.includes('DIVISA') || source.includes('DOLAR');
+};
+
+const pickCuentaInicial = (cuentasDisponibles: CuentaBancaria[], preferredId: string): CuentaBancaria | null => {
+  if (!cuentasDisponibles.length) return null;
+  if (preferredId) {
+    const preferred = cuentasDisponibles.find((c) => String(c.id) === preferredId);
+    if (preferred) return preferred;
+  }
+  const principalBs = cuentasDisponibles.find((c) => c.es_predeterminada && !isCuentaEnUsd(c));
+  if (principalBs) return principalBs;
+  const principalAny = cuentasDisponibles.find((c) => c.es_predeterminada);
+  if (principalAny) return principalAny;
+  const primeraBs = cuentasDisponibles.find((c) => !isCuentaEnUsd(c));
+  if (primeraBs) return primeraBs;
+  return cuentasDisponibles[0] || null;
+};
+
 const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) => {
   const { userRole, propiedadActiva } = useOutletContext<OutletContextType>();
   const { showAlert, showConfirm } = useDialog() as DialogContextType;
@@ -266,11 +296,14 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
 
   const fetchCuentas = async (): Promise<void> => {
     const token = localStorage.getItem('habioo_token');
+    const storageKey = getCuentaStorageKey(mode, ownerCondominioId);
+    const cuentaPersistida = localStorage.getItem(storageKey) || '';
     try {
       if (mode === 'owner') {
         if (!ownerCondominioId) {
           setCuentas([]);
           setSelectedCuenta('');
+          localStorage.removeItem(storageKey);
           return;
         }
         const res = await fetch(`${API_BASE_URL}/api/propietario/cuentas/${ownerCondominioId}`, {
@@ -282,12 +315,16 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
           : [];
         if (cuentasOwner.length > 0) {
           setCuentas(cuentasOwner);
-          const predeterminada = cuentasOwner.find((c) => c.es_predeterminada);
-          const cuentaInicial = predeterminada ?? cuentasOwner[0];
-          if (cuentaInicial) setSelectedCuenta(String(cuentaInicial.id));
+          const cuentaInicial = pickCuentaInicial(cuentasOwner, cuentaPersistida);
+          if (cuentaInicial) {
+            const cuentaId = String(cuentaInicial.id);
+            setSelectedCuenta(cuentaId);
+            localStorage.setItem(storageKey, cuentaId);
+          }
         } else {
           setCuentas([]);
           setSelectedCuenta('');
+          localStorage.removeItem(storageKey);
         }
         return;
       }
@@ -299,9 +336,15 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       const bancos = data.status === 'success' ? (data.bancos || []) : [];
       setCuentas(bancos);
       if (bancos.length > 0) {
-        const predeterminada = bancos.find((c) => c.es_predeterminada);
-        const cuentaInicial = predeterminada ?? bancos[0];
-        if (cuentaInicial) setSelectedCuenta(String(cuentaInicial.id));
+        const cuentaInicial = pickCuentaInicial(bancos, cuentaPersistida);
+        if (cuentaInicial) {
+          const cuentaId = String(cuentaInicial.id);
+          setSelectedCuenta(cuentaId);
+          localStorage.setItem(storageKey, cuentaId);
+        }
+      } else {
+        setSelectedCuenta('');
+        localStorage.removeItem(storageKey);
       }
     } catch (error) {
       console.error(error);
@@ -508,6 +551,12 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   useEffect(() => {
     setActiveTab('cuenta');
   }, [selectedCuenta, mode]);
+
+  useEffect(() => {
+    if (!selectedCuenta) return;
+    const storageKey = getCuentaStorageKey(mode, ownerCondominioId);
+    localStorage.setItem(storageKey, selectedCuenta);
+  }, [selectedCuenta, mode, ownerCondominioId]);
 
   useEffect(() => {
     if (mode !== 'owner') return;
@@ -1172,8 +1221,52 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
         return fechaMov >= haceDosMeses && fechaMov <= hoy;
       });
 
+    const fondosCuentaIds = new Set(
+      fondosCuenta
+        .map((f) => toNullableInt(f.id))
+        .filter((id): id is number => id !== null)
+    );
+
+    const getImpactoCuenta = (movimiento: IMovimiento): 'INGRESO' | 'EGRESO' | 'NEUTRO' => {
+      const rawId = String(movimiento.id || '').toUpperCase();
+      const tipoRaw = String(movimiento.tipo_raw || '').toUpperCase();
+      const concepto = String(movimiento.concepto || '').toUpperCase();
+      const referencia = String(movimiento.referencia || '').toUpperCase();
+      const movOrigen = toNullableInt((movimiento as { fondo_origen_id?: unknown }).fondo_origen_id);
+      const movDestino = toNullableInt((movimiento as { fondo_destino_id?: unknown }).fondo_destino_id);
+
+      const esEgresoTipo = movimiento.tipo === 'EGRESO'
+        || tipoRaw.includes('EGRESO')
+        || tipoRaw.includes('DEBITO')
+        || tipoRaw.includes('PAGO_PROVEEDOR');
+
+      const esTransferencia = rawId.startsWith('TRF-')
+        || tipoRaw.includes('TRANSFER')
+        || /TRANSFERENCIA|TRANSF\./i.test(concepto)
+        || /TRF[-\s]/i.test(referencia);
+
+      if (esTransferencia) {
+        const origenEnCuenta = movOrigen !== null && fondosCuentaIds.has(movOrigen);
+        const destinoEnCuenta = movDestino !== null && fondosCuentaIds.has(movDestino);
+        if (origenEnCuenta && !destinoEnCuenta) return 'EGRESO';
+        if (!origenEnCuenta && destinoEnCuenta) return 'INGRESO';
+        if (rawId.includes('-OUT') || tipoRaw.includes('SALIDA') || /TRANSFERENCIA\s+ENVIADA/i.test(concepto)) return 'EGRESO';
+        if (rawId.includes('-IN') || tipoRaw.includes('ENTRADA') || /TRANSFERENCIA\s+RECIBIDA/i.test(concepto)) return 'INGRESO';
+        return 'NEUTRO';
+      }
+
+      if (esEgresoTipo) return 'EGRESO';
+      return 'INGRESO';
+    };
+
     const rows = movimientosExportar.map((movimiento, index) => {
+      const impacto = getImpactoCuenta(movimiento);
       const montoUsdVista = getMontoUsdVista(movimiento);
+      const montoBsVista = getMontoBsVista(movimiento);
+      const ingresoBs = impacto === 'INGRESO' ? Math.abs(montoBsVista) : 0;
+      const egresoBs = impacto === 'EGRESO' ? -Math.abs(montoBsVista) : 0;
+      const ingresoUsd = impacto === 'INGRESO' ? Math.abs(montoUsdVista) : 0;
+      const egresoUsd = impacto === 'EGRESO' ? -Math.abs(montoUsdVista) : 0;
       return {
         '#': index + 1,
         'Fecha operacion': formatFecha(movimiento.fecha),
@@ -1182,9 +1275,10 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
         Inmueble: getInmuebleVista(movimiento),
         Descripcion: getConceptoVista(movimiento),
         Tipo: movimiento.tipo,
-        'Monto (Bs)': getMontoBsVista(movimiento),
-        'Cargo (USD)': movimiento.tipo === 'EGRESO' ? montoUsdVista : 0,
-        'Abono (USD)': movimiento.tipo === 'INGRESO' ? montoUsdVista : 0,
+        'Ingresos (Bs)': ingresoBs,
+        'Egresos/Salidas (Bs)': egresoBs,
+        'Ingresos (USD)': ingresoUsd,
+        'Egresos/Salidas (USD)': egresoUsd,
         'Tasa BCV': toNumber(movimiento.tasa_cambio),
       };
     });

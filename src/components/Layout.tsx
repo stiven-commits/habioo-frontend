@@ -1197,11 +1197,10 @@ const Layout: React.FC<LayoutProps> = () => {
           ))}
         </div>
       )}
-      <AIChatWidget />
+      <AIChatWidget {...(userRole ? { userRole } : {})} />
     </div>
   );
 };
 
 export default Layout;
-
 
