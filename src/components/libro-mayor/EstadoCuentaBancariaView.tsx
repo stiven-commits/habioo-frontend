@@ -1158,9 +1158,29 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     [movimientosPorVista],
   );
 
+  const totalIngresosBs = useMemo(
+    () => movimientosPorVista.reduce((acc, mov) => (mov.tipo === 'INGRESO' ? acc + getMontoBsVista(mov) : acc), 0),
+    [movimientosPorVista],
+  );
+
+  const totalEgresosBs = useMemo(
+    () => movimientosPorVista.reduce((acc, mov) => (mov.tipo === 'EGRESO' ? acc + getMontoBsVista(mov) : acc), 0),
+    [movimientosPorVista],
+  );
+
   const fondosDestacados = useMemo(
     () => resumenFondos,
     [resumenFondos],
+  );
+
+  const fondosDestacadosBs = useMemo(
+    () => fondosDestacados.filter((fondo) => String(fondo.moneda || '').toUpperCase() !== 'USD'),
+    [fondosDestacados],
+  );
+
+  const fondosDestacadosUsd = useMemo(
+    () => fondosDestacados.filter((fondo) => String(fondo.moneda || '').toUpperCase() === 'USD'),
+    [fondosDestacados],
   );
 
   const ownerEgresosFondo = useMemo(() => {
@@ -1752,11 +1772,20 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
         </div>
       </section>
 
-      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <p className="text-xs font-black uppercase tracking-wider text-gray-400">Saldo en bolívares</p>
           <p className="mt-2 text-4xl font-black text-gray-900 dark:text-white">Bs {formatCurrency(saldoCuentaBsActual)}</p>
         </article>
+        {fondosDestacadosBs.map((fondo) => (
+          <article key={`bs-${fondo.id}`} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <p className="text-xs font-black uppercase tracking-wider text-gray-400">{fondo.nombre}</p>
+            <p className="mt-1 text-4xl font-black text-gray-900 dark:text-white">
+              Bs {formatCurrency(fondo.saldo)}
+            </p>
+            <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">≈ ${formatCurrency(fondo.equivalenteUsd)} USD</p>
+          </article>
+        ))}
         <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <p className="text-xs font-black uppercase tracking-wider text-gray-400">Tasa BCV</p>
           <div className="mt-1 flex items-center gap-2">
@@ -1777,22 +1806,24 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
           <p className="text-xs font-black uppercase tracking-wider text-gray-400">Saldo equivalente USD</p>
           <p className="mt-2 text-4xl font-black text-gray-900 dark:text-white">${formatCurrency(saldoCuentaUsdActual)}</p>
         </article>
-      </section>
-
-      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <p className="text-xs font-black uppercase tracking-wider text-gray-400">Total ingresos</p>
           <p className="mt-2 text-4xl font-black text-emerald-600 dark:text-emerald-400">+${formatCurrency(totalIngresosUsd)}</p>
+          <p className="mt-1 text-sm font-semibold text-gray-500 dark:text-gray-400">+Bs {formatCurrency(totalIngresosBs)}</p>
         </article>
         <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <p className="text-xs font-black uppercase tracking-wider text-gray-400">Total egresos</p>
           <p className="mt-2 text-4xl font-black text-red-600 dark:text-red-400">-${formatCurrency(totalEgresosUsd)}</p>
+          <p className="mt-1 text-sm font-semibold text-gray-500 dark:text-gray-400">-Bs {formatCurrency(totalEgresosBs)}</p>
         </article>
-        {fondosDestacados.map((fondo) => (
+      </section>
+
+      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        {fondosDestacadosUsd.map((fondo) => (
           <article key={fondo.id} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <p className="text-xs font-black uppercase tracking-wider text-gray-400">{fondo.nombre}</p>
             <p className="mt-1 text-4xl font-black text-gray-900 dark:text-white">
-              {fondo.moneda === 'USD' ? '$' : 'Bs'} {formatCurrency(fondo.saldo)}
+              $ {formatCurrency(fondo.saldo)}
             </p>
             <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">≈ ${formatCurrency(fondo.equivalenteUsd)} USD</p>
           </article>
@@ -1905,12 +1936,11 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
             </div>
           </div>
 
-          <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 rounded-lg px-3 py-2">
-            Doble clic en un movimiento para ver el detalle completo.
-          </p>
         </div>
 
-        {!loading && activeTab === 'sin-fondo' && extrasInfoPorVista.length > 0 && (
+        {loading ? (
+          <p className="text-center text-gray-500 py-10">Generando estado de cuenta...</p>
+        ) : activeTab === 'sin-fondo' ? (
           <div className="px-5 pt-4 pb-2 space-y-3">
             <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 dark:border-amber-900/60 dark:bg-amber-900/20">
               <p className="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
@@ -1928,30 +1958,56 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                 { key: 'concepto', header: 'Descripción', className: 'font-medium text-gray-800 dark:text-gray-200', render: (row) => row.concepto },
                 {
                   key: 'monto_bs',
-                  header: 'Extra (Bs)',
+                  header: 'Monto (Bs)',
                   headerClassName: 'text-right',
-                  className: 'text-right font-black font-mono text-amber-700 dark:text-amber-300',
+                  className: 'text-right font-black font-mono text-slate-700 dark:text-slate-200',
                   render: (row) => row.monto_bs && row.monto_bs > 0 ? `Bs ${formatCurrency(row.monto_bs)}` : '-'
                 },
                 {
                   key: 'monto_usd',
-                  header: 'Extra ($)',
+                  header: 'Abono ($)',
                   headerClassName: 'text-right',
-                  className: 'text-right font-black font-mono text-amber-700 dark:text-amber-300',
-                  render: (row) => `+${formatCurrency(row.monto_usd)}`
+                  className: 'text-right font-black font-mono text-emerald-600 dark:text-emerald-400',
+                  render: (row) => row.monto_usd > 0 ? `+${formatCurrency(row.monto_usd)}` : '-'
+                },
+                {
+                  key: 'tasa',
+                  header: 'Tasa (Bs)',
+                  headerClassName: 'text-right',
+                  className: 'text-right font-mono text-blue-600 dark:text-blue-400',
+                  render: (row) => {
+                    const montoBs = toNumber(row.monto_bs);
+                    const montoUsd = toNumber(row.monto_usd);
+                    if (montoBs <= 0 || montoUsd <= 0) return '-';
+                    const tasa = montoBs / montoUsd;
+                    return formatCurrency(tasa);
+                  }
                 },
                 { key: 'fondo_destino', header: 'Fondo destino', className: 'font-semibold text-gray-700 dark:text-gray-300', render: (row) => row.fondo_destino || 'Fondo principal' },
               ]}
               data={extrasInfoPorVista}
               keyExtractor={(row, index) => `extra-${row.pago_id}-${index}`}
-              emptyMessage="No hay extras aplicados para esta cuenta."
+              onRowDoubleClick={(row) => {
+                const montoBs = toNumber(row.monto_bs);
+                const montoUsd = toNumber(row.monto_usd);
+                const tasa = montoBs > 0 && montoUsd > 0 ? Number((montoBs / montoUsd).toFixed(2)) : 0;
+                setMovimientoDetalle({
+                  id: `extra-${row.pago_id}`,
+                  fecha: row.fecha,
+                  fecha_registro: row.fecha,
+                  referencia: String(row.referencia || ''),
+                  concepto: row.concepto,
+                  tipo: 'INGRESO',
+                  monto_bs: montoBs,
+                  tasa_cambio: tasa,
+                  monto_usd: montoUsd,
+                  pago_id: row.pago_id,
+                } as IMovimiento);
+              }}
+              emptyMessage="No hay datos disponibles."
             />
           </div>
-        )}
-
-        {loading ? (
-          <p className="text-center text-gray-500 py-10">Generando estado de cuenta...</p>
-        ) : movimientosPorVista.length === 0 && !(activeTab === 'sin-fondo' && extrasInfoPorVista.length > 0) ? (
+        ) : movimientosPorVista.length === 0 ? (
           <p className="text-center text-gray-400 py-10 font-medium">No hay movimientos registrados en esta cuenta.</p>
         ) : (
           <DataTable<IMovimiento>
