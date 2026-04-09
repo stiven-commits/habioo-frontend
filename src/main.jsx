@@ -8,6 +8,8 @@ if (typeof window !== 'undefined') {
   window.__HABIOO_API_BASE__ = API_BASE_URL
   const originalFetch = window.fetch.bind(window)
   let sessionEndEventDispatched = false
+  const LAST_ERROR_STORAGE_KEY = 'habioo:last-http-error'
+  const MAX_ERROR_MESSAGE_LENGTH = 500
 
   const refreshSessionFromHeaders = (response) => {
     const refreshedToken = response.headers.get('x-habioo-refreshed-token')
@@ -38,6 +40,48 @@ if (typeof window !== 'undefined') {
     if (status === 500) return '/error-500'
     if (status === 503) return '/error-503'
     return ''
+  }
+
+  const safeTrim = (value) => String(value || '').trim().slice(0, MAX_ERROR_MESSAGE_LENGTH)
+
+  const extractRequestId = (response) => (
+    response.headers.get('x-request-id')
+    || response.headers.get('x-correlation-id')
+    || response.headers.get('x-trace-id')
+    || ''
+  )
+
+  const saveLastHttpError = async ({ response, status, url, method }) => {
+    try {
+      const requestId = safeTrim(extractRequestId(response))
+      let message = ''
+      try {
+        const cloned = response.clone()
+        const contentType = String(cloned.headers.get('content-type') || '').toLowerCase()
+        if (contentType.includes('application/json')) {
+          const json = await cloned.json()
+          message = safeTrim(json?.message || json?.error || '')
+        } else {
+          const text = await cloned.text()
+          message = safeTrim(text)
+        }
+      } catch {
+        message = ''
+      }
+
+      const payload = {
+        status,
+        method: safeTrim(method),
+        url: safeTrim(url),
+        requestId,
+        message,
+        timestamp: new Date().toISOString(),
+      }
+      sessionStorage.setItem(LAST_ERROR_STORAGE_KEY, JSON.stringify(payload))
+      return requestId
+    } catch {
+      return ''
+    }
   }
 
   const isExpectedHierarchy403 = (status, effectiveUrl) => {
@@ -109,7 +153,16 @@ if (typeof window !== 'undefined') {
       const errorPath = getTargetErrorPath(response.status)
       const shouldRedirectOnError = requestMethod === 'GET' || requestMethod === 'HEAD'
       if (errorPath && shouldRedirectOnError && window.location.pathname !== errorPath) {
-        window.location.replace(errorPath)
+        const requestId = await saveLastHttpError({
+          response,
+          status: response.status,
+          url: effectiveUrl,
+          method: requestMethod,
+        })
+        const target = requestId
+          ? `${errorPath}?rid=${encodeURIComponent(requestId)}`
+          : errorPath
+        window.location.replace(target)
       }
     }
 
