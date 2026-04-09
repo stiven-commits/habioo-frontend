@@ -67,6 +67,9 @@ if (typeof window !== 'undefined') {
   window.fetch = async (input, init) => {
     let requestInput = input
     let requestUrl = typeof input === 'string' ? input : (input instanceof Request ? input.url : '')
+    const requestMethod = String(
+      init?.method || (input instanceof Request ? input.method : 'GET')
+    ).toUpperCase()
 
     if (API_BASE_URL !== PROD_API_BASE_URL) {
       if (typeof requestUrl === 'string' && requestUrl.startsWith(PROD_API_BASE_URL)) {
@@ -104,7 +107,8 @@ if (typeof window !== 'undefined') {
         return response
       }
       const errorPath = getTargetErrorPath(response.status)
-      if (errorPath && window.location.pathname !== errorPath) {
+      const shouldRedirectOnError = requestMethod === 'GET' || requestMethod === 'HEAD'
+      if (errorPath && shouldRedirectOnError && window.location.pathname !== errorPath) {
         window.location.replace(errorPath)
       }
     }

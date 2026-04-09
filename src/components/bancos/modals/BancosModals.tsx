@@ -338,7 +338,7 @@ const SearchableCombobox: React.FC<{
             setOpen(true);
             inputRef.current?.focus();
           }}
-          className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+          className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full text-red-500 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/30 transition-colors"
           title="Limpiar selección"
           aria-label="Limpiar selección"
         >
@@ -848,7 +848,7 @@ export const ModalTransferencia: React.FC<ModalActionProps> = ({ onClose, onSucc
 export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({
   onClose,
   onSuccess,
-  initialCuentaId = '',
+  initialCuentaId: _initialCuentaId = '',
   tipoMovimiento = 'EGRESO',
 }) => {
   const { showAlert, showConfirm } = useDialog();
@@ -859,7 +859,7 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [isFetchingBCV, setIsFetchingBCV] = useState<boolean>(false);
   const [form, setForm] = useState<RegistrarEgresoForm>({
-    cuenta_id: initialCuentaId || '',
+    cuenta_id: '',
     fondo_id: '',
     monto_origen: '',
     tasa_cambio: '',
@@ -869,7 +869,7 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({
   });
   const resetEgresoForm = (): void => {
     setForm({
-      cuenta_id: initialCuentaId || '',
+      cuenta_id: '',
       fondo_id: '',
       monto_origen: '',
       tasa_cambio: '',
