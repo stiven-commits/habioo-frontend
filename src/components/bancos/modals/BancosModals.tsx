@@ -911,10 +911,6 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({
     () => fondos.filter((f) => String(f.cuenta_bancaria_id) === form.cuenta_id),
     [fondos, form.cuenta_id]
   );
-  const fondoAutoIngreso = useMemo<Fondo | null>(() => {
-    if (!isIngreso || !fondosCuenta.length) return null;
-    return fondosCuenta.find((f) => Boolean(f.es_operativo)) || fondosCuenta[0] || null;
-  }, [isIngreso, fondosCuenta]);
   const opcionesCuentaEgreso = useMemo<ComboboxOption[]>(
     () => cuentas.map((c) => ({ value: String(c.id), label: formatCuentaDestinoLabel(c) })),
     [cuentas],
@@ -947,18 +943,11 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({
       }
       return;
     }
-    if (isIngreso) {
-      const autoFondoId = fondoAutoIngreso ? String(fondoAutoIngreso.id) : '';
-      if (form.fondo_id !== autoFondoId) {
-        setForm((prev: RegistrarEgresoForm) => ({ ...prev, fondo_id: autoFondoId }));
-      }
-      return;
-    }
     const exists = fondosCuenta.some((f) => String(f.id) === form.fondo_id);
     if (!exists && form.fondo_id !== '') {
       setForm((prev: RegistrarEgresoForm) => ({ ...prev, fondo_id: '' }));
     }
-  }, [form.cuenta_id, form.fondo_id, fondosCuenta, fondoAutoIngreso, isIngreso]);
+  }, [form.cuenta_id, form.fondo_id, fondosCuenta]);
 
   useEffect(() => {
     const token = localStorage.getItem('habioo_token') || '';
@@ -1001,7 +990,7 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({
 
   const isValid = Boolean(
     form.cuenta_id &&
-    (isIngreso ? Boolean(fondoAutoIngreso) : Boolean(form.fondo_id)) &&
+    form.fondo_id &&
     montoOrigenNum > 0 &&
     form.referencia.trim() &&
     form.concepto.trim() &&
@@ -1030,7 +1019,7 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({
         body: JSON.stringify({
           tipo_movimiento: tipoMovimiento,
           cuenta_id: Number(form.cuenta_id),
-          fondo_id: Number(isIngreso ? String(fondoAutoIngreso?.id || '') : form.fondo_id),
+          fondo_id: Number(form.fondo_id),
           monto_origen: montoOrigenNum,
           tasa_cambio: cuentaEsUsd ? null : tasaNum,
           referencia: form.referencia.trim(),
@@ -1076,25 +1065,17 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({
               />
             </FormField>
 
-            {!isIngreso && (
-              <FormField label="Desde fondo" required>
-                <SearchableCombobox
-                  required
-                  disabled={!form.cuenta_id}
-                  value={form.fondo_id}
-                  onChange={(next) => setForm((prev: RegistrarEgresoForm) => ({ ...prev, fondo_id: next }))}
-                  options={opcionesFondoEgreso}
-                  placeholder={form.cuenta_id ? 'Buscar fondo...' : 'Seleccione cuenta primero'}
-                  className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary disabled:opacity-60"
-                />
-              </FormField>
-            )}
-
-            {isIngreso && form.cuenta_id && (
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-900/20 dark:text-emerald-200">
-                Fondo destino automático: {fondoAutoIngreso?.nombre || 'No disponible'}
-              </div>
-            )}
+            <FormField label={isIngreso ? 'Hacia fondo' : 'Desde fondo'} required>
+              <SearchableCombobox
+                required
+                disabled={!form.cuenta_id}
+                value={form.fondo_id}
+                onChange={(next) => setForm((prev: RegistrarEgresoForm) => ({ ...prev, fondo_id: next }))}
+                options={opcionesFondoEgreso}
+                placeholder={form.cuenta_id ? 'Buscar fondo...' : 'Seleccione cuenta primero'}
+                className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary disabled:opacity-60"
+              />
+            </FormField>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <FormField label={`Monto ${cuentaEsUsd ? '(USD)' : '(Bs)'}`} required>
