@@ -75,6 +75,7 @@ const ModalDetallesGasto: FC<ModalDetallesGastoProps> = ({ gasto, onClose }) => 
   const [loadingPagos, setLoadingPagos] = useState<boolean>(false);
   const [pagosError, setPagosError] = useState<string>('');
   const [pagosRecaudacion, setPagosRecaudacion] = useState<PagoDetalle[]>([]);
+  const [currentPagePagos, setCurrentPagePagos] = useState<number>(1);
 
   const isExtra = String(gasto?.tipo || '').trim().toLowerCase() === 'extra';
   const montoRecaudado = toNumber(gasto?.monto_recaudado_usd);
@@ -102,6 +103,15 @@ const ModalDetallesGasto: FC<ModalDetallesGastoProps> = ({ gasto, onClose }) => 
     () => pagosRecaudacion.reduce((acc, pago) => acc + toNumber(pago.monto_usd), 0),
     [pagosRecaudacion]
   );
+  const ITEMS_PER_PAGE = 5;
+  const totalPagesPagos = useMemo<number>(
+    () => Math.max(1, Math.ceil(pagosRecaudacion.length / ITEMS_PER_PAGE)),
+    [pagosRecaudacion.length]
+  );
+  const pagosPaginaActual = useMemo<PagoDetalle[]>(() => {
+    const start = (currentPagePagos - 1) * ITEMS_PER_PAGE;
+    return pagosRecaudacion.slice(start, start + ITEMS_PER_PAGE);
+  }, [currentPagePagos, pagosRecaudacion]);
 
   useEffect(() => {
     if (!isExtra || !gasto?.gasto_id) {
@@ -137,6 +147,16 @@ const ModalDetallesGasto: FC<ModalDetallesGastoProps> = ({ gasto, onClose }) => 
     run();
     return () => controller.abort();
   }, [gasto?.gasto_id, isExtra]);
+
+  useEffect(() => {
+    setCurrentPagePagos(1);
+  }, [gasto?.gasto_id, pagosRecaudacion.length]);
+
+  useEffect(() => {
+    if (currentPagePagos > totalPagesPagos) {
+      setCurrentPagePagos(totalPagesPagos);
+    }
+  }, [currentPagePagos, totalPagesPagos]);
 
   if (!gasto) return null;
 
@@ -301,10 +321,36 @@ const ModalDetallesGasto: FC<ModalDetallesGastoProps> = ({ gasto, onClose }) => 
                       render: (pago) => formatDateVE(pago.fecha_pago || pago.fecha_registro),
                     },
                   ]}
-                  data={pagosRecaudacion}
+                  data={pagosPaginaActual}
                   keyExtractor={(pago) => pago.id}
                   rowClassName="border-b border-slate-100 dark:border-slate-800 align-top"
                 />
+              )}
+
+              {!loadingPagos && !pagosError && pagosRecaudacion.length > ITEMS_PER_PAGE && (
+                <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3 text-xs dark:border-gray-800">
+                  <span className="text-slate-500 dark:text-slate-400">
+                    Página {currentPagePagos} de {totalPagesPagos}
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPagePagos((prev) => Math.max(1, prev - 1))}
+                      disabled={currentPagePagos === 1}
+                      className="rounded-lg border border-slate-200 px-2.5 py-1 font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                    >
+                      Anterior
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPagePagos((prev) => Math.min(totalPagesPagos, prev + 1))}
+                      disabled={currentPagePagos === totalPagesPagos}
+                      className="rounded-lg border border-slate-200 px-2.5 py-1 font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                    >
+                      Siguiente
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           </aside>

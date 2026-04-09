@@ -52,7 +52,9 @@ interface FormState {
   propiedad_id: string;
   fecha_gasto: string;
   cuotas_historicas: string;
-  monto_historico_proveedor_usd: string;
+  monto_historico_proveedor_bs: string;
+  monto_historico_recaudado_bs: string;
+  tasa_historica: string;
 }
 
 interface ApiErrorResponse {
@@ -94,7 +96,9 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
     zona_id: '', propiedad_id: '',
     fecha_gasto: '',
     cuotas_historicas: '0',
-    monto_historico_proveedor_usd: '',
+    monto_historico_proveedor_bs: '',
+    monto_historico_recaudado_bs: '',
+    tasa_historica: '',
   });
 
   const [facturaFile, setFacturaFile] = useState<File | null>(null);
@@ -117,8 +121,9 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
     } as FormState;
     setForm(merged);
     const cuotasHist = parseInputNumber(String(merged.cuotas_historicas || '0'));
-    const montoHist = parseInputNumber(String(merged.monto_historico_proveedor_usd || '0'));
-    setHasHistoricalContext(cuotasHist > 0 || montoHist > 0);
+    const montoHist = parseInputNumber(String(merged.monto_historico_proveedor_bs || '0'));
+    const montoRecaudadoHist = parseInputNumber(String(merged.monto_historico_recaudado_bs || '0'));
+    setHasHistoricalContext(cuotasHist > 0 || montoHist > 0 || montoRecaudadoHist > 0);
     setRemoveExistingFactura(false);
     setFacturaFile(null);
     setSoportesFiles([]);
@@ -137,6 +142,13 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
   const montoBsNum = parseInputNumber(form.monto_bs);
   const tasaNum = parseInputNumber(form.tasa_cambio);
   const equivalenteUSD = tasaNum > 0 ? (montoBsNum / tasaNum).toFixed(2) : '0.00';
+  const tasaHistoricaNum = parseInputNumber(form.tasa_historica);
+  const montoHistProvBsNum = parseInputNumber(form.monto_historico_proveedor_bs);
+  const montoHistRecBsNum = parseInputNumber(form.monto_historico_recaudado_bs);
+  const montoHistProvUsdPreview = tasaHistoricaNum > 0 ? (montoHistProvBsNum / tasaHistoricaNum) : 0;
+  const montoHistRecUsdPreview = tasaHistoricaNum > 0 ? (montoHistRecBsNum / tasaHistoricaNum) : 0;
+  const cuotasHistoricasNum = Math.max(0, parseInt(form.cuotas_historicas || '0', 10) || 0);
+  const historicalInputsEnabled = cuotasHistoricasNum > 0;
 
   const formatCurrencyInput = (value: string, maxDecimals = 2): string => {
     let rawValue = value.replace(/[^0-9,]/g, '');
@@ -160,7 +172,7 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
 
   const handleMonedaChange = (e: ChangeEvent<HTMLInputElement>): void => {
     const field = e.target.name as keyof FormState;
-    const maxDecimals = field === 'tasa_cambio' ? 3 : 2;
+    const maxDecimals = (field === 'tasa_cambio' || field === 'tasa_historica') ? 3 : 2;
     setForm((prev: FormState) => ({ ...prev, [field]: formatCurrencyInput(e.target.value, maxDecimals) as FormState[typeof field] }));
   };
 
@@ -210,11 +222,35 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
       return;
     }
     const montoHistoricoProveedorCanonico = hasHistoricalContext
-      ? parseInputNumber(form.monto_historico_proveedor_usd || '0')
+      ? parseInputNumber(form.monto_historico_proveedor_bs || '0')
       : 0;
+    const montoHistoricoRecaudadoCanonico = hasHistoricalContext
+      ? parseInputNumber(form.monto_historico_recaudado_bs || '0')
+      : 0;
+    const tasaHistoricaCanonica = hasHistoricalContext
+      ? parseInputNumber(form.tasa_historica || '0')
+      : 0;
+    if ((montoHistoricoProveedorCanonico > 0 || montoHistoricoRecaudadoCanonico > 0) && tasaHistoricaCanonica <= 0) {
+      alert('Debe indicar una tasa histórica válida para convertir montos históricos de Bs a USD.');
+      return;
+    }
+    if (montoHistoricoProveedorCanonico > montoCanonico + 0.005) {
+      alert('El pago histórico (Bs) no puede superar el monto del gasto en Bs.');
+      return;
+    }
+    if (montoHistoricoRecaudadoCanonico > montoCanonico + 0.005) {
+      alert('La recaudación histórica (Bs) no puede superar el monto del gasto en Bs.');
+      return;
+    }
+    const montoHistoricoProveedorUsdCanonico = tasaHistoricaCanonica > 0 ? (montoHistoricoProveedorCanonico / tasaHistoricaCanonica) : 0;
+    const montoHistoricoRecaudadoUsdCanonico = tasaHistoricaCanonica > 0 ? (montoHistoricoRecaudadoCanonico / tasaHistoricaCanonica) : 0;
     const equivalenteTotalUsd = tasaCanonica > 0 ? (montoCanonico / tasaCanonica) : 0;
-    if (montoHistoricoProveedorCanonico < 0 || montoHistoricoProveedorCanonico > equivalenteTotalUsd + 0.005) {
+    if (montoHistoricoProveedorUsdCanonico < 0 || montoHistoricoProveedorUsdCanonico > equivalenteTotalUsd + 0.005) {
       alert('El pago histórico del proveedor no puede superar el monto total en USD del gasto.');
+      return;
+    }
+    if (montoHistoricoRecaudadoUsdCanonico < 0 || montoHistoricoRecaudadoUsdCanonico > equivalenteTotalUsd + 0.005) {
+      alert('La recaudación histórica no puede superar el monto total en USD del gasto.');
       return;
     }
     
@@ -224,7 +260,9 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
       else if (key === 'monto_bs') formData.append('monto_bs', montoCanonico.toFixed(2));
       else if (key === 'tasa_cambio') formData.append('tasa_cambio', tasaCanonica.toFixed(4));
       else if (key === 'cuotas_historicas') formData.append('cuotas_historicas', String(cuotasHistoricasCanonico));
-      else if (key === 'monto_historico_proveedor_usd') formData.append('monto_historico_proveedor_usd', montoHistoricoProveedorCanonico.toFixed(2));
+      else if (key === 'monto_historico_proveedor_bs') formData.append('monto_historico_proveedor_usd', montoHistoricoProveedorUsdCanonico.toFixed(2));
+      else if (key === 'monto_historico_recaudado_bs') formData.append('monto_historico_recaudado_usd', montoHistoricoRecaudadoUsdCanonico.toFixed(2));
+      else if (key === 'tasa_historica') formData.append('tasa_historica', tasaHistoricaCanonica > 0 ? tasaHistoricaCanonica.toFixed(4) : '0');
       else formData.append(key, form[key]);
     });
     
@@ -416,7 +454,13 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                     const checked = e.target.checked;
                     setHasHistoricalContext(checked);
                     if (!checked) {
-                      setForm((prev: FormState) => ({ ...prev, cuotas_historicas: '0', monto_historico_proveedor_usd: '' }));
+                      setForm((prev: FormState) => ({
+                        ...prev,
+                        cuotas_historicas: '0',
+                        monto_historico_proveedor_bs: '',
+                        monto_historico_recaudado_bs: '',
+                        tasa_historica: '',
+                      }));
                     }
                   }}
                   className="h-4 w-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
@@ -424,7 +468,8 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                 Tiene pagos/cuotas históricas previas al arranque
               </label>
               {hasHistoricalContext && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 gap-4 rounded-2xl border border-amber-200/80 bg-gradient-to-br from-amber-50 to-orange-50 p-4 dark:border-amber-800/40 dark:from-amber-900/10 dark:to-orange-900/10">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Cuotas ya transcurridas</label>
                     <div className="flex items-center border border-amber-200 dark:border-amber-800 rounded-xl overflow-hidden bg-white dark:bg-gray-800">
@@ -457,15 +502,60 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Pago histórico al proveedor (USD)</label>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Tasa histórica (Bs/USD)</label>
                     <input
                       type="text"
-                      name="monto_historico_proveedor_usd"
-                      value={form.monto_historico_proveedor_usd}
+                      name="tasa_historica"
+                      value={form.tasa_historica}
                       onChange={handleMonedaChange}
-                      placeholder="0,00"
-                      className="w-full p-3 bg-white dark:bg-gray-800 border border-amber-200 dark:border-amber-800 rounded-xl outline-none focus:ring-2 focus:ring-amber-500 dark:text-white font-mono text-lg"
+                      placeholder={historicalInputsEnabled ? '0,00' : 'Primero define cuotas > 0'}
+                      disabled={!historicalInputsEnabled}
+                      className={`w-full p-3 border border-amber-200 dark:border-amber-800 rounded-xl outline-none focus:ring-2 focus:ring-amber-500 dark:text-white font-mono text-lg ${
+                        historicalInputsEnabled
+                          ? 'bg-white dark:bg-gray-800'
+                          : 'bg-amber-100/70 dark:bg-gray-800/60 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                      }`}
                     />
+                  </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Pago histórico al proveedor (Bs)</label>
+                    <input
+                      type="text"
+                      name="monto_historico_proveedor_bs"
+                      value={form.monto_historico_proveedor_bs}
+                      onChange={handleMonedaChange}
+                      placeholder={historicalInputsEnabled ? '0,00' : 'Primero define cuotas > 0'}
+                      disabled={!historicalInputsEnabled}
+                      className={`w-full p-3 border border-amber-200 dark:border-amber-800 rounded-xl outline-none focus:ring-2 focus:ring-amber-500 dark:text-white font-mono text-lg ${
+                        historicalInputsEnabled
+                          ? 'bg-white dark:bg-gray-800'
+                          : 'bg-amber-100/70 dark:bg-gray-800/60 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Recaudación histórica (Bs)</label>
+                    <input
+                      type="text"
+                      name="monto_historico_recaudado_bs"
+                      value={form.monto_historico_recaudado_bs}
+                      onChange={handleMonedaChange}
+                      placeholder={historicalInputsEnabled ? '0,00' : 'Primero define cuotas > 0'}
+                      disabled={!historicalInputsEnabled}
+                      className={`w-full p-3 border border-amber-200 dark:border-amber-800 rounded-xl outline-none focus:ring-2 focus:ring-amber-500 dark:text-white font-mono text-lg ${
+                        historicalInputsEnabled
+                          ? 'bg-white dark:bg-gray-800'
+                          : 'bg-amber-100/70 dark:bg-gray-800/60 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                      }`}
+                    />
+                  </div>
+                  </div>
+                  <div className="rounded-xl border border-amber-300/60 bg-white/70 px-3 py-2 text-xs font-semibold text-amber-900 dark:border-amber-700/40 dark:bg-gray-900/30 dark:text-amber-200">
+                    Equivalentes calculados:
+                    <span className="ml-2">Proveedor: ${formatMoneyDisplay(montoHistProvUsdPreview.toFixed(2))} USD</span>
+                    <span className="ml-2">Recaudado: ${formatMoneyDisplay(montoHistRecUsdPreview.toFixed(2))} USD</span>
                   </div>
                 </div>
               )}

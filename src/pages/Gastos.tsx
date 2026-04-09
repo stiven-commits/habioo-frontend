@@ -45,6 +45,7 @@ interface GastoCuota {
   has_real_pago_proveedor?: boolean;
   cuotas_historicas?: string | number;
   monto_historico_proveedor_usd?: string | number;
+  monto_historico_recaudado_usd?: string | number;
   total_cuotas: number;
   nota?: string;
   clasificacion?: string;
@@ -78,6 +79,7 @@ interface GastoAgrupado {
   has_real_pago_proveedor?: boolean;
   cuotas_historicas?: string | number;
   monto_historico_proveedor_usd?: string | number;
+  monto_historico_recaudado_usd?: string | number;
   total_cuotas: number;
   nota?: string;
   clasificacion?: string;
@@ -208,16 +210,24 @@ const parseNotaToFields = (nota?: string): {
   nota: string;
   cuotas_historicas: string;
   monto_historico_proveedor_usd: string;
+  monto_historico_recaudado_usd: string;
+  tasa_historica: string;
 } => {
   const raw = String(nota || '').trim();
-  if (!raw) return { numero_documento: '', nota: '', cuotas_historicas: '0', monto_historico_proveedor_usd: '' };
+  if (!raw) return { numero_documento: '', nota: '', cuotas_historicas: '0', monto_historico_proveedor_usd: '', monto_historico_recaudado_usd: '', tasa_historica: '' };
   const cuotasMatch = raw.match(/\[hist\.cuotas:(\d+)\]/i);
   const proveedorUsdMatch = raw.match(/\[hist\.proveedor_usd:([0-9]+(?:\.[0-9]+)?)\]/i);
+  const recaudadoUsdMatch = raw.match(/\[hist\.recaudado_usd:([0-9]+(?:\.[0-9]+)?)\]/i);
+  const tasaHistoricaMatch = raw.match(/\[hist\.tasa:([0-9]+(?:\.[0-9]+)?)\]/i);
   const clean = raw
     .replace(/\s*\|\s*\[hist\.cuotas:\d+\]/gi, '')
     .replace(/\s*\|\s*\[hist\.proveedor_usd:[0-9]+(?:\.[0-9]+)?\]/gi, '')
+    .replace(/\s*\|\s*\[hist\.recaudado_usd:[0-9]+(?:\.[0-9]+)?\]/gi, '')
+    .replace(/\s*\|\s*\[hist\.tasa:[0-9]+(?:\.[0-9]+)?\]/gi, '')
     .replace(/\[hist\.cuotas:\d+\]/gi, '')
     .replace(/\[hist\.proveedor_usd:[0-9]+(?:\.[0-9]+)?\]/gi, '')
+    .replace(/\[hist\.recaudado_usd:[0-9]+(?:\.[0-9]+)?\]/gi, '')
+    .replace(/\[hist\.tasa:[0-9]+(?:\.[0-9]+)?\]/gi, '')
     .trim();
   const match = clean.match(/^Nro\.\s*recibo\/factura:\s*([^|]+?)(?:\s*\|\s*(.*))?$/i);
   if (!match) {
@@ -226,6 +236,8 @@ const parseNotaToFields = (nota?: string): {
       nota: clean,
       cuotas_historicas: cuotasMatch?.[1] || '0',
       monto_historico_proveedor_usd: proveedorUsdMatch?.[1] ? formatMoney(Number(proveedorUsdMatch[1])) : '',
+      monto_historico_recaudado_usd: recaudadoUsdMatch?.[1] ? formatMoney(Number(recaudadoUsdMatch[1])) : '',
+      tasa_historica: tasaHistoricaMatch?.[1] ? formatMoney(Number(tasaHistoricaMatch[1]), 3) : '',
     };
   }
   return {
@@ -233,6 +245,8 @@ const parseNotaToFields = (nota?: string): {
     nota: String(match[2] || '').trim(),
     cuotas_historicas: cuotasMatch?.[1] || '0',
     monto_historico_proveedor_usd: proveedorUsdMatch?.[1] ? formatMoney(Number(proveedorUsdMatch[1])) : '',
+    monto_historico_recaudado_usd: recaudadoUsdMatch?.[1] ? formatMoney(Number(recaudadoUsdMatch[1])) : '',
+    tasa_historica: tasaHistoricaMatch?.[1] ? formatMoney(Number(tasaHistoricaMatch[1]), 3) : '',
   };
 };
 
@@ -351,6 +365,7 @@ const Gastos: FC<GastosProps> = () => {
               has_real_pago_proveedor: Boolean(curr.has_real_pago_proveedor),
               cuotas_historicas: curr.cuotas_historicas ?? 0,
               monto_historico_proveedor_usd: curr.monto_historico_proveedor_usd ?? 0,
+              monto_historico_recaudado_usd: curr.monto_historico_recaudado_usd ?? 0,
               total_cuotas: curr.total_cuotas,
               tipo: curr.tipo || 'Comun',
               clasificacion: curr.clasificacion || 'Variable',
@@ -916,10 +931,15 @@ const Gastos: FC<GastosProps> = () => {
           gastoId={gastoEnEdicion?.gasto_id ?? null}
           existingFacturaUrl={gastoEnEdicion?.factura_img || null}
           existingSoportesUrls={Array.isArray(gastoEnEdicion?.imagenes) ? gastoEnEdicion.imagenes : []}
-          {...(gastoEnEdicion
+              {...(gastoEnEdicion
             ? {
                 initialValues: (() => {
                   const notaFields = parseNotaToFields(gastoEnEdicion.nota);
+                  const tasaHistoricaNum = toNumber(notaFields.tasa_historica) > 0
+                    ? toNumber(notaFields.tasa_historica)
+                    : toNumber(gastoEnEdicion.tasa_cambio);
+                  const montoHistProveedorUsdNum = toNumber(notaFields.monto_historico_proveedor_usd);
+                  const montoHistRecaudadoUsdNum = toNumber(notaFields.monto_historico_recaudado_usd);
                   return {
                     proveedor_id: String(gastoEnEdicion.proveedor_id || gastoEnEdicion.cuotas[0]?.proveedor_id || ''),
                     concepto: String(gastoEnEdicion.concepto || ''),
@@ -929,7 +949,9 @@ const Gastos: FC<GastosProps> = () => {
                     total_cuotas: String(gastoEnEdicion.total_cuotas || 1),
                     nota: notaFields.nota,
                     cuotas_historicas: notaFields.cuotas_historicas,
-                    monto_historico_proveedor_usd: notaFields.monto_historico_proveedor_usd,
+                    monto_historico_proveedor_bs: formatMoney(tasaHistoricaNum > 0 ? (montoHistProveedorUsdNum * tasaHistoricaNum) : 0),
+                    monto_historico_recaudado_bs: formatMoney(tasaHistoricaNum > 0 ? (montoHistRecaudadoUsdNum * tasaHistoricaNum) : 0),
+                    tasa_historica: tasaHistoricaNum > 0 ? formatMoney(tasaHistoricaNum, 3) : '',
                     clasificacion: String(gastoEnEdicion.clasificacion || 'Variable') === 'Fijo' ? 'Fijo' : 'Variable',
                     asignacion_tipo: (gastoEnEdicion.tipo === 'No Comun' ? 'Zona' : (gastoEnEdicion.tipo || 'Comun')) as 'Comun' | 'Zona' | 'Individual' | 'Extra',
                     zona_id: String(gastoEnEdicion.cuotas[0]?.zona_id || ''),
