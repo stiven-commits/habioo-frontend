@@ -349,6 +349,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
     inferCuentaMoneda(cuentaSeleccionada) === 'USD' ||
     esMetodoUsd;
   const requiresTasa = formPago.metodo_pago === 'Transferencia' || formPago.metodo_pago === 'Pago Movil';
+  const useAutoBcvMode = soloCuentaPrincipal;
 
   useEffect(() => {
     if (!selectedBank) return;
@@ -372,43 +373,39 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
     setFormPago((prev: FormPagoState) => ({ ...prev, referencia: referenciaSugerida }));
   }, [esCuentaUsd, formPago.metodo_pago, formPago.referencia, nombreCuentaSeleccionada]);
 
-  useEffect(() => {
-    if (!isOpen || !formPago.cuenta_id || esCuentaUsd || !requiresTasa) return;
-    let cancelled = false;
+  const fetchBcvRate = async (silent = false): Promise<void> => {
+    setIsLoadingAutoRate(true);
+    try {
+      const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
+      if (!response.ok) throw new Error('API Error');
+      const json = await response.json() as { promedio?: number | string };
+      const rateNumber = parseFloat(String(json?.promedio ?? ''));
+      if (!Number.isFinite(rateNumber) || rateNumber <= 0) throw new Error('BCV invalid');
+      const formattedRate = formatCurrencyInput(rateNumber.toFixed(3).replace('.', ','), 3);
 
-    const loadAutoBcv = async (): Promise<void> => {
-      setIsLoadingAutoRate(true);
-      try {
-        const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
-        if (!response.ok) throw new Error('API Error');
-        const json = await response.json() as { promedio?: number | string };
-        const rateNumber = parseFloat(String(json?.promedio ?? ''));
-        if (!Number.isFinite(rateNumber) || rateNumber <= 0) throw new Error('BCV invalid');
-        const formattedRate = formatCurrencyInput(rateNumber.toFixed(3).replace('.', ','), 3);
-
-        if (cancelled) return;
-        setFormPago((prev: FormPagoState) => {
-          if (prev.tasa_cambio === formattedRate) return prev;
-          const updated: FormPagoState = { ...prev, tasa_cambio: formattedRate };
-          setConversionUSD(getConversionUSD(updated));
-          return updated;
+      setFormPago((prev: FormPagoState) => {
+        if (prev.tasa_cambio === formattedRate) return prev;
+        const updated: FormPagoState = { ...prev, tasa_cambio: formattedRate };
+        setConversionUSD(getConversionUSD(updated));
+        return updated;
+      });
+    } catch {
+      if (!silent) {
+        await showAlert({
+          title: 'BCV no disponible',
+          message: 'No se pudo cargar la tasa BCV automática. Intente nuevamente.',
+          variant: 'warning',
         });
-      } catch {
-        if (!cancelled) {
-          await showAlert({
-            title: 'BCV no disponible',
-            message: 'No se pudo cargar la tasa BCV automática. Intente nuevamente.',
-            variant: 'warning',
-          });
-        }
-      } finally {
-        if (!cancelled) setIsLoadingAutoRate(false);
       }
-    };
+    } finally {
+      setIsLoadingAutoRate(false);
+    }
+  };
 
-    void loadAutoBcv();
-    return () => { cancelled = true; };
-  }, [isOpen, formPago.cuenta_id, esCuentaUsd, requiresTasa, showAlert]);
+  useEffect(() => {
+    if (!useAutoBcvMode || !isOpen || !formPago.cuenta_id || esCuentaUsd || !requiresTasa) return;
+    void fetchBcvRate(true);
+  }, [useAutoBcvMode, isOpen, formPago.cuenta_id, esCuentaUsd, requiresTasa]);
 
   const handleSubmitPago = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
@@ -578,16 +575,30 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                         type="text"
                         name="tasa_cambio"
                         value={formPago.tasa_cambio}
-                        readOnly
-                        placeholder={isLoadingAutoRate ? 'Cargando tasa BCV...' : 'Tasa BCV automática'}
+                        readOnly={useAutoBcvMode}
+                        onChange={handlePagoChange}
+                        placeholder={isLoadingAutoRate ? 'Cargando tasa BCV...' : (useAutoBcvMode ? 'Tasa BCV automática' : 'Ingrese tasa BCV')}
                         required
-                        className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 dark:bg-gray-800/70 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary"
+                        className={`w-full p-3 rounded-xl border border-gray-200 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary ${
+                          useAutoBcvMode ? 'bg-gray-50 dark:bg-gray-800/70' : 'bg-white dark:bg-gray-800'
+                        }`}
                       />
                     </FormField>
                   </div>
-                  <div className="h-full min-h-[118px] w-full bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center text-center px-3">
-                    Tasa BCV automática
-                  </div>
+                  {useAutoBcvMode ? (
+                    <div className="h-full min-h-[118px] w-full bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center text-center px-3">
+                      Tasa BCV automática
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => { void fetchBcvRate(false); }}
+                      disabled={isLoadingAutoRate}
+                      className="h-full min-h-[118px] w-full bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center text-center px-3 transition-colors hover:bg-blue-100 dark:hover:bg-blue-900/50 disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {isLoadingAutoRate ? 'Consultando BCV...' : 'Capturar tasa BCV'}
+                    </button>
+                  )}
                 </div>
               ) : (
                 <FormField label="Monto Pagado" required>
