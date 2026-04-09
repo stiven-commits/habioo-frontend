@@ -87,6 +87,7 @@ interface ModalEliminarFondoProps extends ModalActionProps {
 
 interface ModalRegistrarEgresoProps extends ModalActionProps {
   initialCuentaId?: string;
+  tipoMovimiento?: 'EGRESO' | 'INGRESO';
 }
 
 interface RegistrarEgresoForm {
@@ -844,8 +845,14 @@ export const ModalTransferencia: React.FC<ModalActionProps> = ({ onClose, onSucc
   );
 };
 
-export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onClose, onSuccess, initialCuentaId = '' }) => {
+export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({
+  onClose,
+  onSuccess,
+  initialCuentaId = '',
+  tipoMovimiento = 'EGRESO',
+}) => {
   const { showAlert, showConfirm } = useDialog();
+  const isIngreso = tipoMovimiento === 'INGRESO';
   const [fondos, setFondos] = useState<Fondo[]>([]);
   const [cuentas, setCuentas] = useState<CuentaBancaria[]>([]);
   const [saldosFondosCuenta, setSaldosFondosCuenta] = useState<Record<string, number>>({});
@@ -904,6 +911,10 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
     () => fondos.filter((f) => String(f.cuenta_bancaria_id) === form.cuenta_id),
     [fondos, form.cuenta_id]
   );
+  const fondoAutoIngreso = useMemo<Fondo | null>(() => {
+    if (!isIngreso || !fondosCuenta.length) return null;
+    return fondosCuenta.find((f) => Boolean(f.es_operativo)) || fondosCuenta[0] || null;
+  }, [isIngreso, fondosCuenta]);
   const opcionesCuentaEgreso = useMemo<ComboboxOption[]>(
     () => cuentas.map((c) => ({ value: String(c.id), label: formatCuentaDestinoLabel(c) })),
     [cuentas],
@@ -936,11 +947,18 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
       }
       return;
     }
+    if (isIngreso) {
+      const autoFondoId = fondoAutoIngreso ? String(fondoAutoIngreso.id) : '';
+      if (form.fondo_id !== autoFondoId) {
+        setForm((prev: RegistrarEgresoForm) => ({ ...prev, fondo_id: autoFondoId }));
+      }
+      return;
+    }
     const exists = fondosCuenta.some((f) => String(f.id) === form.fondo_id);
     if (!exists && form.fondo_id !== '') {
       setForm((prev: RegistrarEgresoForm) => ({ ...prev, fondo_id: '' }));
     }
-  }, [form.cuenta_id, form.fondo_id, fondosCuenta]);
+  }, [form.cuenta_id, form.fondo_id, fondosCuenta, fondoAutoIngreso, isIngreso]);
 
   useEffect(() => {
     const token = localStorage.getItem('habioo_token') || '';
@@ -983,7 +1001,7 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
 
   const isValid = Boolean(
     form.cuenta_id &&
-    form.fondo_id &&
+    (isIngreso ? Boolean(fondoAutoIngreso) : Boolean(form.fondo_id)) &&
     montoOrigenNum > 0 &&
     form.referencia.trim() &&
     form.concepto.trim() &&
@@ -996,11 +1014,11 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
     if (!isValid) return;
 
     const ok = await showConfirm({
-      title: 'Confirmar egreso',
-      message: `Se registrará un egreso de ${cuentaEsUsd ? '$' : 'Bs '}${formatMoney(montoOrigenNum)}.`,
+      title: isIngreso ? 'Confirmar ingreso' : 'Confirmar egreso',
+      message: `Se registrará un ${isIngreso ? 'ingreso' : 'egreso'} de ${cuentaEsUsd ? '$' : 'Bs '}${formatMoney(montoOrigenNum)}.`,
       confirmText: 'Registrar',
       cancelText: 'Cancelar',
-      variant: 'warning',
+      variant: isIngreso ? 'success' : 'warning',
     });
     if (!ok) return;
 
@@ -1010,8 +1028,9 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
+          tipo_movimiento: tipoMovimiento,
           cuenta_id: Number(form.cuenta_id),
-          fondo_id: Number(form.fondo_id),
+          fondo_id: Number(isIngreso ? String(fondoAutoIngreso?.id || '') : form.fondo_id),
           monto_origen: montoOrigenNum,
           tasa_cambio: cuentaEsUsd ? null : tasaNum,
           referencia: form.referencia.trim(),
@@ -1021,24 +1040,32 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
       });
       const result: ApiResult = (await res.json()) as ApiResult;
       if (!res.ok || result.status !== 'success') {
-        await showAlert({ title: 'Error', message: result.message || result.error || 'No se pudo registrar el egreso.', variant: 'danger' });
+        await showAlert({
+          title: 'Error',
+          message: result.message || result.error || `No se pudo registrar el ${isIngreso ? 'ingreso' : 'egreso'}.`,
+          variant: 'danger',
+        });
         return;
       }
-      await showAlert({ title: 'Egreso registrado', message: result.message || 'Egreso registrado correctamente.', variant: 'success' });
+      await showAlert({
+        title: isIngreso ? 'Ingreso registrado' : 'Egreso registrado',
+        message: result.message || `${isIngreso ? 'Ingreso' : 'Egreso'} registrado correctamente.`,
+        variant: 'success',
+      });
       onSuccess();
     } catch {
-      await showAlert({ title: 'Error de red', message: 'No se pudo registrar el egreso.', variant: 'danger' });
+      await showAlert({ title: 'Error de red', message: `No se pudo registrar el ${isIngreso ? 'ingreso' : 'egreso'}.`, variant: 'danger' });
     }
   };
 
   return (
-    <ModalBase onClose={handleCloseEgresoModal} title="Registrar Egreso" maxWidth="max-w-md">
+    <ModalBase onClose={handleCloseEgresoModal} title={isIngreso ? 'Registrar Ingreso' : 'Registrar Egreso'} maxWidth="max-w-md">
 
         {loading ? (
           <p className="text-center text-gray-500">Cargando...</p>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
-            <FormField label="Desde cuenta" required>
+            <FormField label={isIngreso ? 'Hacia cuenta' : 'Desde cuenta'} required>
               <SearchableCombobox
                 required
                 value={form.cuenta_id}
@@ -1049,17 +1076,25 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
               />
             </FormField>
 
-            <FormField label="Desde fondo" required>
-              <SearchableCombobox
-                required
-                disabled={!form.cuenta_id}
-                value={form.fondo_id}
-                onChange={(next) => setForm((prev: RegistrarEgresoForm) => ({ ...prev, fondo_id: next }))}
-                options={opcionesFondoEgreso}
-                placeholder={form.cuenta_id ? 'Buscar fondo...' : 'Seleccione cuenta primero'}
-                className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary disabled:opacity-60"
-              />
-            </FormField>
+            {!isIngreso && (
+              <FormField label="Desde fondo" required>
+                <SearchableCombobox
+                  required
+                  disabled={!form.cuenta_id}
+                  value={form.fondo_id}
+                  onChange={(next) => setForm((prev: RegistrarEgresoForm) => ({ ...prev, fondo_id: next }))}
+                  options={opcionesFondoEgreso}
+                  placeholder={form.cuenta_id ? 'Buscar fondo...' : 'Seleccione cuenta primero'}
+                  className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary disabled:opacity-60"
+                />
+              </FormField>
+            )}
+
+            {isIngreso && form.cuenta_id && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-900/20 dark:text-emerald-200">
+                Fondo destino automático: {fondoAutoIngreso?.nombre || 'No disponible'}
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <FormField label={`Monto ${cuentaEsUsd ? '(USD)' : '(Bs)'}`} required>
@@ -1137,8 +1172,14 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
               />
             </FormField>
 
-            <button type="submit" disabled={!isValid} className="w-full py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
-              Registrar Egreso
+            <button
+              type="submit"
+              disabled={!isValid}
+              className={`w-full py-3 text-white font-bold rounded-xl transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${
+                isIngreso ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'
+              }`}
+            >
+              {isIngreso ? 'Registrar Ingreso' : 'Registrar Egreso'}
             </button>
           </form>
         )}

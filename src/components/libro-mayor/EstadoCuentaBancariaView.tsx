@@ -295,6 +295,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   const [loading, setLoading] = useState<boolean>(true);
   const [showTransfModal, setShowTransfModal] = useState<boolean>(false);
   const [showEgresoModal, setShowEgresoModal] = useState<boolean>(false);
+  const [showIngresoModal, setShowIngresoModal] = useState<boolean>(false);
   const [fechaDesde, setFechaDesde] = useState<string>('');
   const [fechaHasta, setFechaHasta] = useState<string>('');
   const [movimientoDetalle, setMovimientoDetalle] = useState<IMovimiento | null>(null);
@@ -1425,9 +1426,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     const rawId = String(movimiento.id || '');
     const match = rawId.match(/^EGR-MF-(\d+)$/i);
     if (!match?.[1]) return null;
-    const concepto = String(movimiento.concepto || '');
-    // Alinear con backend: solo egresos manuales con la marca técnica son reversibles.
-    if (!/egreso manual libro mayor/i.test(concepto)) return null;
+    // El backend valida si corresponde realmente a un egreso manual reversible.
     return match[1];
   };
 
@@ -1766,6 +1765,12 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                 className="h-11 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-bold text-red-600 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300"
               >
                 Egreso Bancario
+              </button>
+              <button
+                onClick={() => setShowIngresoModal(true)}
+                className="h-11 rounded-xl border border-emerald-200 bg-emerald-50 px-4 text-sm font-bold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
+              >
+                Ingreso Bancario
               </button>
             </>
           )}
@@ -2239,9 +2244,23 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       {mode === 'admin' && showEgresoModal && (
         <ModalRegistrarEgreso
           initialCuentaId={selectedCuenta}
+          tipoMovimiento="EGRESO"
           onClose={() => setShowEgresoModal(false)}
           onSuccess={() => {
             setShowEgresoModal(false);
+            fetchMovimientos(selectedCuenta);
+            fetchFondos();
+          }}
+        />
+      )}
+
+      {mode === 'admin' && showIngresoModal && (
+        <ModalRegistrarEgreso
+          initialCuentaId={selectedCuenta}
+          tipoMovimiento="INGRESO"
+          onClose={() => setShowIngresoModal(false)}
+          onSuccess={() => {
+            setShowIngresoModal(false);
             fetchMovimientos(selectedCuenta);
             fetchFondos();
           }}
