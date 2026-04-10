@@ -63,6 +63,13 @@ const Login: FC<LoginProps> = () => {
         localStorage.setItem('habioo_token', data.token ?? '');
         localStorage.setItem('habioo_user', JSON.stringify(data.user ?? {}));
         localStorage.setItem('habioo_session', JSON.stringify(data.session ?? {}));
+        const requiresPasswordChange = (data as LoginResponse & { requiresPasswordChange?: boolean }).requiresPasswordChange === true;
+
+        if (requiresPasswordChange) {
+          navigate('/cambio-clave-obligatorio');
+          return;
+        }
+
         const role = String(data.session?.role || '').trim();
 
         if (role === 'SuperUsuario') {

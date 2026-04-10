@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Login from './pages/Login';
+import CambioClaveObligatorio from './pages/CambioClaveObligatorio';
 import RegistroJunta from './pages/RegistroJunta';
 import DashboardHome from './pages/DashboardHome';
 import Proveedores from './pages/Proveedores';
@@ -39,6 +40,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/cambio-clave-obligatorio" element={<CambioClaveObligatorio />} />
           <Route path="/registro-junta" element={<RegistroJunta />} />
           <Route path="/error-403" element={<Error403 />} />
           <Route path="/error-500" element={<Error500 />} />
