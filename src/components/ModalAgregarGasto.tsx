@@ -57,6 +57,8 @@ interface FormState {
   tasa_historica: string;
 }
 
+type TipoRegistroGasto = 'nuevo' | 'historico';
+
 interface ApiErrorResponse {
   error?: string;
 }
@@ -109,6 +111,9 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
   // NUEVO: Estado para el loading de la tasa BCV
   const [loadingBCV, setLoadingBCV] = useState<boolean>(false);
   const [hasHistoricalContext, setHasHistoricalContext] = useState<boolean>(false);
+  const [tipoRegistro, setTipoRegistro] = useState<TipoRegistroGasto>('nuevo');
+  const facturaInputRef = React.useRef<HTMLInputElement | null>(null);
+  const soportesInputRef = React.useRef<HTMLInputElement | null>(null);
 
   React.useEffect(() => {
     if (mode !== 'edit') {
@@ -120,6 +125,8 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
       ...initialValues,
     } as FormState;
     setForm(merged);
+    const esHistoricoInitial = Boolean((initialValues as { es_historico?: boolean | string | number })?.es_historico);
+    setTipoRegistro(esHistoricoInitial ? 'historico' : 'nuevo');
     const cuotasHist = parseInputNumber(String(merged.cuotas_historicas || '0'));
     const montoHist = parseInputNumber(String(merged.monto_historico_proveedor_bs || '0'));
     const montoRecaudadoHist = parseInputNumber(String(merged.monto_historico_recaudado_bs || '0'));
@@ -132,6 +139,11 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
     // Evitamos depender de objetos/arrays recreados por re-renders del padre.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, gastoId]);
+
+  React.useEffect(() => {
+    if (mode === 'edit') return;
+    setTipoRegistro('nuevo');
+  }, [mode]);
 
   const parseInputNumber = (txt: string): number => {
     const cleaned = String(txt || '').trim().replace(/\./g, '').replace(',', '.');
@@ -265,6 +277,7 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
       else if (key === 'tasa_historica') formData.append('tasa_historica', tasaHistoricaCanonica > 0 ? tasaHistoricaCanonica.toFixed(4) : '0');
       else formData.append(key, form[key]);
     });
+    formData.append('es_historico', tipoRegistro === 'historico' ? '1' : '0');
     
     if (facturaFile) formData.append('factura_img', facturaFile);
     if (removeExistingFactura) formData.append('remove_factura_img', '1');
@@ -288,9 +301,54 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
   };
 
   return (
-    <ModalBase onClose={onClose} title={mode === 'edit' ? 'Editar Gasto' : 'Registrar Gasto'} maxWidth="max-w-2xl">
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <div className="md:col-span-2">
+    <ModalBase onClose={onClose} title={mode === 'edit' ? 'Editar Gasto' : 'Registrar Gasto'} maxWidth="max-w-6xl">
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <div className="xl:col-span-2 rounded-2xl border border-indigo-300/80 bg-gradient-to-r from-indigo-50 via-blue-50 to-sky-50 p-4 shadow-sm dark:border-indigo-700/60 dark:from-indigo-900/30 dark:via-blue-900/20 dark:to-sky-900/20">
+            <label className="block text-sm font-bold text-indigo-800 dark:text-indigo-200 mb-2">
+              Tipo de registro
+            </label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setTipoRegistro('nuevo')}
+                className={`rounded-xl border px-4 py-3 text-left transition-all ${
+                  tipoRegistro === 'nuevo'
+                    ? 'border-emerald-500 bg-white text-emerald-700 shadow-md ring-2 ring-emerald-200 dark:bg-gray-800 dark:text-emerald-300 dark:ring-emerald-900/50'
+                    : 'border-indigo-200 bg-transparent text-indigo-700 hover:bg-white/70 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-gray-800/60'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-black">Gasto nuevo</p>
+                  {tipoRegistro === 'nuevo' && (
+                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                      Activo
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-xs font-semibold opacity-90">Se incluye en avisos de cobro y funciona como hasta ahora.</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setTipoRegistro('historico')}
+                className={`rounded-xl border px-4 py-3 text-left transition-all ${
+                  tipoRegistro === 'historico'
+                    ? 'border-amber-500 bg-white text-amber-800 shadow-md ring-2 ring-amber-200 dark:bg-gray-800 dark:text-amber-300 dark:ring-amber-900/50'
+                    : 'border-indigo-200 bg-transparent text-indigo-700 hover:bg-white/70 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-gray-800/60'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-black">Gasto histórico</p>
+                  {tipoRegistro === 'historico' && (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                      Activo
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-xs font-semibold opacity-90">No se reflejará en avisos de cobro. Queda para control histórico y recaudación manual.</p>
+              </button>
+            </div>
+          </div>
+          <div className="xl:col-span-1">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Proveedor <span className="text-red-500">*</span></label>
             <select name="proveedor_id" value={form.proveedor_id} onChange={handleChange} required className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white">
               <option value="">Seleccione...</option>
@@ -298,7 +356,7 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
             </select>
           </div>
 
-          <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="xl:col-span-1 grid grid-cols-1 md:grid-cols-3 gap-5">
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Concepto <span className="text-red-500">*</span></label>
               <input type="text" name="concepto" value={form.concepto} onChange={handleChange} placeholder="Ej: Reparación de tubería..." required className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" />
@@ -322,7 +380,7 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
             </div>
           </div>
 
-          <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="xl:col-span-1 grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Etiqueta</label>
               <select
@@ -347,7 +405,7 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
               />
             </div>
           </div>
-          <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="xl:col-span-1 grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Monto (Bs) <span className="text-red-500">*</span></label>
               <input type="text" name="monto_bs" value={form.monto_bs} onChange={handleMonedaChange} placeholder="0,00" required className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono text-lg" />
@@ -409,7 +467,7 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
             </div>
           </div>
 
-          <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-5 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700">
+          <div className="xl:col-span-1 grid grid-cols-1 md:grid-cols-2 gap-5 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700">
             <div>
               <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Diferir en Cuotas</label>
               <div className="flex items-center border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden bg-white dark:bg-gray-800">
@@ -444,8 +502,13 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
             </div>
           </div>
 
+          <div className="xl:col-span-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nota Interna</label>
+            <textarea name="nota" value={form.nota} onChange={handleChange} placeholder="Detalles adicionales..." rows={2} className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" />
+          </div>
+
           {mode === 'create' && (
-            <div className="md:col-span-2 grid grid-cols-1 gap-3 p-4 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-200 dark:border-amber-800/40">
+            <div className="xl:col-span-1 grid grid-cols-1 gap-3 p-4 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-200 dark:border-amber-800/40">
               <label className="inline-flex items-center gap-2 text-sm font-bold text-gray-700 dark:text-gray-300">
                 <input
                   type="checkbox"
@@ -561,13 +624,8 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
               )}
             </div>
           )}
-          
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nota Interna</label>
-            <textarea name="nota" value={form.nota} onChange={handleChange} placeholder="Detalles adicionales..." rows={2} className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" />
-          </div>
 
-          <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-5 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700 mt-2">
+          <div className="xl:col-span-1 grid grid-cols-1 md:grid-cols-2 gap-5 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700 mt-2">
             <div className="md:col-span-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800 dark:border-blue-800/60 dark:bg-blue-900/20 dark:text-blue-200">
               Archivos permitidos: Factura o recibo permite imagen o PDF. Soportes permiten imagen o PDF. Limites: maximo 4 soportes y cada PDF hasta 1 MB.
             </div>
@@ -614,20 +672,33 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
               )}
 
               {(mode !== 'edit' || !existingFacturaUrl || removeExistingFactura) && (
-                <input
-                  type="file"
-                  accept="image/*,application/pdf"
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                    const selected = e.target.files?.[0] || null;
-                    setFacturaFile(selected);
-                    if (selected) setRemoveExistingFactura(false);
-                  }}
-                  className="w-full p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl outline-none dark:text-white file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 dark:file:bg-blue-900/30 dark:file:text-blue-400 text-xs cursor-pointer"
-                />
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => facturaInputRef.current?.click()}
+                    className="w-full rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 transition-colors hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/40"
+                  >
+                    {facturaFile ? 'Cambiar archivo' : 'Seleccionar archivo'}
+                  </button>
+                  <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                    {facturaFile ? facturaFile.name : 'Ningún archivo seleccionado'}
+                  </p>
+                  <input
+                    ref={facturaInputRef}
+                    type="file"
+                    accept="image/*,application/pdf"
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                      const selected = e.target.files?.[0] || null;
+                      setFacturaFile(selected);
+                      if (selected) setRemoveExistingFactura(false);
+                    }}
+                    className="hidden"
+                  />
+                </div>
               )}
               {mode === 'edit' && existingFacturaUrl && facturaFile && (
                 <p className="mt-1 text-[11px] font-semibold text-blue-700 dark:text-blue-300">
-                  El nuevo archivo reemplazara al archivo actual al guardar.
+                  El nuevo archivo reemplazará al archivo actual al guardar.
                 </p>
               )}
             </div>
@@ -650,9 +721,9 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                         </a>
                         <button
                           type="button"
-                          onClick={() => setExistingSoportesEdit((prev) => prev.filter((_, i) => i !== idx))}
-                          className="rounded bg-red-50 px-2 py-1 text-[11px] font-bold text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-300"
-                        >
+                        onClick={() => setExistingSoportesEdit((prev) => prev.filter((_, i) => i !== idx))}
+                        className="rounded bg-red-50 px-2 py-1 text-[11px] font-bold text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-300"
+                      >
                           Eliminar
                         </button>
                       </div>
@@ -690,34 +761,47 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                   );
                 }
                 return (
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/*,application/pdf"
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                      const sel = Array.from(e.target.files || []);
-                      if (sel.length > cupos) {
-                        alert(`Solo puedes agregar ${cupos} soporte(s) adicional(es).`);
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => soportesInputRef.current?.click()}
+                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                    >
+                      Agregar soportes
+                    </button>
+                    <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                      {soportesFiles.length > 0 ? `${soportesFiles.length} archivos seleccionados` : 'Sin archivos seleccionados'}
+                    </p>
+                    <input
+                      ref={soportesInputRef}
+                      type="file"
+                      multiple
+                      accept="image/*,application/pdf"
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                        const sel = Array.from(e.target.files || []);
+                        if (sel.length > cupos) {
+                          alert(`Solo puedes agregar ${cupos} soporte(s) adicional(es).`);
+                          e.target.value = '';
+                          return;
+                        }
+                        const pdfMayorA1Mb = sel.find((f) => f.type === 'application/pdf' && f.size > MAX_PDF_SIZE_BYTES);
+                        if (pdfMayorA1Mb) {
+                          alert(`El PDF "${pdfMayorA1Mb.name}" supera 1 MB.`);
+                          e.target.value = '';
+                          return;
+                        }
+                        setSoportesFiles((prev) => [...prev, ...sel]);
                         e.target.value = '';
-                        return;
-                      }
-                      const pdfMayorA1Mb = sel.find((f) => f.type === 'application/pdf' && f.size > MAX_PDF_SIZE_BYTES);
-                      if (pdfMayorA1Mb) {
-                        alert(`El PDF "${pdfMayorA1Mb.name}" supera 1 MB.`);
-                        e.target.value = '';
-                        return;
-                      }
-                      setSoportesFiles((prev) => [...prev, ...sel]);
-                      e.target.value = '';
-                    }}
-                    className="w-full p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl outline-none dark:text-white file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-gray-100 file:text-gray-700 dark:file:bg-gray-700 dark:file:text-gray-300 text-xs cursor-pointer"
-                  />
+                      }}
+                      className="hidden"
+                    />
+                  </div>
                 );
               })()}
             </div>
           </div>
 
-          <div className="md:col-span-2 flex justify-end gap-3 mt-2 pt-4 border-t border-gray-100 dark:border-gray-800">
+          <div className="xl:col-span-2 flex justify-end gap-3 mt-2 pt-4 border-t border-gray-100 dark:border-gray-800">
             <button type="button" onClick={onClose} className="px-6 py-3 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 font-bold transition-colors">Cancelar</button>
             <button type="submit" className="px-6 py-3 rounded-xl font-bold bg-donezo-primary text-white hover:bg-blue-700 transition-all shadow-md">
               {mode === 'edit' ? 'Guardar Cambios' : 'Guardar Gasto'}
