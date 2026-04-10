@@ -151,6 +151,23 @@ interface PendingCountMap {
   [propiedadId: number]: number;
 }
 
+interface GastoExtraOption {
+  id: number | string;
+  concepto?: string | null;
+  deuda_restante?: string | number | null;
+}
+
+interface DesvioPagoDraft {
+  enabled: boolean;
+  items: Array<{
+    id: string;
+    gastoExtraId: string;
+    montoBs: string;
+  }>;
+}
+
+type DesvioPagoDraftMap = Record<number, DesvioPagoDraft>;
+
 const toNumber = (value: string | number | undefined | null): number => parseFloat(String(value ?? 0)) || 0;
 const inferBancoMoneda = (cuenta: any): 'USD' | 'BS' => {
   // El tipo tiene prioridad para tipos que implican claramente una moneda
@@ -268,8 +285,9 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
   const [subtipoFavor, setSubtipoFavor] = useState<'directo' | 'distribuido'>('directo');
   const [cuentaBancariaSeleccionada, setCuentaBancariaSeleccionada] = useState<string>('');
   const [cuentasBancarias, setCuentasBancarias] = useState<any[]>([]);
-  const [gastosExtras, setGastosExtras] = useState<any[]>([]);
+  const [gastosExtras, setGastosExtras] = useState<GastoExtraOption[]>([]);
   const [gastoExtraSeleccionado, setGastoExtraSeleccionado] = useState<string>('');
+  const [desvioPagoDraft, setDesvioPagoDraft] = useState<DesvioPagoDraftMap>({});
   const [monedaAjuste, setMonedaAjuste] = useState<'USD' | 'BS'>('USD');
   const [montoUsdDirecto, setMontoUsdDirecto] = useState<string>('');
 
@@ -281,9 +299,10 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
       });
       const data = await res.json();
       if (data.status === 'success') {
-        setGastosExtras(data.gastos || []);
-        if (data.gastos?.length > 0) {
-          setGastoExtraSeleccionado(String(data.gastos[0].id));
+        const gastos = Array.isArray(data.gastos) ? data.gastos : [];
+        setGastosExtras(gastos);
+        if (gastos.length > 0) {
+          setGastoExtraSeleccionado(String(gastos[0].id));
         }
       }
     } catch (e) {
@@ -452,7 +471,8 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
       setCuentaBancariaSeleccionada(String(defaultCta.id));
     }
     if (gastosExtras.length > 0) {
-      setGastoExtraSeleccionado(String(gastosExtras[0].id));
+      const primerGasto = gastosExtras[0];
+      if (primerGasto) setGastoExtraSeleccionado(String(primerGasto.id));
     }
     setShowAjusteModal(true);
   };
@@ -480,18 +500,68 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
   const handleOpenAprobaciones = (prop: Propiedad): void => {
     setSelectedPropAprobacion(prop);
     setRechazoDraft({});
+    setDesvioPagoDraft({});
     setRejectingPagoId(null);
     setShowAprobacionModal(true);
+    void fetchGastosExtras();
     void fetchPagosPendientes(prop.id);
   };
 
-  const aprobarPagoPendiente = async (pagoId: number): Promise<void> => {
+  const aprobarPagoPendiente = async (pago: PagoPendienteAprobacion): Promise<void> => {
+    const pagoId = pago.id;
+    const draft = desvioPagoDraft[pagoId] || { enabled: false, items: [] };
+    const montoPagoUsd = Math.max(
+      0,
+      toNumber(pago.monto_usd) || (String(pago.moneda || '').toUpperCase() === 'USD' ? toNumber(pago.monto_origen) : 0)
+    );
+    const monedaPago = String(pago.moneda || '').toUpperCase();
+    const tasaEfectiva = monedaPago === 'BS'
+      ? (montoPagoUsd > 0 ? (toNumber(pago.monto_origen) / montoPagoUsd) : 0)
+      : 1;
+    const desviosPayload = draft.enabled
+      ? draft.items
+          .map((item) => {
+            const montoBs = parseNumberInput(item.montoBs);
+            const montoUsd = tasaEfectiva > 0 ? (montoBs / tasaEfectiva) : 0;
+            return {
+              gasto_extra_id: item.gastoExtraId ? Number(item.gastoExtraId) : null,
+              monto_desvio_bs: montoBs > 0 ? Number(montoBs.toFixed(2)) : null,
+              monto_desvio_usd: montoUsd > 0 ? Number(montoUsd.toFixed(2)) : null,
+            };
+          })
+          .filter((item) => Number(item.gasto_extra_id) > 0 && Number(item.monto_desvio_usd) > 0)
+      : [];
+    const montoDesvioUsdNum = desviosPayload.reduce((acc, item) => acc + Number(item.monto_desvio_usd || 0), 0);
+
+    if (draft.enabled) {
+      if (!desviosPayload.length) {
+        alert('Agregue al menos una fila de desvío válida.');
+        return;
+      }
+      if (tasaEfectiva <= 0) {
+        alert('No se puede convertir desvíos en Bs porque la tasa del pago no es válida.');
+        return;
+      }
+      if (montoDesvioUsdNum > montoPagoUsd) {
+        alert('El monto a desviar no puede ser mayor al monto total del pago.');
+        return;
+      }
+    }
+
     setDecisionLoadingId(pagoId);
     try {
       const token = localStorage.getItem('habioo_token');
       const res = await fetch(`${API_BASE_URL}/pagos/${pagoId}/validar`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` }
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          gasto_extra_id: draft.enabled && desviosPayload[0] ? Number(desviosPayload[0].gasto_extra_id) : null,
+          monto_desvio_usd: draft.enabled && desviosPayload[0] ? Number(desviosPayload[0].monto_desvio_usd) : null,
+          desvios_gastos: draft.enabled ? desviosPayload : null,
+        })
       });
       const data: ApiActionResponse = await res.json();
       if (!res.ok) {
@@ -973,6 +1043,140 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                 {pagosPendientes.map((pago: PagoPendienteAprobacion) => (
                   <article key={pago.id} className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900/30">
                     {(() => {
+                      const draft: DesvioPagoDraft = desvioPagoDraft[pago.id] || { enabled: false, items: [] };
+                      const montoPagoUsd = Math.max(
+                        0,
+                        toNumber(pago.monto_usd) || (String(pago.moneda || '').toUpperCase() === 'USD' ? toNumber(pago.monto_origen) : 0)
+                      );
+                      const monedaPago = String(pago.moneda || '').toUpperCase();
+                      const tasaEfectiva = monedaPago === 'BS'
+                        ? (montoPagoUsd > 0 ? (toNumber(pago.monto_origen) / montoPagoUsd) : 0)
+                        : 1;
+                      const totalDesvioUsd = draft.items.reduce((acc, item) => {
+                        const bs = parseNumberInput(item.montoBs);
+                        const usd = tasaEfectiva > 0 ? (bs / tasaEfectiva) : 0;
+                        return acc + usd;
+                      }, 0);
+                      const montoFifoUsd = Math.max(0, montoPagoUsd - totalDesvioUsd);
+                      return (
+                        <div className="mb-3 rounded-xl border border-blue-100 dark:border-blue-800/40 bg-blue-50/70 dark:bg-blue-900/20 p-3">
+                          <button
+                            type="button"
+                            onClick={() => setDesvioPagoDraft((prev: DesvioPagoDraftMap) => {
+                              const nextEnabled = !draft.enabled;
+                              const defaultItem = gastosExtras[0]
+                                ? [{ id: `${Date.now()}-0`, gastoExtraId: String(gastosExtras[0].id), montoBs: '' }]
+                                : [];
+                              return {
+                                ...prev,
+                                [pago.id]: {
+                                  enabled: nextEnabled,
+                                  items: nextEnabled ? (draft.items.length ? draft.items : defaultItem) : [],
+                                },
+                              };
+                            })}
+                            className="text-sm font-bold text-donezo-primary hover:text-donezo-primary/80 transition-colors"
+                          >
+                            {draft.enabled ? '− Quitar desvío a Gasto Extra' : '+ Asignar parte del pago a un Gasto Extra'}
+                          </button>
+
+                          {draft.enabled && (
+                            <div className="mt-3 space-y-2">
+                              <div className="grid grid-cols-12 gap-2 text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                <div className="col-span-6">Gasto Extra / Proyecto</div>
+                                <div className="col-span-3">Monto Bs</div>
+                                <div className="col-span-2">Equiv. USD</div>
+                                <div className="col-span-1 text-right">Acción</div>
+                              </div>
+                              {draft.items.map((item) => {
+                                const bs = parseNumberInput(item.montoBs);
+                                const usd = tasaEfectiva > 0 ? (bs / tasaEfectiva) : 0;
+                                return (
+                                  <div key={item.id} className="grid grid-cols-12 gap-2 items-center">
+                                    <div className="col-span-6">
+                                      <select
+                                        value={item.gastoExtraId}
+                                        onChange={(e: ChangeEvent<HTMLSelectElement>) => setDesvioPagoDraft((prev: DesvioPagoDraftMap) => ({
+                                          ...prev,
+                                          [pago.id]: {
+                                            ...draft,
+                                            items: draft.items.map((r) => r.id === item.id ? { ...r, gastoExtraId: e.target.value } : r),
+                                          },
+                                        }))}
+                                        className="w-full p-2.5 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary"
+                                      >
+                                        <option value="">{gastosExtras.length ? 'Seleccione un gasto...' : 'No hay gastos extras disponibles'}</option>
+                                        {gastosExtras.map((g: GastoExtraOption) => (
+                                          <option key={String(g.id)} value={String(g.id)}>
+                                            {String(g.concepto || `Gasto #${g.id}`)} - Deuda act.: ${formatMoney(toNumber(g.deuda_restante))}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                    <div className="col-span-3">
+                                      <input
+                                        type="text"
+                                        value={item.montoBs}
+                                        onChange={(e: ChangeEvent<HTMLInputElement>) => setDesvioPagoDraft((prev: DesvioPagoDraftMap) => ({
+                                          ...prev,
+                                          [pago.id]: {
+                                            ...draft,
+                                            items: draft.items.map((r) => r.id === item.id ? { ...r, montoBs: formatNumberInput(e.target.value, 2) } : r),
+                                          },
+                                        }))}
+                                        className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
+                                        placeholder="0,00"
+                                      />
+                                    </div>
+                                    <div className="col-span-2 text-sm font-black text-emerald-600 dark:text-emerald-400">${formatMoney(usd)}</div>
+                                    <div className="col-span-1 text-right">
+                                      <button
+                                        type="button"
+                                        onClick={() => setDesvioPagoDraft((prev: DesvioPagoDraftMap) => ({
+                                          ...prev,
+                                          [pago.id]: {
+                                            ...draft,
+                                            items: draft.items.filter((r) => r.id !== item.id),
+                                          },
+                                        }))}
+                                        className="px-2 py-1 rounded-lg text-xs font-bold bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-300"
+                                      >
+                                        X
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              <div className="flex items-center justify-between">
+                                <button
+                                  type="button"
+                                  onClick={() => setDesvioPagoDraft((prev: DesvioPagoDraftMap) => ({
+                                    ...prev,
+                                    [pago.id]: {
+                                      ...draft,
+                                      items: [
+                                        ...draft.items,
+                                        { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, gastoExtraId: gastosExtras[0] ? String(gastosExtras[0].id) : '', montoBs: '' },
+                                      ],
+                                    },
+                                  }))}
+                                  className="px-3 py-2 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300"
+                                >
+                                  + Agregar fila
+                                </button>
+                                <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                  Tasa usada: {tasaEfectiva > 0 ? formatMoney(tasaEfectiva, 3) : 'N/A'}
+                                </span>
+                              </div>
+                              <div className="rounded-lg border border-emerald-200/70 dark:border-emerald-800/50 bg-emerald-50/70 dark:bg-emerald-900/20 px-3 py-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                                {`Si apruebas este pago: $${formatMoney(totalDesvioUsd)} irán a gastos extras y $${formatMoney(montoFifoUsd)} se distribuirán en recibos/fondos.`}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                    {(() => {
                       const monedaPago = String(pago.moneda || 'USD').toUpperCase() === 'USD' ? 'USD' : 'BS';
                       const montoMostrar = monedaPago === 'USD' ? toNumber(pago.monto_usd) : toNumber(pago.monto_origen);
                       return (
@@ -1002,7 +1206,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                       <button
                         type="button"
                         disabled={decisionLoadingId === pago.id}
-                        onClick={() => aprobarPagoPendiente(pago.id)}
+                        onClick={() => aprobarPagoPendiente(pago)}
                         className="px-3 py-2 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300 disabled:opacity-50"
                       >
                         Aprobar

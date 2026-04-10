@@ -57,13 +57,18 @@ const Login: FC<LoginProps> = () => {
         body: JSON.stringify({ cedula, password })
       });
 
-      const data: LoginResponse = await response.json();
+    const data: LoginResponse = await response.json();
 
-      if (data.status === 'success') {
-        localStorage.setItem('habioo_token', data.token ?? '');
-        localStorage.setItem('habioo_user', JSON.stringify(data.user ?? {}));
-        localStorage.setItem('habioo_session', JSON.stringify(data.session ?? {}));
-        const requiresPasswordChange = (data as LoginResponse & { requiresPasswordChange?: boolean }).requiresPasswordChange === true;
+    if (data.status === 'success') {
+      const token = String(data.token || '').trim();
+      if (!token) {
+        setMessage('Error: respuesta de login incompleta (token no recibido).');
+        return;
+      }
+      localStorage.setItem('habioo_token', token);
+      localStorage.setItem('habioo_user', JSON.stringify(data.user ?? {}));
+      localStorage.setItem('habioo_session', JSON.stringify(data.session ?? {}));
+      const requiresPasswordChange = (data as LoginResponse & { requiresPasswordChange?: boolean }).requiresPasswordChange === true;
 
         if (requiresPasswordChange) {
           navigate('/cambio-clave-obligatorio');
@@ -78,11 +83,11 @@ const Login: FC<LoginProps> = () => {
         }
 
         // Para administradores, resolvemos tipo real del condominio antes de navegar.
-        if (role === 'Administrador' && data.token) {
-          try {
-            const perfilResponse = await fetch(`${API_BASE_URL}/api/perfil`, {
-              headers: { Authorization: `Bearer ${data.token}` },
-            });
+      if (role === 'Administrador') {
+        try {
+          const perfilResponse = await fetch(`${API_BASE_URL}/api/perfil`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
             if (perfilResponse.ok) {
               const perfilData: PerfilResponse = await perfilResponse.json();
               const tipo = String(perfilData?.data?.tipo || '').trim().toLowerCase();

@@ -55,13 +55,15 @@ const SearchableCombobox: React.FC<SearchableComboboxProps> = ({
   }, []);
 
   const filtered = useMemo(() => {
-    const txt = query.trim().toLowerCase();
+    const selectedLabel = options.find((opt) => opt.value === value)?.label || '';
+    const effectiveQuery = open && query === selectedLabel ? '' : query;
+    const txt = effectiveQuery.trim().toLowerCase();
     if (!txt) return options;
     return options.filter((opt) => {
       const haystack = `${opt.label} ${opt.searchText || ''}`.toLowerCase();
       return haystack.includes(txt);
     });
-  }, [options, query]);
+  }, [options, query, open, value]);
 
   useEffect(() => {
     if (!open || !inputRef.current) return;

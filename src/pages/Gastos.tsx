@@ -997,6 +997,7 @@ const Gastos: FC<GastosProps> = () => {
             gasto_id: gastoVerPagos.gasto_id,
             proveedor: gastoVerPagos.proveedor,
             concepto: gastoVerPagos.concepto,
+            tipo: gastoVerPagos.tipo,
           }}
         />
       )}

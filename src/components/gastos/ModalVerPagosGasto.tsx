@@ -31,6 +31,7 @@ interface GastoHeader {
   gasto_id: number | string;
   proveedor?: string;
   concepto?: string;
+  tipo?: string;
 }
 
 interface ModalVerPagosGastoProps {
@@ -57,7 +58,11 @@ const ModalVerPagosGasto: React.FC<ModalVerPagosGastoProps> = ({ isOpen, onClose
       setErrorMsg('');
       try {
         const token = localStorage.getItem('habioo_token');
-        const res = await fetch(`${API_BASE_URL}/pagos-proveedores/gasto/${gasto.gasto_id}/detalles`, {
+        const isExtra = String(gasto.tipo || '').trim().toLowerCase() === 'extra';
+        const endpoint = isExtra
+          ? `${API_BASE_URL}/pagos/recaudacion-extra/gasto/${gasto.gasto_id}/detalles`
+          : `${API_BASE_URL}/pagos-proveedores/gasto/${gasto.gasto_id}/detalles`;
+        const res = await fetch(endpoint, {
           headers: { Authorization: `Bearer ${token}` },
           signal: controller.signal
         });

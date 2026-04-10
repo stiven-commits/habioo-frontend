@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import type { FC, ChangeEvent, FormEvent } from 'react';
 import ModalBase from './ui/ModalBase';
 import DatePicker from './ui/DatePicker';
@@ -8,6 +8,8 @@ import { API_BASE_URL } from '../config/api';
 import { sanitizeCedulaRif, isValidCedulaRif, sanitizePhone, isValidPhone } from '../utils/validators';
 import { useDialog } from './ui/DialogProvider';
 import FormField from './ui/FormField';
+import SearchableCombobox from './ui/SearchableCombobox';
+import type { SearchableComboboxOption } from './ui/SearchableCombobox';
 
 interface ModalRegistrarPagoProps {
   propiedadPreseleccionada: PropiedadPreseleccionada | null;
@@ -57,6 +59,26 @@ interface PagoResponse {
   status: string;
   message?: string;
   error?: string;
+}
+
+interface GastoListado {
+  id: number | string;
+  concepto?: string | null;
+  tipo?: string | null;
+  monto_usd?: number | string | null;
+  monto_pagado_usd?: number | string | null;
+  deuda_restante?: number | string | null;
+}
+
+interface GastosResponse {
+  status: string;
+  gastos?: GastoListado[];
+}
+
+interface DesvioGastoDraftItem {
+  id: string;
+  gastoId: string;
+  montoBs: string;
 }
 
 interface FormPagoState {
@@ -209,6 +231,10 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
   };
 
   const [conversionUSD, setConversionUSD] = useState<string>('0.00');
+  const [mostrarDesvioExtra, setMostrarDesvioExtra] = useState<boolean>(false);
+  const [gastosExtraDisponibles, setGastosExtraDisponibles] = useState<GastoListado[]>([]);
+  const [loadingGastosExtra, setLoadingGastosExtra] = useState<boolean>(false);
+  const [desviosGastos, setDesviosGastos] = useState<DesvioGastoDraftItem[]>([]);
 
   useEffect(() => {
     const fetchCuentasBancarias = async (): Promise<void> => {
@@ -407,11 +433,156 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
     void fetchBcvRate(true);
   }, [useAutoBcvMode, isOpen, formPago.cuenta_id, esCuentaUsd, requiresTasa]);
 
+  useEffect(() => {
+    const fetchGastosExtras = async (): Promise<void> => {
+      if (!isOpen || soloCuentaPrincipal) return;
+      const token = localStorage.getItem('habioo_token');
+      if (!token) return;
+
+      setLoadingGastosExtra(true);
+      try {
+        const res = await fetch(`${API_BASE_URL}/gastos-extras-procesados`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data: GastosResponse = await res.json();
+        if (!res.ok || data.status !== 'success') {
+          setGastosExtraDisponibles([]);
+          return;
+        }
+        const gastos = Array.isArray(data.gastos) ? data.gastos : [];
+        const uniqueById = new Map<string, GastoListado>();
+        gastos.forEach((g: GastoListado) => {
+          const id = String(g.id ?? '').trim();
+          if (!id || uniqueById.has(id)) return;
+          uniqueById.set(id, g);
+        });
+        const filtradosConDeuda = Array.from(uniqueById.values()).filter((g: GastoListado) => {
+          const deudaRestanteRaw = g.deuda_restante;
+          const deudaRestante = deudaRestanteRaw !== undefined && deudaRestanteRaw !== null
+            ? toNumber(deudaRestanteRaw)
+            : Math.max(0, toNumber(g.monto_usd) - toNumber(g.monto_pagado_usd));
+          return deudaRestante > 0;
+        });
+        setGastosExtraDisponibles(filtradosConDeuda);
+      } catch {
+        setGastosExtraDisponibles([]);
+      } finally {
+        setLoadingGastosExtra(false);
+      }
+    };
+    void fetchGastosExtras();
+  }, [isOpen, soloCuentaPrincipal]);
+
+  const getEffectiveRateForDesvio = (): number => {
+    if (esCuentaUsd) {
+      const tasaManual = parseInputNumber(formPago.tasa_cambio);
+      return tasaManual > 0 ? tasaManual : 1;
+    }
+    if (requiresTasa) {
+      const tasa = parseInputNumber(formPago.tasa_cambio);
+      return tasa > 0 ? tasa : 0;
+    }
+    return 1;
+  };
+
+  const addDesvioRow = (): void => {
+    const selectedIds = new Set(
+      desviosGastos
+        .map((row) => row.gastoId)
+        .filter((id) => id.trim().length > 0),
+    );
+    const firstAvailable = gastosExtraDisponibles.find((g) => !selectedIds.has(String(g.id)));
+    const defaultGastoId = firstAvailable ? String(firstAvailable.id) : '';
+    setDesviosGastos((prev: DesvioGastoDraftItem[]) => ([
+      ...prev,
+      {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        gastoId: defaultGastoId,
+        montoBs: '',
+      },
+    ]));
+  };
+
+  const updateDesvioRow = (rowId: string, patch: Partial<DesvioGastoDraftItem>): void => {
+    setDesviosGastos((prev: DesvioGastoDraftItem[]) =>
+      prev.map((row) => (row.id === rowId ? { ...row, ...patch } : row))
+    );
+  };
+
+  const removeDesvioRow = (rowId: string): void => {
+    setDesviosGastos((prev: DesvioGastoDraftItem[]) => prev.filter((row) => row.id !== rowId));
+  };
+
+  const handleCuentaComboboxChange = (value: string): void => {
+    const cuenta = cuentasConFondos.find((b: BancoCuenta) => String(b.id) === value);
+    const metodos = getMetodosCuenta(cuenta);
+    const nextMetodo = metodos.includes(formPago.metodo_pago) ? formPago.metodo_pago : (metodos[0] || 'Transferencia');
+    const updatedForm: FormPagoState = {
+      ...formPago,
+      cuenta_id: value,
+      metodo_pago: nextMetodo,
+    };
+    if (nextMetodo === 'Pago Movil' && cuenta?.pago_movil_cedula_rif && !updatedForm.cedula_origen) {
+      updatedForm.cedula_origen = cuenta.pago_movil_cedula_rif;
+    }
+    setFormPago(updatedForm);
+    setConversionUSD(getConversionUSD(updatedForm));
+  };
+
+  const cuentaOptions = useMemo<SearchableComboboxOption[]>(
+    () => cuentasConFondos.map((b: BancoCuenta) => ({
+      value: String(b.id),
+      label: `${b.nombre_banco || 'Cuenta'} (${b.apodo || b.tipo || 'Sin alias'})`,
+      searchText: `${b.nombre_banco || ''} ${b.apodo || ''} ${b.tipo || ''}`,
+    })),
+    [cuentasConFondos],
+  );
+
+  const bancoOrigenOptions = useMemo<SearchableComboboxOption[]>(
+    () => BANCOS_VENEZUELA.map((banco: string) => ({ value: banco, label: banco })),
+    [],
+  );
+
+  const gastoExtraOptions = useMemo<SearchableComboboxOption[]>(
+    () => gastosExtraDisponibles.map((g: GastoListado) => {
+      const pendienteUsd = g.deuda_restante !== undefined && g.deuda_restante !== null
+        ? Math.max(0, toNumber(g.deuda_restante))
+        : Math.max(0, toNumber(g.monto_usd) - toNumber(g.monto_pagado_usd));
+      const concepto = String(g.concepto || `Gasto #${g.id}`);
+      return {
+        value: String(g.id),
+        label: `${concepto} - Pendiente: $${formatMoney(pendienteUsd)}`,
+        searchText: `${concepto} ${g.id}`,
+      };
+    }),
+    [gastosExtraDisponibles],
+  );
+
+  const getGastoOptionsForRow = (rowId: string): SearchableComboboxOption[] => {
+    const currentRow = desviosGastos.find((row) => row.id === rowId);
+    const selectedByOthers = new Set(
+      desviosGastos
+        .filter((row) => row.id !== rowId)
+        .map((row) => row.gastoId)
+        .filter((id) => id.trim().length > 0),
+    );
+    const visible = gastoExtraOptions.filter((option) => !selectedByOthers.has(option.value));
+    if (currentRow?.gastoId && !visible.some((option) => option.value === currentRow.gastoId)) {
+      const selected = gastoExtraOptions.find((option) => option.value === currentRow.gastoId);
+      if (selected) visible.unshift(selected);
+    }
+    return visible;
+  };
+
   const handleSubmitPago = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     if (isSubmitting) return;
     if (!cuentasConFondos.some((c: BancoCuenta) => c.id.toString() === formPago.cuenta_id)) {
       alert('Error: seleccione una cuenta bancaria que tenga al menos un fondo activo.');
+      return;
+    }
+    if (requiresTasa && !formPago.banco_origen.trim()) {
+      alert('Error: seleccione el banco de origen.');
       return;
     }
     if (requiresTasa && !isValidCedulaRif(formPago.cedula_origen)) {
@@ -447,6 +618,36 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
       const montoOrigenNum = esCuentaUsd ? montoUsdDirectoNum : parseInputNumber(formPago.monto_origen);
       const tasaCambioNum = parseInputNumber(formPago.tasa_cambio);
       const montoUsdNum = esCuentaUsd ? montoUsdDirectoNum : parseInputNumber(conversionUSD);
+      const tasaDesvio = getEffectiveRateForDesvio();
+      const desviosPayload = mostrarDesvioExtra
+        ? desviosGastos
+            .map((row: DesvioGastoDraftItem) => {
+              const montoBs = parseInputNumber(row.montoBs);
+              const montoUsd = tasaDesvio > 0 ? (montoBs / tasaDesvio) : 0;
+              return {
+                gasto_extra_id: row.gastoId ? Number(row.gastoId) : null,
+                monto_desvio_bs: montoBs > 0 ? Number(montoBs.toFixed(2)) : null,
+                monto_desvio_usd: montoUsd > 0 ? Number(montoUsd.toFixed(2)) : null,
+              };
+            })
+            .filter((row) => Number.isFinite(Number(row.gasto_extra_id)) && Number(row.gasto_extra_id) > 0 && Number(row.monto_desvio_usd) > 0)
+        : [];
+      const totalDesvioUsd = desviosPayload.reduce((acc, row) => acc + Number(row.monto_desvio_usd || 0), 0);
+
+      if (mostrarDesvioExtra) {
+        if (!desviosPayload.length) {
+          alert('Error: agregue al menos un desvío válido a Gasto Extra.');
+          return;
+        }
+        if (requiresTasa && !esCuentaUsd && tasaDesvio <= 0) {
+          alert('Error: requiere una tasa válida para convertir los desvíos en Bs a USD.');
+          return;
+        }
+        if (totalDesvioUsd > montoUsdNum) {
+          alert('Error: la suma de desvíos no puede superar el monto total del pago.');
+          return;
+        }
+      }
 
       const payload = {
         ...formPago,
@@ -458,6 +659,9 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
         monto_bs_pagado: esCuentaUsd ? montoUsdDirectoNum : undefined,
         monto_usd: montoUsdNum,
         metodo: formPago.metodo_pago,
+        gasto_extra_id: mostrarDesvioExtra && desviosPayload[0] ? Number(desviosPayload[0].gasto_extra_id) : null,
+        monto_desvio_usd: mostrarDesvioExtra && desviosPayload[0] ? Number(desviosPayload[0].monto_desvio_usd) : null,
+        desvios_gastos: mostrarDesvioExtra ? desviosPayload : null,
       };
 
       const endpoint = soloCuentaPrincipal ? `${API_BASE_URL}/pagos-propietario` : `${API_BASE_URL}/pagos-admin`;
@@ -480,7 +684,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
   if (!propiedadPreseleccionada) return null;
 
   return (
-    <ModalBase onClose={onClose} title="Registrar Pago" maxWidth="max-w-md" disableClose={isSubmitting}>
+    <ModalBase onClose={onClose} title="Registrar Pago" maxWidth="max-w-6xl" disableClose={isSubmitting}>
       {isSubmitting && (
         <div className="absolute inset-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm z-50 rounded-3xl flex flex-col items-center justify-center px-6 text-center">
           <div className="relative w-14 h-14 mb-4">
@@ -512,12 +716,16 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
               </p>
             </div>
 
-            <form onSubmit={handleSubmitPago} className="space-y-4">
+            <form onSubmit={handleSubmitPago} className="space-y-4 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-4">
               <FormField label="Cuenta Bancaria Destino" required>
-                <select name="cuenta_id" value={formPago.cuenta_id} onChange={handlePagoChange} className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required>
-                  <option value="">{cuentasConFondos.length ? 'Seleccione cuenta bancaria...' : 'No hay cuentas con fondos activos'}</option>
-                  {cuentasConFondos.map((b: BancoCuenta) => <option key={b.id} value={b.id}>{b.nombre_banco || 'Cuenta'} ({b.apodo || b.tipo || 'Sin alias'})</option>)}
-                </select>
+                <SearchableCombobox
+                  options={cuentaOptions}
+                  value={formPago.cuenta_id}
+                  onChange={handleCuentaComboboxChange}
+                  placeholder={cuentasConFondos.length ? 'Seleccione cuenta bancaria...' : 'No hay cuentas con fondos activos'}
+                  emptyMessage="Sin cuentas disponibles"
+                  className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary"
+                />
                 {cuentasBancarias.length > 0 && cuentasConFondos.length === 0 && (
                   <p className="text-[11px] text-amber-600 dark:text-amber-400 font-bold mt-1">
                     Debe crear al menos un fondo en una cuenta bancaria para registrar pagos.
@@ -553,70 +761,70 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                 </FormField>
               )}
 
-              {esCuentaUsd ? (
-                <FormField label="Monto Pagado (USD)" required>
-                  <input
-                    type="text"
-                    value={montoUsdDirecto}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setMontoUsdDirecto(formatCurrencyInput(e.target.value, 2))}
-                    placeholder="0,00"
-                    className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary"
-                    required
-                  />
-                </FormField>
-              ) : requiresTasa ? (
-                <div className="grid grid-cols-2 gap-3 items-stretch">
-                  <div className="space-y-3">
+              <div className="lg:col-span-2">
+                {esCuentaUsd ? (
+                  <FormField label="Monto Pagado (USD)" required>
+                    <input
+                      type="text"
+                      value={montoUsdDirecto}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => setMontoUsdDirecto(formatCurrencyInput(e.target.value, 2))}
+                      placeholder="0,00"
+                      className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary"
+                      required
+                    />
+                  </FormField>
+                ) : requiresTasa ? (
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-stretch">
                     <FormField label="Monto Pagado" required>
                       <input type="text" name="monto_origen" value={formPago.monto_origen} onChange={handlePagoChange} placeholder="0,00" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
                     </FormField>
                     <FormField label="Tasa de Cambio" required>
-                      <input
-                        type="text"
-                        name="tasa_cambio"
-                        value={formPago.tasa_cambio}
-                        readOnly={useAutoBcvMode}
-                        onChange={handlePagoChange}
-                        placeholder={isLoadingAutoRate ? 'Cargando tasa BCV...' : (useAutoBcvMode ? 'Tasa BCV automática' : 'Ingrese tasa BCV')}
-                        required
-                        className={`w-full p-3 rounded-xl border border-gray-200 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary ${
-                          useAutoBcvMode ? 'bg-gray-50 dark:bg-gray-800/70' : 'bg-white dark:bg-gray-800'
-                        }`}
+                      <div className="flex w-full overflow-hidden rounded-xl border border-gray-200 dark:border-gray-600 focus-within:ring-2 focus-within:ring-donezo-primary">
+                        <input
+                          type="text"
+                          name="tasa_cambio"
+                          value={formPago.tasa_cambio}
+                          readOnly={useAutoBcvMode}
+                          onChange={handlePagoChange}
+                          placeholder={isLoadingAutoRate ? 'Cargando tasa...' : (useAutoBcvMode ? 'Tasa automática' : 'Ingrese tasa')}
+                          required
+                          className={`h-[50px] flex-1 border-0 px-3 outline-none dark:text-white ${
+                            useAutoBcvMode ? 'bg-gray-50 dark:bg-gray-800/70' : 'bg-white dark:bg-gray-800'
+                          }`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => { void fetchBcvRate(false); }}
+                          disabled={isLoadingAutoRate}
+                          className="h-[50px] min-w-[72px] border-l border-green-200 dark:border-green-800 bg-green-50 px-3 text-center text-xs font-black uppercase tracking-wider text-green-700 transition-colors hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-green-900/30 dark:text-green-300 dark:hover:bg-green-900/50"
+                        >
+                          {isLoadingAutoRate ? '...' : 'BCV'}
+                        </button>
+                      </div>
+                    </FormField>
+                    <FormField label="Cedula Origen" required>
+                      <input type="text" name="cedula_origen" value={formPago.cedula_origen} onChange={handlePagoChange} pattern="^[VEJG][0-9]{5,9}$" placeholder="V12345678" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
+                    </FormField>
+                    <FormField label="Banco de Origen" required>
+                      <SearchableCombobox
+                        options={bancoOrigenOptions}
+                        value={formPago.banco_origen}
+                        onChange={(value: string) => applyFormChange('banco_origen', value)}
+                        placeholder="Seleccione banco..."
+                        emptyMessage="Sin bancos"
+                        className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary"
                       />
                     </FormField>
                   </div>
-                  {useAutoBcvMode ? (
-                    <div className="h-full min-h-[118px] w-full bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center text-center px-3">
-                      Tasa BCV automática
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => { void fetchBcvRate(false); }}
-                      disabled={isLoadingAutoRate}
-                      className="h-full min-h-[118px] w-full bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center text-center px-3 transition-colors hover:bg-blue-100 dark:hover:bg-blue-900/50 disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      {isLoadingAutoRate ? 'Consultando BCV...' : 'Capturar tasa BCV'}
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <FormField label="Monto Pagado" required>
-                  <input type="text" name="monto_origen" value={formPago.monto_origen} onChange={handlePagoChange} placeholder="0,00" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
-                </FormField>
-              )}
+                ) : (
+                  <FormField label="Monto Pagado" required>
+                    <input type="text" name="monto_origen" value={formPago.monto_origen} onChange={handlePagoChange} placeholder="0,00" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
+                  </FormField>
+                )}
+              </div>
 
-              {requiresTasa && (
-                <div className={`grid gap-3 mt-3 border-t border-gray-100 dark:border-gray-800 pt-3 ${formPago.metodo_pago === 'Pago Movil' ? 'grid-cols-1 md:grid-cols-3' : 'grid-cols-2'}`}>
-                  <FormField label="Banco de Origen" required>
-                    <select name="banco_origen" value={formPago.banco_origen} onChange={handlePagoChange} className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required>
-                      <option value="">Seleccione...</option>
-                      {BANCOS_VENEZUELA.map((b: string) => <option key={b} value={b}>{b}</option>)}
-                    </select>
-                  </FormField>
-                  <FormField label="Cedula Origen" required>
-                    <input type="text" name="cedula_origen" value={formPago.cedula_origen} onChange={handlePagoChange} pattern="^[VEJG][0-9]{5,9}$" placeholder="V12345678" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
-                  </FormField>
+              {requiresTasa && formPago.metodo_pago === 'Pago Movil' && (
+                <div className="lg:col-span-2 grid gap-3 mt-3 border-t border-gray-100 dark:border-gray-800 pt-3 grid-cols-1 md:grid-cols-2">
                   {formPago.metodo_pago === 'Pago Movil' && (
                     <FormField label="Telefono Origen" required>
                       <input
@@ -636,13 +844,101 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
               )}
 
               {!esCuentaUsd && (
-                <div className="flex justify-between items-center px-2 py-1 mt-1 mb-2 bg-green-50 dark:bg-green-900/10 rounded-lg">
+                <div className="lg:col-span-2 flex justify-between items-center px-2 py-1 mt-1 mb-2 bg-green-50 dark:bg-green-900/10 rounded-lg">
                   <span className="text-xs text-green-700 dark:text-green-500 font-bold uppercase tracking-wider">Abono Equivalente:</span>
                   <span className="font-black text-green-600 dark:text-green-400 text-lg">+ ${formatMoney(conversionUSD)}</span>
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-3">
+              {!soloCuentaPrincipal && (
+                <div className="lg:col-span-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-800/40 p-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMostrarDesvioExtra((prev) => {
+                        const next = !prev;
+                        if (!next) {
+                          setDesviosGastos([]);
+                        } else if (desviosGastos.length === 0) {
+                          const defaultGastoId = gastosExtraDisponibles[0] ? String(gastosExtraDisponibles[0].id) : '';
+                          setDesviosGastos([{
+                            id: `${Date.now()}-0`,
+                            gastoId: defaultGastoId,
+                            montoBs: '',
+                          }]);
+                        }
+                        return next;
+                      });
+                    }}
+                    className="text-sm font-semibold text-donezo-primary hover:text-donezo-primary/80 transition-colors"
+                  >
+                    {mostrarDesvioExtra ? '- Quitar desvío a Gasto Extra' : '+ Asignar parte del pago a un Gasto Extra'}
+                  </button>
+
+                  {mostrarDesvioExtra && (
+                    <div className="mt-3 space-y-3">
+                      <div className="grid grid-cols-12 gap-2 text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                        <div className="col-span-6">Gasto Extra / Proyecto</div>
+                        <div className="col-span-3">Monto a desviar (Bs)</div>
+                        <div className="col-span-2">Equiv. USD</div>
+                        <div className="col-span-1 text-right">Acción</div>
+                      </div>
+                      {desviosGastos.map((row: DesvioGastoDraftItem) => {
+                        const tasa = getEffectiveRateForDesvio();
+                        const usd = tasa > 0 ? (parseInputNumber(row.montoBs) / tasa) : 0;
+                        const optionsForRow = getGastoOptionsForRow(row.id);
+                        return (
+                          <div key={row.id} className="grid grid-cols-12 gap-2 items-center">
+                            <div className="col-span-6">
+                              <SearchableCombobox
+                                options={optionsForRow}
+                                value={row.gastoId}
+                                onChange={(value: string) => updateDesvioRow(row.id, { gastoId: value })}
+                                placeholder={loadingGastosExtra ? 'Cargando gastos...' : (optionsForRow.length ? 'Seleccione un gasto...' : 'Sin gastos disponibles')}
+                                emptyMessage="Sin gastos extra"
+                                className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary"
+                              />
+                            </div>
+                            <div className="col-span-3">
+                              <input
+                                type="text"
+                                value={row.montoBs}
+                                onChange={(e: ChangeEvent<HTMLInputElement>) => updateDesvioRow(row.id, { montoBs: formatCurrencyInput(e.target.value, 2) })}
+                                placeholder="0,00"
+                                className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary"
+                              />
+                            </div>
+                            <div className="col-span-2 text-sm font-black text-emerald-600 dark:text-emerald-400">${formatMoney(usd)}</div>
+                            <div className="col-span-1 text-right">
+                              <button
+                                type="button"
+                                onClick={() => removeDesvioRow(row.id)}
+                                className="px-2 py-1 rounded-lg text-xs font-bold bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-300"
+                              >
+                                X
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div className="flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={addDesvioRow}
+                          className="px-3 py-2 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300"
+                        >
+                          + Agregar fila de desvío
+                        </button>
+                        <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                          Tasa aplicada: {getEffectiveRateForDesvio() > 0 ? formatMoney(getEffectiveRateForDesvio(), 3) : 'N/A'}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="lg:col-span-2 grid grid-cols-2 gap-3">
                 <FormField label="Referencia" required={formPago.metodo_pago !== 'Efectivo'}>
                   <input type="text" name="referencia" value={formPago.referencia} onChange={handlePagoChange} placeholder={formPago.metodo_pago === 'Efectivo' ? 'EFECTIVO (opcional)' : 'Ref / Comprobante'} className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required={formPago.metodo_pago !== 'Efectivo'} />
                 </FormField>
@@ -668,7 +964,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                 </FormField>
               </div>
 
-              <div className="pt-2">
+              <div className="lg:col-span-2 pt-2">
                 <button disabled={isSubmitting} type="submit" className="w-full py-3 bg-donezo-primary text-white font-bold rounded-xl hover:bg-green-700 shadow-lg shadow-green-500/30 transition-all disabled:opacity-60 disabled:cursor-not-allowed">
                   Procesar Pago
                 </button>
@@ -694,6 +990,8 @@ const parseInputNumber = (value: string | number | undefined | null): number => 
 };
 
 export default ModalRegistrarPago;
+
+
 
 
 
