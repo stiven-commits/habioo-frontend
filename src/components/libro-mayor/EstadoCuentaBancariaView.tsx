@@ -43,6 +43,7 @@ interface Fondo {
   nombre?: string;
   moneda?: 'USD' | 'BS' | string;
   saldo_actual?: string | number;
+  fecha_saldo?: string | null;
   visible_propietarios?: boolean;
   nombre_banco?: string;
   apodo?: string;
@@ -657,10 +658,71 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     [movimientos, fechaDesde, fechaHasta]
   );
 
-  const movimientosConApertura = useMemo(
-    () => movimientosFiltrados,
-    [movimientosFiltrados]
-  );
+  const movimientosConApertura = useMemo(() => {
+    const base = [...movimientosFiltrados];
+
+    const fondosConAperturaRegistrada = new Set<number>(
+      base
+        .filter((mov) => Boolean(mov.es_apertura))
+        .map((mov) => toNullableInt((mov as { fondo_id?: unknown }).fondo_id))
+        .filter((id): id is number => id !== null)
+    );
+    const fondosConAperturaPorNombre = new Set<string>(
+      base
+        .filter((mov) => Boolean(mov.es_apertura))
+        .map((mov) => {
+          const match = String(mov.concepto || '').match(/fondo:\s*([^|]+)/i);
+          return String(match?.[1] || '').trim().toLowerCase();
+        })
+        .filter(Boolean)
+    );
+
+    const tasaRef = tasaBcvNum > 0 ? tasaBcvNum : 0;
+    const aperturaSintetica: IMovimiento[] = [];
+
+    for (const fondo of fondosCuenta) {
+      const fondoId = toNullableInt(fondo.id);
+      if (fondoId === null) continue;
+      if (fondosConAperturaRegistrada.has(fondoId)) continue;
+      const fondoNombreNorm = String(fondo.nombre || '').trim().toLowerCase();
+      if (fondoNombreNorm && fondosConAperturaPorNombre.has(fondoNombreNorm)) continue;
+
+      const saldoRaw = toNumber((fondo as { saldo_actual?: unknown }).saldo_actual ?? 0);
+      if (Math.abs(saldoRaw) < 0.005) continue;
+
+      const moneda = String(fondo.moneda || '').toUpperCase();
+      const esBs = ['BS', 'BS.'].includes(moneda);
+      const montoAbs = Math.abs(saldoRaw);
+      const montoBs = esBs ? montoAbs : (tasaRef > 0 ? montoAbs * tasaRef : 0);
+      const montoUsd = esBs ? (tasaRef > 0 ? montoAbs / tasaRef : 0) : montoAbs;
+      const fechaApertura = String((fondo as { fecha_saldo?: unknown }).fecha_saldo || '') || '1970-01-01';
+
+      aperturaSintetica.push({
+        id: `AP-SYN-${fondoId}`,
+        fecha: fechaApertura,
+        fecha_registro: fechaApertura,
+        referencia: 'APERTURA',
+        concepto: `Saldo de apertura del fondo - Fondo: ${String(fondo.nombre || `Fondo ${fondoId}`)}`,
+        tipo: saldoRaw >= 0 ? 'INGRESO' : 'EGRESO',
+        monto_bs: Number(montoBs.toFixed(2)),
+        tasa_cambio: tasaRef > 0 ? Number(tasaRef.toFixed(3)) : 0,
+        monto_usd: Number(montoUsd.toFixed(2)),
+        banco_origen: '',
+        cedula_origen: '',
+        fondo_id: fondoId,
+        fondo_origen_id: null,
+        fondo_destino_id: null,
+        fondo_nombre: String(fondo.nombre || ''),
+        pago_id: null,
+        inmueble: '',
+        tipo_raw: 'APERTURA_SINTETICA',
+        es_apertura: true,
+        apertura_sintetica: true,
+      });
+    }
+
+    return [...base, ...aperturaSintetica];
+  }, [movimientosFiltrados, fondosCuenta, tasaBcvNum]);
 
   const movimientosCuentaConsolidados = useMemo(() => {
     const movimientosDirectos: IMovimiento[] = [];
@@ -1037,7 +1099,8 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       const aperturaA = Boolean(a.es_apertura);
       const aperturaB = Boolean(b.es_apertura);
       if (aperturaA !== aperturaB) {
-        return aperturaA ? 1 : -1;
+        // Mostrar aperturas primero para que el saldo inicial sea visible en la tabla.
+        return aperturaA ? -1 : 1;
       }
 
       const av = getSortValue(a, sortConfig.key);
@@ -1243,7 +1306,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     const etiquetaFondo = fondoNombrePorId ? ` (${fondoNombrePorId})` : '';
 
     if (movimiento.es_apertura && movimiento.apertura_sintetica) {
-      return `Saldo de apertura del fondo${etiquetaFondo} (reconstruido)`;
+      return `Saldo de apertura del fondo${etiquetaFondo}`;
     }
     if (movimiento.es_apertura) {
       return `Saldo de apertura del fondo${etiquetaFondo}`;
