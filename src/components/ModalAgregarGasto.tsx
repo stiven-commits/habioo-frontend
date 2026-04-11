@@ -83,6 +83,14 @@ interface FormState {
 
 type TipoRegistroGasto = 'nuevo' | 'historico';
 
+interface HistoricalOriginRow {
+  id: string;
+  cuenta_bancaria_id: string;
+  fondo_id: string;
+  monto_usd: string;
+  monto_bs: string;
+}
+
 interface ApiErrorResponse {
   error?: string;
 }
@@ -102,6 +110,16 @@ const dateToYmd = (date: Date | null): string => {
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
+
+const makeOriginRow = (): HistoricalOriginRow => ({
+  id: `row_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+  cuenta_bancaria_id: '',
+  fondo_id: '',
+  monto_usd: '',
+  monto_bs: '',
+});
+
+const roundTwo = (value: number): number => Math.round((Number(value) || 0) * 100) / 100;
 
 const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
   onClose,
@@ -144,6 +162,8 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
   const [hasHistoricalContext, setHasHistoricalContext] = useState<boolean>(false);
   const [tipoRegistro, setTipoRegistro] = useState<TipoRegistroGasto>('nuevo');
   const [isHistoricalModalOpen, setIsHistoricalModalOpen] = useState<boolean>(false);
+  const [historicoPagadoRows, setHistoricoPagadoRows] = useState<HistoricalOriginRow[]>([]);
+  const [historicoRecaudadoRows, setHistoricoRecaudadoRows] = useState<HistoricalOriginRow[]>([]);
   const facturaInputRef = React.useRef<HTMLInputElement | null>(null);
   const soportesInputRef = React.useRef<HTMLInputElement | null>(null);
 
@@ -168,6 +188,26 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
     const montoRecaudadoHistUsd = parseInputNumber(String(merged.monto_historico_recaudado_usd || '0'));
     const montoRecaudadoHistBs = parseInputNumber(String(merged.monto_historico_recaudado_bs || '0'));
     setHasHistoricalContext(cuotasHist > 0 || montoHistUsd > 0 || montoHistBs > 0 || montoRecaudadoHistUsd > 0 || montoRecaudadoHistBs > 0);
+    const initPagado = Array.isArray((initialValues as { historico_pagado_origenes?: HistoricalOriginRow[] })?.historico_pagado_origenes)
+      ? ((initialValues as { historico_pagado_origenes?: HistoricalOriginRow[] }).historico_pagado_origenes || []).map((r) => ({
+          id: r.id || makeOriginRow().id,
+          cuenta_bancaria_id: String(r.cuenta_bancaria_id || ''),
+          fondo_id: String(r.fondo_id || ''),
+          monto_usd: String(r.monto_usd || ''),
+          monto_bs: String(r.monto_bs || ''),
+        }))
+      : [];
+    const initRecaudado = Array.isArray((initialValues as { historico_recaudado_origenes?: HistoricalOriginRow[] })?.historico_recaudado_origenes)
+      ? ((initialValues as { historico_recaudado_origenes?: HistoricalOriginRow[] }).historico_recaudado_origenes || []).map((r) => ({
+          id: r.id || makeOriginRow().id,
+          cuenta_bancaria_id: String(r.cuenta_bancaria_id || ''),
+          fondo_id: String(r.fondo_id || ''),
+          monto_usd: String(r.monto_usd || ''),
+          monto_bs: String(r.monto_bs || ''),
+        }))
+      : [];
+    setHistoricoPagadoRows(initPagado);
+    setHistoricoRecaudadoRows(initRecaudado);
     setRemoveExistingFactura(false);
     setFacturaFile(null);
     setSoportesFiles([]);
@@ -176,6 +216,13 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
     // Evitamos depender de objetos/arrays recreados por re-renders del padre.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, gastoId]);
+
+  React.useEffect(() => {
+    if (mode === 'edit') return;
+    setTipoRegistro('nuevo');
+    setHistoricoPagadoRows([]);
+    setHistoricoRecaudadoRows([]);
+  }, [mode]);
 
 
 
@@ -204,7 +251,6 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
   const montoHistRecUsdNum = parseInputNumber(form.monto_historico_recaudado_usd);
   const montoHistRecBsNum = parseInputNumber(form.monto_historico_recaudado_bs);
   const cuotasHistoricasNum = Math.max(0, parseInt(form.cuotas_historicas || '0', 10) || 0);
-  const showHistoricoCuenta = montoHistRecUsdNum > 0 || montoHistRecBsNum > 0;
 
   const formatCurrencyInput = (value: string, maxDecimals = 2): string => {
     let rawValue = value.replace(/[^0-9,]/g, '');
@@ -248,6 +294,67 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
     });
   };
 
+  const updateOriginRow = (
+    type: 'pagado' | 'recaudado',
+    rowId: string,
+    field: keyof Omit<HistoricalOriginRow, 'id'>,
+    value: string
+  ): void => {
+    const updater = (prev: HistoricalOriginRow[]): HistoricalOriginRow[] =>
+      prev.map((row) => {
+        if (row.id !== rowId) return row;
+        if (field === 'monto_usd' || field === 'monto_bs') {
+          const formatted = formatCurrencyInput(value, 2);
+          return { ...row, [field]: formatted };
+        }
+        if (field === 'cuenta_bancaria_id') {
+          return { ...row, cuenta_bancaria_id: value, fondo_id: '' };
+        }
+        return { ...row, [field]: value };
+      });
+    if (type === 'pagado') setHistoricoPagadoRows(updater);
+    else setHistoricoRecaudadoRows(updater);
+  };
+
+  const removeOriginRow = (type: 'pagado' | 'recaudado', rowId: string): void => {
+    if (type === 'pagado') setHistoricoPagadoRows((prev) => prev.filter((row) => row.id !== rowId));
+    else setHistoricoRecaudadoRows((prev) => prev.filter((row) => row.id !== rowId));
+  };
+
+  const addOriginRow = (type: 'pagado' | 'recaudado'): void => {
+    if (type === 'pagado') setHistoricoPagadoRows((prev) => [...prev, makeOriginRow()]);
+    else setHistoricoRecaudadoRows((prev) => [...prev, makeOriginRow()]);
+  };
+
+  const totalsPagado = useMemo(() => {
+    const usd = historicoPagadoRows.reduce((sum, row) => sum + parseInputNumber(row.monto_usd), 0);
+    const bs = historicoPagadoRows.reduce((sum, row) => sum + parseInputNumber(row.monto_bs), 0);
+    return { usd: roundTwo(usd), bs: roundTwo(bs) };
+  }, [historicoPagadoRows]);
+
+  const totalsRecaudado = useMemo(() => {
+    const usd = historicoRecaudadoRows.reduce((sum, row) => sum + parseInputNumber(row.monto_usd), 0);
+    const bs = historicoRecaudadoRows.reduce((sum, row) => sum + parseInputNumber(row.monto_bs), 0);
+    return { usd: roundTwo(usd), bs: roundTwo(bs) };
+  }, [historicoRecaudadoRows]);
+
+  React.useEffect(() => {
+    const cuotasSafe = tipoRegistro === 'historico'
+      ? Math.max(1, parseInt(form.total_cuotas || '1', 10) || 1)
+      : Math.max(0, parseInt(form.cuotas_historicas || '0', 10) || 0);
+    const hasAny = cuotasSafe > 0 || totalsPagado.usd > 0 || totalsPagado.bs > 0 || totalsRecaudado.usd > 0 || totalsRecaudado.bs > 0;
+    setHasHistoricalContext(hasAny);
+    setForm((prev: FormState) => ({
+      ...prev,
+      cuotas_historicas: String(cuotasSafe),
+      monto_historico_proveedor_usd: totalsPagado.usd > 0 ? formatCurrencyInput(String(totalsPagado.usd).replace('.', ','), 2) : '',
+      monto_historico_proveedor_bs: totalsPagado.bs > 0 ? formatCurrencyInput(String(totalsPagado.bs).replace('.', ','), 2) : '',
+      monto_historico_recaudado_usd: totalsRecaudado.usd > 0 ? formatCurrencyInput(String(totalsRecaudado.usd).replace('.', ','), 2) : '',
+      monto_historico_recaudado_bs: totalsRecaudado.bs > 0 ? formatCurrencyInput(String(totalsRecaudado.bs).replace('.', ','), 2) : '',
+      historico_en_cuenta: totalsRecaudado.usd > 0 || totalsRecaudado.bs > 0,
+    }));
+  }, [totalsPagado, totalsRecaudado, tipoRegistro, form.total_cuotas, form.cuotas_historicas]);
+
   const cuentaOptions = useMemo<SearchableComboboxOption[]>(
     () =>
       (bancos || []).map((b) => {
@@ -260,38 +367,16 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
     [bancos]
   );
 
-  const fondosCuentaSeleccionada = useMemo(
-    () => (fondos || []).filter((f) => String(f.cuenta_bancaria_id) === String(form.historico_cuenta_bancaria_id || '')),
-    [fondos, form.historico_cuenta_bancaria_id]
-  );
-
-  const fondoOptions = useMemo<SearchableComboboxOption[]>(
-    () =>
-      fondosCuentaSeleccionada.map((f) => {
+  const getFondoOptionsByCuenta = (cuentaId: string): SearchableComboboxOption[] =>
+    (fondos || [])
+      .filter((f) => String(f.cuenta_bancaria_id) === String(cuentaId || ''))
+      .map((f) => {
         const moneda = String(f.moneda || '').toUpperCase();
         const banco = String(f.nombre_banco || f.apodo || '');
         const labelBase = `${f.nombre}${moneda ? ` (${moneda})` : ''}`;
         const label = banco ? `${labelBase} - ${banco}` : labelBase;
         return { value: String(f.id), label, searchText: `${f.nombre} ${moneda} ${banco}` };
-      }),
-    [fondosCuentaSeleccionada]
-  );
-
-  React.useEffect(() => {
-    if (!form.historico_fondo_id) return;
-    const exists = fondoOptions.some((opt) => opt.value === form.historico_fondo_id);
-    if (!exists) setForm((prev: FormState) => ({ ...prev, historico_fondo_id: '' }));
-  }, [fondoOptions, form.historico_fondo_id]);
-
-  React.useEffect(() => {
-    if (showHistoricoCuenta) return;
-    setForm((prev: FormState) => ({
-      ...prev,
-      historico_en_cuenta: false,
-      historico_cuenta_bancaria_id: '',
-      historico_fondo_id: '',
-    }));
-  }, [showHistoricoCuenta]);
+      });
 
   // NUEVA FUNCION: Obtener Tasa del BCV Automaticamente
   const handleFetchBCV = async (): Promise<void> => {
@@ -360,19 +445,20 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
       alert('Los montos históricos en USD no pueden superar el monto total del gasto en USD.');
       return;
     }
-    if (showHistoricoCuenta && form.historico_en_cuenta) {
-      if (!form.historico_cuenta_bancaria_id || !form.historico_fondo_id) {
-        alert('Debes seleccionar la cuenta bancaria y el fondo donde está la recaudación histórica.');
-        return;
+    const validateRows = (rows: HistoricalOriginRow[], label: string): boolean => {
+      for (const row of rows) {
+        const usd = parseInputNumber(row.monto_usd);
+        const bs = parseInputNumber(row.monto_bs);
+        if (usd <= 0 && bs <= 0) continue;
+        if (!row.cuenta_bancaria_id || !row.fondo_id) {
+          alert(`Debes seleccionar cuenta y fondo en una fila de ${label}.`);
+          return false;
+        }
       }
-    }
-    if (showHistoricoCuenta && !form.historico_en_cuenta) {
-      setForm((prev: FormState) => ({
-        ...prev,
-        historico_cuenta_bancaria_id: '',
-        historico_fondo_id: '',
-      }));
-    }
+      return true;
+    };
+    if (!validateRows(historicoPagadoRows, 'pagado histórico')) return;
+    if (!validateRows(historicoRecaudadoRows, 'recaudado histórico')) return;
     if (tipoRegistro === 'historico' && cuotasHistoricasCanonico !== totalCuotasCanonico) {
       alert('En gasto histórico, las cuotas transcurridas deben igualar el total de cuotas.');
       return;
@@ -394,6 +480,32 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
       } else formData.append(key, String(form[key]));
     });
     formData.append('es_historico', esHistorico ? '1' : '0');
+    formData.append(
+      'historico_pagado_origenes',
+      JSON.stringify(
+        historicoPagadoRows
+          .map((row) => ({
+            cuenta_bancaria_id: row.cuenta_bancaria_id || null,
+            fondo_id: row.fondo_id || null,
+            monto_usd: roundTwo(parseInputNumber(row.monto_usd)),
+            monto_bs: roundTwo(parseInputNumber(row.monto_bs)),
+          }))
+          .filter((row) => row.monto_usd > 0 || row.monto_bs > 0)
+      )
+    );
+    formData.append(
+      'historico_recaudado_origenes',
+      JSON.stringify(
+        historicoRecaudadoRows
+          .map((row) => ({
+            cuenta_bancaria_id: row.cuenta_bancaria_id || null,
+            fondo_id: row.fondo_id || null,
+            monto_usd: roundTwo(parseInputNumber(row.monto_usd)),
+            monto_bs: roundTwo(parseInputNumber(row.monto_bs)),
+          }))
+          .filter((row) => row.monto_usd > 0 || row.monto_bs > 0)
+      )
+    );
     
     if (facturaFile) formData.append('factura_img', facturaFile);
     if (removeExistingFactura) formData.append('remove_factura_img', '1');
@@ -642,9 +754,6 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                 <p>Cuotas históricas: {cuotasHistoricasNum}</p>
                 <p>Proveedor: ${formatMoneyDisplay(montoHistProvUsdNum)} USD / Bs {formatMoneyDisplay(montoHistProvBsNum)}</p>
                 <p>Recaudado: ${formatMoneyDisplay(montoHistRecUsdNum)} USD / Bs {formatMoneyDisplay(montoHistRecBsNum)}</p>
-                {form.historico_en_cuenta && form.historico_cuenta_bancaria_id && form.historico_fondo_id && (
-                  <p className="mt-1">Sincronizado en cuenta/fondo.</p>
-                )}
               </div>
             ) : (
               <p className="text-xs text-amber-800/80 dark:text-amber-200/80">Sin datos históricos configurados.</p>
@@ -863,77 +972,70 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                 <p>Total del gasto: Bs {formatMoneyDisplay(montoBsNum)} / ${formatMoneyDisplay(equivalenteUSD)} USD</p>
               </div>
 
-              <div>
-                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Pago histórico proveedor (USD)</label>
-                <input type="text" name="monto_historico_proveedor_usd" value={form.monto_historico_proveedor_usd} onChange={handleMonedaChange} placeholder="0,00" className="w-full p-3 border border-amber-200 dark:border-amber-800 rounded-xl outline-none focus:ring-2 focus:ring-amber-500 dark:text-white bg-white dark:bg-gray-800 font-mono text-lg" />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Pago histórico proveedor (Bs)</label>
-                <input type="text" name="monto_historico_proveedor_bs" value={form.monto_historico_proveedor_bs} onChange={handleMonedaChange} placeholder="0,00" className="w-full p-3 border border-amber-200 dark:border-amber-800 rounded-xl outline-none focus:ring-2 focus:ring-amber-500 dark:text-white bg-white dark:bg-gray-800 font-mono text-lg" />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Recaudación histórica (USD)</label>
-                <input type="text" name="monto_historico_recaudado_usd" value={form.monto_historico_recaudado_usd} onChange={handleMonedaChange} placeholder="0,00" className="w-full p-3 border border-amber-200 dark:border-amber-800 rounded-xl outline-none focus:ring-2 focus:ring-amber-500 dark:text-white bg-white dark:bg-gray-800 font-mono text-lg" />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Recaudación histórica (Bs)</label>
-                <input type="text" name="monto_historico_recaudado_bs" value={form.monto_historico_recaudado_bs} onChange={handleMonedaChange} placeholder="0,00" className="w-full p-3 border border-amber-200 dark:border-amber-800 rounded-xl outline-none focus:ring-2 focus:ring-amber-500 dark:text-white bg-white dark:bg-gray-800 font-mono text-lg" />
+              <div className="md:col-span-2 rounded-2xl border border-indigo-200 bg-indigo-50/60 p-3 dark:border-indigo-800/50 dark:bg-indigo-900/10">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-bold text-indigo-900 dark:text-indigo-300">Pagado histórico por orígenes</p>
+                  <button type="button" onClick={() => addOriginRow('pagado')} className="rounded-lg bg-indigo-100 px-2.5 py-1 text-xs font-bold text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-300">+ Agregar fila</button>
+                </div>
+                <div className="mt-3 space-y-2">
+                  {historicoPagadoRows.length === 0 && <p className="text-xs text-indigo-800/70 dark:text-indigo-300/70">Sin filas registradas.</p>}
+                  {historicoPagadoRows.map((row) => {
+                    const fondosOptions = getFondoOptionsByCuenta(row.cuenta_bancaria_id);
+                    return (
+                      <div key={row.id} className="grid grid-cols-1 md:grid-cols-12 gap-2 rounded-xl border border-indigo-200 bg-white p-2 dark:border-indigo-800/40 dark:bg-gray-900">
+                        <div className="md:col-span-4">
+                          <SearchableCombobox options={cuentaOptions} value={row.cuenta_bancaria_id} onChange={(v) => updateOriginRow('pagado', row.id, 'cuenta_bancaria_id', v)} placeholder="Cuenta..." emptyMessage="Sin cuentas" className="w-full h-[42px] px-3 rounded-lg border border-indigo-200 bg-white outline-none focus:ring-2 focus:ring-indigo-500 dark:border-indigo-700 dark:bg-gray-900 dark:text-white" />
+                        </div>
+                        <div className="md:col-span-4">
+                          <SearchableCombobox options={fondosOptions} value={row.fondo_id} onChange={(v) => updateOriginRow('pagado', row.id, 'fondo_id', v)} placeholder="Fondo..." emptyMessage="Sin fondos" disabled={!row.cuenta_bancaria_id} className="w-full h-[42px] px-3 rounded-lg border border-indigo-200 bg-white outline-none focus:ring-2 focus:ring-indigo-500 dark:border-indigo-700 dark:bg-gray-900 dark:text-white" />
+                        </div>
+                        <div className="md:col-span-3 grid grid-cols-2 gap-1">
+                          <input type="text" value={row.monto_usd} onChange={(e) => updateOriginRow('pagado', row.id, 'monto_usd', e.target.value)} placeholder="USD" className="h-[42px] w-full px-2 rounded-lg border border-indigo-200 bg-white font-mono text-sm outline-none focus:ring-2 focus:ring-indigo-500 dark:border-indigo-700 dark:bg-gray-900 dark:text-white" />
+                          <input type="text" value={row.monto_bs} onChange={(e) => updateOriginRow('pagado', row.id, 'monto_bs', e.target.value)} placeholder="Bs" className="h-[42px] w-full px-2 rounded-lg border border-indigo-200 bg-white font-mono text-sm outline-none focus:ring-2 focus:ring-indigo-500 dark:border-indigo-700 dark:bg-gray-900 dark:text-white" />
+                        </div>
+                        <div className="md:col-span-1 flex justify-end">
+                          <button type="button" onClick={() => removeOriginRow('pagado', row.id)} className="h-[42px] w-[42px] rounded-lg bg-red-50 text-red-700 font-bold hover:bg-red-100 dark:bg-red-900/30 dark:text-red-300">x</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
-              {showHistoricoCuenta && (
-                <div className="md:col-span-2 grid grid-cols-1 gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-800/50 dark:bg-emerald-900/10">
-                  <label className="inline-flex items-center gap-2 text-sm font-bold text-emerald-900 dark:text-emerald-300">
-                    <input
-                      type="checkbox"
-                      checked={form.historico_en_cuenta}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        setForm((prev: FormState) => ({
-                          ...prev,
-                          historico_en_cuenta: checked,
-                          historico_cuenta_bancaria_id: checked ? prev.historico_cuenta_bancaria_id : '',
-                          historico_fondo_id: checked ? prev.historico_fondo_id : '',
-                        }));
-                      }}
-                      className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500"
-                    />
-                    Está actualmente en alguna cuenta bancaria del condominio
-                  </label>
-                  {form.historico_en_cuenta && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 mb-1">Cuenta bancaria</label>
-                        <SearchableCombobox
-                          options={cuentaOptions}
-                          value={form.historico_cuenta_bancaria_id}
-                          onChange={(value) =>
-                            setForm((prev: FormState) => ({
-                              ...prev,
-                              historico_cuenta_bancaria_id: value,
-                              historico_fondo_id: '',
-                            }))
-                          }
-                          placeholder="Buscar cuenta..."
-                          emptyMessage="Sin cuentas"
-                          className="w-full h-[46px] px-3 rounded-xl border border-emerald-300 bg-white outline-none focus:ring-2 focus:ring-emerald-500 dark:border-emerald-700 dark:bg-gray-900 dark:text-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 mb-1">Fondo destino</label>
-                        <SearchableCombobox
-                          options={fondoOptions}
-                          value={form.historico_fondo_id}
-                          onChange={(value) => setForm((prev: FormState) => ({ ...prev, historico_fondo_id: value }))}
-                          placeholder={form.historico_cuenta_bancaria_id ? 'Buscar fondo...' : 'Primero selecciona cuenta'}
-                          emptyMessage="Sin fondos para esta cuenta"
-                          disabled={!form.historico_cuenta_bancaria_id}
-                          className="w-full h-[46px] px-3 rounded-xl border border-emerald-300 bg-white outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-60 dark:border-emerald-700 dark:bg-gray-900 dark:text-white"
-                        />
-                      </div>
-                    </div>
-                  )}
+              <div className="md:col-span-2 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3 dark:border-emerald-800/50 dark:bg-emerald-900/10">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-bold text-emerald-900 dark:text-emerald-300">Recaudado histórico por orígenes</p>
+                  <button type="button" onClick={() => addOriginRow('recaudado')} className="rounded-lg bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300">+ Agregar fila</button>
                 </div>
-              )}
+                <div className="mt-3 space-y-2">
+                  {historicoRecaudadoRows.length === 0 && <p className="text-xs text-emerald-800/70 dark:text-emerald-300/70">Sin filas registradas.</p>}
+                  {historicoRecaudadoRows.map((row) => {
+                    const fondosOptions = getFondoOptionsByCuenta(row.cuenta_bancaria_id);
+                    return (
+                      <div key={row.id} className="grid grid-cols-1 md:grid-cols-12 gap-2 rounded-xl border border-emerald-200 bg-white p-2 dark:border-emerald-800/40 dark:bg-gray-900">
+                        <div className="md:col-span-4">
+                          <SearchableCombobox options={cuentaOptions} value={row.cuenta_bancaria_id} onChange={(v) => updateOriginRow('recaudado', row.id, 'cuenta_bancaria_id', v)} placeholder="Cuenta..." emptyMessage="Sin cuentas" className="w-full h-[42px] px-3 rounded-lg border border-emerald-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 dark:border-emerald-700 dark:bg-gray-900 dark:text-white" />
+                        </div>
+                        <div className="md:col-span-4">
+                          <SearchableCombobox options={fondosOptions} value={row.fondo_id} onChange={(v) => updateOriginRow('recaudado', row.id, 'fondo_id', v)} placeholder="Fondo..." emptyMessage="Sin fondos" disabled={!row.cuenta_bancaria_id} className="w-full h-[42px] px-3 rounded-lg border border-emerald-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 dark:border-emerald-700 dark:bg-gray-900 dark:text-white" />
+                        </div>
+                        <div className="md:col-span-3 grid grid-cols-2 gap-1">
+                          <input type="text" value={row.monto_usd} onChange={(e) => updateOriginRow('recaudado', row.id, 'monto_usd', e.target.value)} placeholder="USD" className="h-[42px] w-full px-2 rounded-lg border border-emerald-200 bg-white font-mono text-sm outline-none focus:ring-2 focus:ring-emerald-500 dark:border-emerald-700 dark:bg-gray-900 dark:text-white" />
+                          <input type="text" value={row.monto_bs} onChange={(e) => updateOriginRow('recaudado', row.id, 'monto_bs', e.target.value)} placeholder="Bs" className="h-[42px] w-full px-2 rounded-lg border border-emerald-200 bg-white font-mono text-sm outline-none focus:ring-2 focus:ring-emerald-500 dark:border-emerald-700 dark:bg-gray-900 dark:text-white" />
+                        </div>
+                        <div className="md:col-span-1 flex justify-end">
+                          <button type="button" onClick={() => removeOriginRow('recaudado', row.id)} className="h-[42px] w-[42px] rounded-lg bg-red-50 text-red-700 font-bold hover:bg-red-100 dark:bg-red-900/30 dark:text-red-300">x</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="md:col-span-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-300">
+                <p>Totales pagado: ${formatMoneyDisplay(totalsPagado.usd)} USD / Bs {formatMoneyDisplay(totalsPagado.bs)}</p>
+                <p>Totales recaudado: ${formatMoneyDisplay(totalsRecaudado.usd)} USD / Bs {formatMoneyDisplay(totalsRecaudado.bs)}</p>
+              </div>
             </div>
 
             <div className="p-4 border-t border-gray-100 dark:border-gray-800 flex justify-end gap-3">
@@ -941,6 +1043,8 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                 type="button"
                 onClick={() => {
                   setHasHistoricalContext(false);
+                  setHistoricoPagadoRows([]);
+                  setHistoricoRecaudadoRows([]);
                   setForm((prev: FormState) => ({
                     ...prev,
                     cuotas_historicas: tipoRegistro === 'historico' ? prev.total_cuotas : '0',
