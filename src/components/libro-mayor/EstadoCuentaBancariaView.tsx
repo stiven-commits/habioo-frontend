@@ -181,6 +181,7 @@ const toNumber = (value: unknown): number => {
   const n = parseFloat(String(value ?? 0));
   return Number.isFinite(n) ? n : 0;
 };
+const round2 = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
 
 const toNullableInt = (value: unknown): number | null => {
   if (value === null || value === undefined || value === '') return null;
@@ -433,7 +434,8 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
           || notaRaw
           || '-'
         );
-        const esApertura = /saldo\s+de\s+apertura|apertura\s+del\s+fondo/i.test(`${concepto} ${notaRaw}`)
+        const esApertura = tipoRaw === 'APERTURA'
+          || /saldo\s+de\s+apertura|apertura\s+del\s+fondo/i.test(`${concepto} ${notaRaw}`)
           || referenciaRaw.toUpperCase() === 'APERTURA';
         const esEgresoPorTipo = ['EGRESO', 'SALIDA', 'DEBITO', 'DESCUENTO', 'PAGO_PROVEEDOR', 'EGRESO_PAGO'].includes(tipoRaw);
         const esEgresoPorConcepto = /egreso manual libro mayor/i.test(concepto);
@@ -658,87 +660,26 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     [movimientos, fechaDesde, fechaHasta]
   );
 
-  const movimientosConApertura = useMemo(() => {
-    const base = [...movimientosFiltrados];
-    const todos = [...movimientos];
-
-    const fondosConAperturaRegistrada = new Set<number>(
-      todos
-        .filter((mov) => Boolean(mov.es_apertura))
-        .map((mov) => toNullableInt((mov as { fondo_id?: unknown }).fondo_id))
-        .filter((id): id is number => id !== null)
-    );
-    const fondosConAperturaPorNombre = new Set<string>(
-      todos
-        .filter((mov) => Boolean(mov.es_apertura))
-        .map((mov) => {
-          const match = String(mov.concepto || '').match(/fondo:\s*([^|]+)/i);
-          return String(match?.[1] || '').trim().toLowerCase();
-        })
-        .filter(Boolean)
-    );
-
-    const tasaRef = tasaBcvNum > 0 ? tasaBcvNum : 0;
-    const aperturaSintetica: IMovimiento[] = [];
-
-    for (const fondo of fondosCuenta) {
-      const fondoId = toNullableInt(fondo.id);
-      if (fondoId === null) continue;
-      if (fondosConAperturaRegistrada.has(fondoId)) continue;
-      const fondoNombreNorm = String(fondo.nombre || '').trim().toLowerCase();
-      if (fondoNombreNorm && fondosConAperturaPorNombre.has(fondoNombreNorm)) continue;
-
-      const saldoActual = toNumber((fondo as { saldo_actual?: unknown }).saldo_actual ?? 0);
-      const movimientosFondo = todos.filter(
-        (mov) => toNullableInt((mov as { fondo_id?: unknown }).fondo_id) === fondoId && !Boolean(mov.es_apertura)
-      );
-      const netoSinApertura = movimientosFondo.reduce((acc, mov) => {
-        const monto = toNumber(mov.monto_bs ?? 0);
-        if (monto < 0) return acc + monto;
-        const esEgreso = String(mov.tipo || '').toUpperCase() === 'EGRESO';
-        return acc + (esEgreso ? -Math.abs(monto) : Math.abs(monto));
-      }, 0);
-      const saldoRaw = saldoActual - netoSinApertura;
-      if (Math.abs(saldoRaw) < 0.005 && Math.abs(saldoActual) < 0.005) continue;
-
-      const moneda = String(fondo.moneda || '').toUpperCase();
-      const esBs = ['BS', 'BS.'].includes(moneda);
-      const montoAbs = Math.abs(saldoRaw);
-      const montoBs = esBs ? montoAbs : (tasaRef > 0 ? montoAbs * tasaRef : 0);
-      const montoUsd = esBs ? (tasaRef > 0 ? montoAbs / tasaRef : 0) : montoAbs;
-      const fechaApertura = String((fondo as { fecha_saldo?: unknown }).fecha_saldo || '') || '1970-01-01';
-
-      aperturaSintetica.push({
-        id: `AP-SYN-${fondoId}`,
-        fecha: fechaApertura,
-        fecha_registro: fechaApertura,
-        referencia: 'APERTURA',
-        concepto: `Saldo de apertura del fondo - Fondo: ${String(fondo.nombre || `Fondo ${fondoId}`)}`,
-        tipo: saldoRaw >= 0 ? 'INGRESO' : 'EGRESO',
-        monto_bs: Number(montoBs.toFixed(2)),
-        tasa_cambio: tasaRef > 0 ? Number(tasaRef.toFixed(3)) : 0,
-        monto_usd: Number(montoUsd.toFixed(2)),
-        banco_origen: '',
-        cedula_origen: '',
-        fondo_id: fondoId,
-        fondo_origen_id: null,
-        fondo_destino_id: null,
-        fondo_nombre: String(fondo.nombre || ''),
-        pago_id: null,
-        inmueble: '',
-        tipo_raw: 'APERTURA_SINTETICA',
-        es_apertura: true,
-        apertura_sintetica: true,
-      });
-    }
-
-    return [...base, ...aperturaSintetica];
-  }, [movimientosFiltrados, movimientos, fondosCuenta, tasaBcvNum]);
+  // Importante: los saldos/aperturas se muestran exclusivamente desde movimientos reales de BD.
+  // No se sintetizan aperturas en frontend.
+  const movimientosConApertura = useMemo(() => [...movimientosFiltrados], [movimientosFiltrados]);
 
   const movimientosCuentaConsolidados = useMemo(() => {
     const movimientosDirectos: IMovimiento[] = [];
     const ingresosPorPago = new Map<string, IMovimiento[]>();
     const ingresosPorAjuste = new Map<string, IMovimiento[]>();
+    const isHistReclasifInterna = (mov: IMovimiento): boolean => {
+      const rawId = String(mov.id || '').toUpperCase();
+      const concepto = String(mov.concepto || '').toUpperCase();
+      return (
+        /^EGR-MF-\d+$/i.test(rawId)
+        && (
+          concepto.includes('[SYS_HIST_RECLASIF_INTERNA]')
+          || concepto.includes('RECLASIFICACIÓN/RECAUDADO HISTÓRICO')
+          || concepto.includes('RECLASIFICACION/RECAUDADO HISTORICO')
+        )
+      );
+    };
     const getInmuebleTexto = (mov: IMovimiento): string => {
       const inmuebleApi = String(mov.inmueble || '').trim();
       if (inmuebleApi) return inmuebleApi;
@@ -780,6 +721,10 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     });
 
     movimientosConApertura.forEach((mov) => {
+      if (isHistReclasifInterna(mov)) {
+        // Se muestra en pestañas de fondo / tránsito, pero no como egreso bancario consolidado.
+        return;
+      }
       const pagoId = mov.pago_id ? String(mov.pago_id) : '';
       const concepto = String(mov.concepto || '');
       const rawId = String(mov.id || '');
@@ -1173,20 +1118,38 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   );
 
   const saldoCuentaBsActual = useMemo(
-    () => resumenFondos.reduce((acc, fondo) => (
-      fondo.moneda === 'BS' ? acc + toNumber(fondo.saldo) : acc
-    ), 0),
-    [resumenFondos]
+    () => {
+      const saldoFondosBs = resumenFondos.reduce((acc, fondo) => (
+        fondo.moneda === 'BS' ? acc + toNumber(fondo.saldo) : acc
+      ), 0);
+      const saldoTransitoBs = extrasInfo.reduce((acc, row) => {
+        const montoBs = toNumber((row as { monto_bs?: unknown }).monto_bs ?? 0);
+        if (montoBs > 0) return acc + montoBs;
+        const montoUsd = toNumber((row as { monto_usd?: unknown }).monto_usd ?? 0);
+        return tasaBcvNum > 0 ? acc + (montoUsd * tasaBcvNum) : acc;
+      }, 0);
+      return round2(saldoFondosBs + saldoTransitoBs);
+    },
+    [resumenFondos, extrasInfo, tasaBcvNum]
   );
 
   const saldoCuentaUsdActual = useMemo(
-    () => resumenFondos.reduce((acc, fondo) => {
-      const saldo = toNumber(fondo.saldo);
-      if (fondo.moneda === 'USD') return acc + saldo;
-      if (fondo.moneda === 'BS' && tasaBcvNum > 0) return acc + (saldo / tasaBcvNum);
-      return acc;
-    }, 0),
-    [resumenFondos, tasaBcvNum]
+    () => {
+      const saldoFondosUsd = resumenFondos.reduce((acc, fondo) => {
+        const saldo = toNumber(fondo.saldo);
+        if (fondo.moneda === 'USD') return acc + saldo;
+        if (fondo.moneda === 'BS' && tasaBcvNum > 0) return acc + (saldo / tasaBcvNum);
+        return acc;
+      }, 0);
+      const saldoTransitoUsd = extrasInfo.reduce((acc, row) => {
+        const montoUsd = toNumber((row as { monto_usd?: unknown }).monto_usd ?? 0);
+        if (montoUsd > 0) return acc + montoUsd;
+        const montoBs = toNumber((row as { monto_bs?: unknown }).monto_bs ?? 0);
+        return tasaBcvNum > 0 ? acc + (montoBs / tasaBcvNum) : acc;
+      }, 0);
+      return round2(saldoFondosUsd + saldoTransitoUsd);
+    },
+    [resumenFondos, extrasInfo, tasaBcvNum]
   );
 
   const ownerResumenActual = useMemo(
@@ -1289,8 +1252,15 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     return 0;
   }
 
-  const totalesPagina = useMemo(() => (
-    movimientosPagina.reduce(
+  const totalesPagina = useMemo(() => {
+    if (activeTab === 'cuenta') {
+      return {
+        montoBs: saldoCuentaBsActual,
+        cargoUsd: 0,
+        abonoUsd: 0,
+      };
+    }
+    return movimientosPagina.reduce(
       (acc, movimiento) => {
         const montoBsVista = getMontoBsVista(movimiento);
         const montoUsdVista = getMontoUsdVista(movimiento);
@@ -1300,14 +1270,20 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
         return acc;
       },
       { montoBs: 0, cargoUsd: 0, abonoUsd: 0 }
-    )
-  ), [movimientosPagina, tasaBcvNum]);
+    );
+  }, [activeTab, movimientosPagina, saldoCuentaBsActual, tasaBcvNum]);
 
   const getConceptoVista = (movimiento: IMovimiento): string => {
     const fondoNombreMov = String(movimiento.fondo_nombre || '').trim();
     const fondoNombrePorId = fondoNombreMov
       || String(fondosCuenta.find((f) => toNullableInt(f.id) === toNullableInt(movimiento.fondo_id))?.nombre || '').trim();
     const etiquetaFondo = fondoNombrePorId ? ` (${fondoNombrePorId})` : '';
+    const conceptoOriginal = String(movimiento.concepto || '');
+    const conceptoLimpio = conceptoOriginal
+      .replace(/\s*\[SYS_HIST_RECLASIF_INTERNA\]\s*/gi, ' ')
+      .replace(/\s*\(gasto\s+\d+\)\s*/gi, ' ')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
 
     if (movimiento.es_apertura && movimiento.apertura_sintetica) {
       return `Saldo de apertura del fondo${etiquetaFondo}`;
@@ -1315,13 +1291,16 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     if (movimiento.es_apertura) {
       return `Saldo de apertura del fondo${etiquetaFondo}`;
     }
+    if (/^Reclasificaci[oó]n\/Recaudado hist[oó]rico desde fondo/i.test(conceptoLimpio)) {
+      return 'Recaudado histórico movido a Tránsito / Extra';
+    }
     const banco = movimiento.banco_origen?.trim();
     const cedula = movimiento.cedula_origen?.trim();
     if (movimiento.tipo === 'INGRESO' && (banco || cedula)) {
       const extras = [banco ? `Banco: ${banco}` : '', cedula ? `Cédula/RIF: ${cedula}` : ''].filter(Boolean);
-      return `${movimiento.concepto} | ${extras.join(' | ')}`;
+      return `${conceptoLimpio || movimiento.concepto} | ${extras.join(' | ')}`;
     }
-    return movimiento.concepto;
+    return conceptoLimpio || movimiento.concepto;
   };
 
   const getInmuebleVista = (movimiento: IMovimiento): string => {
