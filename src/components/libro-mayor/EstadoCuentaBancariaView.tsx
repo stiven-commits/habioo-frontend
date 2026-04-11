@@ -302,7 +302,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   const [movimientoDetalle, setMovimientoDetalle] = useState<IMovimiento | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'ejecucion', direction: 'desc' });
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'fecha', direction: 'desc' });
   const [tasaBcv, setTasaBcv] = useState<string>('');
   const [loadingBcv, setLoadingBcv] = useState<boolean>(false);
   const [rollbackingKey, setRollbackingKey] = useState<string>('');
@@ -1107,13 +1107,6 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     };
 
     return [...movimientosPorVista].sort((a, b) => {
-      const aperturaA = Boolean(a.es_apertura);
-      const aperturaB = Boolean(b.es_apertura);
-      if (aperturaA !== aperturaB) {
-        // Mostrar aperturas primero para que el saldo inicial sea visible en la tabla.
-        return aperturaA ? -1 : 1;
-      }
-
       const av = getSortValue(a, sortConfig.key);
       const bv = getSortValue(b, sortConfig.key);
       if (typeof av === 'number' && typeof bv === 'number') {
@@ -1452,6 +1445,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   };
 
   const handleSort = (key: SortKey): void => {
+    setCurrentPage(1);
     setSortConfig((prev) => {
       if (prev.key === key) {
         return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
