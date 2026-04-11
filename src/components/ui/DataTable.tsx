@@ -1,4 +1,5 @@
 import { Fragment, type CSSProperties, type ReactNode } from 'react';
+import HabiooLoader from './HabiooLoader';
 
 export interface Column<T> {
   key: string;
@@ -56,11 +57,8 @@ function DataTable<T>({
         <tbody>
           {loading ? (
             <tr>
-              <td colSpan={Math.max(safeColumns.length, 1)} className="p-8 text-center text-sm text-gray-400 dark:text-gray-500">
-                <div className="flex items-center justify-center gap-2">
-                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-donezo-primary" />
-                  Cargando...
-                </div>
+              <td colSpan={Math.max(safeColumns.length, 1)} className="h-44 p-0 align-middle">
+                <HabiooLoader size="sm" message="" className="h-full py-0" />
               </td>
             </tr>
           ) : safeData.length === 0 ? (

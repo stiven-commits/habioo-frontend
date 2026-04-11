@@ -3,6 +3,7 @@ import { Link, Outlet, useLocation, useNavigate, useMatch } from 'react-router-d
 import { API_BASE_URL } from '../config/api';
 import AIChatWidget from './AIChatWidget';
 import ModalBase from './ui/ModalBase';
+import HabiooLoader from './ui/HabiooLoader';
 import habiooIsoHabioBlanco from '../assets/brand/habioo_iso_habio_blanco.svg';
 import {
   Bell,
@@ -186,6 +187,7 @@ const Layout: React.FC<LayoutProps> = () => {
   const [floatingNotifications, setFloatingNotifications] = useState<FloatingNotification[]>([]);
   const [sessionEndedModalOpen, setSessionEndedModalOpen] = useState<boolean>(false);
   const [sessionEndedMessage, setSessionEndedMessage] = useState<string>('Tu sesion se cerro. Inicia sesion nuevamente para continuar.');
+  const [routeTransitionLoading, setRouteTransitionLoading] = useState<boolean>(false);
   const seenNotificacionesRef = useRef<Record<number, string>>({});
   const notificacionesBootstrappedRef = useRef<boolean>(false);
   const seenPagosPendientesAdminRef = useRef<Set<number>>(new Set<number>());
@@ -196,6 +198,7 @@ const Layout: React.FC<LayoutProps> = () => {
   const juntaGeneralNotifsBootstrappedRef = useRef<boolean>(false);
   const buttonClickLockRef = useRef<WeakMap<HTMLButtonElement, number>>(new WeakMap<HTMLButtonElement, number>());
   const formSubmitLockRef = useRef<WeakMap<HTMLFormElement, number>>(new WeakMap<HTMLFormElement, number>());
+  const lastPathRef = useRef<string>('');
   const location = useLocation();
   const navigate = useNavigate();
   // Detecta si estamos dentro de una sesión de soporte con condominioId en la URL
@@ -320,6 +323,19 @@ const Layout: React.FC<LayoutProps> = () => {
     else document.documentElement.classList.remove('dark');
     localStorage.theme = theme;
   }, [theme]);
+
+  useEffect(() => {
+    const currentPath = `${location.pathname}${location.search}`;
+    if (!lastPathRef.current) {
+      lastPathRef.current = currentPath;
+      return;
+    }
+    if (lastPathRef.current === currentPath) return;
+    lastPathRef.current = currentPath;
+    setRouteTransitionLoading(true);
+    const timer = window.setTimeout(() => setRouteTransitionLoading(false), 280);
+    return () => window.clearTimeout(timer);
+  }, [location.pathname, location.search]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -901,7 +917,9 @@ const Layout: React.FC<LayoutProps> = () => {
     formSubmitLockRef.current.set(form, now);
   };
 
-  if (!user) return null;
+  if (!user) {
+    return <HabiooLoader fullscreen size="md" message="Cargando registros..." />;
+  }
 
   const displayName = String(headerDisplayName || user.nombre || 'Usuario').trim() || 'Usuario';
   const esJuntaGeneral = String(condominioTipo || '').trim().toLowerCase() === 'junta general';
@@ -1141,7 +1159,15 @@ const Layout: React.FC<LayoutProps> = () => {
             </header>
           )}
 
-          <Outlet context={{ user, userRole, misPropiedades, propiedadActiva, condominioTipo }} />
+          <div className="relative min-h-[220px]">
+            {routeTransitionLoading ? (
+              <div className="flex min-h-[52vh] items-center justify-center rounded-2xl border border-emerald-100/80 bg-white/80 dark:border-emerald-900/40 dark:bg-gray-900/40">
+                <HabiooLoader size="md" message="Cargando sección..." className="py-0" />
+              </div>
+            ) : (
+              <Outlet context={{ user, userRole, misPropiedades, propiedadActiva, condominioTipo }} />
+            )}
+          </div>
         </div>
       </main>
 

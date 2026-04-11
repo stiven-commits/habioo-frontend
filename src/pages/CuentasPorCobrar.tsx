@@ -7,6 +7,7 @@ import { toYmdVE } from '../utils/datetime';
 import { API_BASE_URL } from '../config/api';
 import ModalBase from '../components/ui/ModalBase';
 import DataTable from '../components/ui/DataTable';
+import HabiooLoader from '../components/ui/HabiooLoader';
 import ModalRegistrarPago, { BANCOS_VENEZUELA } from '../components/ModalRegistrarPago';
 import { ModalEstadoCuenta } from '../components/propiedades/PropiedadesModals';
 import FormField from '../components/ui/FormField';
@@ -769,7 +770,13 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
   });
 
   if (userRole !== 'Administrador') return <p className="p-6">No tienes permisos.</p>;
-  if (loading) return <p className="text-gray-500 dark:text-gray-400">Cargando cuentas por cobrar...</p>;
+  if (loading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <HabiooLoader size="md" message="" className="py-0" />
+      </div>
+    );
+  }
 
   if (isJuntaGeneral) {
     return (

@@ -3,6 +3,7 @@ import type { FC, MouseEvent as ReactMouseEvent, ChangeEvent } from 'react';
 import DataTable from '../components/ui/DataTable';
 import DateRangePicker from '../components/ui/DateRangePicker';
 import PageHeader from '../components/ui/PageHeader';
+import HabiooLoader from '../components/ui/HabiooLoader';
 import { es } from 'date-fns/locale/es';
 import { useOutletContext } from 'react-router-dom';
 import DropdownMenu from '../components/ui/DropdownMenu';
@@ -763,7 +764,7 @@ const Gastos: FC<GastosProps> = () => {
 
         <div className="p-6">
           {loading ? (
-            <p className="text-gray-500 dark:text-gray-400">Cargando...</p>
+            <HabiooLoader size="sm" message="" className="min-h-[180px] py-0" />
           ) : filteredGastos.length === 0 ? (
             <p className="text-gray-500 text-center py-8 dark:text-gray-400">No se encontraron gastos.</p>
           ) : (

@@ -2,6 +2,7 @@
 import type { FC, ChangeEvent } from 'react';
 import DataTable from '../components/ui/DataTable';
 import DateRangePicker from '../components/ui/DateRangePicker';
+import HabiooLoader from '../components/ui/HabiooLoader';
 import { es } from 'date-fns/locale/es';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { API_BASE_URL } from '../config/api';
@@ -523,7 +524,7 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
 
         <div className="p-6">
           {loading ? (
-            <p className="text-gray-500 dark:text-gray-400">Cargando...</p>
+            <HabiooLoader size="sm" message="" className="min-h-[180px] py-0" />
           ) : recibosFiltrados.length === 0 ? (
             <p className="text-gray-500 text-center py-4 dark:text-gray-400">No hay recibos para esos filtros.</p>
           ) : (

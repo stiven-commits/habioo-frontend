@@ -5,6 +5,7 @@ import { formatMoney } from '../utils/currency';
 import { useDialog } from '../components/ui/DialogProvider';
 import { API_BASE_URL } from '../config/api';
 import DataTable from '../components/ui/DataTable';
+import HabiooLoader from '../components/ui/HabiooLoader';
 
 interface CierresProps {}
 
@@ -399,7 +400,13 @@ const Cierres: FC<CierresProps> = () => {
   const montoSimuladoUsd = toNumber(calcularProyeccion());
   const montoSimuladoBs = montoSimuladoUsd * (tasaBcvHoy || 0);
 
-  if (loading) return <p className="p-6 text-gray-500 dark:text-gray-400">Cargando datos contables...</p>;
+  if (loading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <HabiooLoader size="md" message="" className="py-0" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 relative">
