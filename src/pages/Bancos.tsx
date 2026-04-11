@@ -42,6 +42,7 @@ const Bancos: FC = () => {
   const [selectedBancoForFondos, setSelectedBancoForFondos] = useState<Banco | null>(null);
   const [fondosRefreshKey, setFondosRefreshKey] = useState<number>(0);
   const [bancoToEdit, setBancoToEdit] = useState<Banco | null>(null);
+  const [isFormModalOpen, setIsFormModalOpen] = useState<boolean>(false);
 
   // ─── Data Fetching ──────────────────────────────────────────────────────
 
@@ -88,17 +89,21 @@ const Bancos: FC = () => {
 
   const handleOpenCreateModal = useCallback((): void => {
     setBancoToEdit(null);
+    setIsFormModalOpen(true);
   }, []);
 
   const handleOpenEditModal = useCallback((banco: Banco): void => {
     setBancoToEdit(banco);
+    setIsFormModalOpen(true);
   }, []);
 
   const handleCloseFormModal = useCallback((): void => {
+    setIsFormModalOpen(false);
     setBancoToEdit(null);
   }, []);
 
   const handleSuccessForm = useCallback((): Promise<void> => {
+    setIsFormModalOpen(false);
     setBancoToEdit(null);
     return fetchData();
   }, [fetchData]);
@@ -268,7 +273,7 @@ const Bancos: FC = () => {
       )}
 
       {/* Create/Edit Modal */}
-      {bancoToEdit !== null && (
+      {isFormModalOpen && (
         <BancoFormModal
           bancoEditar={bancoToEdit}
           onClose={handleCloseFormModal}

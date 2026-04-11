@@ -210,27 +210,47 @@ const parseNotaToFields = (nota?: string): {
   nota: string;
   cuotas_historicas: string;
   monto_historico_proveedor_usd: string;
+  monto_historico_proveedor_bs: string;
   monto_historico_recaudado_usd: string;
+  monto_historico_recaudado_bs: string;
+  historico_en_cuenta: boolean;
+  historico_cuenta_bancaria_id: string;
+  historico_fondo_id: string;
   tasa_historica: string;
   es_historico: boolean;
 } => {
   const raw = String(nota || '').trim();
-  if (!raw) return { numero_documento: '', nota: '', cuotas_historicas: '0', monto_historico_proveedor_usd: '', monto_historico_recaudado_usd: '', tasa_historica: '', es_historico: false };
+  if (!raw) return { numero_documento: '', nota: '', cuotas_historicas: '0', monto_historico_proveedor_usd: '', monto_historico_proveedor_bs: '', monto_historico_recaudado_usd: '', monto_historico_recaudado_bs: '', historico_en_cuenta: false, historico_cuenta_bancaria_id: '', historico_fondo_id: '', tasa_historica: '', es_historico: false };
   const cuotasMatch = raw.match(/\[hist\.cuotas:(\d+)\]/i);
   const proveedorUsdMatch = raw.match(/\[hist\.proveedor_usd:([0-9]+(?:\.[0-9]+)?)\]/i);
+  const proveedorBsMatch = raw.match(/\[hist\.proveedor_bs:([0-9]+(?:\.[0-9]+)?)\]/i);
   const recaudadoUsdMatch = raw.match(/\[hist\.recaudado_usd:([0-9]+(?:\.[0-9]+)?)\]/i);
+  const recaudadoBsMatch = raw.match(/\[hist\.recaudado_bs:([0-9]+(?:\.[0-9]+)?)\]/i);
+  const histBankCuentaMatch = raw.match(/\[hist\.bank_cuenta_id:(\d+)\]/i);
+  const histBankFondoMatch = raw.match(/\[hist\.bank_fondo_id:(\d+)\]/i);
   const tasaHistoricaMatch = raw.match(/\[hist\.tasa:([0-9]+(?:\.[0-9]+)?)\]/i);
+  const histBankEnabled = /\[hist\.bank_enabled:1\]/i.test(raw);
   const esHistorico = /\[hist\.no_aviso:1\]/i.test(raw);
   const clean = raw
     .replace(/\s*\|\s*\[hist\.cuotas:\d+\]/gi, '')
     .replace(/\s*\|\s*\[hist\.proveedor_usd:[0-9]+(?:\.[0-9]+)?\]/gi, '')
+    .replace(/\s*\|\s*\[hist\.proveedor_bs:[0-9]+(?:\.[0-9]+)?\]/gi, '')
     .replace(/\s*\|\s*\[hist\.recaudado_usd:[0-9]+(?:\.[0-9]+)?\]/gi, '')
+    .replace(/\s*\|\s*\[hist\.recaudado_bs:[0-9]+(?:\.[0-9]+)?\]/gi, '')
     .replace(/\s*\|\s*\[hist\.tasa:[0-9]+(?:\.[0-9]+)?\]/gi, '')
+    .replace(/\s*\|\s*\[hist\.bank_enabled:1\]/gi, '')
+    .replace(/\s*\|\s*\[hist\.bank_cuenta_id:\d+\]/gi, '')
+    .replace(/\s*\|\s*\[hist\.bank_fondo_id:\d+\]/gi, '')
     .replace(/\s*\|\s*\[hist\.no_aviso:1\]/gi, '')
     .replace(/\[hist\.cuotas:\d+\]/gi, '')
     .replace(/\[hist\.proveedor_usd:[0-9]+(?:\.[0-9]+)?\]/gi, '')
+    .replace(/\[hist\.proveedor_bs:[0-9]+(?:\.[0-9]+)?\]/gi, '')
     .replace(/\[hist\.recaudado_usd:[0-9]+(?:\.[0-9]+)?\]/gi, '')
+    .replace(/\[hist\.recaudado_bs:[0-9]+(?:\.[0-9]+)?\]/gi, '')
     .replace(/\[hist\.tasa:[0-9]+(?:\.[0-9]+)?\]/gi, '')
+    .replace(/\[hist\.bank_enabled:1\]/gi, '')
+    .replace(/\[hist\.bank_cuenta_id:\d+\]/gi, '')
+    .replace(/\[hist\.bank_fondo_id:\d+\]/gi, '')
     .replace(/\[hist\.no_aviso:1\]/gi, '')
     .trim();
   const match = clean.match(/^Nro\.\s*recibo\/factura:\s*([^|]+?)(?:\s*\|\s*(.*))?$/i);
@@ -240,7 +260,12 @@ const parseNotaToFields = (nota?: string): {
       nota: clean,
       cuotas_historicas: cuotasMatch?.[1] || '0',
       monto_historico_proveedor_usd: proveedorUsdMatch?.[1] ? formatMoney(Number(proveedorUsdMatch[1])) : '',
+      monto_historico_proveedor_bs: proveedorBsMatch?.[1] ? formatMoney(Number(proveedorBsMatch[1])) : '',
       monto_historico_recaudado_usd: recaudadoUsdMatch?.[1] ? formatMoney(Number(recaudadoUsdMatch[1])) : '',
+      monto_historico_recaudado_bs: recaudadoBsMatch?.[1] ? formatMoney(Number(recaudadoBsMatch[1])) : '',
+      historico_en_cuenta: histBankEnabled,
+      historico_cuenta_bancaria_id: histBankCuentaMatch?.[1] || '',
+      historico_fondo_id: histBankFondoMatch?.[1] || '',
       tasa_historica: tasaHistoricaMatch?.[1] ? formatMoney(Number(tasaHistoricaMatch[1]), 3) : '',
       es_historico: esHistorico,
     };
@@ -250,7 +275,12 @@ const parseNotaToFields = (nota?: string): {
     nota: String(match[2] || '').trim(),
     cuotas_historicas: cuotasMatch?.[1] || '0',
     monto_historico_proveedor_usd: proveedorUsdMatch?.[1] ? formatMoney(Number(proveedorUsdMatch[1])) : '',
+    monto_historico_proveedor_bs: proveedorBsMatch?.[1] ? formatMoney(Number(proveedorBsMatch[1])) : '',
     monto_historico_recaudado_usd: recaudadoUsdMatch?.[1] ? formatMoney(Number(recaudadoUsdMatch[1])) : '',
+    monto_historico_recaudado_bs: recaudadoBsMatch?.[1] ? formatMoney(Number(recaudadoBsMatch[1])) : '',
+    historico_en_cuenta: histBankEnabled,
+    historico_cuenta_bancaria_id: histBankCuentaMatch?.[1] || '',
+    historico_fondo_id: histBankFondoMatch?.[1] || '',
     tasa_historica: tasaHistoricaMatch?.[1] ? formatMoney(Number(tasaHistoricaMatch[1]), 3) : '',
     es_historico: esHistorico,
   };
@@ -933,6 +963,8 @@ const Gastos: FC<GastosProps> = () => {
           proveedores={proveedores}
           zonas={zonas}
           propiedades={propiedades}
+          bancos={bancos}
+          fondos={fondos}
           mode={gastoEnEdicion ? 'edit' : 'create'}
           gastoId={gastoEnEdicion?.gasto_id ?? null}
           existingFacturaUrl={gastoEnEdicion?.factura_img || null}
@@ -945,7 +977,9 @@ const Gastos: FC<GastosProps> = () => {
                     ? toNumber(notaFields.tasa_historica)
                     : toNumber(gastoEnEdicion.tasa_cambio);
                   const montoHistProveedorUsdNum = toNumber(notaFields.monto_historico_proveedor_usd);
+                  const montoHistProveedorBsNum = toNumber(notaFields.monto_historico_proveedor_bs);
                   const montoHistRecaudadoUsdNum = toNumber(notaFields.monto_historico_recaudado_usd);
+                  const montoHistRecaudadoBsNum = toNumber(notaFields.monto_historico_recaudado_bs);
                   return {
                     proveedor_id: String(gastoEnEdicion.proveedor_id || gastoEnEdicion.cuotas[0]?.proveedor_id || ''),
                     concepto: String(gastoEnEdicion.concepto || ''),
@@ -955,8 +989,13 @@ const Gastos: FC<GastosProps> = () => {
                     total_cuotas: String(gastoEnEdicion.total_cuotas || 1),
                     nota: notaFields.nota,
                     cuotas_historicas: notaFields.cuotas_historicas,
-                    monto_historico_proveedor_bs: formatMoney(tasaHistoricaNum > 0 ? (montoHistProveedorUsdNum * tasaHistoricaNum) : 0),
-                    monto_historico_recaudado_bs: formatMoney(tasaHistoricaNum > 0 ? (montoHistRecaudadoUsdNum * tasaHistoricaNum) : 0),
+                    monto_historico_proveedor_usd: montoHistProveedorUsdNum > 0 ? formatMoney(montoHistProveedorUsdNum) : '',
+                    monto_historico_proveedor_bs: montoHistProveedorBsNum > 0 ? formatMoney(montoHistProveedorBsNum) : formatMoney(tasaHistoricaNum > 0 ? (montoHistProveedorUsdNum * tasaHistoricaNum) : 0),
+                    monto_historico_recaudado_usd: montoHistRecaudadoUsdNum > 0 ? formatMoney(montoHistRecaudadoUsdNum) : '',
+                    monto_historico_recaudado_bs: montoHistRecaudadoBsNum > 0 ? formatMoney(montoHistRecaudadoBsNum) : formatMoney(tasaHistoricaNum > 0 ? (montoHistRecaudadoUsdNum * tasaHistoricaNum) : 0),
+                    historico_en_cuenta: notaFields.historico_en_cuenta,
+                    historico_cuenta_bancaria_id: notaFields.historico_cuenta_bancaria_id,
+                    historico_fondo_id: notaFields.historico_fondo_id,
                     tasa_historica: tasaHistoricaNum > 0 ? formatMoney(tasaHistoricaNum, 3) : '',
                     es_historico: notaFields.es_historico,
                     clasificacion: String(gastoEnEdicion.clasificacion || 'Variable') === 'Fijo' ? 'Fijo' : 'Variable',
