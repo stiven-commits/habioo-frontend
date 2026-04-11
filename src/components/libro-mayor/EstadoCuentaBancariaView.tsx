@@ -660,15 +660,16 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
 
   const movimientosConApertura = useMemo(() => {
     const base = [...movimientosFiltrados];
+    const todos = [...movimientos];
 
     const fondosConAperturaRegistrada = new Set<number>(
-      base
+      todos
         .filter((mov) => Boolean(mov.es_apertura))
         .map((mov) => toNullableInt((mov as { fondo_id?: unknown }).fondo_id))
         .filter((id): id is number => id !== null)
     );
     const fondosConAperturaPorNombre = new Set<string>(
-      base
+      todos
         .filter((mov) => Boolean(mov.es_apertura))
         .map((mov) => {
           const match = String(mov.concepto || '').match(/fondo:\s*([^|]+)/i);
@@ -687,8 +688,18 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       const fondoNombreNorm = String(fondo.nombre || '').trim().toLowerCase();
       if (fondoNombreNorm && fondosConAperturaPorNombre.has(fondoNombreNorm)) continue;
 
-      const saldoRaw = toNumber((fondo as { saldo_actual?: unknown }).saldo_actual ?? 0);
-      if (Math.abs(saldoRaw) < 0.005) continue;
+      const saldoActual = toNumber((fondo as { saldo_actual?: unknown }).saldo_actual ?? 0);
+      const movimientosFondo = todos.filter(
+        (mov) => toNullableInt((mov as { fondo_id?: unknown }).fondo_id) === fondoId && !Boolean(mov.es_apertura)
+      );
+      const netoSinApertura = movimientosFondo.reduce((acc, mov) => {
+        const monto = toNumber(mov.monto_bs ?? 0);
+        if (monto < 0) return acc + monto;
+        const esEgreso = String(mov.tipo || '').toUpperCase() === 'EGRESO';
+        return acc + (esEgreso ? -Math.abs(monto) : Math.abs(monto));
+      }, 0);
+      const saldoRaw = saldoActual - netoSinApertura;
+      if (Math.abs(saldoRaw) < 0.005 && Math.abs(saldoActual) < 0.005) continue;
 
       const moneda = String(fondo.moneda || '').toUpperCase();
       const esBs = ['BS', 'BS.'].includes(moneda);
@@ -722,7 +733,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     }
 
     return [...base, ...aperturaSintetica];
-  }, [movimientosFiltrados, fondosCuenta, tasaBcvNum]);
+  }, [movimientosFiltrados, movimientos, fondosCuenta, tasaBcvNum]);
 
   const movimientosCuentaConsolidados = useMemo(() => {
     const movimientosDirectos: IMovimiento[] = [];
