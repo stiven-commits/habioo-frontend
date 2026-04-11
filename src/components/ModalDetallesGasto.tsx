@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import type { FC } from 'react';
 import { formatMoney } from '../utils/currency';
 import { formatDateVE } from '../utils/datetime';
@@ -18,6 +18,7 @@ interface GastoDetalle {
   monto_bs: string | number;
   tasa_cambio: string | number;
   monto_total_usd: string | number;
+  monto_pagado_proveedor_usd?: string | number;
   monto_recaudado_usd?: string | number;
   factura_img?: string;
   imagenes?: string[] | string;
@@ -42,11 +43,28 @@ interface PagoDetalle {
   es_ajuste_historico?: boolean | null;
 }
 
+interface HistPagadoRow {
+  fondo_id?: string | number;
+  monto_usd?: string | number;
+  monto_bs?: string | number;
+  fecha_operacion?: string;
+}
+
 interface PagosDetalleResponse {
   status: string;
   pagos?: PagoDetalle[];
   message?: string;
   error?: string;
+}
+
+interface FondoLite {
+  id: number | string;
+  nombre: string;
+}
+
+interface FondosResponse {
+  status: string;
+  fondos?: FondoLite[];
 }
 
 const toNumber = (value: string | number | null | undefined): number => parseFloat(String(value ?? 0)) || 0;
@@ -76,9 +94,11 @@ const ModalDetallesGasto: FC<ModalDetallesGastoProps> = ({ gasto, onClose }) => 
   const [pagosError, setPagosError] = useState<string>('');
   const [pagosRecaudacion, setPagosRecaudacion] = useState<PagoDetalle[]>([]);
   const [currentPagePagos, setCurrentPagePagos] = useState<number>(1);
+  const [fondosCatalogo, setFondosCatalogo] = useState<FondoLite[]>([]);
 
   const isExtra = String(gasto?.tipo || '').trim().toLowerCase() === 'extra';
   const montoRecaudado = toNumber(gasto?.monto_recaudado_usd);
+  const montoPagado = toNumber(gasto?.monto_pagado_proveedor_usd);
 
   const isPdf = (path: string): boolean => /\.pdf($|\?)/i.test(path);
   const getFileUrl = (path: string): string => {
@@ -90,13 +110,25 @@ const ModalDetallesGasto: FC<ModalDetallesGastoProps> = ({ gasto, onClose }) => 
   const notaRaw = String(gasto?.nota || '').trim();
   const cuotasHistoricasMatch = notaRaw.match(/\[hist\.cuotas:(\d+)\]/i);
   const pagoHistoricoMatch = notaRaw.match(/\[hist\.proveedor_usd:([0-9]+(?:\.[0-9]+)?)\]/i);
+  const pagoHistoricoBsMatch = notaRaw.match(/\[hist\.proveedor_bs:([0-9]+(?:\.[0-9]+)?)\]/i);
+  const pagadoRowsB64Match = notaRaw.match(/\[hist\.pagado_rows_b64:([A-Za-z0-9+/=_-]+)\]/i);
   const cuotasHistoricas = cuotasHistoricasMatch?.[1] ? parseInt(cuotasHistoricasMatch[1], 10) : 0;
   const pagoHistoricoProveedorUsd = pagoHistoricoMatch?.[1] ? Number(pagoHistoricoMatch[1]) : 0;
+  const pagoHistoricoProveedorBs = pagoHistoricoBsMatch?.[1] ? Number(pagoHistoricoBsMatch[1]) : 0;
+  const pagadoRowsHistoricos: HistPagadoRow[] = (() => {
+    if (!pagadoRowsB64Match?.[1]) return [];
+    try {
+      const parsed = JSON.parse(atob(pagadoRowsB64Match[1]));
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  })();
   const notaLimpia = notaRaw
-    .replace(/\s*\|\s*\[hist\.cuotas:\d+\]/gi, '')
-    .replace(/\s*\|\s*\[hist\.proveedor_usd:[0-9]+(?:\.[0-9]+)?\]/gi, '')
-    .replace(/\[hist\.cuotas:\d+\]/gi, '')
-    .replace(/\[hist\.proveedor_usd:[0-9]+(?:\.[0-9]+)?\]/gi, '')
+    .replace(/\s*\|\s*\[hist\.[^\]]+\]/gi, '')
+    .replace(/\[hist\.[^\]]+\]/gi, '')
+    .replace(/\s*\|\s*\|+/g, ' | ')
+    .replace(/^\s*\|\s*|\s*\|\s*$/g, '')
     .trim();
 
   const totalPagosTablaUsd = useMemo<number>(
@@ -149,6 +181,26 @@ const ModalDetallesGasto: FC<ModalDetallesGastoProps> = ({ gasto, onClose }) => 
   }, [gasto?.gasto_id, isExtra]);
 
   useEffect(() => {
+    const controller = new AbortController();
+    const run = async (): Promise<void> => {
+      try {
+        const token = localStorage.getItem('habioo_token');
+        const res = await fetch(`${API_BASE_URL}/fondos`, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+        });
+        const data: FondosResponse = await res.json();
+        if (!res.ok || data.status !== 'success') return;
+        setFondosCatalogo(Array.isArray(data.fondos) ? data.fondos : []);
+      } catch (error: unknown) {
+        if ((error as Error)?.name === 'AbortError') return;
+      }
+    };
+    run();
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
     setCurrentPagePagos(1);
   }, [gasto?.gasto_id, pagosRecaudacion.length]);
 
@@ -163,7 +215,7 @@ const ModalDetallesGasto: FC<ModalDetallesGastoProps> = ({ gasto, onClose }) => 
   return (
     <ModalBase onClose={onClose} title="Inspeccion de Gasto" maxWidth={isExtra ? 'max-w-7xl' : 'max-w-2xl'}>
       <div className={`grid grid-cols-1 ${isExtra ? 'xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] xl:gap-6' : ''}`}>
-        <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
+        <div className="space-y-3 pt-1 text-sm text-gray-600 dark:text-gray-300">
           <div className="flex justify-between items-start border-b border-gray-100 dark:border-gray-700 pb-3">
             <div>
               <p><strong className="text-gray-800 dark:text-white">Proveedor:</strong> <br />{gasto.proveedor}</p>
@@ -198,6 +250,21 @@ const ModalDetallesGasto: FC<ModalDetallesGastoProps> = ({ gasto, onClose }) => 
                     <strong>Pago historico al proveedor:</strong> ${formatMoney(pagoHistoricoProveedorUsd)}
                   </p>
                 )}
+                {pagoHistoricoProveedorBs > 0 && (
+                  <p>
+                    <strong>Pago historico al proveedor (Bs):</strong> Bs {formatMoney(pagoHistoricoProveedorBs)}
+                  </p>
+                )}
+                {pagadoRowsHistoricos.length > 0 && (
+                  <div className="space-y-1">
+                    {pagadoRowsHistoricos.map((row, idx) => (
+                      <p key={`hist-pagado-${idx}`}>
+                        <strong>Detalle pago histórico {idx + 1}:</strong>{' '}
+                        Fondo usado {fondosCatalogo.find((f) => String(f.id) === String(row.fondo_id || ''))?.nombre || `#${String(row.fondo_id || 'N/A')}`} | Fecha {row.fecha_operacion ? formatDateVE(row.fecha_operacion) : 'N/A'} | Bs {formatMoney(row.monto_bs || 0)}
+                      </p>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -214,7 +281,13 @@ const ModalDetallesGasto: FC<ModalDetallesGastoProps> = ({ gasto, onClose }) => 
             </p>
             {isExtra && (
               <p className="mt-2 flex justify-between items-center">
-                <strong>Recaudado (USD):</strong>
+                <strong>Monto Pagado (USD):</strong>
+                <span className="text-base font-black text-amber-600 dark:text-amber-400">${formatMoney(montoPagado)}</span>
+              </p>
+            )}
+            {isExtra && (
+              <p className="mt-2 flex justify-between items-center">
+                <strong>Recaudado hasta {formatDateVE(gasto.fecha_registro)} (USD):</strong>
                 <span className="text-base font-black text-sky-600 dark:text-sky-400">${formatMoney(montoRecaudado)}</span>
               </p>
             )}
@@ -262,7 +335,7 @@ const ModalDetallesGasto: FC<ModalDetallesGastoProps> = ({ gasto, onClose }) => 
           <aside className="mt-6 xl:mt-0 xl:border-l xl:border-gray-200 xl:dark:border-gray-700 xl:pl-6">
             <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/40">
               <div className="flex items-center justify-between text-xs uppercase tracking-wider text-slate-500 dark:text-slate-300">
-                <span>Pagos de recaudacion</span>
+                <span>Pagos de recaudacion nuevos</span>
                 <span>{pagosRecaudacion.length} registro{pagosRecaudacion.length === 1 ? '' : 's'}</span>
               </div>
               <div className="mt-2 flex items-center justify-between text-sm">
@@ -363,3 +436,4 @@ const ModalDetallesGasto: FC<ModalDetallesGastoProps> = ({ gasto, onClose }) => 
 };
 
 export default ModalDetallesGasto;
+

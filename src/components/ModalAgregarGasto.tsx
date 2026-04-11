@@ -7,6 +7,13 @@ import type { SearchableComboboxOption } from './ui/SearchableCombobox';
 import { es } from 'date-fns/locale/es';
 import { API_BASE_URL } from '../config/api';
 
+// Helper function for currency display
+const formatMoneyDisplay = (value: string | number): string => {
+  const parts = Number(value).toFixed(2).split('.');
+  parts[0] = (parts[0] ?? '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return parts.join(',');
+};
+
 interface ModalAgregarGastoProps {
   onClose: () => void;
   onSuccess: () => void;
@@ -56,6 +63,7 @@ interface Fondo {
   cuenta_bancaria_id: number | string;
   nombre_banco?: string;
   apodo?: string | null;
+  fecha_saldo?: string | null;
 }
 
 type AsignacionTipo = 'Comun' | 'Zona' | 'Individual' | 'Extra';
@@ -94,6 +102,7 @@ interface HistoricalOriginRow {
   fondo_id: string;
   monto_usd: string;
   monto_bs: string;
+  fecha_operacion: string;
 }
 
 interface ApiErrorResponse {
@@ -116,12 +125,21 @@ const dateToYmd = (date: Date | null): string => {
   return `${year}-${month}-${day}`;
 };
 
+const getTodayYmd = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const makeOriginRow = (): HistoricalOriginRow => ({
   id: `row_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
   cuenta_bancaria_id: '',
   fondo_id: '',
   monto_usd: '',
   monto_bs: '',
+  fecha_operacion: getTodayYmd(),
 });
 
 const roundTwo = (value: number): number => Math.round((Number(value) || 0) * 100) / 100;
@@ -166,9 +184,13 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
   const [loadingBCV, setLoadingBCV] = useState<boolean>(false);
   const [hasHistoricalContext, setHasHistoricalContext] = useState<boolean>(false);
   const [tipoRegistro, setTipoRegistro] = useState<TipoRegistroGasto>('nuevo');
-  const [isHistoricalModalOpen, setIsHistoricalModalOpen] = useState<boolean>(false);
   const [historicoPagadoRows, setHistoricoPagadoRows] = useState<HistoricalOriginRow[]>([]);
   const [historicoRecaudadoRows, setHistoricoRecaudadoRows] = useState<HistoricalOriginRow[]>([]);
+  const [tasaHistoricaDia, setTasaHistoricaDia] = useState<number>(0);
+  const [loadingTasaHistoricaDia, setLoadingTasaHistoricaDia] = useState<boolean>(false);
+  const [wizardStep, setWizardStep] = useState<1 | 2>(1); // Control del wizard: 1 = Datos básicos, 2 = Histórico
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({}); // Nuevo: errores de validación
+  const [fondosFechaSaldo, setFondosFechaSaldo] = useState<Map<string, string>>(new Map()); // fecha_saldo por fondo_id
   const facturaInputRef = React.useRef<HTMLInputElement | null>(null);
   const soportesInputRef = React.useRef<HTMLInputElement | null>(null);
 
@@ -200,6 +222,7 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
           fondo_id: String(r.fondo_id || ''),
           monto_usd: String(r.monto_usd || ''),
           monto_bs: String(r.monto_bs || ''),
+          fecha_operacion: String((r as { fecha_operacion?: string }).fecha_operacion || getTodayYmd()),
         }))
       : [];
     const initRecaudado = Array.isArray((initialValues as { historico_recaudado_origenes?: HistoricalOriginRow[] })?.historico_recaudado_origenes)
@@ -209,6 +232,7 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
           fondo_id: String(r.fondo_id || ''),
           monto_usd: String(r.monto_usd || ''),
           monto_bs: String(r.monto_bs || ''),
+          fecha_operacion: String((r as { fecha_operacion?: string }).fecha_operacion || getTodayYmd()),
         }))
       : [];
     setHistoricoPagadoRows(initPagado);
@@ -315,6 +339,10 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
         if (field === 'cuenta_bancaria_id') {
           return { ...row, cuenta_bancaria_id: value, fondo_id: '' };
         }
+        if (field === 'fondo_id' && value) {
+          // Fetch fecha_saldo cuando se selecciona un fondo
+          void fetchFondoFechaSaldo(value);
+        }
         return { ...row, [field]: value };
       });
     if (type === 'pagado') setHistoricoPagadoRows(updater);
@@ -338,10 +366,36 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
   }, [historicoPagadoRows]);
 
   const totalsRecaudado = useMemo(() => {
-    const usd = historicoRecaudadoRows.reduce((sum, row) => sum + parseInputNumber(row.monto_usd), 0);
     const bs = historicoRecaudadoRows.reduce((sum, row) => sum + parseInputNumber(row.monto_bs), 0);
+    const tasaRef = tasaHistoricaDia > 0 ? tasaHistoricaDia : parseInputNumber(form.tasa_cambio || '0');
+    const usd = tasaRef > 0 ? (bs / tasaRef) : 0;
     return { usd: roundTwo(usd), bs: roundTwo(bs) };
-  }, [historicoRecaudadoRows]);
+  }, [historicoRecaudadoRows, tasaHistoricaDia, form.tasa_cambio]);
+
+  // NUEVO: Validación en tiempo real
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    
+    if (!form.proveedor_id) errors.proveedor_id = 'Seleccione un proveedor';
+    if (!form.concepto.trim()) errors.concepto = 'Ingrese un concepto';
+    if (montoBsNum <= 0) errors.monto_bs = 'El monto debe ser mayor a 0';
+    if (tasaNum <= 0) errors.tasa_cambio = 'La tasa debe ser mayor a 0';
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // NUEVO: Avanzar al siguiente paso
+  const handleNextStep = (): void => {
+    if (validateForm()) {
+      setWizardStep(2);
+    }
+  };
+
+  // NUEVO: Retroceder al paso anterior
+  const handlePrevStep = (): void => {
+    setWizardStep(1);
+  };
 
   React.useEffect(() => {
     const cuotasSafe = tipoRegistro === 'historico'
@@ -384,16 +438,91 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
     [bancos]
   );
 
+  const fondoOptionsByCuenta = useMemo<Map<string, SearchableComboboxOption[]>>(() => {
+    const grouped = new Map<string, SearchableComboboxOption[]>();
+    for (const f of fondos || []) {
+      const cuentaId = String(f.cuenta_bancaria_id || '');
+      const moneda = String(f.moneda || '').toUpperCase();
+      const banco = String(f.nombre_banco || f.apodo || '');
+      const labelBase = `${f.nombre}${moneda ? ` (${moneda})` : ''}`;
+      const label = banco ? `${labelBase} - ${banco}` : labelBase;
+      const option: SearchableComboboxOption = {
+        value: String(f.id),
+        label,
+        searchText: `${f.nombre} ${moneda} ${banco}`,
+      };
+      const list = grouped.get(cuentaId) || [];
+      list.push(option);
+      grouped.set(cuentaId, list);
+    }
+    return grouped;
+  }, [fondos]);
+
   const getFondoOptionsByCuenta = (cuentaId: string): SearchableComboboxOption[] =>
-    (fondos || [])
-      .filter((f) => String(f.cuenta_bancaria_id) === String(cuentaId || ''))
-      .map((f) => {
-        const moneda = String(f.moneda || '').toUpperCase();
-        const banco = String(f.nombre_banco || f.apodo || '');
-        const labelBase = `${f.nombre}${moneda ? ` (${moneda})` : ''}`;
-        const label = banco ? `${labelBase} - ${banco}` : labelBase;
-        return { value: String(f.id), label, searchText: `${f.nombre} ${moneda} ${banco}` };
+    fondoOptionsByCuenta.get(String(cuentaId || '')) || [];
+
+  const getFondoById = (fondoId: string): Fondo | undefined =>
+    (fondos || []).find((f) => String(f.id) === String(fondoId || ''));
+
+  // Obtener fecha_saldo del fondo para validación de fechas
+  const fetchFondoFechaSaldo = async (fondoId: string): Promise<void> => {
+    if (!fondoId || fondosFechaSaldo.has(fondoId)) return;
+    try {
+      const token = localStorage.getItem('habioo_token');
+      const res = await fetch(`${API_BASE_URL}/fondos/${fondoId}`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
+      if (res.ok) {
+        const data: { fecha_saldo?: string | null } = await res.json();
+        if (data.fecha_saldo) {
+          setFondosFechaSaldo((prev) => new Map(prev).set(fondoId, data.fecha_saldo!));
+        }
+      }
+    } catch {
+      // Silently fail - date validation is optional
+    }
+  };
+
+  // Calcular fecha máxima para Pagado histórico: 1 día antes de fecha_saldo
+  const getPagadoMaxDate = (fondoId: string): Date | undefined => {
+    const fechaSaldo = fondosFechaSaldo.get(fondoId);
+    if (!fechaSaldo) return undefined;
+    const date = ymdToDate(fechaSaldo);
+    if (!date) return undefined;
+    date.setDate(date.getDate() - 1); // 1 día antes
+    return date;
+  };
+
+  // Calcular fecha mínima para Recaudado histórico: 1 día después de fecha_saldo
+  const getRecaudadoMinDate = (fondoId: string): Date | undefined => {
+    const fechaSaldo = fondosFechaSaldo.get(fondoId);
+    if (!fechaSaldo) return undefined;
+    const date = ymdToDate(fechaSaldo);
+    if (!date) return undefined;
+    date.setDate(date.getDate() + 1); // 1 día después
+    return date;
+  };
+
+  const fetchTasaHistoricaDia = async (): Promise<void> => {
+    setLoadingTasaHistoricaDia(true);
+    try {
+      const res = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
+      const data: { promedio?: number | string } = await res.json();
+      const rateNumber = parseFloat(String(data?.promedio ?? 0));
+      if (Number.isFinite(rateNumber) && rateNumber > 0) {
+        setTasaHistoricaDia(rateNumber);
+      }
+    } catch {
+      // fallback below
+    } finally {
+      setLoadingTasaHistoricaDia(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (wizardStep !== 2 || tipoRegistro !== 'historico') return;
+    void fetchTasaHistoricaDia();
+  }, [wizardStep, tipoRegistro]);
 
   // NUEVA FUNCION: Obtener Tasa del BCV Automaticamente
   const handleFetchBCV = async (): Promise<void> => {
@@ -420,6 +549,19 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
+    
+    // Validación en tiempo real
+    if (!validateForm()) {
+      return;
+    }
+    
+    // Si es gasto histórico y no se ha configurado, mostrar advertencia
+    if (tipoRegistro === 'historico' && !hasHistoricalContext) {
+      if (!window.confirm('No ha configurado los datos históricos. ¿Desea continuar solo con los datos básicos?')) {
+        return;
+      }
+    }
+    
     const token = localStorage.getItem('habioo_token');
     const montoCanonico = parseInputNumber(form.monto_bs);
     const tasaCanonica = parseInputNumber(form.tasa_cambio);
@@ -480,6 +622,11 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
       alert('En gasto histórico, las cuotas transcurridas deben igualar el total de cuotas.');
       return;
     }
+    // Para gasto nuevo, las cuotas históricas deben ser menores al total
+    if (tipoRegistro === 'nuevo' && cuotasHistoricasCanonico >= totalCuotasCanonico && hasHistoricalContext) {
+      alert('Para gasto nuevo, las cuotas históricas deben ser menores al total de cuotas.');
+      return;
+    }
     
     const formData = new FormData();
     (Object.keys(form) as Array<keyof FormState>).forEach((key: keyof FormState) => {
@@ -506,10 +653,12 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
             fondo_id: row.fondo_id || null,
             monto_usd: roundTwo(parseInputNumber(row.monto_usd)),
             monto_bs: roundTwo(parseInputNumber(row.monto_bs)),
+            fecha_operacion: row.fecha_operacion || getTodayYmd(),
           }))
           .filter((row) => row.monto_usd > 0 || row.monto_bs > 0)
       )
     );
+    const tasaHistoricaRef = tasaHistoricaDia > 0 ? tasaHistoricaDia : tasaCanonica;
     formData.append(
       'historico_recaudado_origenes',
       JSON.stringify(
@@ -517,10 +666,11 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
           .map((row) => ({
             cuenta_bancaria_id: row.cuenta_bancaria_id || null,
             fondo_id: row.fondo_id || null,
-            monto_usd: roundTwo(parseInputNumber(row.monto_usd)),
             monto_bs: roundTwo(parseInputNumber(row.monto_bs)),
+            monto_usd: tasaHistoricaRef > 0 ? roundTwo(parseInputNumber(row.monto_bs) / tasaHistoricaRef) : 0,
+            fecha_operacion: row.fecha_operacion || getTodayYmd(),
           }))
-          .filter((row) => row.monto_usd > 0 || row.monto_bs > 0)
+          .filter((row) => row.monto_bs > 0)
       )
     );
     
@@ -547,64 +697,183 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
 
   return (
     <ModalBase onClose={onClose} title={mode === 'edit' ? 'Editar Gasto' : 'Registrar Gasto'} maxWidth="max-w-6xl">
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          <div className="xl:col-span-2 rounded-2xl border border-indigo-300/80 bg-gradient-to-r from-indigo-50 via-blue-50 to-sky-50 p-4 shadow-sm dark:border-indigo-700/60 dark:from-indigo-900/30 dark:via-blue-900/20 dark:to-sky-900/20">
-            <label className="block text-sm font-bold text-indigo-800 dark:text-indigo-200 mb-2">
-              Tipo de registro
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setTipoRegistro('nuevo')}
-                className={`rounded-xl border px-4 py-3 text-left transition-all ${
-                  tipoRegistro === 'nuevo'
-                    ? 'border-emerald-500 bg-white text-emerald-700 shadow-md ring-2 ring-emerald-200 dark:bg-gray-800 dark:text-emerald-300 dark:ring-emerald-900/50'
-                    : 'border-indigo-200 bg-transparent text-indigo-700 hover:bg-white/70 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-gray-800/60'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-black">Gasto nuevo</p>
-                  {tipoRegistro === 'nuevo' && (
-                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-                      Activo
+      {/* PROGRESS STEPS PANEL - Estilo TailwindUI - Siempre visible */}
+      <div className="pt-3 mb-6">
+        <nav aria-label="Progress">
+          <ol className="flex items-center">
+            {/* PASO 1: Datos básicos */}
+            <li className={`relative pr-8 ${wizardStep > 1 ? '' : 'flex-1'}`}>
+              {wizardStep > 1 ? (
+                <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                  <div className="h-0.5 w-full bg-donezo-primary dark:bg-green-600" />
+                </div>
+              ) : wizardStep === 1 ? (
+                <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                  <div className="h-0.5 w-full bg-gray-200 dark:bg-gray-700" />
+                </div>
+              ) : null}
+              <div className="relative flex items-center gap-3">
+                <div className={`flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all duration-300 ${
+                  wizardStep > 1
+                    ? 'bg-donezo-primary border-donezo-primary dark:bg-green-600 dark:border-green-600'
+                    : wizardStep === 1
+                    ? 'border-donezo-primary bg-white dark:bg-gray-800'
+                    : 'border-gray-300 bg-white dark:bg-gray-800 dark:border-gray-600'
+                }`}>
+                  {wizardStep > 1 ? (
+                    <svg className="h-6 w-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                    </svg>
+                  ) : (
+                    <span className={`text-sm font-bold ${wizardStep === 1 ? 'text-donezo-primary dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                      01
                     </span>
                   )}
                 </div>
-                <p className="mt-1 text-xs font-semibold opacity-90">Se incluye en avisos de cobro y funciona como hasta ahora.</p>
-              </button>
-              <button
-                type="button"
-                onClick={() => setTipoRegistro('historico')}
-                className={`rounded-xl border px-4 py-3 text-left transition-all ${
-                  tipoRegistro === 'historico'
-                    ? 'border-amber-500 bg-white text-amber-800 shadow-md ring-2 ring-amber-200 dark:bg-gray-800 dark:text-amber-300 dark:ring-amber-900/50'
-                    : 'border-indigo-200 bg-transparent text-indigo-700 hover:bg-white/70 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-gray-800/60'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-black">Gasto histórico</p>
-                  {tipoRegistro === 'historico' && (
-                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
-                      Activo
+                <div className="flex flex-col">
+                  <span className={`text-sm font-bold ${wizardStep >= 1 ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
+                    Datos básicos
+                  </span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    Información del gasto
+                  </span>
+                </div>
+              </div>
+            </li>
+
+            {/* PASO 2: Configuración histórica */}
+            <li className={`relative pr-8 ${wizardStep >= 2 ? 'flex-1' : ''}`}>
+              {wizardStep >= 2 ? (
+                <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                  <div className="h-0.5 w-full bg-donezo-primary dark:bg-green-600" />
+                </div>
+              ) : (
+                <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                  <div className="h-0.5 w-full bg-gray-200 dark:bg-gray-700" />
+                </div>
+              )}
+              <div className="relative flex items-center gap-3">
+                <div className={`flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all duration-300 ${
+                  wizardStep > 2
+                    ? 'bg-donezo-primary border-donezo-primary dark:bg-green-600 dark:border-green-600'
+                    : wizardStep === 2
+                    ? 'border-donezo-primary bg-white dark:bg-gray-800'
+                    : 'border-gray-300 bg-white dark:bg-gray-800 dark:border-gray-600'
+                }`}>
+                  {wizardStep > 2 ? (
+                    <svg className="h-6 w-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                    </svg>
+                  ) : (
+                    <span className={`text-sm font-bold ${wizardStep === 2 ? 'text-donezo-primary dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                      02
                     </span>
                   )}
                 </div>
-                <p className="mt-1 text-xs font-semibold opacity-90">No se reflejará en avisos de cobro. Queda para control histórico y recaudación manual.</p>
-              </button>
-            </div>
+                <div className="flex flex-col">
+                  <span className={`text-sm font-bold ${wizardStep >= 2 ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
+                    Histórico
+                  </span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    Configuración avanzada
+                  </span>
+                </div>
+              </div>
+            </li>
+          </ol>
+        </nav>
+      </div>
+
+      {/* SEPARADOR */}
+      <div className="border-t border-gray-200 dark:border-gray-700 mb-6" />
+
+      <form onSubmit={tipoRegistro === 'historico' && wizardStep === 1 ? undefined : handleSubmit} className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {/* TIPO DE REGISTRO - Siempre visible en ambos pasos */}
+        <div className="xl:col-span-2 rounded-2xl border border-indigo-300/80 bg-gradient-to-r from-indigo-50 via-blue-50 to-sky-50 p-4 shadow-sm dark:border-indigo-700/60 dark:from-indigo-900/30 dark:via-blue-900/20 dark:to-sky-900/20">
+          <label className="block text-sm font-bold text-indigo-800 dark:text-indigo-200 mb-2">
+            Tipo de registro
+          </label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setTipoRegistro('nuevo');
+                setHasHistoricalContext(false);
+                setWizardStep(1);
+              }}
+              className={`rounded-xl border px-4 py-3 text-left transition-all ${
+                tipoRegistro === 'nuevo'
+                  ? 'border-emerald-500 bg-white text-emerald-700 shadow-md ring-2 ring-emerald-200 dark:bg-gray-800 dark:text-emerald-300 dark:ring-emerald-900/50'
+                  : 'border-indigo-200 bg-transparent text-indigo-700 hover:bg-white/70 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-gray-800/60'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-black">Gasto nuevo</p>
+                {tipoRegistro === 'nuevo' && (
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                    Activo
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-xs font-semibold opacity-90">Se incluye en avisos de cobro y funciona como hasta ahora.</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTipoRegistro('historico');
+                setHasHistoricalContext(true);
+                setWizardStep(1);
+              }}
+              className={`rounded-xl border px-4 py-3 text-left transition-all ${
+                tipoRegistro === 'historico'
+                  ? 'border-amber-500 bg-white text-amber-800 shadow-md ring-2 ring-amber-200 dark:bg-gray-800 dark:text-amber-300 dark:ring-amber-900/50'
+                  : 'border-indigo-200 bg-transparent text-indigo-700 hover:bg-white/70 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-gray-800/60'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-black">Gasto histórico</p>
+                {tipoRegistro === 'historico' && (
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                    Activo
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-xs font-semibold opacity-90">No se reflejará en avisos de cobro. Queda para control histórico y recaudación manual.</p>
+            </button>
           </div>
+        </div>
+
+        {/* PASO 1: DATOS BÁSICOS */}
+        {wizardStep === 1 && (
+          <>
           <div className="xl:col-span-1">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Proveedor <span className="text-red-500">*</span></label>
-            <select name="proveedor_id" value={form.proveedor_id} onChange={handleChange} required className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white">
+            <select name="proveedor_id" value={form.proveedor_id} onChange={handleChange} required className={`w-full p-3 bg-gray-50 dark:bg-gray-800 border rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white ${validationErrors.proveedor_id ? 'border-red-500 bg-red-50 dark:bg-red-900/10' : 'border-gray-200 dark:border-gray-700'}`}>
               <option value="">Seleccione...</option>
               {proveedores.map((p: Proveedor) => <option key={p.id} value={p.id}>{p.nombre} ({p.identificador})</option>)}
             </select>
+            {validationErrors.proveedor_id && (
+              <p className="mt-1 text-xs text-red-600 dark:text-red-400">{validationErrors.proveedor_id}</p>
+            )}
           </div>
 
           <div className="xl:col-span-1 grid grid-cols-1 md:grid-cols-3 gap-5">
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Concepto <span className="text-red-500">*</span></label>
-              <input type="text" name="concepto" value={form.concepto} onChange={handleChange} placeholder="Ej: Reparación de tubería..." required className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" />
+              <input
+                type="text"
+                name="concepto"
+                value={form.concepto}
+                onChange={handleChange}
+                placeholder="Ej: Reparación de tubería..."
+                required
+                className={`w-full p-3 bg-gray-50 dark:bg-gray-800 border rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white ${
+                  validationErrors.concepto ? 'border-red-500 bg-red-50 dark:bg-red-900/10' : 'border-gray-200 dark:border-gray-700'
+                }`}
+              />
+              {validationErrors.concepto && (
+                <p className="mt-1 text-xs text-red-600 dark:text-red-400">{validationErrors.concepto}</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha factura / recibo</label>
@@ -653,23 +922,38 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
           <div className="xl:col-span-1 grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Monto (Bs) <span className="text-red-500">*</span></label>
-              <input type="text" name="monto_bs" value={form.monto_bs} onChange={handleMonedaChange} placeholder="0,00" required className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono text-lg" />
+              <input 
+                type="text" 
+                name="monto_bs" 
+                value={form.monto_bs} 
+                onChange={handleMonedaChange} 
+                placeholder="0,00" 
+                required 
+                className={`w-full p-3 bg-gray-50 dark:bg-gray-800 border rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono text-lg ${validationErrors.monto_bs ? 'border-red-500 bg-red-50 dark:bg-red-900/10' : 'border-gray-200 dark:border-gray-700'}`} 
+              />
+              {validationErrors.monto_bs && (
+                <p className="mt-1 text-xs text-red-600 dark:text-red-400">{validationErrors.monto_bs}</p>
+              )}
             </div>
-            
+
             {/* SECCION ACTUALIZADA CON EL BOTON BCV */}
             <div>
               <div className="flex justify-between items-end mb-1">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tasa BCV <span className="text-red-500">*</span></label>
               </div>
               <div className="flex gap-2">
-                <input 
-                  type="text" name="tasa_cambio" value={form.tasa_cambio} onChange={handleMonedaChange} 
-                  placeholder="0,00" required 
-                  className="w-full max-w-[190px] p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono text-lg" 
+                <input
+                  type="text" 
+                  name="tasa_cambio" 
+                  value={form.tasa_cambio} 
+                  onChange={handleMonedaChange}
+                  placeholder="0,00" 
+                  required
+                  className={`w-full max-w-[190px] p-3 bg-gray-50 dark:bg-gray-800 border rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono text-lg ${validationErrors.tasa_cambio ? 'border-red-500 bg-red-50 dark:bg-red-900/10' : 'border-gray-200 dark:border-gray-700'}`}
                 />
-                <button 
-                  type="button" 
-                  onClick={handleFetchBCV} 
+                <button
+                  type="button"
+                  onClick={handleFetchBCV}
                   disabled={loadingBCV}
                   title="Obtener tasa oficial del BCV actual"
                   className="bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 dark:bg-blue-900/30 dark:border-blue-800/50 dark:text-blue-400 dark:hover:bg-blue-900/50 w-[92px] h-[50px] rounded-xl font-bold transition-all shadow-sm inline-flex items-center justify-center gap-2 disabled:opacity-50 shrink-0"
@@ -702,13 +986,24 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                   )}
                 </button>
               </div>
+              {validationErrors.tasa_cambio && (
+                <p className="mt-1 text-xs text-red-600 dark:text-red-400">{validationErrors.tasa_cambio}</p>
+              )}
             </div>
             {/* FIN SECCION BCV */}
 
+            {/* EQUIVALENTE USD MEJORADO */}
             <div className="md:col-span-2 flex justify-end -mt-3 mb-2">
-                <span className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 px-4 py-1.5 rounded-lg text-sm font-bold shadow-sm border border-green-200 dark:border-green-800/50">
-                  Equivalente: ${formatMoneyDisplay(equivalenteUSD)} USD
-                </span>
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-800/50 px-4 py-2 rounded-xl shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-sm font-bold text-green-800 dark:text-green-300">
+                      Equivalente: ${formatMoneyDisplay(equivalenteUSD)} USD
+                    </span>
+                  </div>
+                </div>
             </div>
           </div>
 
@@ -752,32 +1047,8 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
             <textarea name="nota" value={form.nota} onChange={handleChange} placeholder="Detalles adicionales..." rows={2} className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" />
           </div>
 
-          <div className="xl:col-span-1 grid grid-cols-1 gap-3 p-4 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-200 dark:border-amber-800/40">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-bold text-amber-900 dark:text-amber-300">Configuración histórica</p>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!hasHistoricalContext) setHasHistoricalContext(true);
-                  setIsHistoricalModalOpen(true);
-                }}
-                className="rounded-lg bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-800 transition-colors hover:bg-amber-200 dark:bg-amber-900/50 dark:text-amber-300 dark:hover:bg-amber-900/70"
-              >
-                Configurar histórico
-              </button>
-            </div>
-            {hasHistoricalContext ? (
-              <div className="rounded-xl border border-amber-300/60 bg-white/70 px-3 py-2 text-xs font-semibold text-amber-900 dark:border-amber-700/40 dark:bg-gray-900/30 dark:text-amber-200">
-                <p>Cuotas históricas: {cuotasHistoricasNum}</p>
-                <p>Proveedor: ${formatMoneyDisplay(montoHistProvUsdNum)} USD / Bs {formatMoneyDisplay(montoHistProvBsNum)}</p>
-                <p>Recaudado: ${formatMoneyDisplay(montoHistRecUsdNum)} USD / Bs {formatMoneyDisplay(montoHistRecBsNum)}</p>
-              </div>
-            ) : (
-              <p className="text-xs text-amber-800/80 dark:text-amber-200/80">Sin datos históricos configurados.</p>
-            )}
-          </div>
-
-          <div className="xl:col-span-1 grid grid-cols-1 md:grid-cols-2 gap-5 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700 mt-2">
+          {/* Archivos - 100% del ancho */}
+          <div className="xl:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-5 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700 mt-2">
             <div className="md:col-span-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800 dark:border-blue-800/60 dark:bg-blue-900/20 dark:text-blue-200">
               Archivos permitidos: Factura o recibo permite imagen o PDF. Soportes permiten imagen o PDF. Limites: maximo 4 soportes y cada PDF hasta 1 MB.
             </div>
@@ -953,109 +1224,223 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
             </div>
           </div>
 
-          <div className="xl:col-span-2 flex justify-end gap-3 mt-2 pt-4 border-t border-gray-100 dark:border-gray-800">
+          {/* BOTONES DE NAVEGACIÓN - Paso 1 */}
+          <div className="xl:col-span-2 flex justify-between gap-3 mt-2 pt-4 border-t border-gray-100 dark:border-gray-800">
             <button type="button" onClick={onClose} className="px-6 py-3 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 font-bold transition-colors">Cancelar</button>
-            <button type="submit" className="px-6 py-3 rounded-xl font-bold bg-donezo-primary text-white hover:bg-blue-700 transition-all shadow-md">
-              {mode === 'edit' ? 'Guardar Cambios' : 'Guardar Gasto'}
+            <button 
+              type="button" 
+              onClick={handleNextStep} 
+              className="px-6 py-3 rounded-xl font-bold bg-donezo-primary text-white hover:bg-green-800 transition-all shadow-md flex items-center gap-2"
+            >
+              Siguiente paso
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
             </button>
           </div>
-      </form>
-      {isHistoricalModalOpen && (
-        <div className="fixed inset-0 z-[270] bg-black/45 flex items-center justify-center p-4">
-          <div className="w-full max-w-3xl rounded-2xl bg-white shadow-2xl border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-            <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800">
-              <div>
-                <h3 className="text-lg font-black text-gray-900 dark:text-white">Datos históricos del gasto</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Registra montos en USD y Bs sin tasa histórica.</p>
+          </>
+        )}
+
+        {/* PASO 2: CONFIGURACIÓN HISTÓRICA */}
+        {wizardStep === 2 && (
+          <>
+            {/* CUOTAS Y TOTAL DEL GASTO */}
+            <div>
+              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Cuotas ya transcurridas</label>
+              <div className="flex items-center border border-amber-200 dark:border-amber-800 rounded-xl overflow-hidden bg-white dark:bg-gray-800">
+                <button type="button" onClick={() => handleCuotasHistoricasChange(-1)} disabled={tipoRegistro === 'historico'} className="px-4 py-2 bg-amber-100 hover:bg-amber-200 disabled:opacity-50 dark:bg-amber-900/30 text-lg font-bold text-amber-700 dark:text-amber-300 transition-colors">-</button>
+                <input type="text" readOnly value={`${form.cuotas_historicas || '0'} cuota(s)`} className="w-full text-center bg-transparent font-medium dark:text-white outline-none" />
+                <button type="button" onClick={() => handleCuotasHistoricasChange(1)} disabled={tipoRegistro === 'historico'} className="px-4 py-2 bg-amber-100 hover:bg-amber-200 disabled:opacity-50 dark:bg-amber-900/30 text-lg font-bold text-amber-700 dark:text-amber-300 transition-colors">+</button>
               </div>
-              <button type="button" onClick={() => setIsHistoricalModalOpen(false)} className="h-9 w-9 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
-                x
-              </button>
+              {tipoRegistro === 'historico' && (
+                <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">Bloqueado: en gasto histórico equivale al total de cuotas.</p>
+              )}
+            </div>
+            <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-300">
+              <p>Total del gasto: Bs {formatMoneyDisplay(montoBsNum)} / ${formatMoneyDisplay(equivalenteUSD)} USD</p>
             </div>
 
-            <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Cuotas ya transcurridas</label>
-                <div className="flex items-center border border-amber-200 dark:border-amber-800 rounded-xl overflow-hidden bg-white dark:bg-gray-800">
-                  <button type="button" onClick={() => handleCuotasHistoricasChange(-1)} disabled={tipoRegistro === 'historico'} className="px-4 py-2 bg-amber-100 hover:bg-amber-200 disabled:opacity-50 dark:bg-amber-900/30 text-lg font-bold text-amber-700 dark:text-amber-300 transition-colors">-</button>
-                  <input type="text" readOnly value={`${form.cuotas_historicas || '0'} cuota(s)`} className="w-full text-center bg-transparent font-medium dark:text-white outline-none" />
-                  <button type="button" onClick={() => handleCuotasHistoricasChange(1)} disabled={tipoRegistro === 'historico'} className="px-4 py-2 bg-amber-100 hover:bg-amber-200 disabled:opacity-50 dark:bg-amber-900/30 text-lg font-bold text-amber-700 dark:text-amber-300 transition-colors">+</button>
-                </div>
-                {tipoRegistro === 'historico' && (
-                  <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">Bloqueado: en gasto histórico equivale al total de cuotas.</p>
-                )}
+            {/* PAGADO HISTÓRICO */}
+            <div className="md:col-span-2 rounded-2xl border border-indigo-200 bg-indigo-50/60 p-3 dark:border-indigo-800/50 dark:bg-indigo-900/10">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-bold text-indigo-900 dark:text-indigo-300">Pagado histórico por orígenes</p>
+                <button type="button" onClick={() => addOriginRow('pagado')} className="rounded-lg bg-indigo-100 px-2.5 py-1 text-xs font-bold text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-300">+ Agregar fila</button>
               </div>
-              <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-300">
-                <p>Total del gasto: Bs {formatMoneyDisplay(montoBsNum)} / ${formatMoneyDisplay(equivalenteUSD)} USD</p>
-              </div>
-
-              <div className="md:col-span-2 rounded-2xl border border-indigo-200 bg-indigo-50/60 p-3 dark:border-indigo-800/50 dark:bg-indigo-900/10">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-bold text-indigo-900 dark:text-indigo-300">Pagado histórico por orígenes</p>
-                  <button type="button" onClick={() => addOriginRow('pagado')} className="rounded-lg bg-indigo-100 px-2.5 py-1 text-xs font-bold text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-300">+ Agregar fila</button>
-                </div>
-                <div className="mt-3 space-y-2">
-                  {historicoPagadoRows.length === 0 && <p className="text-xs text-indigo-800/70 dark:text-indigo-300/70">Sin filas registradas.</p>}
-                  {historicoPagadoRows.map((row) => {
-                    const fondosOptions = getFondoOptionsByCuenta(row.cuenta_bancaria_id);
-                    return (
-                      <div key={row.id} className="grid grid-cols-1 md:grid-cols-12 gap-2 rounded-xl border border-indigo-200 bg-white p-2 dark:border-indigo-800/40 dark:bg-gray-900">
-                        <div className="md:col-span-4">
-                          <SearchableCombobox options={cuentaOptions} value={row.cuenta_bancaria_id} onChange={(v) => updateOriginRow('pagado', row.id, 'cuenta_bancaria_id', v)} placeholder="Cuenta..." emptyMessage="Sin cuentas" className="w-full h-[42px] px-3 rounded-lg border border-indigo-200 bg-white outline-none focus:ring-2 focus:ring-indigo-500 dark:border-indigo-700 dark:bg-gray-900 dark:text-white" />
+              <div className="mt-3 space-y-2">
+                {historicoPagadoRows.length === 0 && <p className="text-xs text-indigo-800/70 dark:text-indigo-300/70">Sin filas registradas.</p>}
+                {historicoPagadoRows.map((row) => {
+                  const fondosOptions = getFondoOptionsByCuenta(row.cuenta_bancaria_id);
+                  return (
+                    <div key={row.id} className="grid grid-cols-1 md:grid-cols-14 gap-2 rounded-xl border border-indigo-200 bg-white p-2 dark:border-indigo-800/40 dark:bg-gray-900">
+                      <div className="md:col-span-3">
+                        <label className="block text-[10px] font-semibold text-indigo-700 dark:text-indigo-400 mb-1">Cuenta</label>
+                        <SearchableCombobox options={cuentaOptions} value={row.cuenta_bancaria_id} onChange={(v) => updateOriginRow('pagado', row.id, 'cuenta_bancaria_id', v)} placeholder="Seleccione..." emptyMessage="Sin cuentas" className="w-full h-[42px] px-3 rounded-lg border border-indigo-200 bg-white outline-none focus:ring-2 focus:ring-indigo-500 dark:border-indigo-700 dark:bg-gray-900 dark:text-white" />
+                      </div>
+                      <div className="md:col-span-3">
+                        <label className="block text-[10px] font-semibold text-indigo-700 dark:text-indigo-400 mb-1">Fondo</label>
+                        <SearchableCombobox options={fondosOptions} value={row.fondo_id} onChange={(v) => updateOriginRow('pagado', row.id, 'fondo_id', v)} placeholder="Seleccione..." emptyMessage="Sin fondos" disabled={!row.cuenta_bancaria_id} className="w-full h-[42px] px-3 rounded-lg border border-indigo-200 bg-white outline-none focus:ring-2 focus:ring-indigo-500 dark:border-indigo-700 dark:bg-gray-900 dark:text-white" />
+                      </div>
+                      <div className="md:col-span-3">
+                        <label className="block text-[10px] font-semibold text-indigo-700 dark:text-indigo-400 mb-1">Fecha operación</label>
+                        <DatePicker
+                          selected={ymdToDate(row.fecha_operacion)}
+                          onChange={(date: Date | null) => updateOriginRow('pagado', row.id, 'fecha_operacion', dateToYmd(date))}
+                          maxDate={getPagadoMaxDate(row.fondo_id) || new Date()}
+                          dateFormat="dd/MM/yyyy"
+                          locale={es}
+                          placeholderText="dd/mm/aaaa"
+                          showIcon
+                          toggleCalendarOnIconClick
+                          wrapperClassName="w-full min-w-0"
+                          popperClassName="habioo-datepicker-popper"
+                          calendarClassName="habioo-datepicker-calendar"
+                          className="h-[42px] w-full rounded-lg border border-indigo-200 bg-white p-2.5 pr-10 outline-none transition-all focus:ring-2 focus:ring-indigo-500 dark:border-indigo-700 dark:bg-gray-900 dark:text-white"
+                        />
+                      </div>
+                      <div className="md:col-span-4 grid grid-cols-2 gap-1">
+                        <div>
+                          <label className="block text-[10px] font-semibold text-indigo-700 dark:text-indigo-400 mb-1">Monto USD</label>
+                          <input type="text" value={row.monto_usd} onChange={(e) => updateOriginRow('pagado', row.id, 'monto_usd', e.target.value)} placeholder="0,00" className="h-[42px] w-full px-2 rounded-lg border border-indigo-200 bg-white font-mono text-sm outline-none focus:ring-2 focus:ring-indigo-500 dark:border-indigo-700 dark:bg-gray-900 dark:text-white" />
                         </div>
-                        <div className="md:col-span-4">
-                          <SearchableCombobox options={fondosOptions} value={row.fondo_id} onChange={(v) => updateOriginRow('pagado', row.id, 'fondo_id', v)} placeholder="Fondo..." emptyMessage="Sin fondos" disabled={!row.cuenta_bancaria_id} className="w-full h-[42px] px-3 rounded-lg border border-indigo-200 bg-white outline-none focus:ring-2 focus:ring-indigo-500 dark:border-indigo-700 dark:bg-gray-900 dark:text-white" />
-                        </div>
-                        <div className="md:col-span-3 grid grid-cols-2 gap-1">
-                          <input type="text" value={row.monto_usd} onChange={(e) => updateOriginRow('pagado', row.id, 'monto_usd', e.target.value)} placeholder="USD" className="h-[42px] w-full px-2 rounded-lg border border-indigo-200 bg-white font-mono text-sm outline-none focus:ring-2 focus:ring-indigo-500 dark:border-indigo-700 dark:bg-gray-900 dark:text-white" />
-                          <input type="text" value={row.monto_bs} onChange={(e) => updateOriginRow('pagado', row.id, 'monto_bs', e.target.value)} placeholder="Bs" className="h-[42px] w-full px-2 rounded-lg border border-indigo-200 bg-white font-mono text-sm outline-none focus:ring-2 focus:ring-indigo-500 dark:border-indigo-700 dark:bg-gray-900 dark:text-white" />
-                        </div>
-                        <div className="md:col-span-1 flex justify-end">
-                          <button type="button" onClick={() => removeOriginRow('pagado', row.id)} className="h-[42px] w-[42px] rounded-lg bg-red-50 text-red-700 font-bold hover:bg-red-100 dark:bg-red-900/30 dark:text-red-300">x</button>
+                        <div>
+                          <label className="block text-[10px] font-semibold text-indigo-700 dark:text-indigo-400 mb-1">Monto Bs</label>
+                          <input type="text" value={row.monto_bs} onChange={(e) => updateOriginRow('pagado', row.id, 'monto_bs', e.target.value)} placeholder="0,00" className="h-[42px] w-full px-2 rounded-lg border border-indigo-200 bg-white font-mono text-sm outline-none focus:ring-2 focus:ring-indigo-500 dark:border-indigo-700 dark:bg-gray-900 dark:text-white" />
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
+                      <div className="md:col-span-1 flex items-end justify-end pb-1">
+                        <button type="button" onClick={() => removeOriginRow('pagado', row.id)} className="h-[42px] w-[42px] rounded-lg bg-red-50 text-red-700 font-bold hover:bg-red-100 dark:bg-red-900/30 dark:text-red-300" title="Eliminar fila">x</button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+            </div>
 
-              <div className="md:col-span-2 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3 dark:border-emerald-800/50 dark:bg-emerald-900/10">
-                <div className="flex items-center justify-between">
+            {/* RECAUDADO HISTÓRICO */}
+            <div className="md:col-span-2 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3 dark:border-emerald-800/50 dark:bg-emerald-900/10">
+              <div className="flex items-center justify-between mb-2">
+                <div>
                   <p className="text-sm font-bold text-emerald-900 dark:text-emerald-300">Recaudado histórico por orígenes</p>
-                  <button type="button" onClick={() => addOriginRow('recaudado')} className="rounded-lg bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300">+ Agregar fila</button>
+                  <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
+                    💡 Estos montos se convertirán en ingresos y actualizarán los saldos de los fondos seleccionados
+                  </p>
                 </div>
-                <div className="mt-3 space-y-2">
-                  {historicoRecaudadoRows.length === 0 && <p className="text-xs text-emerald-800/70 dark:text-emerald-300/70">Sin filas registradas.</p>}
-                  {historicoRecaudadoRows.map((row) => {
-                    const fondosOptions = getFondoOptionsByCuenta(row.cuenta_bancaria_id);
-                    return (
-                      <div key={row.id} className="grid grid-cols-1 md:grid-cols-12 gap-2 rounded-xl border border-emerald-200 bg-white p-2 dark:border-emerald-800/40 dark:bg-gray-900">
-                        <div className="md:col-span-4">
-                          <SearchableCombobox options={cuentaOptions} value={row.cuenta_bancaria_id} onChange={(v) => updateOriginRow('recaudado', row.id, 'cuenta_bancaria_id', v)} placeholder="Cuenta..." emptyMessage="Sin cuentas" className="w-full h-[42px] px-3 rounded-lg border border-emerald-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 dark:border-emerald-700 dark:bg-gray-900 dark:text-white" />
+                <button type="button" onClick={() => addOriginRow('recaudado')} className="rounded-lg bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300">+ Agregar fila</button>
+              </div>
+              <div className="space-y-2">
+                {historicoRecaudadoRows.length === 0 && <p className="text-xs text-emerald-800/70 dark:text-emerald-300/70">Sin filas registradas.</p>}
+                {historicoRecaudadoRows.map((row) => {
+                  const fondosOptions = getFondoOptionsByCuenta(row.cuenta_bancaria_id);
+                  const montoBsNum = parseInputNumber(row.monto_bs);
+                  const tasaRef = tasaHistoricaDia > 0 ? tasaHistoricaDia : parseInputNumber(form.tasa_cambio || '0');
+                  const montoUsdAuto = tasaRef > 0 ? (montoBsNum / tasaRef).toFixed(2) : '0.00';
+                  const recaudadoMinDate = getRecaudadoMinDate(row.fondo_id);
+                  
+                  return (
+                    <div key={row.id} className="grid grid-cols-1 md:grid-cols-12 gap-2 rounded-xl border border-emerald-200 bg-white p-2 dark:border-emerald-800/40 dark:bg-gray-900">
+                      <div className="md:col-span-3">
+                        <label className="block text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 mb-1">Cuenta</label>
+                        <SearchableCombobox options={cuentaOptions} value={row.cuenta_bancaria_id} onChange={(v) => updateOriginRow('recaudado', row.id, 'cuenta_bancaria_id', v)} placeholder="Seleccione..." emptyMessage="Sin cuentas" className="w-full h-[42px] px-3 rounded-lg border border-emerald-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 dark:border-emerald-700 dark:bg-gray-900 dark:text-white" />
+                      </div>
+                      <div className="md:col-span-3">
+                        <label className="block text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 mb-1">Fondo</label>
+                        <SearchableCombobox options={fondosOptions} value={row.fondo_id} onChange={(v) => updateOriginRow('recaudado', row.id, 'fondo_id', v)} placeholder="Seleccione..." emptyMessage="Sin fondos" disabled={!row.cuenta_bancaria_id} className="w-full h-[42px] px-3 rounded-lg border border-emerald-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 dark:border-emerald-700 dark:bg-gray-900 dark:text-white" />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 mb-1">Fecha</label>
+                        <DatePicker
+                          selected={ymdToDate(row.fecha_operacion)}
+                          onChange={(date: Date | null) => updateOriginRow('recaudado', row.id, 'fecha_operacion', dateToYmd(date))}
+                          {...(recaudadoMinDate ? { minDate: recaudadoMinDate } : {})}
+                          maxDate={new Date()}
+                          dateFormat="dd/MM/yyyy"
+                          locale={es}
+                          placeholderText="dd/mm/aaaa"
+                          showIcon
+                          toggleCalendarOnIconClick
+                          wrapperClassName="w-full min-w-0"
+                          popperClassName="habioo-datepicker-popper"
+                          calendarClassName="habioo-datepicker-calendar"
+                          className="h-[42px] w-full rounded-lg border border-emerald-200 bg-white p-2 pr-10 outline-none transition-all focus:ring-2 focus:ring-emerald-500 dark:border-emerald-700 dark:bg-gray-900 dark:text-white"
+                        />
+                      </div>
+                      <div className="md:col-span-3 grid grid-cols-2 gap-1">
+                        <div>
+                          <label className="block text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 mb-1">Monto Bs</label>
+                          <input
+                            type="text"
+                            value={row.monto_bs}
+                            onChange={(e) => {
+                              updateOriginRow('recaudado', row.id, 'monto_bs', e.target.value);
+                              const bsValue = parseInputNumber(e.target.value);
+                              const tasaRef = tasaHistoricaDia > 0 ? tasaHistoricaDia : parseInputNumber(form.tasa_cambio || '0');
+                              if (bsValue > 0 && tasaRef > 0) {
+                                const usdValue = (bsValue / tasaRef).toFixed(2).replace('.', ',');
+                                updateOriginRow('recaudado', row.id, 'monto_usd', formatCurrencyInput(usdValue, 2));
+                              }
+                            }}
+                            placeholder="0,00"
+                            className="h-[42px] w-full px-2 rounded-lg border border-emerald-200 bg-white font-mono text-sm outline-none focus:ring-2 focus:ring-emerald-500 dark:border-emerald-700 dark:bg-gray-900 dark:text-white"
+                          />
+                          <p className="text-[10px] text-gray-500 mt-0.5">≈ ${montoUsdAuto} USD</p>
                         </div>
-                        <div className="md:col-span-4">
-                          <SearchableCombobox options={fondosOptions} value={row.fondo_id} onChange={(v) => updateOriginRow('recaudado', row.id, 'fondo_id', v)} placeholder="Fondo..." emptyMessage="Sin fondos" disabled={!row.cuenta_bancaria_id} className="w-full h-[42px] px-3 rounded-lg border border-emerald-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 dark:border-emerald-700 dark:bg-gray-900 dark:text-white" />
-                        </div>
-                        <div className="md:col-span-3 grid grid-cols-2 gap-1">
-                          <input type="text" value={row.monto_usd} onChange={(e) => updateOriginRow('recaudado', row.id, 'monto_usd', e.target.value)} placeholder="USD" className="h-[42px] w-full px-2 rounded-lg border border-emerald-200 bg-white font-mono text-sm outline-none focus:ring-2 focus:ring-emerald-500 dark:border-emerald-700 dark:bg-gray-900 dark:text-white" />
-                          <input type="text" value={row.monto_bs} onChange={(e) => updateOriginRow('recaudado', row.id, 'monto_bs', e.target.value)} placeholder="Bs" className="h-[42px] w-full px-2 rounded-lg border border-emerald-200 bg-white font-mono text-sm outline-none focus:ring-2 focus:ring-emerald-500 dark:border-emerald-700 dark:bg-gray-900 dark:text-white" />
-                        </div>
-                        <div className="md:col-span-1 flex justify-end">
-                          <button type="button" onClick={() => removeOriginRow('recaudado', row.id)} className="h-[42px] w-[42px] rounded-lg bg-red-50 text-red-700 font-bold hover:bg-red-100 dark:bg-red-900/30 dark:text-red-300">x</button>
+                        <div>
+                          <label className="block text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 mb-1">Monto USD</label>
+                          <input
+                            type="text"
+                            value={row.monto_usd}
+                            readOnly
+                            placeholder="0,00"
+                            className="h-[42px] w-full px-2 rounded-lg border border-emerald-200 bg-emerald-50 font-mono text-sm outline-none dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 cursor-not-allowed"
+                          />
+                          <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5">Auto-calculado</p>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="md:col-span-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-300">
-                <p>Totales pagado: ${formatMoneyDisplay(totalsPagado.usd)} USD / Bs {formatMoneyDisplay(totalsPagado.bs)}</p>
-                <p>Totales recaudado: ${formatMoneyDisplay(totalsRecaudado.usd)} USD / Bs {formatMoneyDisplay(totalsRecaudado.bs)}</p>
+                      <div className="md:col-span-1 flex items-end justify-end pb-1">
+                        <button type="button" onClick={() => removeOriginRow('recaudado', row.id)} className="h-[42px] w-[42px] rounded-lg bg-red-50 text-red-700 font-bold hover:bg-red-100 dark:bg-red-900/30 dark:text-red-300" title="Eliminar fila">x</button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
-            <div className="p-4 border-t border-gray-100 dark:border-gray-800 flex justify-end gap-3">
+            {/* TOTALES */}
+            <div className="md:col-span-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-300">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Totales pagado</p>
+                  <p className="font-bold">${formatMoneyDisplay(totalsPagado.usd)} USD</p>
+                  <p className="font-bold text-gray-600 dark:text-gray-400">Bs {formatMoneyDisplay(totalsPagado.bs)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Totales recaudado</p>
+                  <p className="font-bold text-emerald-700 dark:text-emerald-400">${formatMoneyDisplay(totalsRecaudado.usd)} USD</p>
+                  <p className="font-bold text-emerald-600 dark:text-emerald-500">Bs {formatMoneyDisplay(totalsRecaudado.bs)}</p>
+                </div>
+              </div>
+              {totalsRecaudado.usd > totalsPagado.usd && (
+                <div className="mt-2 rounded-lg bg-amber-50 border border-amber-200 px-2 py-1 dark:bg-amber-900/20 dark:border-amber-800/50">
+                  <p className="text-amber-700 dark:text-amber-300 text-[10px]">
+                    ⚠️ El recaudado supera al pagado. Se generará un ingreso adicional en los fondos seleccionados.
+                  </p>
+                </div>
+              )}
+            </div>
+
+          {/* BOTONES DE NAVEGACIÓN - Paso 2 */}
+          <div className="xl:col-span-2 flex justify-between gap-3 mt-6 pt-4 border-t border-gray-100 dark:border-gray-800">
+            <button
+              type="button"
+              onClick={handlePrevStep}
+              className="px-6 py-3 rounded-xl border-2 border-gray-300 bg-white text-gray-700 font-bold hover:bg-gray-50 transition-all dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 17l-5-5m0 0l5-5m-5 5h12" />
+              </svg>
+              Atrás
+            </button>
+            <div className="flex gap-3">
               <button
                 type="button"
                 onClick={() => {
@@ -1074,30 +1459,29 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                     historico_fondo_id: '',
                   }));
                 }}
-                className="px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-red-700 font-bold hover:bg-red-100 dark:border-red-800/60 dark:bg-red-900/20 dark:text-red-300"
+                className="px-4 py-3 rounded-xl border border-red-200 bg-red-50 text-red-700 font-bold hover:bg-red-100 dark:border-red-800/60 dark:bg-red-900/20 dark:text-red-300"
               >
                 Limpiar
               </button>
-              <button type="button" onClick={() => setIsHistoricalModalOpen(false)} className="px-4 py-2 rounded-xl bg-donezo-primary text-white font-bold hover:bg-blue-700">
-                Guardar historial
+              <button
+                type="submit"
+                className="px-6 py-3 rounded-xl bg-donezo-primary text-white font-bold hover:bg-green-800 transition-all shadow-md flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                {mode === 'edit' ? 'Guardar Cambios' : 'Guardar Gasto'}
               </button>
             </div>
           </div>
-        </div>
-      )}
+          </>
+        )}
+      </form>
     </ModalBase>
   );
 };
 
-// Pequeña función de apoyo para el render de la etiqueta verde del equivalente a USD
-function formatMoneyDisplay(value: string | number): string {
-  const parts = Number(value).toFixed(2).split('.');
-  parts[0] = (parts[0] ?? '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  return parts.join(',');
-}
-
 export default ModalAgregarGasto;
-
 
 
 
