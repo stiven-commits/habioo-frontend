@@ -84,6 +84,14 @@ const normalizeTipo = (value: string): string => value
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '');
 
+const normalizeMoneda = (value: unknown): 'BS' | 'USD' | 'EUR' | null => {
+  const raw = String(value || '').trim().toUpperCase();
+  if (['BS', 'VES', 'BOLIVAR', 'BOLIVARES'].includes(raw)) return 'BS';
+  if (['USD', 'US$', 'DOLAR', 'DOLARES'].includes(raw)) return 'USD';
+  if (['EUR', 'EURO', 'EUROS'].includes(raw)) return 'EUR';
+  return null;
+};
+
 const resolveTipoMoneda = (tipo: string): { moneda: 'BS' | 'USD' | null; blocked: boolean } => {
   const t = normalizeTipo(tipo);
   const isInternational = t.includes('zelle')
@@ -138,16 +146,17 @@ const ymdToDisplay = (ymd?: string | null): string => {
 
 const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo, refreshKey = 0 }) => {
   const { showAlert, showConfirm } = useDialog() as DialogContextType;
+  const cuentaMoneda = normalizeMoneda(cuenta.moneda) || resolveTipoMoneda(`${cuenta.tipo || ''} ${cuenta.nombre_banco || ''}`).moneda;
+  const cuentaMonedaBloqueada = Boolean(cuentaMoneda);
 
   const [fondos, setFondos] = useState<Fondo[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [isCreatingFondo, setIsCreatingFondo] = useState<boolean>(false);
   const createFondoLockRef = useRef<boolean>(false);
-  const [form, setForm] = useState<FormState>(initialForm);
+  const [form, setForm] = useState<FormState>({ ...initialForm, moneda: cuentaMoneda || initialForm.moneda });
   const [renamingFondoId, setRenamingFondoId] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState<string>('');
   const [isSavingRename, setIsSavingRename] = useState<boolean>(false);
-  const cuentaMonedaRule = resolveTipoMoneda(`${cuenta.tipo || ''} ${cuenta.nombre_banco || ''}`);
 
   const fetchFondos = async (): Promise<void> => {
     const token = localStorage.getItem('habioo_token');
@@ -173,10 +182,10 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo, ref
   }, [cuenta.id, refreshKey]);
 
   useEffect(() => {
-    const forcedMoneda = cuentaMonedaRule.moneda;
+    const forcedMoneda = cuentaMoneda;
     if (!forcedMoneda) return;
     setForm((prev: FormState) => (prev.moneda === forcedMoneda ? prev : { ...prev, moneda: forcedMoneda }));
-  }, [cuenta.id, cuenta.tipo, cuenta.nombre_banco]);
+  }, [cuenta.id, cuenta.tipo, cuenta.nombre_banco, cuenta.moneda, cuentaMoneda]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
     const { name, value } = e.target;
@@ -228,11 +237,16 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo, ref
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ ...form, cuenta_bancaria_id: cuenta.id, es_operativo: isFirstFondo }),
+        body: JSON.stringify({
+          ...form,
+          moneda: cuentaMoneda || form.moneda,
+          cuenta_bancaria_id: cuenta.id,
+          es_operativo: isFirstFondo,
+        }),
       });
 
       if (res.ok) {
-        setForm(initialForm);
+        setForm({ ...initialForm, moneda: cuentaMoneda || initialForm.moneda });
         fetchFondos();
       } else {
         const errorData: ApiActionResponse = await res.json();
@@ -567,12 +581,20 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo, ref
                 name="moneda"
                 value={form.moneda}
                 onChange={handleChange}
-                disabled={cuentaMonedaRule.blocked}
+                disabled={cuentaMonedaBloqueada}
                 className="w-full p-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm font-bold dark:text-white disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                <option value="BS" className="bg-white dark:bg-gray-800">Bolívares (BS)</option>
-                <option value="USD" className="bg-white dark:bg-gray-800">Dólares (USD)</option>
-                <option value="EUR" className="bg-white dark:bg-gray-800">Euros (EUR)</option>
+                {cuentaMonedaBloqueada ? (
+                  <option value={cuentaMoneda || 'BS'} className="bg-white dark:bg-gray-800">
+                    {cuentaMoneda === 'USD' ? 'Dólares (USD)' : cuentaMoneda === 'EUR' ? 'Euros (EUR)' : 'Bolívares (BS)'}
+                  </option>
+                ) : (
+                  <>
+                    <option value="BS" className="bg-white dark:bg-gray-800">Bolívares (BS)</option>
+                    <option value="USD" className="bg-white dark:bg-gray-800">Dólares (USD)</option>
+                    <option value="EUR" className="bg-white dark:bg-gray-800">Euros (EUR)</option>
+                  </>
+                )}
               </select>
             </FormField>
 
