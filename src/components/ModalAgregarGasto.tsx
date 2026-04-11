@@ -42,6 +42,11 @@ interface BancoCuenta {
   id: number | string;
   nombre?: string;
   banco?: string;
+  nombre_banco?: string;
+  apodo?: string | null;
+  numero_cuenta?: string | null;
+  tipo?: string | null;
+  moneda?: string | null;
 }
 
 interface Fondo {
@@ -359,10 +364,22 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
     () =>
       (bancos || []).map((b) => {
         const id = String(b.id);
-        const nombre = String(b.nombre || b.banco || `Cuenta ${id}`);
-        const banco = String(b.banco || '');
-        const label = banco ? `${nombre} (${banco})` : nombre;
-        return { value: id, label, searchText: `${nombre} ${banco}` };
+        const banco = String(b.nombre_banco || b.banco || b.nombre || '').trim();
+        const apodo = String(b.apodo || '').trim();
+        const tipo = String(b.tipo || '').trim();
+        const moneda = String(b.moneda || '').trim().toUpperCase();
+        const ultimos4 = String(b.numero_cuenta || '').replace(/\D/g, '').slice(-4);
+
+        const base = apodo || banco || tipo || `Cuenta ${id}`;
+        const withBanco = banco && apodo ? `${banco} (${apodo})` : base;
+        const withMoneda = moneda ? `${withBanco} - ${moneda}` : withBanco;
+        const label = ultimos4 ? `${withMoneda} - ****${ultimos4}` : withMoneda;
+
+        return {
+          value: id,
+          label,
+          searchText: `${base} ${banco} ${apodo} ${tipo} ${moneda} ${ultimos4}`,
+        };
       }),
     [bancos]
   );
