@@ -313,50 +313,9 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
   }, [form.total_cuotas, tipoRegistro]);
 
   const parseInputNumber = (txt: string): number => {
-    const raw = String(txt || '').trim().replace(/\s/g, '').replace(/[^\d,.-]/g, '');
+    const raw = String(txt || '').trim();
     if (!raw) return 0;
-
-    const hasDot = raw.includes('.');
-    const hasComma = raw.includes(',');
-    let normalized = raw;
-
-    if (hasDot && hasComma) {
-      const lastDot = raw.lastIndexOf('.');
-      const lastComma = raw.lastIndexOf(',');
-      const decimalSep = lastDot > lastComma ? '.' : ',';
-      const thousandsSep = decimalSep === '.' ? ',' : '.';
-      normalized = raw.split(thousandsSep).join('');
-      if (decimalSep === ',') normalized = normalized.replace(',', '.');
-    } else if (hasDot || hasComma) {
-      const sep = hasDot ? '.' : ',';
-      const parts = raw.split(sep);
-      const firstChunk = (parts[0] || '').replace('-', '');
-      const groupedThousands = parts.length > 1
-        && firstChunk.length >= 1
-        && firstChunk.length <= 3
-        && parts.slice(1).every((chunk) => chunk.length === 3);
-
-      if (groupedThousands) {
-        normalized = parts.join('');
-      } else if (parts.length > 2) {
-        const decimalCandidate = parts[parts.length - 1] || '';
-        const integerCandidate = parts.slice(0, -1).join('');
-        if (decimalCandidate.length >= 1 && decimalCandidate.length <= 3) {
-          normalized = `${integerCandidate}.${decimalCandidate}`;
-        } else {
-          normalized = parts.join('');
-        }
-      } else if (parts.length === 2) {
-        const decimalCandidate = parts[1] || '';
-        if (decimalCandidate.length >= 1 && decimalCandidate.length <= 3) {
-          normalized = `${parts[0]}.${decimalCandidate}`;
-        } else {
-          normalized = `${parts[0]}${parts[1]}`;
-        }
-      }
-    }
-
-    normalized = normalized.replace(/(?!^)-/g, '');
+    const normalized = raw.replace(/\./g, '').replace(',', '.');
     const parsed = parseFloat(normalized);
     return Number.isFinite(parsed) ? parsed : 0;
   };
@@ -371,29 +330,18 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
   const cuotasHistoricasNum = Math.max(0, parseInt(form.cuotas_historicas || '0', 10) || 0);
 
   const formatCurrencyInput = (value: string, maxDecimals = 2): string => {
-    const raw = String(value || '').replace(/[^\d,.-]/g, '');
-    if (!raw) return '';
+    const clean = String(value || '').replace(/[^\d,]/g, '');
+    if (!clean) return '';
 
-    const lastComma = raw.lastIndexOf(',');
-    const lastDot = raw.lastIndexOf('.');
-    const decimalIndex = Math.max(lastComma, lastDot);
-    const hasDecimalSep = decimalIndex >= 0;
+    const parts = clean.split(',');
+    const integerRaw = parts[0] || '';
+    const decimalRaw = (parts[1] || '').slice(0, maxDecimals);
 
-    let integerRaw = hasDecimalSep ? raw.slice(0, decimalIndex) : raw;
-    let decimalRaw = hasDecimalSep ? raw.slice(decimalIndex + 1) : '';
+    const integerPart = integerRaw.replace(/^0+(?=\d)/, '') || '0';
+    const integerWithDots = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
-    integerRaw = integerRaw.replace(/[^\d-]/g, '');
-    const isNegative = integerRaw.startsWith('-');
-    integerRaw = integerRaw.replace(/-/g, '');
-    decimalRaw = decimalRaw.replace(/[^\d]/g, '');
-
-    let integerPart = integerRaw.replace(/^0+(?=\d)/, '');
-    if (!integerPart) integerPart = '0';
-    integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    if (isNegative && integerPart !== '0') integerPart = `-${integerPart}`;
-
-    if (hasDecimalSep) return `${integerPart},${decimalRaw.slice(0, maxDecimals)}`;
-    return integerPart;
+    if (clean.includes(',')) return `${integerWithDots},${decimalRaw}`;
+    return integerWithDots === '0' && integerRaw === '' ? '' : integerWithDots;
   };
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>): void => {
@@ -410,6 +358,13 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
     const field = e.target.name as keyof FormState;
     const maxDecimals = field === 'tasa_cambio' ? 3 : 2;
     setForm((prev: FormState) => ({ ...prev, [field]: formatCurrencyInput(e.target.value, maxDecimals) as FormState[typeof field] }));
+  };
+
+  const handleMontoNoCuentaChange = (e: ChangeEvent<HTMLInputElement>): void => {
+    const field = e.target.name as keyof FormState;
+    const rawValue = String(e.target.value || '');
+    const formatted = formatCurrencyInput(rawValue, 2);
+    setForm((prev: FormState) => ({ ...prev, [field]: formatted as FormState[typeof field] }));
   };
 
   const handleCuotasChange = (delta: number): void => {
@@ -735,7 +690,9 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
       alert('Monto y tasa deben ser mayores a 0.');
       return;
     }
-    const montoCanonicoUsd = montoCanonico / tasaCanonica;
+    const montoCanonicoUsd = roundTwo(montoCanonico / tasaCanonica);
+    const limiteBs = roundTwo(montoCanonico) + 0.01;
+    const limiteUsd = roundTwo(montoCanonicoUsd) + 0.01;
     const totalCuotasCanonico = Math.max(1, parseInt(String(form.total_cuotas || '1'), 10) || 1);
     const esHistorico = tipoRegistro === 'historico';
     const cuotasHistoricasCanonico = hasHistoricalContext
@@ -762,11 +719,11 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
       alert('Los montos históricos no pueden ser negativos.');
       return;
     }
-    if (montoHistoricoProveedorBsCanonico > montoCanonico + 0.005 || montoHistoricoRecaudadoBsCanonico > montoCanonico + 0.005) {
+    if (montoHistoricoProveedorBsCanonico > limiteBs || montoHistoricoRecaudadoBsCanonico > limiteBs) {
       alert('Los montos históricos en Bs no pueden superar el monto del gasto en Bs.');
       return;
     }
-    if (montoHistoricoProveedorUsdCanonico > montoCanonicoUsd + 0.005 || montoHistoricoRecaudadoUsdCanonico > montoCanonicoUsd + 0.005) {
+    if (montoHistoricoProveedorUsdCanonico > limiteUsd || montoHistoricoRecaudadoUsdCanonico > limiteUsd) {
       alert('Los montos históricos en USD no pueden superar el monto total del gasto en USD.');
       return;
     }
@@ -1631,7 +1588,7 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                         type="text"
                         name="monto_historico_recaudado_no_cuenta_bs"
                         value={form.monto_historico_recaudado_no_cuenta_bs}
-                        onChange={handleMonedaChange}
+                        onChange={handleMontoNoCuentaChange}
                         placeholder="0,00"
                         className="h-[40px] w-full px-2 rounded-lg border border-emerald-200 bg-white font-mono text-sm outline-none focus:ring-2 focus:ring-emerald-500 dark:border-emerald-700 dark:bg-gray-900 dark:text-white"
                       />
@@ -1642,7 +1599,7 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                         type="text"
                         name="monto_historico_recaudado_no_cuenta_usd"
                         value={form.monto_historico_recaudado_no_cuenta_usd}
-                        onChange={handleMonedaChange}
+                        onChange={handleMontoNoCuentaChange}
                         placeholder="0,00"
                         className="h-[40px] w-full px-2 rounded-lg border border-emerald-200 bg-white font-mono text-sm outline-none focus:ring-2 focus:ring-emerald-500 dark:border-emerald-700 dark:bg-gray-900 dark:text-white"
                       />
