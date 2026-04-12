@@ -652,6 +652,8 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
     setIsSavingAjuste(true);
     try {
       const token = localStorage.getItem('habioo_token');
+      const referenciaOrigenAuto = `AJUSTE-${ajusteTipo}-${String(selectedPropAjuste.identificador || selectedPropAjuste.id || '').trim()}-${fechaOperacionAjuste || toYmdLocal(new Date())}`;
+      const bancoOrigenAuto = 'SIN_MOVIMIENTO_BANCARIO';
       const payload = {
         tipo_ajuste: ajusteTipo === 'DEUDA' ? 'CARGAR_DEUDA' : 'AGREGAR_FAVOR',
         monto: Number(montoUsd.toFixed(2)),
@@ -664,6 +666,8 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
         gasto_extra_id: ajusteTipo === 'FAVOR' && destinoIngreso === 'EXTRA' ? Number(gastoExtraSeleccionado) : null,
         subtipo_favor: ajusteTipo === 'FAVOR' && destinoIngreso === 'CUENTA' ? subtipoFavor : undefined,
         fecha_operacion: fechaOperacionAjuste,
+        referencia_origen: referenciaOrigenAuto,
+        banco_origen: bancoOrigenAuto,
         nota: esUsdDirecto
           ? `${(conceptoAjuste || 'Ajuste manual').trim()} | [usd_directo:${montoUsd.toFixed(2)}]`
           : `${(conceptoAjuste || 'Ajuste manual').trim()} | [bs_raw:${parseNumberInput(montoBsAjuste).toFixed(2)}] | [tasa_raw:${parseNumberInput(tasaBcvAjuste).toFixed(6)}]`
