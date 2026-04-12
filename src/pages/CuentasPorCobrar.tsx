@@ -54,6 +54,7 @@ interface EstadoCuentaMovimientoConSaldo {
   cargo: number;
   abono: number;
   saldoFila: number;
+  ref_id?: number;
 }
 
 interface EstadoCuentaPropCuenta {
@@ -698,6 +699,29 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
     }
   };
 
+  const handleRevertirAjuste = async (historialId: number): Promise<void> => {
+    if (!selectedPropCuenta) return;
+    const confirmed = window.confirm('¿Seguro que deseas revertir este ajuste? Esta acción deshará los cambios en el saldo del inmueble, fondos y recibos afectados.');
+    if (!confirmed) return;
+    try {
+      const token = localStorage.getItem('habioo_token');
+      const res = await fetch(`${API_BASE_URL}/propiedades-admin/${selectedPropCuenta.id}/revertir-ajuste/${historialId}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data: ApiActionResponse = await res.json();
+      if (res.ok && data.status === 'success') {
+        await fetchData();
+        await fetchPendingCounts();
+        await fetchEstadoCuenta(selectedPropCuenta.id);
+      } else {
+        alert(data.error || data.message || 'No se pudo revertir el ajuste.');
+      }
+    } catch {
+      alert('Error de conexión al revertir ajuste.');
+    }
+  };
+
   // Logica de filtrado por pestanas
   const baseProperties = activeTab === 'Deudores'
     ? propiedades.filter((p: Propiedad) => {
@@ -733,6 +757,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
       cargo,
       abono,
       saldoFila: saldoAcumulado,
+      ...(mov.ref_id != null ? { ref_id: Number(mov.ref_id) } : {}),
     };
   });
 
@@ -1007,6 +1032,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
         loadingCuenta={loadingCuenta}
         estadoCuentaFiltrado={estadoCuentaFiltrado}
         showAjuste={true}
+        onRevertirAjuste={handleRevertirAjuste}
       />
 
       {showAprobacionModal && selectedPropAprobacion && (

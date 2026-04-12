@@ -620,11 +620,11 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo, ref
             Los pagos registrados con fecha anterior a esta, entraran en cuarentena como Ajustes Historicos.
           </p>
 
-          <div className="mt-4 flex justify-end">
+          <div className="mt-4 flex justify-end pt-5 border-t border-gray-200/80 dark:border-gray-700/60">
             <button
               type="submit"
               disabled={isCreatingFondo}
-              className="bg-gray-800 hover:bg-gray-900 text-white dark:bg-donezo-primary dark:hover:bg-blue-600 px-8 py-3 rounded-xl text-sm font-bold shadow-md transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              className="px-7 py-2.5 rounded-xl bg-green-600 text-sm font-bold text-white shadow-md shadow-green-600/20 transition-all hover:bg-green-700 hover:shadow-lg hover:shadow-green-600/30 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {isCreatingFondo ? 'Creando...' : 'Crear Fondo Virtual'}
             </button>

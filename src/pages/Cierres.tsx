@@ -732,45 +732,72 @@ const Cierres: FC<CierresProps> = () => {
       )}
 
       {selectedGasto && (
-        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 relative my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
-            <button onClick={() => setSelectedGasto(null)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold text-xl">X</button>
-            <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Inspeccion de Gasto</h3>
-            <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
-              <p><strong className="text-gray-800 dark:text-white">Proveedor:</strong> {selectedGasto.proveedor}</p>
-              <p><strong className="text-gray-800 dark:text-white">Concepto:</strong> {selectedGasto.concepto}</p>
-              <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-xl my-2 border border-gray-200 dark:border-gray-700">
-                <p><strong>Monto Total de Factura:</strong> ${formatMoney(selectedGasto.monto_total_usd)}</p>
-                <p><strong>Fraccion a cobrar este mes:</strong> ${formatMoney(selectedGasto.monto_cuota_usd)}</p>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-hidden animate-fadeIn"
+          onClick={() => setSelectedGasto(null)}
+        >
+          <div
+            className="bg-white dark:bg-donezo-card-dark rounded-2xl w-full max-w-md shadow-2xl border border-gray-200/60 dark:border-gray-700/60 relative overflow-hidden flex flex-col max-h-[90vh] animate-modalEnter"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 dark:border-gray-700 shrink-0 bg-gradient-to-r from-gray-50/50 to-white dark:from-gray-800/50 dark:to-donezo-card-dark">
+              <div className="flex-1 min-w-0 pr-4">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white truncate">Inspeccion de Gasto</h3>
               </div>
+              <button
+                onClick={() => setSelectedGasto(null)}
+                className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all duration-200"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
-            <button onClick={() => setSelectedGasto(null)} className="mt-6 w-full px-6 py-3 rounded-xl font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all dark:text-gray-300">Cerrar</button>
+
+            <div className="px-6 py-5 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
+              <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
+                <p><strong className="text-gray-800 dark:text-white">Proveedor:</strong> {selectedGasto.proveedor}</p>
+                <p><strong className="text-gray-800 dark:text-white">Concepto:</strong> {selectedGasto.concepto}</p>
+                <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-xl my-2 border border-gray-200 dark:border-gray-700">
+                  <p><strong>Monto Total de Factura:</strong> ${formatMoney(selectedGasto.monto_total_usd)}</p>
+                  <p><strong>Fraccion a cobrar este mes:</strong> ${formatMoney(selectedGasto.monto_cuota_usd)}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedGasto(null)}
+                className="mt-6 w-full px-6 py-3 rounded-xl font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all dark:text-gray-300"
+              >
+                Cerrar
+              </button>
+            </div>
           </div>
         </div>
       )}
       {/* OVERLAY DE CARGA: PROCESANDO CIERRE DE MES */}
       {isClosing && (
-        <div className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center bg-black/60 backdrop-blur-md p-4 overflow-y-auto animate-fadeIn">
-          <div className="bg-white dark:bg-donezo-card-dark rounded-3xl p-8 w-full max-w-sm shadow-2xl border border-gray-100 dark:border-gray-800 flex flex-col items-center text-center my-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
-            
-            {/* SPINNER ANIMADO */}
-            <div className="relative w-20 h-20 mb-6">
-              <div className="absolute inset-0 rounded-full border-4 border-gray-100 dark:border-gray-700"></div>
-              <div className="absolute inset-0 rounded-full border-4 border-donezo-primary border-t-transparent animate-spin"></div>
-              <div className="absolute inset-0 flex items-center justify-center text-2xl">...</div>
-            </div>
-            
-            <h3 className="text-xl font-black text-gray-800 dark:text-white mb-2">Procesando Cierre...</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-              El sistema esta generando los recibos individuales, distribuyendo los gastos y preparando el nuevo mes.
-            </p>
-            
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl border border-blue-100 dark:border-blue-800/50 w-full">
-              <p className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider animate-pulse">
-                Por favor no recargues la pagina
-              </p>
-            </div>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 overflow-hidden animate-fadeIn">
+          <div className="bg-white dark:bg-donezo-card-dark rounded-2xl w-full max-w-sm shadow-2xl border border-gray-200/60 dark:border-gray-700/60 flex flex-col max-h-[90vh] animate-modalEnter">
+            <div className="px-8 py-8 flex flex-col items-center">
 
+              {/* SPINNER ANIMADO */}
+              <div className="relative w-20 h-20 mb-6">
+                <div className="absolute inset-0 rounded-full border-4 border-gray-100 dark:border-gray-700"></div>
+                <div className="absolute inset-0 rounded-full border-4 border-donezo-primary border-t-transparent animate-spin"></div>
+                <div className="absolute inset-0 flex items-center justify-center text-2xl">⏳</div>
+              </div>
+
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Procesando Cierre...</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                El sistema esta generando los recibos individuales, distribuyendo los gastos y preparando el nuevo mes.
+              </p>
+
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl border border-blue-100 dark:border-blue-800/50 w-full">
+                <p className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider animate-pulse text-center">
+                  Por favor no recargues la pagina
+                </p>
+              </div>
+
+            </div>
           </div>
         </div>
       )}

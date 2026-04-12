@@ -408,19 +408,19 @@ const ModalReportarPagoAlquiler: FC<ModalReportarPagoAlquilerProps> = ({
               </div>
             )}
 
-            <div className="pt-2 flex items-center justify-end gap-2">
+            <div className="pt-5 flex items-center justify-end gap-3 border-t border-gray-200/80 dark:border-gray-700/60">
               <button
                 type="button"
                 onClick={handleClose}
                 disabled={isLoading}
-                className="px-5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-60"
+                className="px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-700 hover:text-gray-900 hover:bg-gray-100/60 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800/50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={isSubmitDisabled}
-                className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                className="px-7 py-2.5 rounded-xl bg-green-600 text-sm font-bold text-white shadow-md shadow-green-600/20 transition-all hover:bg-green-700 hover:shadow-lg hover:shadow-green-600/30 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {isLoading ? 'Enviando...' : 'Enviar Reporte'}
               </button>

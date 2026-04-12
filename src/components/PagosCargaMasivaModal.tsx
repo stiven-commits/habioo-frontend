@@ -239,11 +239,11 @@ const PagosCargaMasivaModal: FC<Props> = ({ resultado, nombreArchivo, onClose, p
         )}
 
         {/* Actions */}
-        <div className="flex justify-end gap-3 mt-5">
+        <div className="flex justify-end gap-3 pt-5 border-t border-gray-200/80 dark:border-gray-700/60 mt-5">
           <button
             type="button"
             onClick={onClose}
-            className="px-6 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-sm"
+            className="px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-700 hover:text-gray-900 hover:bg-gray-100/60 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800/50 transition-colors"
           >
             Cancelar
           </button>
@@ -251,7 +251,7 @@ const PagosCargaMasivaModal: FC<Props> = ({ resultado, nombreArchivo, onClose, p
             type="button"
             onClick={handleConfirm}
             disabled={confirming || preview.pagos.length === 0}
-            className="px-6 py-2.5 rounded-xl bg-emerald-600 text-white font-semibold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm shadow-lg"
+            className="px-7 py-2.5 rounded-xl bg-green-600 text-sm font-bold text-white shadow-md shadow-green-600/20 transition-all hover:bg-green-700 hover:shadow-lg hover:shadow-green-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {confirming ? (
               <span className="flex items-center gap-2">

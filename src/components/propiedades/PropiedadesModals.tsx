@@ -85,6 +85,7 @@ interface EstadoCuentaMovimiento {
   cargo: number;
   abono: number;
   saldoFila: number;
+  ref_id?: number;
 }
 
 interface ModalEstadoCuentaProps {
@@ -97,6 +98,7 @@ interface ModalEstadoCuentaProps {
   fechaHasta: string;
   setFechaHasta: Dispatch<SetStateAction<string>>;
   handleOpenAjuste: (propiedad: EstadoCuentaPropiedad) => void | Promise<void>;
+  onRevertirAjuste?: (historialId: number) => void;
   loadingCuenta: boolean;
   estadoCuentaFiltrado: EstadoCuentaMovimiento[];
   showAjuste?: boolean;
@@ -621,7 +623,22 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4"><button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-3 rounded-xl bg-gray-100 dark:bg-gray-800 font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200 transition-colors">Cancelar</button><button type="submit" id="btnSubmitProp" className="px-6 py-3 rounded-xl font-bold bg-donezo-primary text-white hover:bg-blue-700 transition-all">{editingId ? 'Guardar Cambios' : 'Registrar Inmueble'}</button></div>
+          <div className="flex justify-end gap-3 pt-5 border-t border-gray-200/80 dark:border-gray-700/60">
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+              className="px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-700 hover:text-gray-900 hover:bg-gray-100/60 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800/50 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              id="btnSubmitProp"
+              className="px-7 py-2.5 rounded-xl bg-green-600 text-sm font-bold text-white shadow-md shadow-green-600/20 transition-all hover:bg-green-700 hover:shadow-lg hover:shadow-green-600/30"
+            >
+              {editingId ? 'Guardar Cambios' : 'Registrar Inmueble'}
+            </button>
+          </div>
       </form>
     </ModalBase>
   );
@@ -637,6 +654,7 @@ export const ModalEstadoCuenta: FC<ModalEstadoCuentaProps> = ({
   fechaHasta,
   setFechaHasta,
   handleOpenAjuste,
+  onRevertirAjuste,
   loadingCuenta,
   estadoCuentaFiltrado,
   showAjuste = true
@@ -657,18 +675,28 @@ export const ModalEstadoCuenta: FC<ModalEstadoCuentaProps> = ({
   const saldoFinal = estadoCuentaFiltrado.length > 0 ? (estadoCuentaFiltrado[estadoCuentaFiltrado.length - 1]?.saldoFila ?? 0) : 0;
 
   return (
-    <div className="fixed inset-0 z-40 flex items-start sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
-      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl w-full max-w-[96vw] xl:max-w-7xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-start bg-gray-50 dark:bg-gray-900/50">
-          <div>
-            <h3 className="text-2xl font-black text-gray-800 dark:text-white flex items-center gap-2">
+    <div
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-hidden animate-fadeIn"
+      onClick={() => setEstadoCuentaModalOpen(false)}
+    >
+      <div
+        className="bg-white dark:bg-donezo-card-dark rounded-2xl w-full max-w-[96vw] xl:max-w-7xl shadow-2xl border border-gray-200/60 dark:border-gray-700/60 overflow-hidden flex flex-col max-h-[90vh] animate-modalEnter"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between px-6 py-5 border-b border-gray-200 dark:border-gray-700 shrink-0 bg-gradient-to-r from-gray-50/50 to-white dark:from-gray-800/50 dark:to-donezo-card-dark">
+          <div className="flex-1 min-w-0 pr-4">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
               {selectedPropCuenta.identificador} <span className="text-gray-300 font-normal">|</span> {selectedPropCuenta.prop_nombre}
             </h3>
             {selectedPropCuenta.inq_nombre && (
-              <p className="text-sm font-medium text-gray-500 mt-1">Residente: <span className="text-gray-700 dark:text-gray-300">{selectedPropCuenta.inq_nombre}</span></p>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1">Residente: <span className="text-gray-700 dark:text-gray-300">{selectedPropCuenta.inq_nombre}</span></p>
             )}
           </div>
-          <button type="button" onClick={() => setEstadoCuentaModalOpen(false)} className="ml-4 shrink-0 text-gray-400 hover:text-red-500 font-bold text-2xl transition-colors leading-none" aria-label="Cerrar">✕</button>
+          <button type="button" onClick={() => setEstadoCuentaModalOpen(false)} className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all duration-200" aria-label="Cerrar">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
         <div className="px-6 py-4 flex flex-wrap justify-between items-end gap-4 bg-white dark:bg-donezo-card-dark border-b border-gray-100 dark:border-gray-800">
@@ -726,16 +754,31 @@ export const ModalEstadoCuenta: FC<ModalEstadoCuentaProps> = ({
                 { key: 'saldo', header: 'Saldo Final', headerClassName: 'text-right text-donezo-primary', className: 'text-right font-mono font-black text-gray-800 dark:text-white', render: (m) => `$${formatMoney(m.saldoFila)}` },
                 {
                   key: 'ver',
-                  header: 'Ver',
+                  header: 'Acciones',
                   headerClassName: 'text-center',
                   className: 'text-center',
-                  render: (m) => m.tipo === 'RECIBO' ? (
-                    <button type="button" title="Ver detalle del aviso (proximamente)" className="px-2 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm">
-                      Ver
-                    </button>
-                  ) : (
-                    <span className="text-gray-300">-</span>
-                  ),
+                  render: (m) => {
+                    if (m.tipo === 'RECIBO') {
+                      return (
+                        <button type="button" title="Ver detalle del aviso (proximamente)" className="px-2 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm">
+                          Ver
+                        </button>
+                      );
+                    }
+                    if (m.tipo === 'AJUSTE' && m.ref_id && onRevertirAjuste) {
+                      return (
+                        <button
+                          type="button"
+                          title="Revertir este ajuste manual"
+                          onClick={() => onRevertirAjuste(m.ref_id!)}
+                          className="px-2 py-1 rounded-lg bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 text-xs font-semibold border border-red-200/70 dark:border-red-800/40 transition-colors"
+                        >
+                          Revertir
+                        </button>
+                      );
+                    }
+                    return <span className="text-gray-300 dark:text-gray-600">-</span>;
+                  },
                 },
               ]}
               data={movimientosPagina}
@@ -841,7 +884,21 @@ export const ModalAjusteSaldo: FC<ModalAjusteSaldoProps> = ({
           <p className="text-xs font-semibold text-blue-700 dark:text-blue-300">
             Este ajuste afecta solo el estado de cuenta del inmueble. No genera movimientos en los estados de cuenta bancarios.
           </p>
-          <div className="pt-4 flex gap-3"><button type="button" onClick={() => setAjusteModalOpen(false)} className="flex-1 py-3 rounded-xl font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 transition-colors">Cancelar</button><button type="submit" className="flex-1 py-3 rounded-xl font-bold bg-yellow-500 text-white hover:bg-yellow-600 transition-all">Aplicar Ajuste</button></div>
+          <div className="flex justify-end gap-3 pt-5 border-t border-gray-200/80 dark:border-gray-700/60">
+            <button
+              type="button"
+              onClick={() => setAjusteModalOpen(false)}
+              className="px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-700 hover:text-gray-900 hover:bg-gray-100/60 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800/50 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="px-7 py-2.5 rounded-xl bg-green-600 text-sm font-bold text-white shadow-md shadow-green-600/20 transition-all hover:bg-green-700 hover:shadow-lg hover:shadow-green-600/30"
+            >
+              Aplicar Ajuste
+            </button>
+          </div>
       </form>
     </ModalBase>
   );
@@ -954,11 +1011,20 @@ export const ModalCopropietarioForm: FC<ModalCopropietarioFormProps> = ({
             El copropietario tendrá acceso para consultar información y registrar pagos, pero la cobranza oficial y el recibo legal permanecen a nombre del propietario principal.
           </p>
 
-          <div className="flex justify-end gap-3 pt-4">
-            <button type="button" onClick={onClose} className="px-6 py-3 rounded-xl bg-gray-100 dark:bg-gray-800 font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200 transition-colors" disabled={isSubmitting}>
+          <div className="flex justify-end gap-3 pt-5 border-t border-gray-200/80 dark:border-gray-700/60">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-700 hover:text-gray-900 hover:bg-gray-100/60 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800/50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              disabled={isSubmitting}
+            >
               Cancelar
             </button>
-            <button type="submit" className="px-6 py-3 rounded-xl font-bold bg-donezo-primary text-white hover:bg-blue-700 transition-all disabled:opacity-60" disabled={isSubmitting}>
+            <button
+              type="submit"
+              className="px-7 py-2.5 rounded-xl bg-green-600 text-sm font-bold text-white shadow-md shadow-green-600/20 transition-all hover:bg-green-700 hover:shadow-lg hover:shadow-green-600/30 disabled:opacity-60 disabled:cursor-not-allowed"
+              disabled={isSubmitting}
+            >
               {isSubmitting ? 'Guardando...' : 'Guardar Copropietario'}
             </button>
           </div>
@@ -1152,11 +1218,20 @@ export const ModalResidenteForm: FC<ModalResidenteFormProps> = ({
             Permitir acceso al portal del residente / inquilino
           </label>
 
-          <div className="flex justify-end gap-3 pt-4">
-            <button type="button" onClick={onClose} className="px-6 py-3 rounded-xl bg-gray-100 dark:bg-gray-800 font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200 transition-colors" disabled={isSubmitting}>
+          <div className="flex justify-end gap-3 pt-5 border-t border-gray-200/80 dark:border-gray-700/60">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-700 hover:text-gray-900 hover:bg-gray-100/60 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800/50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              disabled={isSubmitting}
+            >
               Cancelar
             </button>
-            <button type="submit" className="px-6 py-3 rounded-xl font-bold bg-donezo-primary text-white hover:bg-blue-700 transition-all disabled:opacity-60" disabled={isSubmitting}>
+            <button
+              type="submit"
+              className="px-7 py-2.5 rounded-xl bg-green-600 text-sm font-bold text-white shadow-md shadow-green-600/20 transition-all hover:bg-green-700 hover:shadow-lg hover:shadow-green-600/30 disabled:opacity-60 disabled:cursor-not-allowed"
+              disabled={isSubmitting}
+            >
               {isSubmitting ? 'Guardando...' : hasExistingResidente ? 'Guardar Cambios' : 'Guardar Residente / Inquilino'}
             </button>
           </div>

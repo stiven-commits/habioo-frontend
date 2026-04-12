@@ -626,9 +626,15 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
       </div>
 
       {showPrintModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm p-4 sm:p-6 overflow-y-auto print:hidden">
-          <div className="mx-auto w-full max-w-6xl">
-            <div className="mb-3 flex items-center justify-between rounded-xl border border-gray-200 bg-white/95 p-3 shadow-lg dark:border-gray-700 dark:bg-gray-900/95">
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm p-4 sm:p-6 overflow-hidden animate-fadeIn print:hidden"
+          onClick={() => { setShowPrintModal(false); setSelectedReciboId(null); }}
+        >
+          <div
+            className="mx-auto w-full max-w-6xl animate-modalEnter"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between rounded-t-xl border border-gray-200 bg-white/95 p-3 shadow-lg dark:border-gray-700 dark:bg-gray-900/95">
               <p className="text-sm font-bold text-gray-700 dark:text-gray-200">
                 Aviso de Cobro {selectedReciboId ? `#${selectedReciboId}` : ''}
               </p>
@@ -652,7 +658,7 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
                 </button>
               </div>
             </div>
-            <div ref={avisoPrintRef} className="max-h-[85vh] overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-950">
+            <div ref={avisoPrintRef} className="max-h-[85vh] overflow-y-auto rounded-b-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-950 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
               <VistaAvisoCobro reciboId={selectedReciboId} />
             </div>
           </div>

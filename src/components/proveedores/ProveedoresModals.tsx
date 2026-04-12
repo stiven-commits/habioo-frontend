@@ -283,9 +283,20 @@ export const ModalProveedorForm: React.FC<ModalProveedorFormProps> = ({
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-6 border-t border-gray-100 dark:border-gray-800">
-            <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-3 rounded-xl font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 transition-all">Cancelar</button>
-            <button type="submit" className="px-6 py-3 rounded-xl font-bold bg-donezo-primary text-white hover:bg-green-700 transition-all shadow-md">{editingId ? 'Guardar Cambios' : 'Guardar Proveedor'}</button>
+          <div className="flex justify-end gap-3 pt-5 border-t border-gray-200/80 dark:border-gray-700/60">
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+              className="px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-700 hover:text-gray-900 hover:bg-gray-100/60 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800/50 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="px-7 py-2.5 rounded-xl bg-green-600 text-sm font-bold text-white shadow-md shadow-green-600/20 transition-all hover:bg-green-700 hover:shadow-lg hover:shadow-green-600/30"
+            >
+              {editingId ? 'Guardar Cambios' : 'Guardar Proveedor'}
+            </button>
           </div>
       </form>
     </ModalBase>
@@ -366,16 +377,35 @@ export const ModalCargaMasivaProveedores: React.FC<ModalCargaMasivaProveedoresPr
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
-      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl w-full max-w-6xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
-          <div>
-            <h3 className="text-xl font-black text-gray-800 dark:text-white">Carga Masiva de Proveedores</h3>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-hidden animate-fadeIn"
+      onClick={!isUploadingLote ? handleClose : undefined}
+    >
+      <div
+        className="bg-white dark:bg-donezo-card-dark rounded-2xl w-full max-w-6xl shadow-2xl border border-gray-200/60 dark:border-gray-700/60 overflow-hidden flex flex-col max-h-[90vh] animate-modalEnter"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 dark:border-gray-700 shrink-0 bg-gradient-to-r from-gray-50/50 to-white dark:from-gray-800/50 dark:to-donezo-card-dark">
+          <div className="flex-1 min-w-0 pr-4">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white truncate">Carga Masiva de Proveedores</h3>
             {loteData.length > 0 && (
-              <p className="text-sm text-gray-500 mt-1">Se encontraron {loteData.length} registros.{loteErrors > 0 && <span className="text-red-500 font-bold ml-2">Hay {loteErrors} errores detectados.</span>}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Se encontraron {loteData.length} registros.
+                {loteErrors > 0 && <span className="text-red-500 font-bold ml-2">Hay {loteErrors} errores detectados.</span>}
+              </p>
             )}
           </div>
-          <button onClick={handleClose} disabled={isUploadingLote} className={`text-gray-400 font-bold text-2xl transition-colors ${isUploadingLote ? 'opacity-30 cursor-not-allowed' : 'hover:text-red-500'}`}>X</button>
+          <button
+            onClick={handleClose}
+            disabled={isUploadingLote}
+            className={`shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all duration-200 ${
+              isUploadingLote ? 'opacity-30 cursor-not-allowed' : ''
+            }`}
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
         {loteData.length === 0 ? (
@@ -422,7 +452,7 @@ export const ModalCargaMasivaProveedores: React.FC<ModalCargaMasivaProveedoresPr
               />
             </div>
 
-            <div className="p-6 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-800 flex flex-col gap-4">
+            <div className="p-6 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200/80 dark:border-gray-700/60">
               <div className="flex flex-col sm:flex-row justify-between items-center gap-4 w-full">
                 {!isUploadingLote ? (
                   <label className="text-blue-600 dark:text-blue-400 font-bold hover:underline cursor-pointer text-sm">Subir otro archivo<input type="file" accept=".xlsx, .xls, .csv" className="hidden" onChange={handleFileUpload} /></label>
@@ -431,8 +461,20 @@ export const ModalCargaMasivaProveedores: React.FC<ModalCargaMasivaProveedoresPr
                 )}
 
                 <div className="flex gap-3 w-full sm:w-auto">
-                  <button onClick={handleClose} disabled={isUploadingLote} className="flex-1 sm:flex-none px-6 py-3 rounded-xl font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Cancelar</button>
-                  <button onClick={handleSaveLote} disabled={loteErrors > 0 || isUploadingLote} className="flex-1 sm:flex-none px-6 py-3 rounded-xl font-bold bg-donezo-primary text-white hover:bg-blue-700 shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all">{isUploadingLote ? 'Guardando...' : `Confirmar y Guardar ${loteData.length}`}</button>
+                  <button
+                    onClick={handleClose}
+                    disabled={isUploadingLote}
+                    className="px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-700 hover:text-gray-900 hover:bg-gray-100/60 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleSaveLote}
+                    disabled={loteErrors > 0 || isUploadingLote}
+                    className="px-7 py-2.5 rounded-xl bg-green-600 text-sm font-bold text-white shadow-md shadow-green-600/20 transition-all hover:bg-green-700 hover:shadow-lg hover:shadow-green-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isUploadingLote ? 'Guardando...' : `Confirmar y Guardar ${loteData.length}`}
+                  </button>
                 </div>
               </div>
             </div>
