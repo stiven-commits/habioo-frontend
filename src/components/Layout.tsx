@@ -1175,6 +1175,7 @@ const Layout: React.FC<LayoutProps> = () => {
         <ModalBase
           onClose={handleSessionEndedAcknowledge}
           title="Sesion cerrada"
+          helpTooltip="Este aviso informa que la sesion expiro por seguridad. Solo puedes confirmar y volver a iniciar sesion."
           subtitle="Para evitar operaciones incompletas, debes iniciar sesion nuevamente."
           maxWidth="max-w-md"
         >

@@ -444,7 +444,7 @@ const ModalPagarProveedor: React.FC<ModalPagarProveedorProps> = ({ isOpen, onClo
     : 'Registre el pago al proveedor completando los siguientes campos.';
 
   return (
-    <ModalBase onClose={onClose} title="Pagar proveedor" subtitle={subtitle} maxWidth="max-w-6xl" disableClose={saving}>
+    <ModalBase onClose={onClose} title="Pagar proveedor" helpTooltip="Desde aqui puedes registrar pagos al proveedor, distribuir montos por origen/fondo y confirmar el pago con su soporte." subtitle={subtitle} maxWidth="max-w-6xl" disableClose={saving}>
       {saving && (
         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-white/70 backdrop-blur-sm dark:bg-donezo-card-dark/70 rounded-3xl">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-300 border-t-donezo-primary" />

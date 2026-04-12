@@ -445,6 +445,7 @@ const BancoFormModal: FC<BancoFormModalProps> = ({
     <ModalBase
       onClose={handleClose}
       title={isEditing ? 'Editar Cuenta Bancaria' : 'Nueva Cuenta Bancaria'}
+      helpTooltip="Aqui puedes crear o editar cuentas bancarias: banco, numero de cuenta, moneda, saldos iniciales y datos de operacion."
       maxWidth="max-w-6xl"
       disableClose={isSaving}
     >

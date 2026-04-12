@@ -248,7 +248,7 @@ const ModalDetallesGasto: FC<ModalDetallesGastoProps> = ({ gasto, onClose }) => 
   if (!gasto) return null;
 
   return (
-    <ModalBase onClose={onClose} title="Inspeccion de Gasto" maxWidth={isExtra ? 'max-w-7xl' : 'max-w-2xl'}>
+    <ModalBase onClose={onClose} title="Inspeccion de Gasto" helpTooltip="Consulta el detalle completo del gasto: datos base, documentos, pagos asociados, origenes y movimientos relacionados." maxWidth={isExtra ? 'max-w-7xl' : 'max-w-2xl'}>
       <div className={`grid grid-cols-1 ${isExtra ? 'xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] xl:gap-6' : ''}`}>
         <div className="space-y-3 pt-1 text-sm text-gray-600 dark:text-gray-300">
           <div className="flex justify-between items-start border-b border-gray-100 dark:border-gray-700 pb-3">

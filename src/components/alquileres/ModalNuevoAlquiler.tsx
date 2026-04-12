@@ -267,7 +267,7 @@ const ModalNuevoAlquiler: FC<ModalNuevoAlquilerProps> = ({
   if (!isOpen) return null;
 
   return (
-    <ModalBase onClose={handleClose} title={mode === 'edit' ? 'Editar Alquiler' : 'Registrar Nuevo Alquiler'} subtitle={mode === 'edit' ? 'Actualiza los datos del espacio alquilable.' : 'Crea un espacio reservable para residentes y copropietarios.'} maxWidth="max-w-5xl" disableClose={isLoading}>
+    <ModalBase onClose={handleClose} title={mode === 'edit' ? 'Editar Alquiler' : 'Registrar Nuevo Alquiler'} helpTooltip="Configura el alquiler: datos del espacio, reglas, costos, disponibilidad y condiciones de uso. Guarda para habilitar reservas." subtitle={mode === 'edit' ? 'Actualiza los datos del espacio alquilable.' : 'Crea un espacio reservable para residentes y copropietarios.'} maxWidth="max-w-5xl" disableClose={isLoading}>
       <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
               <section className="p-6 space-y-4 border-b lg:border-b-0 lg:border-r border-slate-100 dark:border-slate-800">

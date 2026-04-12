@@ -483,7 +483,7 @@ export const ModalPagoProveedor: React.FC<ModalActionProps> = ({ onClose, onSucc
   };
 
   return (
-    <ModalBase onClose={onClose} title="Pagar a Proveedor" maxWidth="max-w-md">
+    <ModalBase onClose={onClose} title="Pagar a Proveedor" helpTooltip="Registra el pago a un proveedor seleccionando fondo/cuenta, monto y referencia para dejar trazabilidad bancaria." maxWidth="max-w-md">
 
         {loading ? <p className="text-center text-gray-500">Cargando...</p> : (
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -745,7 +745,7 @@ export const ModalTransferencia: React.FC<ModalActionProps> = ({ onClose, onSucc
   };
 
   return (
-    <ModalBase onClose={handleCloseTransferModal} title="Transferir Dinero" maxWidth="max-w-2xl">
+    <ModalBase onClose={handleCloseTransferModal} title="Transferir Dinero" helpTooltip="Transfiere saldo entre cuentas o fondos internos, definiendo origen, destino, monto y soporte del movimiento." maxWidth="max-w-2xl">
 
         {loading ? <p className="text-center text-gray-500">Cargando fondos...</p> : (
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -1048,7 +1048,7 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({
   };
 
   return (
-    <ModalBase onClose={handleCloseEgresoModal} title={isIngreso ? 'Registrar Ingreso' : 'Registrar Egreso'} maxWidth="max-w-md">
+    <ModalBase onClose={handleCloseEgresoModal} title={isIngreso ? 'Registrar Ingreso' : 'Registrar Egreso'} helpTooltip="Registra ingresos o egresos de banco con su concepto y monto para mantener los saldos y movimientos actualizados." maxWidth="max-w-md">
 
         {loading ? (
           <p className="text-center text-gray-500">Cargando...</p>
@@ -1215,7 +1215,7 @@ export const ModalEliminarFondo: React.FC<ModalEliminarFondoProps> = ({ fondo, f
   if (!fondo) return null;
 
   return (
-    <ModalBase onClose={onClose} title="Eliminar Fondo" maxWidth="max-w-md">
+    <ModalBase onClose={onClose} title="Eliminar Fondo" helpTooltip="Confirma la eliminacion del fondo seleccionado. Revisa el impacto en distribuciones antes de continuar." maxWidth="max-w-md">
         <form onSubmit={handleSubmit} className="space-y-4">
           <p className="text-sm text-gray-700 dark:text-gray-300">
             Esta accion desactiva el fondo <strong>{fondo.nombre}</strong>. El historial de movimientos se conserva para auditoria.

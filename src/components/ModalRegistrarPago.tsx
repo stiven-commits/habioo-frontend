@@ -688,7 +688,13 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
   if (!propiedadPreseleccionada) return null;
 
   return (
-    <ModalBase onClose={onClose} title="Registrar Pago" maxWidth="max-w-6xl" disableClose={isSubmitting}>
+    <ModalBase
+      onClose={onClose}
+      title="Registrar Pago"
+      helpTooltip="Este modal permite registrar pagos manuales, distribuirlos en conceptos y confirmar el asiento. Revisa montos, fecha y soportes antes de guardar."
+      maxWidth="max-w-6xl"
+      disableClose={isSubmitting}
+    >
       {isSubmitting && (
         <div className="absolute inset-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm z-50 rounded-3xl flex flex-col items-center justify-center px-6 text-center">
           <div className="relative w-14 h-14 mb-4">

@@ -175,6 +175,7 @@ export const ModalProveedorForm: React.FC<ModalProveedorFormProps> = ({
     <ModalBase
       onClose={() => setIsModalOpen(false)}
       title={editingId ? 'Editar Proveedor' : 'Registrar Proveedor'}
+      helpTooltip="Usa este modal para crear o actualizar proveedores: datos fiscales, contacto, rubro, ubicacion y estado operativo."
       subtitle={<>Los campos marcados con (<span className="text-red-500 font-bold">*</span>) son obligatorios.</>}
       maxWidth="max-w-3xl"
     >
@@ -307,7 +308,7 @@ export const ModalProveedorDetails: React.FC<ModalProveedorDetailsProps> = ({ is
   if (!isOpen || !prov) return null;
 
   return (
-    <ModalBase onClose={() => setIsOpen(false)} title="Detalles del Proveedor" maxWidth="max-w-3xl">
+    <ModalBase onClose={() => setIsOpen(false)} title="Detalles del Proveedor" helpTooltip="Vista de solo lectura para consultar la ficha completa del proveedor y validar su informacion registrada." maxWidth="max-w-3xl">
       <div className="space-y-5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <FormField label="Identificador / RIF">

@@ -34,7 +34,7 @@ const ModalDetalleMovimiento: FC<ModalDetalleMovimientoProps> = ({
   const cedulaOrigen = movimiento.cedula_origen?.trim() || '-';
 
   return (
-    <ModalBase onClose={onClose} title="Detalle del movimiento" maxWidth="max-w-xl">
+    <ModalBase onClose={onClose} title="Detalle del movimiento" helpTooltip="Muestra la informacion completa del movimiento contable: tipo, fecha, monto, referencia y cuenta/fondo asociado." maxWidth="max-w-xl">
       <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
           <div><span className="font-bold text-gray-600 dark:text-gray-300">ID:</span> <span className="text-gray-800 dark:text-gray-100">{String(movimiento.id)}</span></div>
           <div><span className="font-bold text-gray-600 dark:text-gray-300">Tipo:</span> <span className={movimiento.tipo === 'EGRESO' ? 'font-bold text-red-600 dark:text-red-400' : 'font-bold text-emerald-600 dark:text-emerald-400'}>{movimiento.tipo}</span></div>

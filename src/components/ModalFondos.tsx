@@ -406,6 +406,7 @@ const ModalFondos: FC<ModalFondosProps> = ({ cuenta, onClose, onDeleteFondo, ref
     <ModalBase
       onClose={onClose}
       title="Configuracion de Fondos"
+      helpTooltip="Aqui puedes crear, editar y eliminar fondos de la cuenta bancaria, definir porcentaje de asignacion y marcar fondo principal u opciones de visibilidad."
       subtitle={<>Cuenta bancaria: <strong className="text-donezo-primary">{cuenta.nombre_banco} ({cuenta.apodo})</strong></>}
       maxWidth="max-w-2xl"
       disableClose={isCreatingFondo}

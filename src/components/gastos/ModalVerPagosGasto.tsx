@@ -88,7 +88,7 @@ const ModalVerPagosGasto: React.FC<ModalVerPagosGastoProps> = ({ isOpen, onClose
   if (!isOpen || !gasto) return null;
 
   return (
-    <ModalBase onClose={onClose} title="Pagos del gasto" subtitle={<>#{gasto.gasto_id} · {gasto.proveedor || 'Proveedor'} · {gasto.concepto || 'Sin concepto'}</>} maxWidth="max-w-6xl">
+    <ModalBase onClose={onClose} title="Pagos del gasto" helpTooltip="Revisa los pagos registrados para este gasto, su estado, fechas y montos para validar conciliacion y trazabilidad." subtitle={<>#{gasto.gasto_id} · {gasto.proveedor || 'Proveedor'} · {gasto.concepto || 'Sin concepto'}</>} maxWidth="max-w-6xl">
       <div className="space-y-4">
           <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/40">
             <div className="flex items-center justify-between text-sm">

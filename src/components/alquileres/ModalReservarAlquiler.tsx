@@ -130,7 +130,7 @@ const ModalReservarAlquiler: FC<ModalReservarAlquilerProps> = ({ isOpen, onClose
   if (!isOpen) return null;
 
   return (
-    <ModalBase onClose={handleClose} title={`Reservar ${alquiler.nombre}`} maxWidth="max-w-lg" disableClose={isLoading}>
+    <ModalBase onClose={handleClose} title={`Reservar ${alquiler.nombre}`} helpTooltip="Aqui puedes escoger fecha y horario para reservar el espacio, revisar el costo y confirmar la solicitud." maxWidth="max-w-lg" disableClose={isLoading}>
       <form onSubmit={handleSubmit} className="space-y-4">
             <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-4 space-y-2">
               <p className="text-xs font-black uppercase tracking-wider text-gray-500 dark:text-gray-400">Resumen de pago</p>
@@ -194,5 +194,4 @@ const ModalReservarAlquiler: FC<ModalReservarAlquilerProps> = ({ isOpen, onClose
 };
 
 export default ModalReservarAlquiler;
-
 

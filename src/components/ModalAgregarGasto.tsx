@@ -1068,7 +1068,12 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
   };
 
   return (
-    <ModalBase onClose={onClose} title={mode === 'edit' ? 'Editar Gasto' : 'Registrar Gasto'} maxWidth="max-w-6xl">
+    <ModalBase
+      onClose={onClose}
+      title={mode === 'edit' ? 'Editar Gasto' : 'Registrar Gasto'}
+      helpTooltip="Aqui puedes cargar un gasto nuevo o historico, completar datos del documento, definir cuotas, tipo de gasto y adjuntar factura/soportes antes de guardar."
+      maxWidth="max-w-6xl"
+    >
       {/* PROGRESS STEPS PANEL */}
       <div className="pt-4 mb-5">
         <nav aria-label="Progress">

@@ -366,6 +366,7 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
     <ModalBase
       onClose={() => setIsModalOpen(false)}
       title={editingId ? 'Editar Inmueble' : 'Nuevo Inmueble'}
+      helpTooltip="Este formulario te permite registrar o editar un inmueble, propietario, datos de contacto y configuraciones iniciales de saldo/deuda."
       maxWidth="max-w-3xl"
     >
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -854,6 +855,7 @@ export const ModalAjusteSaldo: FC<ModalAjusteSaldoProps> = ({
     <ModalBase
       onClose={() => setAjusteModalOpen(false)}
       title="Ajustar Saldo"
+      helpTooltip="Aqui puedes aplicar ajustes manuales de saldo al inmueble (deuda o favor), con nota de auditoria y tasa BCV de referencia."
       subtitle={<>Inmueble: <strong className="text-donezo-primary">{selectedPropAjuste.identificador}</strong></>}
       maxWidth="max-w-md"
     >
@@ -943,6 +945,7 @@ export const ModalCopropietarioForm: FC<ModalCopropietarioFormProps> = ({
     <ModalBase
       onClose={onClose}
       title="Agregar Copropietario"
+      helpTooltip="Permite crear, editar o eliminar copropietarios del inmueble y definir si tendran acceso de consulta al portal."
       subtitle={<>Inmueble: <strong>{propiedadIdentificador}</strong></>}
       maxWidth="max-w-xl"
       disableClose={isSubmitting}
@@ -1154,6 +1157,7 @@ export const ModalResidenteForm: FC<ModalResidenteFormProps> = ({
     <ModalBase
       onClose={onClose}
       title={hasExistingResidente ? 'Editar Residente / Inquilino' : 'Agregar Residente / Inquilino'}
+      helpTooltip="Usa este modal para registrar o actualizar los datos del residente/inquilino y controlar su acceso al portal."
       subtitle={<>Inmueble: <strong>{propiedadIdentificador}</strong></>}
       maxWidth="max-w-xl"
       disableClose={isSubmitting}

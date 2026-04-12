@@ -288,7 +288,7 @@ const ModalReportarPagoAlquiler: FC<ModalReportarPagoAlquilerProps> = ({
   if (!isOpen || !reservacion) return null;
 
   return (
-    <ModalBase onClose={handleClose} title={`Reportar Pago - ${reservacion.amenidad_nombre}`} subtitle="Registra el soporte del pago para validación de la Junta." maxWidth="max-w-3xl" disableClose={isLoading}>
+    <ModalBase onClose={handleClose} title={`Reportar Pago - ${reservacion.amenidad_nombre}`} helpTooltip="Permite reportar un pago de alquiler, cargar comprobantes y enviar la solicitud para revision de la Junta." subtitle="Registra el soporte del pago para validación de la Junta." maxWidth="max-w-3xl" disableClose={isLoading}>
       <form onSubmit={handleSubmit} className="space-y-5">
             <div className="rounded-2xl border border-blue-100 dark:border-blue-900/40 bg-blue-50 dark:bg-blue-900/10 p-4">
               <p className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-300">Resumen</p>
@@ -431,5 +431,4 @@ const ModalReportarPagoAlquiler: FC<ModalReportarPagoAlquilerProps> = ({
 };
 
 export default ModalReportarPagoAlquiler;
-
 

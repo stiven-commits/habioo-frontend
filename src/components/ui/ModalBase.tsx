@@ -1,9 +1,12 @@
 import type { FC, ReactNode } from 'react';
+import Tooltip from '@rc-component/tooltip';
+import '@rc-component/tooltip/assets/bootstrap_white.css';
 
 interface ModalBaseProps {
   onClose: () => void;
   title: string;
   subtitle?: ReactNode;
+  helpTooltip?: ReactNode;
   maxWidth?: string;
   disableClose?: boolean;
   children: ReactNode;
@@ -13,6 +16,7 @@ const ModalBase: FC<ModalBaseProps> = ({
   onClose,
   title,
   subtitle,
+  helpTooltip,
   maxWidth = 'max-w-2xl',
   disableClose = false,
   children,
@@ -27,7 +31,32 @@ const ModalBase: FC<ModalBaseProps> = ({
     >
       <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 dark:border-gray-700 shrink-0 bg-gradient-to-r from-gray-50/50 to-white dark:from-gray-800/50 dark:to-donezo-card-dark">
         <div className="flex-1 min-w-0 pr-4">
-          <h3 className="text-xl font-bold text-gray-900 dark:text-white truncate">{title}</h3>
+          <div className="flex items-center gap-2 min-w-0">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white truncate">{title}</h3>
+            {helpTooltip && (
+              <Tooltip
+                placement="right"
+                mouseEnterDelay={0.1}
+                mouseLeaveDelay={0.1}
+                showArrow
+                overlay={
+                  <div className="max-w-[320px] whitespace-normal rounded-lg bg-gray-900 px-3 py-2 text-xs leading-relaxed text-white shadow-xl">
+                    {helpTooltip}
+                  </div>
+                }
+                classNames={{ root: 'z-[70]' }}
+              >
+                <button
+                  type="button"
+                  className="shrink-0 inline-flex h-6 w-6 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-[11px] font-bold text-blue-600 transition-colors hover:bg-blue-100 dark:border-blue-800/60 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50"
+                  aria-label="Ayuda del modal"
+                  title="Ayuda"
+                >
+                  ?
+                </button>
+              </Tooltip>
+            )}
+          </div>
           {subtitle && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{subtitle}</p>}
         </div>
         <button
