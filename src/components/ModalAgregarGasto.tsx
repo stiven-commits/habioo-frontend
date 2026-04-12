@@ -115,6 +115,65 @@ interface ApiErrorResponse {
   status?: string;
 }
 
+const EMPTY_FORM_STATE: FormState = {
+  proveedor_id: '',
+  concepto: '',
+  numero_documento: '',
+  monto_bs: '',
+  tasa_cambio: '',
+  total_cuotas: '1',
+  nota: '',
+  clasificacion: 'Variable',
+  asignacion_tipo: 'Comun',
+  zona_id: '',
+  propiedad_id: '',
+  fecha_gasto: '',
+  cuotas_historicas: '0',
+  monto_historico_proveedor_usd: '',
+  monto_historico_proveedor_bs: '',
+  monto_historico_recaudado_usd: '',
+  monto_historico_recaudado_bs: '',
+  monto_historico_recaudado_no_cuenta_usd: '',
+  monto_historico_recaudado_no_cuenta_bs: '',
+  historico_en_cuenta: false,
+  historico_cuenta_bancaria_id: '',
+  historico_fondo_id: '',
+  tasa_historica: '',
+};
+
+const FORM_KEYS: Array<keyof FormState> = Object.keys(EMPTY_FORM_STATE) as Array<keyof FormState>;
+
+const sanitizeFormState = (source?: Partial<FormState>): FormState => {
+  const src = source || {};
+  return {
+    proveedor_id: String(src.proveedor_id || ''),
+    concepto: String(src.concepto || ''),
+    numero_documento: String(src.numero_documento || ''),
+    monto_bs: String(src.monto_bs || ''),
+    tasa_cambio: String(src.tasa_cambio || ''),
+    total_cuotas: String(src.total_cuotas || '1'),
+    nota: String(src.nota || ''),
+    clasificacion: (String(src.clasificacion || 'Variable') === 'Fijo' ? 'Fijo' : 'Variable'),
+    asignacion_tipo: (['Comun', 'Zona', 'Individual', 'Extra'].includes(String(src.asignacion_tipo || 'Comun'))
+      ? String(src.asignacion_tipo || 'Comun')
+      : 'Comun') as AsignacionTipo,
+    zona_id: String(src.zona_id || ''),
+    propiedad_id: String(src.propiedad_id || ''),
+    fecha_gasto: String(src.fecha_gasto || ''),
+    cuotas_historicas: String(src.cuotas_historicas || '0'),
+    monto_historico_proveedor_usd: String(src.monto_historico_proveedor_usd || ''),
+    monto_historico_proveedor_bs: String(src.monto_historico_proveedor_bs || ''),
+    monto_historico_recaudado_usd: String(src.monto_historico_recaudado_usd || ''),
+    monto_historico_recaudado_bs: String(src.monto_historico_recaudado_bs || ''),
+    monto_historico_recaudado_no_cuenta_usd: String(src.monto_historico_recaudado_no_cuenta_usd || ''),
+    monto_historico_recaudado_no_cuenta_bs: String(src.monto_historico_recaudado_no_cuenta_bs || ''),
+    historico_en_cuenta: Boolean(src.historico_en_cuenta),
+    historico_cuenta_bancaria_id: String(src.historico_cuenta_bancaria_id || ''),
+    historico_fondo_id: String(src.historico_fondo_id || ''),
+    tasa_historica: String(src.tasa_historica || ''),
+  };
+};
+
 const ymdToDate = (ymd: string): Date | null => {
   if (!ymd) return null;
   const [year, month, day] = ymd.split('-').map((v) => Number(v));
@@ -204,24 +263,7 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
     return (fondos || []).find((f) => String(f.id) === String(fondoId || ''));
   }
 
-  const [form, setForm] = useState<FormState>({
-    proveedor_id: '', concepto: '', numero_documento: '', monto_bs: '', tasa_cambio: '', total_cuotas: '1', nota: '',
-    clasificacion: 'Variable',
-    asignacion_tipo: 'Comun',
-    zona_id: '', propiedad_id: '',
-    fecha_gasto: '',
-    cuotas_historicas: '0',
-    monto_historico_proveedor_usd: '',
-    monto_historico_proveedor_bs: '',
-    monto_historico_recaudado_usd: '',
-    monto_historico_recaudado_bs: '',
-    monto_historico_recaudado_no_cuenta_usd: '',
-    monto_historico_recaudado_no_cuenta_bs: '',
-    historico_en_cuenta: false,
-    historico_cuenta_bancaria_id: '',
-    historico_fondo_id: '',
-    tasa_historica: '',
-  });
+  const [form, setForm] = useState<FormState>(EMPTY_FORM_STATE);
 
   const [facturaFile, setFacturaFile] = useState<File | null>(null);
   const [soportesFiles, setSoportesFiles] = useState<File[]>([]);
@@ -247,13 +289,13 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
       setHasHistoricalContext(false);
       return;
     }
-    const merged = {
-      ...form,
+    const merged = sanitizeFormState({
+      ...EMPTY_FORM_STATE,
       ...initialValues,
       historico_en_cuenta: Boolean(initialValues?.historico_en_cuenta),
       historico_cuenta_bancaria_id: String(initialValues?.historico_cuenta_bancaria_id || ''),
       historico_fondo_id: String(initialValues?.historico_fondo_id || ''),
-    } as FormState;
+    });
     setForm(merged);
     const cuotasHist = parseInputNumber(String(merged.cuotas_historicas || '0'));
     const totalCuotasInitial = Math.max(1, parseInt(String(merged.total_cuotas || '1'), 10) || 1);
@@ -938,7 +980,7 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
     }
     
     const formData = new FormData();
-    (Object.keys(form) as Array<keyof FormState>).forEach((key: keyof FormState) => {
+    FORM_KEYS.forEach((key: keyof FormState) => {
       if (key === 'asignacion_tipo') formData.append('tipo', form[key]);
       else if (key === 'monto_bs') formData.append('monto_bs', montoCanonico.toFixed(2));
       else if (key === 'tasa_cambio') formData.append('tasa_cambio', tasaCanonica.toFixed(4));
