@@ -668,9 +668,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
         fecha_operacion: fechaOperacionAjuste,
         referencia_origen: referenciaOrigenAuto,
         banco_origen: bancoOrigenAuto,
-        nota: esUsdDirecto
-          ? `${(conceptoAjuste || 'Ajuste manual').trim()} | [usd_directo:${montoUsd.toFixed(2)}]`
-          : `${(conceptoAjuste || 'Ajuste manual').trim()} | [bs_raw:${parseNumberInput(montoBsAjuste).toFixed(2)}] | [tasa_raw:${parseNumberInput(tasaBcvAjuste).toFixed(6)}]`
+        nota: (conceptoAjuste || 'Ajuste manual').trim()
       };
       const res = await fetch(`${API_BASE_URL}/propiedades-admin/${selectedPropAjuste.id}/ajustar-saldo`, {
         method: 'POST',
