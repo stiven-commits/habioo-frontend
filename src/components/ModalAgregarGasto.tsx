@@ -111,6 +111,8 @@ interface HistoricalOriginRow {
 
 interface ApiErrorResponse {
   error?: string;
+  message?: string;
+  status?: string;
 }
 
 const ymdToDate = (ymd: string): Date | null => {
@@ -335,17 +337,25 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
       }
     } else if (hasComma) {
       const commaCount = (onlyAllowed.match(/,/g) || []).length;
-      const [left = '', right = ''] = onlyAllowed.split(',');
-      if (commaCount === 1 && right.length <= 2) {
-        normalized = `${left}.${right}`;
+      if (commaCount === 1) {
+        // En la app usamos coma como separador decimal (incluye tasas con 3 decimales).
+        normalized = onlyAllowed.replace(',', '.');
       } else {
         normalized = onlyAllowed.replace(/,/g, '');
       }
     } else if (hasDot) {
       const dotCount = (onlyAllowed.match(/\./g) || []).length;
       const [left = '', right = ''] = onlyAllowed.split('.');
-      if (dotCount === 1 && right.length > 0 && right.length <= 2) {
-        normalized = `${left}.${right}`;
+      if (dotCount === 1) {
+        if (!right) {
+          normalized = left;
+        } else if (right.length === 3) {
+          // Caso visual local sin decimales: 14.948
+          normalized = onlyAllowed.replace(/\./g, '');
+        } else {
+          // Decimal con punto (ej: 14948.85 o 71.5000)
+          normalized = `${left}.${right}`;
+        }
       } else {
         normalized = onlyAllowed.replace(/\./g, '');
       }
@@ -894,8 +904,13 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
     if (res.ok) {
       onSuccess();
     } else {
-      const errorData: ApiErrorResponse = await res.json();
-      alert(`Error al guardar: ${errorData.error || 'Verifique los datos.'}`);
+      let errorData: ApiErrorResponse = {};
+      try {
+        errorData = await res.json();
+      } catch {
+        errorData = {};
+      }
+      alert(`Error al guardar: ${errorData.message || errorData.error || `HTTP ${res.status}. Verifique los datos.`}`);
     }
   };
 
