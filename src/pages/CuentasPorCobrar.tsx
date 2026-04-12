@@ -12,6 +12,7 @@ import ModalRegistrarPago from '../components/ModalRegistrarPago';
 import { ModalEstadoCuenta } from '../components/propiedades/PropiedadesModals';
 import FormField from '../components/ui/FormField';
 import DatePicker from '../components/ui/DatePicker';
+import { useDialog } from '../components/ui/DialogProvider';
 
 interface CuentasPorCobrarProps { }
 
@@ -240,8 +241,14 @@ const ymdToDateLocal = (ymd: string): Date | null => {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
+interface DialogContextType {
+  showConfirm: (options: { title: string; message: string; confirmText: string; cancelText?: string; variant: 'warning' | 'success' | 'danger' }) => Promise<boolean>;
+  showAlert: (options: { title: string; message: string; confirmText: string; variant: 'warning' | 'success' | 'danger' }) => Promise<void>;
+}
+
 const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
   const { userRole, condominioTipo } = useOutletContext<OutletContextType>();
+  const { showConfirm, showAlert } = useDialog() as DialogContextType;
   const isJuntaGeneral = String(condominioTipo || '').trim().toLowerCase() === 'junta general';
   const [propiedades, setPropiedades] = useState<Propiedad[]>([]);
   const [juntasResumen, setJuntasResumen] = useState<JuntaGeneralResumenRow[]>([]);
@@ -701,7 +708,13 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
 
   const handleRevertirAjuste = async (historialId: number): Promise<void> => {
     if (!selectedPropCuenta) return;
-    const confirmed = window.confirm('¿Seguro que deseas revertir este ajuste? Esta acción deshará los cambios en el saldo del inmueble, fondos y recibos afectados.');
+    const confirmed = await showConfirm({
+      title: 'Revertir ajuste manual',
+      message: '¿Seguro que deseas revertir este ajuste? Esta acción deshará los cambios en el saldo del inmueble, fondos y recibos afectados.',
+      confirmText: 'Revertir',
+      cancelText: 'Cancelar',
+      variant: 'danger',
+    });
     if (!confirmed) return;
     try {
       const token = localStorage.getItem('habioo_token');
@@ -715,10 +728,20 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
         await fetchPendingCounts();
         await fetchEstadoCuenta(selectedPropCuenta.id);
       } else {
-        alert(data.error || data.message || 'No se pudo revertir el ajuste.');
+        await showAlert({
+          title: 'Error al revertir',
+          message: data.error || data.message || 'No se pudo revertir el ajuste.',
+          confirmText: 'Entendido',
+          variant: 'danger',
+        });
       }
     } catch {
-      alert('Error de conexión al revertir ajuste.');
+      await showAlert({
+        title: 'Error de conexión',
+        message: 'No se pudo conectar con el servidor al revertir el ajuste.',
+        confirmText: 'Entendido',
+        variant: 'danger',
+      });
     }
   };
 
