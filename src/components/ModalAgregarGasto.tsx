@@ -553,7 +553,7 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
       ? Math.max(0, Math.trunc(parseInputNumber(form.cuotas_historicas || '0')))
       : 0;
     const esHistorico = tipoRegistro === 'historico'
-      || (mode === 'edit' && hasHistoricalContext && cuotasHistoricasCanonico === totalCuotasCanonico);
+      || (mode === 'edit' && hasHistoricalContext && cuotasHistoricasCanonico >= totalCuotasCanonico);
     const maxCuotasHistoricas = esHistorico ? totalCuotasCanonico : Math.max(0, totalCuotasCanonico - 1);
 
     if (cuotasHistoricasCanonico > maxCuotasHistoricas) {
@@ -871,7 +871,7 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
       ? Math.max(0, Math.trunc(parseInputNumber(form.cuotas_historicas || '0')))
       : 0;
     const esHistorico = tipoRegistro === 'historico'
-      || (mode === 'edit' && hasHistoricalContext && cuotasHistoricasCanonico === totalCuotasCanonico);
+      || (mode === 'edit' && hasHistoricalContext && cuotasHistoricasCanonico >= totalCuotasCanonico);
     const maxCuotasHistoricas = esHistorico ? totalCuotasCanonico : Math.max(0, totalCuotasCanonico - 1);
     if (cuotasHistoricasCanonico > maxCuotasHistoricas) {
       alert(esHistorico ? 'Las cuotas históricas no pueden superar el total de cuotas.' : 'Las cuotas históricas deben ser menores al total de cuotas.');
@@ -1017,7 +1017,11 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
       } catch {
         errorData = {};
       }
-      alert(`Error al guardar: ${errorData.message || errorData.error || `HTTP ${res.status}. Verifique los datos.`}`);
+      const backendMsg = String(errorData.message || errorData.error || '').trim();
+      if (/cuotas históricas/i.test(backendMsg)) {
+        setWizardStep(2);
+      }
+      alert(`Error al guardar: ${backendMsg || `HTTP ${res.status}. Verifique los datos.`}`);
     }
   };
 
