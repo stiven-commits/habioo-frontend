@@ -8,7 +8,7 @@ import { API_BASE_URL } from '../config/api';
 import ModalBase from '../components/ui/ModalBase';
 import DataTable from '../components/ui/DataTable';
 import HabiooLoader from '../components/ui/HabiooLoader';
-import ModalRegistrarPago, { BANCOS_VENEZUELA } from '../components/ModalRegistrarPago';
+import ModalRegistrarPago from '../components/ModalRegistrarPago';
 import { ModalEstadoCuenta } from '../components/propiedades/PropiedadesModals';
 import FormField from '../components/ui/FormField';
 import DatePicker from '../components/ui/DatePicker';
@@ -269,8 +269,6 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
   const [montoBsAjuste, setMontoBsAjuste] = useState<string>('');
   const [tasaBcvAjuste, setTasaBcvAjuste] = useState<string>('');
   const [conceptoAjuste, setConceptoAjuste] = useState<string>('');
-  const [referenciaAjuste, setReferenciaAjuste] = useState<string>('');
-  const [bancoOrigenAjuste, setBancoOrigenAjuste] = useState<string>('');
   const [fechaOperacionAjuste, setFechaOperacionAjuste] = useState<string>(toYmdLocal(new Date()));
   const [isFetchingBCV, setIsFetchingBCV] = useState<boolean>(false);
   const [isSavingAjuste, setIsSavingAjuste] = useState<boolean>(false);
@@ -284,7 +282,6 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
   const [rejectingPagoId, setRejectingPagoId] = useState<number | null>(null);
   const [destinoIngreso, setDestinoIngreso] = useState<'CUENTA' | 'EXTRA' | 'SOLO_INMUEBLE'>('CUENTA');
   const [subtipoFavor, setSubtipoFavor] = useState<'directo' | 'distribuido'>('directo');
-  const [cuentaBancariaSeleccionada, setCuentaBancariaSeleccionada] = useState<string>('');
   const [cuentasBancarias, setCuentasBancarias] = useState<any[]>([]);
   const [gastosExtras, setGastosExtras] = useState<GastoExtraOption[]>([]);
   const [gastoExtraSeleccionado, setGastoExtraSeleccionado] = useState<string>('');
@@ -320,10 +317,6 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
       const data = await res.json();
       if (data.status === 'success') {
         setCuentasBancarias(data.bancos || []);
-        if (data.bancos?.length > 0) {
-          const defaultCta = data.bancos.find((c: any) => c.es_predeterminada);
-          setCuentaBancariaSeleccionada(defaultCta ? String(defaultCta.id) : String(data.bancos[0].id));
-        }
       }
     } catch (e) {
       console.error(e);
@@ -460,17 +453,10 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
     setMontoBsAjuste('');
     setTasaBcvAjuste('');
     setConceptoAjuste('');
-    setReferenciaAjuste('');
-    setBancoOrigenAjuste('');
     setFechaOperacionAjuste(toYmdLocal(new Date()));
     setDestinoIngreso('CUENTA');
     setMonedaAjuste('USD');
     setMontoUsdDirecto('');
-    if (cuentasBancarias.length > 0) {
-      const firstUsd = cuentasBancarias.find((c: any) => inferBancoMoneda(c) === 'USD');
-      const defaultCta = firstUsd || cuentasBancarias.find((c: any) => c.es_predeterminada) || cuentasBancarias[0];
-      setCuentaBancariaSeleccionada(String(defaultCta.id));
-    }
     if (gastosExtras.length > 0) {
       const primerGasto = gastosExtras[0];
       if (primerGasto) setGastoExtraSeleccionado(String(primerGasto.id));
@@ -651,16 +637,8 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
       alert('Debe seleccionar la fecha de operacion del ajuste.');
       return;
     }
-    if (!referenciaAjuste.trim()) {
-      alert('Debe ingresar la referencia del ajuste.');
-      return;
-    }
-    if (!bancoOrigenAjuste.trim()) {
-      alert('Debe seleccionar el banco de origen.');
-      return;
-    }
-    if (ajusteTipo === 'FAVOR' && destinoIngreso === 'CUENTA' && !cuentaBancariaSeleccionada) {
-      alert('Debe seleccionar una cuenta bancaria de destino para el ingreso.');
+    if (ajusteTipo === 'FAVOR' && destinoIngreso === 'CUENTA' && !cuentaPrincipal) {
+      alert('No hay una cuenta bancaria principal configurada. Configure una cuenta principal antes de usar esta operacion.');
       return;
     }
     if (ajusteTipo === 'FAVOR' && destinoIngreso === 'EXTRA' && !gastoExtraSeleccionado) {
@@ -679,17 +657,13 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
         monto: Number(montoUsd.toFixed(2)),
         monto_bs: esUsdDirecto ? null : parseNumberInput(montoBsAjuste),
         tasa_cambio: esUsdDirecto ? null : parseNumberInput(tasaBcvAjuste),
-        cuenta_bancaria_id: ajusteTipo === 'FAVOR' && destinoIngreso === 'CUENTA'
-          ? Number(cuentaBancariaSeleccionada)
-          : ajusteTipo === 'FAVOR' && destinoIngreso === 'EXTRA' && cuentaPrincipal
+        cuenta_bancaria_id: ajusteTipo === 'FAVOR' && (destinoIngreso === 'CUENTA' || destinoIngreso === 'EXTRA') && cuentaPrincipal
             ? Number(cuentaPrincipal.id)
             : null,
         es_gasto_extra: ajusteTipo === 'FAVOR' && destinoIngreso === 'EXTRA',
         gasto_extra_id: ajusteTipo === 'FAVOR' && destinoIngreso === 'EXTRA' ? Number(gastoExtraSeleccionado) : null,
         subtipo_favor: ajusteTipo === 'FAVOR' && destinoIngreso === 'CUENTA' ? subtipoFavor : undefined,
         fecha_operacion: fechaOperacionAjuste,
-        referencia_origen: referenciaAjuste.trim() || undefined,
-        banco_origen: bancoOrigenAjuste.trim() || undefined,
         nota: esUsdDirecto
           ? `${(conceptoAjuste || 'Ajuste manual').trim()} | [usd_directo:${montoUsd.toFixed(2)}]`
           : `${(conceptoAjuste || 'Ajuste manual').trim()} | [bs_raw:${parseNumberInput(montoBsAjuste).toFixed(2)}] | [tasa_raw:${parseNumberInput(tasaBcvAjuste).toFixed(6)}]`
@@ -1265,16 +1239,16 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
           onClose={() => setShowAjusteModal(false)}
           title="Ajuste de Saldo"
           subtitle={<>{selectedPropAjuste.identificador} - {selectedPropAjuste.prop_nombre || 'Sin asignar'}</>}
-          maxWidth="max-w-xl"
+          maxWidth="max-w-3xl"
           disableClose={isSavingAjuste}
         >
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
+            <div className="space-y-5">
+              <div className="flex flex-wrap items-center gap-3">
                 <span className="text-sm font-bold text-gray-600 dark:text-gray-300">Tipo:</span>
                 <button
                   type="button"
                   onClick={() => setAjusteTipo('DEUDA')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${ajusteTipo === 'DEUDA'
+                  className={`min-h-10 px-4 py-2 rounded-xl text-sm font-bold border ${ajusteTipo === 'DEUDA'
                     ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800/50'
                     : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'
                     }`}
@@ -1284,7 +1258,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                 <button
                   type="button"
                   onClick={() => setAjusteTipo('FAVOR')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${ajusteTipo === 'FAVOR'
+                  className={`min-h-10 px-4 py-2 rounded-xl text-sm font-bold border ${ajusteTipo === 'FAVOR'
                     ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800/50'
                     : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'
                     }`}
@@ -1296,16 +1270,14 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
               {ajusteTipo === 'FAVOR' && (
                 <>
                   {/* Selector de moneda */}
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <span className="text-sm font-bold text-gray-600 dark:text-gray-300">Moneda:</span>
                     <button
                       type="button"
                       onClick={() => {
                         setMonedaAjuste('USD');
-                        const firstUsd = cuentasBancarias.find((c: any) => inferBancoMoneda(c) === 'USD');
-                        if (firstUsd) setCuentaBancariaSeleccionada(String(firstUsd.id));
                       }}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${monedaAjuste === 'USD'
+                      className={`min-h-10 px-4 py-2 rounded-xl text-sm font-bold border ${monedaAjuste === 'USD'
                         ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800/50'
                         : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}
                     >
@@ -1315,10 +1287,8 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                       type="button"
                       onClick={() => {
                         setMonedaAjuste('BS');
-                        const firstBs = cuentasBancarias.find((c: any) => inferBancoMoneda(c) === 'BS');
-                        if (firstBs) setCuentaBancariaSeleccionada(String(firstBs.id));
                       }}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${monedaAjuste === 'BS'
+                      className={`min-h-10 px-4 py-2 rounded-xl text-sm font-bold border ${monedaAjuste === 'BS'
                         ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800/50'
                         : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}
                     >
@@ -1327,10 +1297,10 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                   </div>
 
                   {/* Destino del ingreso */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pb-3 border-b border-gray-100 dark:border-gray-800">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4 border-b border-gray-100 dark:border-gray-800">
                     <div className="md:col-span-2">
                       <FormField label="Destino del Ingreso">
-                        <div className="flex gap-6">
+                        <div className="flex flex-wrap gap-4">
                           <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
                             <input
                               type="radio"
@@ -1344,7 +1314,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                             <input
                               type="radio"
                               checked={destinoIngreso === 'EXTRA'}
-                              onChange={() => { setDestinoIngreso('EXTRA'); setCuentaBancariaSeleccionada(''); }}
+                              onChange={() => { setDestinoIngreso('EXTRA'); }}
                               className="text-donezo-primary focus:ring-donezo-primary"
                             />
                             A gasto extra
@@ -1353,7 +1323,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                             <input
                               type="radio"
                               checked={destinoIngreso === 'SOLO_INMUEBLE'}
-                              onChange={() => { setDestinoIngreso('SOLO_INMUEBLE'); setCuentaBancariaSeleccionada(''); }}
+                              onChange={() => { setDestinoIngreso('SOLO_INMUEBLE'); }}
                               className="text-donezo-primary focus:ring-donezo-primary"
                             />
                             Solo inmueble
@@ -1363,20 +1333,15 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                     </div>
                     {destinoIngreso === 'CUENTA' && (
                       <div className="md:col-span-2">
-                        <FormField label="Cuenta Bancaria Receptora">
-                          <select
-                            value={cuentaBancariaSeleccionada}
-                            onChange={(e: ChangeEvent<HTMLSelectElement>) => setCuentaBancariaSeleccionada(e.target.value)}
-                            className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-medium"
-                          >
-                            <option value="">Seleccione una cuenta...</option>
-                            {cuentasBancarias
-                              .filter((c: any) => inferBancoMoneda(c) === monedaAjuste)
-                              .map((c: any) => (
-                                <option key={c.id} value={c.id}>{getCuentaLabel(c)}</option>
-                              ))}
-                          </select>
-                        </FormField>
+                        {cuentaPrincipal ? (
+                          <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-300">
+                            El ajuste se registrara usando la cuenta principal: <span className="font-black">{getCuentaLabel(cuentaPrincipal)}</span>
+                          </div>
+                        ) : (
+                          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-700 dark:border-red-800/50 dark:bg-red-900/20 dark:text-red-300">
+                            No hay cuenta bancaria principal configurada. Vaya a Bancos y marque una cuenta como principal.
+                          </div>
+                        )}
                       </div>
                     )}
                     {destinoIngreso === 'CUENTA' && (
@@ -1386,14 +1351,14 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                             <button
                               type="button"
                               onClick={() => setSubtipoFavor('directo')}
-                              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border transition-colors ${subtipoFavor === 'directo' ? 'bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}
+                              className={`flex-1 min-h-11 py-2.5 px-3 rounded-xl text-sm font-bold border transition-colors ${subtipoFavor === 'directo' ? 'bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}
                             >
                               Directo<br /><span className="font-normal opacity-70">100% al fondo principal</span>
                             </button>
                             <button
                               type="button"
                               onClick={() => setSubtipoFavor('distribuido')}
-                              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border transition-colors ${subtipoFavor === 'distribuido' ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}
+                              className={`flex-1 min-h-11 py-2.5 px-3 rounded-xl text-sm font-bold border transition-colors ${subtipoFavor === 'distribuido' ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}
                             >
                               Distribuido<br /><span className="font-normal opacity-70">Por % de fondos</span>
                             </button>
@@ -1410,7 +1375,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                             <select
                               value={gastoExtraSeleccionado}
                               onChange={(e: ChangeEvent<HTMLSelectElement>) => setGastoExtraSeleccionado(e.target.value)}
-                              className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-medium"
+                              className="w-full min-h-11 p-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-medium text-sm"
                             >
                               <option value="">Seleccione un gasto extra...</option>
                               {gastosExtras.map((g: any) => (
@@ -1442,96 +1407,128 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                   </div>
                 </>
               )}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <FormField label="Fecha de Operacion">
-                    <DatePicker
-                      selected={ymdToDateLocal(fechaOperacionAjuste)}
-                      onChange={(date) => setFechaOperacionAjuste(date ? toYmdLocal(date) : '')}
-                      className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
-                      placeholderText="dd/mm/yyyy"
-                      required
-                    />
-                  </FormField>
-                </div>
-                <div>
-                  <FormField label="Banco de Origen" required>
-                    <select
-                      value={bancoOrigenAjuste}
-                      onChange={(e: ChangeEvent<HTMLSelectElement>) => setBancoOrigenAjuste(e.target.value)}
-                      className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
-                      required
-                    >
-                      <option value="">Seleccione...</option>
-                      {BANCOS_VENEZUELA.map((banco) => (
-                        <option key={banco} value={banco}>{banco}</option>
-                      ))}
-                    </select>
-                  </FormField>
-                </div>
-                <div className="md:col-span-2">
-                  <FormField label="Referencia" required>
-                    <input
-                      type="text"
-                      value={referenciaAjuste}
-                      onChange={(e: ChangeEvent<HTMLInputElement>) => setReferenciaAjuste(e.target.value)}
-                      className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
-                      placeholder="Ref / Comprobante"
-                      required
-                    />
-                  </FormField>
-                </div>
-                {esUsdDirecto ? (
-                  <div className="md:col-span-2">
+              {esUsdDirecto ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <FormField label="Fecha de Operacion">
+                      <DatePicker
+                        selected={ymdToDateLocal(fechaOperacionAjuste)}
+                        onChange={(date) => setFechaOperacionAjuste(date ? toYmdLocal(date) : '')}
+                        className="w-full min-h-11 p-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white text-sm"
+                        placeholderText="dd/mm/yyyy"
+                        required
+                      />
+                    </FormField>
+                  </div>
+                  <div>
                     <FormField label="Monto (USD)" required>
                       <input
                         type="text"
                         value={montoUsdDirecto}
                         onChange={(e: ChangeEvent<HTMLInputElement>) => setMontoUsdDirecto(formatNumberInput(e.target.value, 2))}
-                        className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                        className="w-full min-h-11 p-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono text-base"
                         placeholder="0,00"
                       />
                     </FormField>
                   </div>
-                ) : (
-                  <>
+                </div>
+              ) : ajusteTipo === 'DEUDA' ? (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <FormField label="Fecha de Operacion">
+                        <DatePicker
+                          selected={ymdToDateLocal(fechaOperacionAjuste)}
+                          onChange={(date) => setFechaOperacionAjuste(date ? toYmdLocal(date) : '')}
+                          className="w-full min-h-11 p-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white text-sm"
+                          placeholderText="dd/mm/yyyy"
+                          required
+                        />
+                      </FormField>
+                    </div>
+                    <div>
+                      <FormField label="Tasa BCV">
+                        <input
+                          type="text"
+                          value={tasaBcvAjuste}
+                          onChange={(e: ChangeEvent<HTMLInputElement>) => setTasaBcvAjuste(formatNumberInput(e.target.value, 3))}
+                          className="w-full min-h-11 p-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono text-base"
+                          placeholder="Ej: 36,500"
+                        />
+                      </FormField>
+                    </div>
+                    <div>
+                      <FormField label="BCV">
+                        <button
+                          type="button"
+                          onClick={fetchBCVAjuste}
+                          disabled={isFetchingBCV}
+                          className="w-full min-h-11 p-3 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-900/30 dark:border-blue-800/50 dark:text-blue-400 font-bold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-60 text-sm"
+                        >
+                          {isFetchingBCV ? 'Consultando...' : 'BCV'}
+                        </button>
+                      </FormField>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <FormField label="Monto (Bs)">
+                        <input
+                          type="text"
+                          value={montoBsAjuste}
+                          onChange={(e: ChangeEvent<HTMLInputElement>) => setMontoBsAjuste(formatNumberInput(e.target.value))}
+                          className="w-full min-h-11 p-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono text-base"
+                          placeholder="0,00"
+                        />
+                      </FormField>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <FormField label="Fecha de Operacion">
+                      <DatePicker
+                        selected={ymdToDateLocal(fechaOperacionAjuste)}
+                        onChange={(date) => setFechaOperacionAjuste(date ? toYmdLocal(date) : '')}
+                        className="w-full min-h-11 p-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white text-sm"
+                        placeholderText="dd/mm/yyyy"
+                        required
+                      />
+                    </FormField>
+                  </div>
+                  <div>
                     <FormField label="Tasa BCV">
                       <input
                         type="text"
                         value={tasaBcvAjuste}
                         onChange={(e: ChangeEvent<HTMLInputElement>) => setTasaBcvAjuste(formatNumberInput(e.target.value, 3))}
-                        className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                        className="w-full min-h-11 p-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono text-base"
                         placeholder="Ej: 36,500"
                       />
-                      <div className="mt-2">
-                        <button
-                          type="button"
-                          onClick={fetchBCVAjuste}
-                          disabled={isFetchingBCV}
-                          className="w-full p-2.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-900/30 dark:border-blue-800/50 dark:text-blue-400 font-bold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-60"
-                        >
-                          {isFetchingBCV ? 'Consultando...' : 'BCV'}
-                        </button>
-                      </div>
                     </FormField>
+                  </div>
+                  <div>
                     <FormField label="Monto (Bs)">
                       <input
                         type="text"
                         value={montoBsAjuste}
                         onChange={(e: ChangeEvent<HTMLInputElement>) => setMontoBsAjuste(formatNumberInput(e.target.value))}
-                        className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                        className="w-full min-h-11 p-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono text-base"
                         placeholder="0,00"
                       />
                     </FormField>
-                  </>
-                )}
+                  </div>
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
                   <FormField label="Concepto">
                     <input
                       type="text"
                       value={conceptoAjuste}
                       onChange={(e: ChangeEvent<HTMLInputElement>) => setConceptoAjuste(e.target.value)}
-                      className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
+                      className="w-full min-h-11 p-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white text-sm"
                       placeholder="Ej: Ajuste por revisión de deuda histórica"
                     />
                   </FormField>
@@ -1539,9 +1536,9 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
               </div>
 
               {!esUsdDirecto && (
-                <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-3">
+                <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-4">
                   <p className="text-xs uppercase font-bold text-gray-500 mb-1">Equivalente en USD</p>
-                  <p className="text-xl font-black text-gray-800 dark:text-white">${formatMoney(montoUsdAjuste)}</p>
+                  <p className="text-2xl font-black text-gray-800 dark:text-white">${formatMoney(montoUsdAjuste)}</p>
                 </div>
               )}
             </div>
