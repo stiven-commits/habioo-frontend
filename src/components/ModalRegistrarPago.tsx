@@ -68,6 +68,7 @@ interface GastoListado {
   monto_usd?: number | string | null;
   monto_pagado_usd?: number | string | null;
   deuda_restante?: number | string | null;
+  en_aviso_cobro?: boolean | string | number | null;
 }
 
 interface GastosResponse {
@@ -549,10 +550,13 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
         ? Math.max(0, toNumber(g.deuda_restante))
         : Math.max(0, toNumber(g.monto_usd) - toNumber(g.monto_pagado_usd));
       const concepto = String(g.concepto || `Gasto #${g.id}`);
+      const enAvisoCobroRaw = String(g.en_aviso_cobro ?? '').trim().toLowerCase();
+      const enAvisoCobro = g.en_aviso_cobro === true || enAvisoCobroRaw === 'true' || enAvisoCobroRaw === 't' || enAvisoCobroRaw === '1';
+      const badgeSinAviso = enAvisoCobro ? '' : ' [sin aviso de cobro]';
       return {
         value: String(g.id),
-        label: `${concepto} - Pendiente: $${formatMoney(pendienteUsd)}`,
-        searchText: `${concepto} ${g.id}`,
+        label: `${concepto} - Pendiente: $${formatMoney(pendienteUsd)}${badgeSinAviso}`,
+        searchText: `${concepto} ${g.id} ${enAvisoCobro ? '' : 'sin aviso de cobro'}`,
       };
     }),
     [gastosExtraDisponibles],

@@ -622,6 +622,14 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     () => fondos.filter((f) => String(f.cuenta_bancaria_id) === selectedCuenta),
     [fondos, selectedCuenta]
   );
+  const cuentaSeleccionada = useMemo(
+    () => cuentas.find((c) => String(c.id) === selectedCuenta) || null,
+    [cuentas, selectedCuenta],
+  );
+  const cuentaSeleccionadaEsUsd = useMemo(
+    () => (cuentaSeleccionada ? isCuentaEnUsd(cuentaSeleccionada) : false),
+    [cuentaSeleccionada],
+  );
 
   useEffect(() => {
     if (mode !== 'owner') return;
@@ -768,6 +776,10 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       const conceptoLimpio = String(base?.concepto || '').replace(/\s*-\s*Fondo:\s*.+$/i, '').trim();
       const montoUsdTotal = grupo.reduce((acc, item) => acc + toNumber(item.monto_usd), 0);
       const montoBsTotal = grupo.reduce((acc, item) => acc + toNumber(item.monto_bs), 0);
+      const montoOrigenPago = toNumber(base?.monto_origen_pago);
+      const montoBsConsolidado = !cuentaSeleccionadaEsUsd && montoOrigenPago > 0
+        ? montoOrigenPago
+        : Number(montoBsTotal.toFixed(2));
       const referencias = Array.from(new Set(grupo.map((item) => String(item.referencia || '').trim()).filter(Boolean)));
       const tasa = toNumber(base?.tasa_cambio);
       const pagoId = base?.pago_id ?? null;
@@ -782,9 +794,9 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
         concepto: conceptoLimpio || `Pago Ref: ${fallbackKey}`,
         tipo: 'INGRESO',
         monto_usd: Number(montoUsdTotal.toFixed(2)),
-        // En cuenta bancaria Bs, el monto en Bs debe salir de la suma real de movimientos.
-        // La equivalencia en USD se muestra aparte y no redefine la moneda del movimiento.
-        monto_bs: Number(montoBsTotal.toFixed(2)),
+        // En cuenta bancaria Bs se refleja el monto bruto pagado en origen.
+        // Esto evita ocultar el componente desviado a Extra en la vista de cuenta.
+        monto_bs: Number(montoBsConsolidado.toFixed(2)),
         tasa_cambio: tasa > 0 ? tasa : 0,
         banco_origen: String(base?.banco_origen ?? ''),
         cedula_origen: String(base?.cedula_origen ?? ''),
@@ -852,7 +864,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       if (fechaA !== fechaB) return fechaB - fechaA;
       return String(b.id).localeCompare(String(a.id));
     });
-  }, [movimientosConApertura]);
+  }, [movimientosConApertura, cuentaSeleccionadaEsUsd]);
 
   const movimientosBasePorVista = useMemo(() => {
     if (activeTab === 'cuenta') return movimientosCuentaConsolidados;
