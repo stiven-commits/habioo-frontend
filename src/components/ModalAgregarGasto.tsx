@@ -1070,9 +1070,9 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
   return (
     <ModalBase onClose={onClose} title={mode === 'edit' ? 'Editar Gasto' : 'Registrar Gasto'} maxWidth="max-w-6xl">
       {/* PROGRESS STEPS PANEL */}
-      <div className="pt-1 mb-5">
+      <div className="pt-4 mb-5">
         <nav aria-label="Progress">
-          <div className="flex items-center w-full">
+          <div className="mx-auto flex w-full max-w-[520px] items-center">
             <div className="flex items-center flex-1">
               <div className="flex items-center gap-3 shrink-0">
                 <div className={`h-11 w-11 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300 shrink-0 ${
@@ -1089,7 +1089,7 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                   <p className={`text-xs transition-colors ${wizardStep >= 1 ? 'text-gray-500 dark:text-gray-400' : 'text-gray-400/60 dark:text-gray-600'}`}>Información del gasto</p>
                 </div>
               </div>
-              <div className="flex-1 mx-6 relative h-0.5">
+              <div className="flex-1 mx-3 relative h-0.5">
                 <div className="absolute inset-0 bg-gray-200 dark:bg-gray-700 rounded-full" />
                 <div className={`absolute inset-y-0 left-0 rounded-full bg-green-600 transition-all duration-500 ${wizardStep >= 2 ? 'w-full' : 'w-0'}`} />
               </div>

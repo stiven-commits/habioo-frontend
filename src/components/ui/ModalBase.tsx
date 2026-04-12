@@ -17,25 +17,33 @@ const ModalBase: FC<ModalBaseProps> = ({
   disableClose = false,
   children,
 }) => (
-  <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-2 sm:p-4 overflow-x-hidden overflow-y-auto animate-fadeIn">
-    <div className={`bg-white dark:bg-donezo-card-dark rounded-3xl w-full ${maxWidth} shadow-2xl border border-gray-100 dark:border-gray-800 relative my-2 sm:my-6 max-h-[calc(100vh-1rem)] sm:max-h-[90vh] overflow-hidden flex flex-col`}>
-      <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100 dark:border-gray-800 shrink-0">
-        <div>
-          <h3 className="text-2xl font-black text-gray-800 dark:text-white">{title}</h3>
+  <div
+    className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-hidden animate-fadeIn"
+    onClick={!disableClose ? onClose : undefined}
+  >
+    <div
+      className={`bg-white dark:bg-donezo-card-dark rounded-2xl w-full ${maxWidth} shadow-2xl border border-gray-200/60 dark:border-gray-700/60 relative max-h-[90vh] overflow-hidden flex flex-col animate-modalEnter`}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 dark:border-gray-700 shrink-0 bg-gradient-to-r from-gray-50/50 to-white dark:from-gray-800/50 dark:to-donezo-card-dark">
+        <div className="flex-1 min-w-0 pr-4">
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white truncate">{title}</h3>
           {subtitle && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{subtitle}</p>}
         </div>
         <button
           type="button"
           onClick={onClose}
           disabled={disableClose}
-          className="ml-4 shrink-0 text-gray-400 hover:text-red-500 font-bold text-2xl transition-colors leading-none disabled:opacity-40 disabled:cursor-not-allowed"
+          className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
           aria-label="Cerrar"
         >
-          x
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </button>
       </div>
 
-      <div className="px-6 pb-6 min-h-0 overflow-y-auto custom-scrollbar">
+      <div className="px-6 py-5 min-h-0 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
         {children}
       </div>
     </div>
