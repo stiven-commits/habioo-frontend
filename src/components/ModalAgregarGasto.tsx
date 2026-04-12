@@ -262,10 +262,10 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
           id: r.id || makeOriginRow().id,
           cuenta_bancaria_id: String(r.cuenta_bancaria_id || ''),
           fondo_id: String(r.fondo_id || ''),
-          monto_usd: formatCurrencyInput(String(r.monto_usd || ''), 2),
-          monto_bs: formatCurrencyInput(String(r.monto_bs || ''), 2),
-          monto_previo_usd: formatCurrencyInput(String((r as { monto_previo_usd?: string | number }).monto_previo_usd || ''), 2),
-          monto_previo_bs: formatCurrencyInput(String((r as { monto_previo_bs?: string | number }).monto_previo_bs || ''), 2),
+          monto_usd: toCurrencyDisplayFromAny(r.monto_usd, 2),
+          monto_bs: toCurrencyDisplayFromAny(r.monto_bs, 2),
+          monto_previo_usd: toCurrencyDisplayFromAny((r as { monto_previo_usd?: string | number }).monto_previo_usd, 2),
+          monto_previo_bs: toCurrencyDisplayFromAny((r as { monto_previo_bs?: string | number }).monto_previo_bs, 2),
           fecha_operacion: normalizeYmdLike((r as { fecha_operacion?: string }).fecha_operacion),
         }))
       : [];
@@ -274,10 +274,10 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
           id: r.id || makeOriginRow().id,
           cuenta_bancaria_id: String(r.cuenta_bancaria_id || ''),
           fondo_id: String(r.fondo_id || ''),
-          monto_usd: formatCurrencyInput(String(r.monto_usd || ''), 2),
-          monto_bs: formatCurrencyInput(String(r.monto_bs || ''), 2),
-          monto_previo_usd: formatCurrencyInput(String((r as { monto_previo_usd?: string | number }).monto_previo_usd || ''), 2),
-          monto_previo_bs: formatCurrencyInput(String((r as { monto_previo_bs?: string | number }).monto_previo_bs || ''), 2),
+          monto_usd: toCurrencyDisplayFromAny(r.monto_usd, 2),
+          monto_bs: toCurrencyDisplayFromAny(r.monto_bs, 2),
+          monto_previo_usd: toCurrencyDisplayFromAny((r as { monto_previo_usd?: string | number }).monto_previo_usd, 2),
+          monto_previo_bs: toCurrencyDisplayFromAny((r as { monto_previo_bs?: string | number }).monto_previo_bs, 2),
           fecha_operacion: normalizeYmdLike((r as { fecha_operacion?: string }).fecha_operacion),
         }))
       : [];
@@ -315,7 +315,42 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
   const parseInputNumber = (txt: string): number => {
     const raw = String(txt || '').trim();
     if (!raw) return 0;
-    const normalized = raw.replace(/\./g, '').replace(',', '.');
+
+    const onlyAllowed = raw.replace(/[^\d.,-]/g, '');
+    if (!onlyAllowed) return 0;
+
+    const hasComma = onlyAllowed.includes(',');
+    const hasDot = onlyAllowed.includes('.');
+    let normalized = onlyAllowed;
+
+    if (hasComma && hasDot) {
+      const lastComma = onlyAllowed.lastIndexOf(',');
+      const lastDot = onlyAllowed.lastIndexOf('.');
+      if (lastComma > lastDot) {
+        // Formato local: 14.948,85
+        normalized = onlyAllowed.replace(/\./g, '').replace(',', '.');
+      } else {
+        // Formato internacional: 14,948.85
+        normalized = onlyAllowed.replace(/,/g, '');
+      }
+    } else if (hasComma) {
+      const commaCount = (onlyAllowed.match(/,/g) || []).length;
+      const [left = '', right = ''] = onlyAllowed.split(',');
+      if (commaCount === 1 && right.length <= 2) {
+        normalized = `${left}.${right}`;
+      } else {
+        normalized = onlyAllowed.replace(/,/g, '');
+      }
+    } else if (hasDot) {
+      const dotCount = (onlyAllowed.match(/\./g) || []).length;
+      const [left = '', right = ''] = onlyAllowed.split('.');
+      if (dotCount === 1 && right.length > 0 && right.length <= 2) {
+        normalized = `${left}.${right}`;
+      } else {
+        normalized = onlyAllowed.replace(/\./g, '');
+      }
+    }
+
     const parsed = parseFloat(normalized);
     return Number.isFinite(parsed) ? parsed : 0;
   };
@@ -342,6 +377,14 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
 
     if (clean.includes(',')) return `${integerWithDots},${decimalRaw}`;
     return integerWithDots === '0' && integerRaw === '' ? '' : integerWithDots;
+  };
+
+  const toCurrencyDisplayFromAny = (value: unknown, maxDecimals = 2): string => {
+    const raw = String(value ?? '').trim();
+    if (!raw) return '';
+    const parsed = parseInputNumber(raw);
+    if (!Number.isFinite(parsed) || parsed <= 0) return '';
+    return formatCurrencyInput(parsed.toFixed(maxDecimals).replace('.', ','), maxDecimals);
   };
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>): void => {
