@@ -188,6 +188,8 @@ interface HistoricalOriginRow {
   fondo_id?: string;
   monto_usd?: string | number;
   monto_bs?: string | number;
+  monto_previo_usd?: string | number;
+  monto_previo_bs?: string | number;
   fecha_operacion?: string;
 }
 
@@ -223,6 +225,8 @@ const parseNotaToFields = (nota?: string): {
   monto_historico_proveedor_bs: string;
   monto_historico_recaudado_usd: string;
   monto_historico_recaudado_bs: string;
+  monto_historico_recaudado_no_cuenta_usd: string;
+  monto_historico_recaudado_no_cuenta_bs: string;
   historico_pagado_origenes: HistoricalOriginRow[];
   historico_recaudado_origenes: HistoricalOriginRow[];
   historico_en_cuenta: boolean;
@@ -232,12 +236,14 @@ const parseNotaToFields = (nota?: string): {
   es_historico: boolean;
 } => {
   const raw = String(nota || '').trim();
-  if (!raw) return { numero_documento: '', nota: '', cuotas_historicas: '0', monto_historico_proveedor_usd: '', monto_historico_proveedor_bs: '', monto_historico_recaudado_usd: '', monto_historico_recaudado_bs: '', historico_pagado_origenes: [], historico_recaudado_origenes: [], historico_en_cuenta: false, historico_cuenta_bancaria_id: '', historico_fondo_id: '', tasa_historica: '', es_historico: false };
+  if (!raw) return { numero_documento: '', nota: '', cuotas_historicas: '0', monto_historico_proveedor_usd: '', monto_historico_proveedor_bs: '', monto_historico_recaudado_usd: '', monto_historico_recaudado_bs: '', monto_historico_recaudado_no_cuenta_usd: '', monto_historico_recaudado_no_cuenta_bs: '', historico_pagado_origenes: [], historico_recaudado_origenes: [], historico_en_cuenta: false, historico_cuenta_bancaria_id: '', historico_fondo_id: '', tasa_historica: '', es_historico: false };
   const cuotasMatch = raw.match(/\[hist\.cuotas:(\d+)\]/i);
   const proveedorUsdMatch = raw.match(/\[hist\.proveedor_usd:([0-9]+(?:\.[0-9]+)?)\]/i);
   const proveedorBsMatch = raw.match(/\[hist\.proveedor_bs:([0-9]+(?:\.[0-9]+)?)\]/i);
   const recaudadoUsdMatch = raw.match(/\[hist\.recaudado_usd:([0-9]+(?:\.[0-9]+)?)\]/i);
   const recaudadoBsMatch = raw.match(/\[hist\.recaudado_bs:([0-9]+(?:\.[0-9]+)?)\]/i);
+  const recaudadoNoCuentaUsdMatch = raw.match(/\[hist\.recaudado_no_cuenta_usd:([0-9]+(?:\.[0-9]+)?)\]/i);
+  const recaudadoNoCuentaBsMatch = raw.match(/\[hist\.recaudado_no_cuenta_bs:([0-9]+(?:\.[0-9]+)?)\]/i);
   const histBankCuentaMatch = raw.match(/\[hist\.bank_cuenta_id:(\d+)\]/i);
   const histBankFondoMatch = raw.match(/\[hist\.bank_fondo_id:(\d+)\]/i);
   const pagadoRowsMatch = raw.match(/\[hist\.pagado_rows_b64:([A-Za-z0-9+/=_-]+)\]/i);
@@ -256,6 +262,8 @@ const parseNotaToFields = (nota?: string): {
         fondo_id: String((row as { fondo_id?: string | number }).fondo_id || ''),
         monto_usd: String((row as { monto_usd?: string | number }).monto_usd || ''),
         monto_bs: String((row as { monto_bs?: string | number }).monto_bs || ''),
+        monto_previo_usd: String((row as { monto_previo_usd?: string | number }).monto_previo_usd || ''),
+        monto_previo_bs: String((row as { monto_previo_bs?: string | number }).monto_previo_bs || ''),
         fecha_operacion: String((row as { fecha_operacion?: string }).fecha_operacion || ''),
       }));
     } catch {
@@ -272,6 +280,8 @@ const parseNotaToFields = (nota?: string): {
     .replace(/\s*\|\s*\[hist\.proveedor_bs:[0-9]+(?:\.[0-9]+)?\]/gi, '')
     .replace(/\s*\|\s*\[hist\.recaudado_usd:[0-9]+(?:\.[0-9]+)?\]/gi, '')
     .replace(/\s*\|\s*\[hist\.recaudado_bs:[0-9]+(?:\.[0-9]+)?\]/gi, '')
+    .replace(/\s*\|\s*\[hist\.recaudado_no_cuenta_usd:[0-9]+(?:\.[0-9]+)?\]/gi, '')
+    .replace(/\s*\|\s*\[hist\.recaudado_no_cuenta_bs:[0-9]+(?:\.[0-9]+)?\]/gi, '')
     .replace(/\s*\|\s*\[hist\.tasa:[0-9]+(?:\.[0-9]+)?\]/gi, '')
     .replace(/\s*\|\s*\[hist\.bank_enabled:1\]/gi, '')
     .replace(/\s*\|\s*\[hist\.bank_cuenta_id:\d+\]/gi, '')
@@ -284,6 +294,8 @@ const parseNotaToFields = (nota?: string): {
     .replace(/\[hist\.proveedor_bs:[0-9]+(?:\.[0-9]+)?\]/gi, '')
     .replace(/\[hist\.recaudado_usd:[0-9]+(?:\.[0-9]+)?\]/gi, '')
     .replace(/\[hist\.recaudado_bs:[0-9]+(?:\.[0-9]+)?\]/gi, '')
+    .replace(/\[hist\.recaudado_no_cuenta_usd:[0-9]+(?:\.[0-9]+)?\]/gi, '')
+    .replace(/\[hist\.recaudado_no_cuenta_bs:[0-9]+(?:\.[0-9]+)?\]/gi, '')
     .replace(/\[hist\.tasa:[0-9]+(?:\.[0-9]+)?\]/gi, '')
     .replace(/\[hist\.bank_enabled:1\]/gi, '')
     .replace(/\[hist\.bank_cuenta_id:\d+\]/gi, '')
@@ -302,6 +314,8 @@ const parseNotaToFields = (nota?: string): {
       monto_historico_proveedor_bs: proveedorBsMatch?.[1] ? formatMoney(Number(proveedorBsMatch[1])) : '',
       monto_historico_recaudado_usd: recaudadoUsdMatch?.[1] ? formatMoney(Number(recaudadoUsdMatch[1])) : '',
       monto_historico_recaudado_bs: recaudadoBsMatch?.[1] ? formatMoney(Number(recaudadoBsMatch[1])) : '',
+      monto_historico_recaudado_no_cuenta_usd: recaudadoNoCuentaUsdMatch?.[1] ? formatMoney(Number(recaudadoNoCuentaUsdMatch[1])) : '',
+      monto_historico_recaudado_no_cuenta_bs: recaudadoNoCuentaBsMatch?.[1] ? formatMoney(Number(recaudadoNoCuentaBsMatch[1])) : '',
       historico_pagado_origenes: pagadoRows,
       historico_recaudado_origenes: recaudadoRows,
       historico_en_cuenta: hasRowsBank || histBankEnabled,
@@ -319,6 +333,8 @@ const parseNotaToFields = (nota?: string): {
     monto_historico_proveedor_bs: proveedorBsMatch?.[1] ? formatMoney(Number(proveedorBsMatch[1])) : '',
     monto_historico_recaudado_usd: recaudadoUsdMatch?.[1] ? formatMoney(Number(recaudadoUsdMatch[1])) : '',
     monto_historico_recaudado_bs: recaudadoBsMatch?.[1] ? formatMoney(Number(recaudadoBsMatch[1])) : '',
+    monto_historico_recaudado_no_cuenta_usd: recaudadoNoCuentaUsdMatch?.[1] ? formatMoney(Number(recaudadoNoCuentaUsdMatch[1])) : '',
+    monto_historico_recaudado_no_cuenta_bs: recaudadoNoCuentaBsMatch?.[1] ? formatMoney(Number(recaudadoNoCuentaBsMatch[1])) : '',
     historico_pagado_origenes: pagadoRows,
     historico_recaudado_origenes: recaudadoRows,
     historico_en_cuenta: hasRowsBank || histBankEnabled,
@@ -1036,6 +1052,8 @@ const Gastos: FC<GastosProps> = () => {
                     monto_historico_proveedor_bs: montoHistProveedorBsNum > 0 ? formatMoney(montoHistProveedorBsNum) : formatMoney(tasaHistoricaNum > 0 ? (montoHistProveedorUsdNum * tasaHistoricaNum) : 0),
                     monto_historico_recaudado_usd: montoHistRecaudadoUsdNum > 0 ? formatMoney(montoHistRecaudadoUsdNum) : '',
                     monto_historico_recaudado_bs: montoHistRecaudadoBsNum > 0 ? formatMoney(montoHistRecaudadoBsNum) : formatMoney(tasaHistoricaNum > 0 ? (montoHistRecaudadoUsdNum * tasaHistoricaNum) : 0),
+                    monto_historico_recaudado_no_cuenta_usd: notaFields.monto_historico_recaudado_no_cuenta_usd || '',
+                    monto_historico_recaudado_no_cuenta_bs: notaFields.monto_historico_recaudado_no_cuenta_bs || '',
                     historico_pagado_origenes: notaFields.historico_pagado_origenes || [],
                     historico_recaudado_origenes: notaFields.historico_recaudado_origenes || [],
                     historico_en_cuenta: notaFields.historico_en_cuenta,

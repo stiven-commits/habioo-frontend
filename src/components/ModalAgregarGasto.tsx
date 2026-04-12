@@ -88,6 +88,8 @@ interface FormState {
   monto_historico_proveedor_bs: string;
   monto_historico_recaudado_usd: string;
   monto_historico_recaudado_bs: string;
+  monto_historico_recaudado_no_cuenta_usd: string;
+  monto_historico_recaudado_no_cuenta_bs: string;
   historico_en_cuenta: boolean;
   historico_cuenta_bancaria_id: string;
   historico_fondo_id: string;
@@ -102,6 +104,8 @@ interface HistoricalOriginRow {
   fondo_id: string;
   monto_usd: string;
   monto_bs: string;
+  monto_previo_usd: string;
+  monto_previo_bs: string;
   fecha_operacion: string;
 }
 
@@ -131,6 +135,13 @@ const getTodayYmd = (): string => {
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+};
+
+const formatYmdToDisplay = (ymd: string): string => {
+  const normalized = normalizeYmdLike(ymd);
+  const [year, month, day] = normalized.split('-');
+  if (!year || !month || !day) return '';
+  return `${day}/${month}/${year}`;
 };
 
 const normalizeYmdLike = (rawValue?: string | null): string => {
@@ -166,6 +177,8 @@ const makeOriginRow = (): HistoricalOriginRow => ({
   fondo_id: '',
   monto_usd: '',
   monto_bs: '',
+  monto_previo_usd: '',
+  monto_previo_bs: '',
   fecha_operacion: getTodayYmd(),
 });
 
@@ -196,6 +209,8 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
     monto_historico_proveedor_bs: '',
     monto_historico_recaudado_usd: '',
     monto_historico_recaudado_bs: '',
+    monto_historico_recaudado_no_cuenta_usd: '',
+    monto_historico_recaudado_no_cuenta_bs: '',
     historico_en_cuenta: false,
     historico_cuenta_bancaria_id: '',
     historico_fondo_id: '',
@@ -249,6 +264,8 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
           fondo_id: String(r.fondo_id || ''),
           monto_usd: formatCurrencyInput(String(r.monto_usd || ''), 2),
           monto_bs: formatCurrencyInput(String(r.monto_bs || ''), 2),
+          monto_previo_usd: formatCurrencyInput(String((r as { monto_previo_usd?: string | number }).monto_previo_usd || ''), 2),
+          monto_previo_bs: formatCurrencyInput(String((r as { monto_previo_bs?: string | number }).monto_previo_bs || ''), 2),
           fecha_operacion: normalizeYmdLike((r as { fecha_operacion?: string }).fecha_operacion),
         }))
       : [];
@@ -259,6 +276,8 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
           fondo_id: String(r.fondo_id || ''),
           monto_usd: formatCurrencyInput(String(r.monto_usd || ''), 2),
           monto_bs: formatCurrencyInput(String(r.monto_bs || ''), 2),
+          monto_previo_usd: formatCurrencyInput(String((r as { monto_previo_usd?: string | number }).monto_previo_usd || ''), 2),
+          monto_previo_bs: formatCurrencyInput(String((r as { monto_previo_bs?: string | number }).monto_previo_bs || ''), 2),
           fecha_operacion: normalizeYmdLike((r as { fecha_operacion?: string }).fecha_operacion),
         }))
       : [];
@@ -419,21 +438,31 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
     const updater = (prev: HistoricalOriginRow[]): HistoricalOriginRow[] =>
       prev.map((row) => {
         if (row.id !== rowId) return row;
-        if (field === 'monto_usd' || field === 'monto_bs') {
+        if (field === 'monto_usd' || field === 'monto_bs' || field === 'monto_previo_usd' || field === 'monto_previo_bs') {
           const formatted = formatCurrencyInput(value, 2);
-          if (field === 'monto_usd') {
+          if (field === 'monto_usd' || field === 'monto_previo_usd') {
             if (type !== 'recaudado') {
-              return { ...row, monto_usd: formatted };
+              return { ...row, [field]: formatted };
             }
             const usd = parseInputNumber(formatted);
             const bsCalc = tasaRef > 0 ? (usd * tasaRef) : 0;
+            if (field === 'monto_usd') {
+              return {
+                ...row,
+                monto_usd: formatted,
+                monto_bs: bsCalc > 0 ? formatCurrencyInput(String(bsCalc).replace('.', ','), 2) : '',
+              };
+            }
             return {
               ...row,
-              monto_usd: formatted,
-              monto_bs: bsCalc > 0 ? formatCurrencyInput(String(bsCalc).replace('.', ','), 2) : '',
+              monto_previo_usd: formatted,
+              monto_previo_bs: bsCalc > 0 ? formatCurrencyInput(String(bsCalc).replace('.', ','), 2) : '',
             };
           }
-          return { ...row, monto_bs: formatted };
+          if (field === 'monto_bs') {
+            return { ...row, monto_bs: formatted };
+          }
+          return { ...row, monto_previo_bs: formatted };
         }
         if (field === 'cuenta_bancaria_id') {
           return { ...row, cuenta_bancaria_id: value, fondo_id: '' };
@@ -453,11 +482,18 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
           const usdNormalizado = usdActual > 0
             ? usdActual
             : (tasaRef > 0 ? (bsActual / tasaRef) : 0);
+          const usdPrevioActual = parseInputNumber(row.monto_previo_usd);
+          const bsPrevioActual = parseInputNumber(row.monto_previo_bs);
+          const usdPrevioNormalizado = usdPrevioActual > 0
+            ? usdPrevioActual
+            : (tasaRef > 0 ? (bsPrevioActual / tasaRef) : 0);
           return {
             ...row,
             fondo_id: value,
             monto_usd: usdNormalizado > 0 ? formatCurrencyInput(String(usdNormalizado).replace('.', ','), 2) : '',
             monto_bs: '',
+            monto_previo_usd: usdPrevioNormalizado > 0 ? formatCurrencyInput(String(usdPrevioNormalizado).replace('.', ','), 2) : '',
+            monto_previo_bs: '',
           };
         }
         return { ...row, [field]: value };
@@ -483,11 +519,14 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
   }, [historicoPagadoRows]);
 
   const totalsRecaudado = useMemo(() => {
-    const bs = historicoRecaudadoRows.reduce((sum, row) => sum + parseInputNumber(row.monto_bs), 0);
-    const tasaRef = tasaHistoricaDia > 0 ? tasaHistoricaDia : parseInputNumber(form.tasa_cambio || '0');
-    const usd = tasaRef > 0 ? (bs / tasaRef) : 0;
+    const usdRows = historicoRecaudadoRows.reduce((sum, row) => sum + parseInputNumber(row.monto_usd), 0);
+    const bsRows = historicoRecaudadoRows.reduce((sum, row) => sum + parseInputNumber(row.monto_bs), 0);
+    const usdNoCuenta = parseInputNumber(form.monto_historico_recaudado_no_cuenta_usd || '0');
+    const bsNoCuenta = parseInputNumber(form.monto_historico_recaudado_no_cuenta_bs || '0');
+    const usd = usdRows + usdNoCuenta;
+    const bs = bsRows + bsNoCuenta;
     return { usd: roundTwo(usd), bs: roundTwo(bs) };
-  }, [historicoRecaudadoRows, tasaHistoricaDia, form.tasa_cambio]);
+  }, [historicoRecaudadoRows, form.monto_historico_recaudado_no_cuenta_usd, form.monto_historico_recaudado_no_cuenta_bs]);
 
   // NUEVO: Validación en tiempo real
   const validateForm = (): boolean => {
@@ -731,20 +770,36 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
       alert('Los montos históricos en USD no pueden superar el monto total del gasto en USD.');
       return;
     }
-    const validateRows = (rows: HistoricalOriginRow[], label: string): boolean => {
+    const validateRows = (rows: HistoricalOriginRow[], label: string, type: 'pagado' | 'recaudado'): boolean => {
       for (const row of rows) {
+        if (!row.cuenta_bancaria_id || !row.fondo_id) continue;
+        const fondo = getFondoById(row.fondo_id);
+        const esFondoUsd = String(fondo?.moneda || '').toUpperCase() === 'USD';
         const usd = parseInputNumber(row.monto_usd);
         const bs = parseInputNumber(row.monto_bs);
-        if (usd <= 0 && bs <= 0) continue;
-        if (!row.cuenta_bancaria_id || !row.fondo_id) {
-          alert(`Debes seleccionar cuenta y fondo en una fila de ${label}.`);
+        if (esFondoUsd) {
+          if (usd <= 0) {
+            alert(`En ${label}, el monto USD debe ser mayor a 0 cuando hay cuenta y fondo seleccionados.`);
+            return false;
+          }
+          continue;
+        }
+        if (usd <= 0 || bs <= 0) {
+          const campo = usd <= 0 && bs <= 0
+            ? 'USD y Bs'
+            : (usd <= 0 ? 'USD' : 'Bs');
+          alert(`En ${label}, el monto ${campo} debe ser mayor a 0 cuando hay cuenta y fondo seleccionados.`);
+          return false;
+        }
+        if (type === 'recaudado' && usd <= 0) {
+          alert(`En ${label}, el monto USD debe ser mayor a 0 cuando hay cuenta y fondo seleccionados.`);
           return false;
         }
       }
       return true;
     };
-    if (!validateRows(historicoPagadoRows, 'pagado histórico')) return;
-    if (!validateRows(historicoRecaudadoRows, 'recaudado histórico')) return;
+    if (!validateRows(historicoPagadoRows, 'pagado histórico', 'pagado')) return;
+    if (!validateRows(historicoRecaudadoRows, 'recaudado histórico', 'recaudado')) return;
     if (tipoRegistro === 'historico' && cuotasHistoricasCanonico !== totalCuotasCanonico) {
       alert('En gasto histórico, las cuotas transcurridas deben igualar el total de cuotas.');
       return;
@@ -1489,7 +1544,6 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                   const recaudadoMinDate = getRecaudadoMinDate(row.fondo_id);
                   const fondoActual = getFondoById(row.fondo_id);
                   const esFondoUsd = String(fondoActual?.moneda || '').toUpperCase() === 'USD';
-                  
                   return (
                     <div key={row.id} className="grid grid-cols-1 md:grid-cols-12 gap-2 rounded-xl border border-emerald-200 bg-white p-2 dark:border-emerald-800/40 dark:bg-gray-900">
                       <div className="md:col-span-3">
@@ -1566,6 +1620,36 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                     </div>
                   );
                 })}
+                <div className="rounded-lg border border-emerald-100 bg-emerald-50/60 px-2 py-2 dark:border-emerald-800/40 dark:bg-emerald-900/20">
+                  <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 mb-1">
+                    Monto recaudado fuera de cuentas bancarias registradas
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 mb-1">Monto Bs</label>
+                      <input
+                        type="text"
+                        name="monto_historico_recaudado_no_cuenta_bs"
+                        value={form.monto_historico_recaudado_no_cuenta_bs}
+                        onChange={handleMonedaChange}
+                        placeholder="0,00"
+                        className="h-[40px] w-full px-2 rounded-lg border border-emerald-200 bg-white font-mono text-sm outline-none focus:ring-2 focus:ring-emerald-500 dark:border-emerald-700 dark:bg-gray-900 dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 mb-1">Monto USD</label>
+                      <input
+                        type="text"
+                        name="monto_historico_recaudado_no_cuenta_usd"
+                        value={form.monto_historico_recaudado_no_cuenta_usd}
+                        onChange={handleMonedaChange}
+                        placeholder="0,00"
+                        className="h-[40px] w-full px-2 rounded-lg border border-emerald-200 bg-white font-mono text-sm outline-none focus:ring-2 focus:ring-emerald-500 dark:border-emerald-700 dark:bg-gray-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
+                  <p className="mt-1 text-[10px] text-emerald-700/80 dark:text-emerald-300/80">Este monto afecta solo el saldo de recaudación histórica. No genera movimiento en banco/fondos.</p>
+                </div>
               </div>
             </div>
 
@@ -1618,6 +1702,8 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                     monto_historico_proveedor_bs: '',
                     monto_historico_recaudado_usd: '',
                     monto_historico_recaudado_bs: '',
+                    monto_historico_recaudado_no_cuenta_usd: '',
+                    monto_historico_recaudado_no_cuenta_bs: '',
                     historico_en_cuenta: false,
                     historico_cuenta_bancaria_id: '',
                     historico_fondo_id: '',
