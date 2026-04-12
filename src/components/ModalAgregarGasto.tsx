@@ -251,9 +251,15 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
       historico_fondo_id: String(initialValues?.historico_fondo_id || ''),
     } as FormState;
     setForm(merged);
-    const esHistoricoInitial = Boolean((initialValues as { es_historico?: boolean | string | number })?.es_historico);
-    setTipoRegistro(esHistoricoInitial ? 'historico' : 'nuevo');
     const cuotasHist = parseInputNumber(String(merged.cuotas_historicas || '0'));
+    const totalCuotasInitial = Math.max(1, parseInt(String(merged.total_cuotas || '1'), 10) || 1);
+    const rawEsHistorico = (initialValues as { es_historico?: boolean | string | number })?.es_historico;
+    const esHistoricoInitial = rawEsHistorico === true
+      || rawEsHistorico === 1
+      || String(rawEsHistorico || '').trim().toLowerCase() === '1'
+      || String(rawEsHistorico || '').trim().toLowerCase() === 'true';
+    const esHistoricoInferido = cuotasHist > 0 && cuotasHist >= totalCuotasInitial;
+    setTipoRegistro(esHistoricoInitial || esHistoricoInferido ? 'historico' : 'nuevo');
     const montoHistUsd = parseInputNumber(String(merged.monto_historico_proveedor_usd || '0'));
     const montoHistBs = parseInputNumber(String(merged.monto_historico_proveedor_bs || '0'));
     const montoRecaudadoHistUsd = parseInputNumber(String(merged.monto_historico_recaudado_usd || '0'));
@@ -757,7 +763,8 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
     const limiteBs = roundTwo(montoCanonico) + 0.01;
     const limiteUsd = roundTwo(montoTotalUsdReferencia) + 0.01;
     const totalCuotasCanonico = Math.max(1, parseInt(String(form.total_cuotas || '1'), 10) || 1);
-    const esHistorico = tipoRegistro === 'historico';
+    const esHistorico = tipoRegistro === 'historico'
+      || (mode === 'edit' && hasHistoricalContext && cuotasHistoricasCanonico === totalCuotasCanonico);
     const cuotasHistoricasCanonico = hasHistoricalContext
       ? Math.max(0, Math.trunc(parseInputNumber(form.cuotas_historicas || '0')))
       : 0;
