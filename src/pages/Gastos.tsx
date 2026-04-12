@@ -188,6 +188,7 @@ interface HistoricalOriginRow {
   fondo_id?: string;
   monto_usd?: string | number;
   monto_bs?: string | number;
+  fecha_operacion?: string;
 }
 
 const toNumber = (value: string | number | undefined | null): number => parseFloat(String(value ?? 0)) || 0;
@@ -255,6 +256,7 @@ const parseNotaToFields = (nota?: string): {
         fondo_id: String((row as { fondo_id?: string | number }).fondo_id || ''),
         monto_usd: String((row as { monto_usd?: string | number }).monto_usd || ''),
         monto_bs: String((row as { monto_bs?: string | number }).monto_bs || ''),
+        fecha_operacion: String((row as { fecha_operacion?: string }).fecha_operacion || ''),
       }));
     } catch {
       return [];

@@ -133,6 +133,33 @@ const getTodayYmd = (): string => {
   return `${year}-${month}-${day}`;
 };
 
+const normalizeYmdLike = (rawValue?: string | null): string => {
+  const raw = String(rawValue || '').trim();
+  if (!raw) return getTodayYmd();
+
+  const validate = (year: number, month: number, day: number): string | null => {
+    if (!year || !month || !day) return null;
+    const parsed = new Date(year, month - 1, day);
+    if (Number.isNaN(parsed.getTime())) return null;
+    if (parsed.getFullYear() !== year || parsed.getMonth() + 1 !== month || parsed.getDate() !== day) return null;
+    return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  };
+
+  const ymdMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (ymdMatch) {
+    const normalized = validate(Number(ymdMatch[1]), Number(ymdMatch[2]), Number(ymdMatch[3]));
+    if (normalized) return normalized;
+  }
+
+  const dmyMatch = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (dmyMatch) {
+    const normalized = validate(Number(dmyMatch[3]), Number(dmyMatch[2]), Number(dmyMatch[1]));
+    if (normalized) return normalized;
+  }
+
+  return getTodayYmd();
+};
+
 const makeOriginRow = (): HistoricalOriginRow => ({
   id: `row_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
   cuenta_bancaria_id: '',
@@ -220,9 +247,9 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
           id: r.id || makeOriginRow().id,
           cuenta_bancaria_id: String(r.cuenta_bancaria_id || ''),
           fondo_id: String(r.fondo_id || ''),
-          monto_usd: String(r.monto_usd || ''),
-          monto_bs: String(r.monto_bs || ''),
-          fecha_operacion: String((r as { fecha_operacion?: string }).fecha_operacion || getTodayYmd()),
+          monto_usd: formatCurrencyInput(String(r.monto_usd || ''), 2),
+          monto_bs: formatCurrencyInput(String(r.monto_bs || ''), 2),
+          fecha_operacion: normalizeYmdLike((r as { fecha_operacion?: string }).fecha_operacion),
         }))
       : [];
     const initRecaudado = Array.isArray((initialValues as { historico_recaudado_origenes?: HistoricalOriginRow[] })?.historico_recaudado_origenes)
@@ -230,9 +257,9 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
           id: r.id || makeOriginRow().id,
           cuenta_bancaria_id: String(r.cuenta_bancaria_id || ''),
           fondo_id: String(r.fondo_id || ''),
-          monto_usd: String(r.monto_usd || ''),
-          monto_bs: String(r.monto_bs || ''),
-          fecha_operacion: String((r as { fecha_operacion?: string }).fecha_operacion || getTodayYmd()),
+          monto_usd: formatCurrencyInput(String(r.monto_usd || ''), 2),
+          monto_bs: formatCurrencyInput(String(r.monto_bs || ''), 2),
+          fecha_operacion: normalizeYmdLike((r as { fecha_operacion?: string }).fecha_operacion),
         }))
       : [];
     setHistoricoPagadoRows(initPagado);
@@ -267,8 +294,51 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
   }, [form.total_cuotas, tipoRegistro]);
 
   const parseInputNumber = (txt: string): number => {
-    const cleaned = String(txt || '').trim().replace(/\./g, '').replace(',', '.');
-    const parsed = parseFloat(cleaned);
+    const raw = String(txt || '').trim().replace(/\s/g, '').replace(/[^\d,.-]/g, '');
+    if (!raw) return 0;
+
+    const hasDot = raw.includes('.');
+    const hasComma = raw.includes(',');
+    let normalized = raw;
+
+    if (hasDot && hasComma) {
+      const lastDot = raw.lastIndexOf('.');
+      const lastComma = raw.lastIndexOf(',');
+      const decimalSep = lastDot > lastComma ? '.' : ',';
+      const thousandsSep = decimalSep === '.' ? ',' : '.';
+      normalized = raw.split(thousandsSep).join('');
+      if (decimalSep === ',') normalized = normalized.replace(',', '.');
+    } else if (hasDot || hasComma) {
+      const sep = hasDot ? '.' : ',';
+      const parts = raw.split(sep);
+      const firstChunk = (parts[0] || '').replace('-', '');
+      const groupedThousands = parts.length > 1
+        && firstChunk.length >= 1
+        && firstChunk.length <= 3
+        && parts.slice(1).every((chunk) => chunk.length === 3);
+
+      if (groupedThousands) {
+        normalized = parts.join('');
+      } else if (parts.length > 2) {
+        const decimalCandidate = parts[parts.length - 1] || '';
+        const integerCandidate = parts.slice(0, -1).join('');
+        if (decimalCandidate.length >= 1 && decimalCandidate.length <= 3) {
+          normalized = `${integerCandidate}.${decimalCandidate}`;
+        } else {
+          normalized = parts.join('');
+        }
+      } else if (parts.length === 2) {
+        const decimalCandidate = parts[1] || '';
+        if (decimalCandidate.length >= 1 && decimalCandidate.length <= 3) {
+          normalized = `${parts[0]}.${decimalCandidate}`;
+        } else {
+          normalized = `${parts[0]}${parts[1]}`;
+        }
+      }
+    }
+
+    normalized = normalized.replace(/(?!^)-/g, '');
+    const parsed = parseFloat(normalized);
     return Number.isFinite(parsed) ? parsed : 0;
   };
 
@@ -282,13 +352,29 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
   const cuotasHistoricasNum = Math.max(0, parseInt(form.cuotas_historicas || '0', 10) || 0);
 
   const formatCurrencyInput = (value: string, maxDecimals = 2): string => {
-    let rawValue = value.replace(/[^0-9,]/g, '');
-    const parts = rawValue.split(',');
-    if (parts.length > 2) rawValue = parts[0] + ',' + parts.slice(1).join('');
-    let [integerPart = '', decimalPart] = rawValue.split(',');
-    if (integerPart) integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    if (decimalPart !== undefined) return `${integerPart},${decimalPart.slice(0, maxDecimals)}`;
-    return integerPart ?? '';
+    const raw = String(value || '').replace(/[^\d,.-]/g, '');
+    if (!raw) return '';
+
+    const lastComma = raw.lastIndexOf(',');
+    const lastDot = raw.lastIndexOf('.');
+    const decimalIndex = Math.max(lastComma, lastDot);
+    const hasDecimalSep = decimalIndex >= 0;
+
+    let integerRaw = hasDecimalSep ? raw.slice(0, decimalIndex) : raw;
+    let decimalRaw = hasDecimalSep ? raw.slice(decimalIndex + 1) : '';
+
+    integerRaw = integerRaw.replace(/[^\d-]/g, '');
+    const isNegative = integerRaw.startsWith('-');
+    integerRaw = integerRaw.replace(/-/g, '');
+    decimalRaw = decimalRaw.replace(/[^\d]/g, '');
+
+    let integerPart = integerRaw.replace(/^0+(?=\d)/, '');
+    if (!integerPart) integerPart = '0';
+    integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    if (isNegative && integerPart !== '0') integerPart = `-${integerPart}`;
+
+    if (hasDecimalSep) return `${integerPart},${decimalRaw.slice(0, maxDecimals)}`;
+    return integerPart;
   };
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>): void => {
@@ -329,19 +415,50 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
     field: keyof Omit<HistoricalOriginRow, 'id'>,
     value: string
   ): void => {
+    const tasaRef = tasaHistoricaDia > 0 ? tasaHistoricaDia : parseInputNumber(form.tasa_cambio || '0');
     const updater = (prev: HistoricalOriginRow[]): HistoricalOriginRow[] =>
       prev.map((row) => {
         if (row.id !== rowId) return row;
         if (field === 'monto_usd' || field === 'monto_bs') {
           const formatted = formatCurrencyInput(value, 2);
-          return { ...row, [field]: formatted };
+          if (field === 'monto_usd') {
+            if (type !== 'recaudado') {
+              return { ...row, monto_usd: formatted };
+            }
+            const usd = parseInputNumber(formatted);
+            const bsCalc = tasaRef > 0 ? (usd * tasaRef) : 0;
+            return {
+              ...row,
+              monto_usd: formatted,
+              monto_bs: bsCalc > 0 ? formatCurrencyInput(String(bsCalc).replace('.', ','), 2) : '',
+            };
+          }
+          return { ...row, monto_bs: formatted };
         }
         if (field === 'cuenta_bancaria_id') {
           return { ...row, cuenta_bancaria_id: value, fondo_id: '' };
         }
-        if (field === 'fondo_id' && value) {
-          // Fetch fecha_saldo cuando se selecciona un fondo
-          void fetchFondoFechaSaldo(value);
+        if (field === 'fondo_id') {
+          if (value) {
+            // Fetch fecha_saldo cuando se selecciona un fondo
+            void fetchFondoFechaSaldo(value);
+          }
+          const fondo = getFondoById(value);
+          const esFondoUsd = String(fondo?.moneda || '').toUpperCase() === 'USD';
+          if (!esFondoUsd) {
+            return { ...row, fondo_id: value };
+          }
+          const usdActual = parseInputNumber(row.monto_usd);
+          const bsActual = parseInputNumber(row.monto_bs);
+          const usdNormalizado = usdActual > 0
+            ? usdActual
+            : (tasaRef > 0 ? (bsActual / tasaRef) : 0);
+          return {
+            ...row,
+            fondo_id: value,
+            monto_usd: usdNormalizado > 0 ? formatCurrencyInput(String(usdNormalizado).replace('.', ','), 2) : '',
+            monto_bs: '',
+          };
         }
         return { ...row, [field]: value };
       });
@@ -436,6 +553,16 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
         };
       }),
     [bancos]
+  );
+
+  const proveedorOptions = useMemo<SearchableComboboxOption[]>(
+    () =>
+      (proveedores || []).map((p) => ({
+        value: String(p.id),
+        label: `${p.nombre} (${p.identificador})`,
+        searchText: `${p.nombre} ${p.identificador}`,
+      })),
+    [proveedores]
   );
 
   const fondoOptionsByCuenta = useMemo<Map<string, SearchableComboboxOption[]>>(() => {
@@ -663,14 +790,26 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
       'historico_recaudado_origenes',
       JSON.stringify(
         historicoRecaudadoRows
-          .map((row) => ({
-            cuenta_bancaria_id: row.cuenta_bancaria_id || null,
-            fondo_id: row.fondo_id || null,
-            monto_bs: roundTwo(parseInputNumber(row.monto_bs)),
-            monto_usd: tasaHistoricaRef > 0 ? roundTwo(parseInputNumber(row.monto_bs) / tasaHistoricaRef) : 0,
-            fecha_operacion: row.fecha_operacion || getTodayYmd(),
-          }))
-          .filter((row) => row.monto_bs > 0)
+          .map((row) => {
+            const montoUsd = roundTwo(parseInputNumber(row.monto_usd));
+            const montoBs = roundTwo(parseInputNumber(row.monto_bs));
+            const fondo = getFondoById(row.fondo_id);
+            const esFondoUsd = String(fondo?.moneda || '').toUpperCase() === 'USD';
+            const usdFinal = esFondoUsd
+              ? montoUsd
+              : (montoUsd > 0 ? montoUsd : (tasaHistoricaRef > 0 ? roundTwo(montoBs / tasaHistoricaRef) : 0));
+            const bsFinal = esFondoUsd
+              ? (montoBs > 0 ? montoBs : (tasaHistoricaRef > 0 ? roundTwo(usdFinal * tasaHistoricaRef) : 0))
+              : montoBs;
+            return {
+              cuenta_bancaria_id: row.cuenta_bancaria_id || null,
+              fondo_id: row.fondo_id || null,
+              monto_bs: bsFinal,
+              monto_usd: usdFinal,
+              fecha_operacion: row.fecha_operacion || getTodayYmd(),
+            };
+          })
+          .filter((row) => row.monto_bs > 0 || row.monto_usd > 0)
       )
     );
     
@@ -848,10 +987,19 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
           <>
           <div className="xl:col-span-1">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Proveedor <span className="text-red-500">*</span></label>
-            <select name="proveedor_id" value={form.proveedor_id} onChange={handleChange} required className={`w-full p-3 bg-gray-50 dark:bg-gray-800 border rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white ${validationErrors.proveedor_id ? 'border-red-500 bg-red-50 dark:bg-red-900/10' : 'border-gray-200 dark:border-gray-700'}`}>
-              <option value="">Seleccione...</option>
-              {proveedores.map((p: Proveedor) => <option key={p.id} value={p.id}>{p.nombre} ({p.identificador})</option>)}
-            </select>
+            <SearchableCombobox
+              options={proveedorOptions}
+              value={form.proveedor_id}
+              onChange={(value: string) => {
+                setForm((prev: FormState) => ({ ...prev, proveedor_id: value }));
+                if (validationErrors.proveedor_id) {
+                  setValidationErrors((prev) => ({ ...prev, proveedor_id: '' }));
+                }
+              }}
+              placeholder="Seleccione proveedor..."
+              emptyMessage="Sin proveedores"
+              className={`w-full p-3 bg-gray-50 dark:bg-gray-800 border rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white ${validationErrors.proveedor_id ? 'border-red-500 bg-red-50 dark:bg-red-900/10' : 'border-gray-200 dark:border-gray-700'}`}
+            />
             {validationErrors.proveedor_id && (
               <p className="mt-1 text-xs text-red-600 dark:text-red-400">{validationErrors.proveedor_id}</p>
             )}
@@ -1270,6 +1418,8 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                 {historicoPagadoRows.length === 0 && <p className="text-xs text-indigo-800/70 dark:text-indigo-300/70">Sin filas registradas.</p>}
                 {historicoPagadoRows.map((row) => {
                   const fondosOptions = getFondoOptionsByCuenta(row.cuenta_bancaria_id);
+                  const fondoActual = getFondoById(row.fondo_id);
+                  const esFondoUsd = String(fondoActual?.moneda || '').toUpperCase() === 'USD';
                   return (
                     <div key={row.id} className="grid grid-cols-1 md:grid-cols-14 gap-2 rounded-xl border border-indigo-200 bg-white p-2 dark:border-indigo-800/40 dark:bg-gray-900">
                       <div className="md:col-span-3">
@@ -1302,10 +1452,12 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                           <label className="block text-[10px] font-semibold text-indigo-700 dark:text-indigo-400 mb-1">Monto USD</label>
                           <input type="text" value={row.monto_usd} onChange={(e) => updateOriginRow('pagado', row.id, 'monto_usd', e.target.value)} placeholder="0,00" className="h-[42px] w-full px-2 rounded-lg border border-indigo-200 bg-white font-mono text-sm outline-none focus:ring-2 focus:ring-indigo-500 dark:border-indigo-700 dark:bg-gray-900 dark:text-white" />
                         </div>
-                        <div>
-                          <label className="block text-[10px] font-semibold text-indigo-700 dark:text-indigo-400 mb-1">Monto Bs</label>
-                          <input type="text" value={row.monto_bs} onChange={(e) => updateOriginRow('pagado', row.id, 'monto_bs', e.target.value)} placeholder="0,00" className="h-[42px] w-full px-2 rounded-lg border border-indigo-200 bg-white font-mono text-sm outline-none focus:ring-2 focus:ring-indigo-500 dark:border-indigo-700 dark:bg-gray-900 dark:text-white" />
-                        </div>
+                        {!esFondoUsd && (
+                          <div>
+                            <label className="block text-[10px] font-semibold text-indigo-700 dark:text-indigo-400 mb-1">Monto Bs</label>
+                            <input type="text" value={row.monto_bs} onChange={(e) => updateOriginRow('pagado', row.id, 'monto_bs', e.target.value)} placeholder="0,00" className="h-[42px] w-full px-2 rounded-lg border border-indigo-200 bg-white font-mono text-sm outline-none focus:ring-2 focus:ring-indigo-500 dark:border-indigo-700 dark:bg-gray-900 dark:text-white" />
+                          </div>
+                        )}
                       </div>
                       <div className="md:col-span-1 flex items-end justify-end pb-1">
                         <button type="button" onClick={() => removeOriginRow('pagado', row.id)} className="h-[42px] w-[42px] rounded-lg bg-red-50 text-red-700 font-bold hover:bg-red-100 dark:bg-red-900/30 dark:text-red-300" title="Eliminar fila">x</button>
@@ -1335,6 +1487,8 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                   const tasaRef = tasaHistoricaDia > 0 ? tasaHistoricaDia : parseInputNumber(form.tasa_cambio || '0');
                   const montoUsdAuto = tasaRef > 0 ? (montoBsNum / tasaRef).toFixed(2) : '0.00';
                   const recaudadoMinDate = getRecaudadoMinDate(row.fondo_id);
+                  const fondoActual = getFondoById(row.fondo_id);
+                  const esFondoUsd = String(fondoActual?.moneda || '').toUpperCase() === 'USD';
                   
                   return (
                     <div key={row.id} className="grid grid-cols-1 md:grid-cols-12 gap-2 rounded-xl border border-emerald-200 bg-white p-2 dark:border-emerald-800/40 dark:bg-gray-900">
@@ -1365,35 +1519,45 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                         />
                       </div>
                       <div className="md:col-span-3 grid grid-cols-2 gap-1">
-                        <div>
-                          <label className="block text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 mb-1">Monto Bs</label>
-                          <input
-                            type="text"
-                            value={row.monto_bs}
-                            onChange={(e) => {
-                              updateOriginRow('recaudado', row.id, 'monto_bs', e.target.value);
-                              const bsValue = parseInputNumber(e.target.value);
-                              const tasaRef = tasaHistoricaDia > 0 ? tasaHistoricaDia : parseInputNumber(form.tasa_cambio || '0');
-                              if (bsValue > 0 && tasaRef > 0) {
-                                const usdValue = (bsValue / tasaRef).toFixed(2).replace('.', ',');
-                                updateOriginRow('recaudado', row.id, 'monto_usd', formatCurrencyInput(usdValue, 2));
-                              }
-                            }}
-                            placeholder="0,00"
-                            className="h-[42px] w-full px-2 rounded-lg border border-emerald-200 bg-white font-mono text-sm outline-none focus:ring-2 focus:ring-emerald-500 dark:border-emerald-700 dark:bg-gray-900 dark:text-white"
-                          />
-                          <p className="text-[10px] text-gray-500 mt-0.5">≈ ${montoUsdAuto} USD</p>
-                        </div>
+                        {!esFondoUsd && (
+                          <div>
+                            <label className="block text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 mb-1">Monto Bs</label>
+                            <input
+                              type="text"
+                              value={row.monto_bs}
+                              onChange={(e) => {
+                                updateOriginRow('recaudado', row.id, 'monto_bs', e.target.value);
+                                const bsValue = parseInputNumber(e.target.value);
+                                const tasaRef = tasaHistoricaDia > 0 ? tasaHistoricaDia : parseInputNumber(form.tasa_cambio || '0');
+                                if (bsValue > 0 && tasaRef > 0) {
+                                  const usdValue = (bsValue / tasaRef).toFixed(2).replace('.', ',');
+                                  updateOriginRow('recaudado', row.id, 'monto_usd', formatCurrencyInput(usdValue, 2));
+                                }
+                              }}
+                              placeholder="0,00"
+                              className="h-[42px] w-full px-2 rounded-lg border border-emerald-200 bg-white font-mono text-sm outline-none focus:ring-2 focus:ring-emerald-500 dark:border-emerald-700 dark:bg-gray-900 dark:text-white"
+                            />
+                            <p className="text-[10px] text-gray-500 mt-0.5">≈ ${montoUsdAuto} USD</p>
+                          </div>
+                        )}
                         <div>
                           <label className="block text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 mb-1">Monto USD</label>
                           <input
                             type="text"
                             value={row.monto_usd}
-                            readOnly
+                            readOnly={!esFondoUsd}
+                            onChange={(e) => {
+                              if (!esFondoUsd) return;
+                              updateOriginRow('recaudado', row.id, 'monto_usd', e.target.value);
+                            }}
                             placeholder="0,00"
-                            className="h-[42px] w-full px-2 rounded-lg border border-emerald-200 bg-emerald-50 font-mono text-sm outline-none dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 cursor-not-allowed"
+                            className={`h-[42px] w-full px-2 rounded-lg border border-emerald-200 font-mono text-sm outline-none dark:border-emerald-700 dark:text-emerald-300 ${
+                              esFondoUsd
+                                ? 'bg-white focus:ring-2 focus:ring-emerald-500 dark:bg-gray-900'
+                                : 'bg-emerald-50 dark:bg-emerald-900/30 cursor-not-allowed'
+                            }`}
                           />
-                          <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5">Auto-calculado</p>
+                          <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5">{esFondoUsd ? 'Editable para fondos USD' : 'Auto-calculado'}</p>
                         </div>
                       </div>
                       <div className="md:col-span-1 flex items-end justify-end pb-1">
