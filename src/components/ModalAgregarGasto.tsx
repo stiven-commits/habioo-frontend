@@ -200,6 +200,10 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
   existingFacturaUrl = null,
   existingSoportesUrls = [],
 }) => {
+  function getFondoById(fondoId: string): Fondo | undefined {
+    return (fondos || []).find((f) => String(f.id) === String(fondoId || ''));
+  }
+
   const [form, setForm] = useState<FormState>({
     proveedor_id: '', concepto: '', numero_documento: '', monto_bs: '', tasa_cambio: '', total_cuotas: '1', nota: '',
     clasificacion: 'Variable',
@@ -542,6 +546,106 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
     return { usd: roundTwo(usd), bs: roundTwo(bs) };
   }, [historicoRecaudadoRows, form.monto_historico_recaudado_no_cuenta_usd, form.monto_historico_recaudado_no_cuenta_bs]);
 
+  const step2ValidationErrors = useMemo<Record<string, string>>(() => {
+    const errors: Record<string, string> = {};
+    const totalCuotasCanonico = Math.max(1, parseInt(String(form.total_cuotas || '1'), 10) || 1);
+    const cuotasHistoricasCanonico = hasHistoricalContext
+      ? Math.max(0, Math.trunc(parseInputNumber(form.cuotas_historicas || '0')))
+      : 0;
+    const esHistorico = tipoRegistro === 'historico'
+      || (mode === 'edit' && hasHistoricalContext && cuotasHistoricasCanonico === totalCuotasCanonico);
+    const maxCuotasHistoricas = esHistorico ? totalCuotasCanonico : Math.max(0, totalCuotasCanonico - 1);
+
+    if (cuotasHistoricasCanonico > maxCuotasHistoricas) {
+      errors.cuotas_historicas = esHistorico
+        ? 'Las cuotas históricas no pueden superar el total de cuotas.'
+        : 'Las cuotas históricas deben ser menores al total de cuotas.';
+    } else if (esHistorico && cuotasHistoricasCanonico !== totalCuotasCanonico) {
+      errors.cuotas_historicas = 'En gasto histórico, las cuotas transcurridas deben igualar el total de cuotas.';
+    }
+
+    const montoCanonico = parseInputNumber(form.monto_bs);
+    const tasaCanonica = parseInputNumber(form.tasa_cambio);
+    const montoCanonicoUsd = tasaCanonica > 0 ? roundTwo(montoCanonico / tasaCanonica) : 0;
+    const montoTotalUsdEdicion = roundTwo(
+      parseInputNumber(
+        String(
+          (initialValues as { monto_total_usd?: string | number; monto_usd?: string | number })?.monto_total_usd
+            ?? (initialValues as { monto_total_usd?: string | number; monto_usd?: string | number })?.monto_usd
+            ?? '0'
+        )
+      )
+    );
+    const montoTotalUsdReferencia = montoTotalUsdEdicion > 0 ? montoTotalUsdEdicion : montoCanonicoUsd;
+    const limiteUsd = roundTwo(montoTotalUsdReferencia) + 0.01;
+
+    if (totalsPagado.usd > limiteUsd || totalsRecaudado.usd > limiteUsd) {
+      errors.totales_usd = 'Los montos históricos en USD no pueden superar el monto total del gasto en USD.';
+    }
+
+    historicoPagadoRows.forEach((row, idx) => {
+      const key = `pagado_row_${row.id}`;
+      const hasCuenta = Boolean(row.cuenta_bancaria_id);
+      const hasFondo = Boolean(row.fondo_id);
+      if (!hasCuenta && !hasFondo) return;
+      if (!hasCuenta || !hasFondo) {
+        errors[key] = `Pagado histórico fila ${idx + 1}: debe seleccionar cuenta y fondo.`;
+        return;
+      }
+      const fondo = getFondoById(row.fondo_id);
+      const esFondoUsd = String(fondo?.moneda || '').toUpperCase() === 'USD';
+      const usd = parseInputNumber(row.monto_usd);
+      const bs = parseInputNumber(row.monto_bs);
+      if (esFondoUsd) {
+        if (usd <= 0) errors[key] = `Pagado histórico fila ${idx + 1}: el monto USD debe ser mayor a 0.`;
+        return;
+      }
+      if (usd <= 0 || bs <= 0) {
+        errors[key] = `Pagado histórico fila ${idx + 1}: los montos USD y Bs deben ser mayores a 0.`;
+      }
+    });
+
+    historicoRecaudadoRows.forEach((row, idx) => {
+      const key = `recaudado_row_${row.id}`;
+      const hasCuenta = Boolean(row.cuenta_bancaria_id);
+      const hasFondo = Boolean(row.fondo_id);
+      if (!hasCuenta && !hasFondo) return;
+      if (!hasCuenta || !hasFondo) {
+        errors[key] = `Recaudado histórico fila ${idx + 1}: debe seleccionar cuenta y fondo.`;
+        return;
+      }
+      const fondo = getFondoById(row.fondo_id);
+      const esFondoUsd = String(fondo?.moneda || '').toUpperCase() === 'USD';
+      const usd = parseInputNumber(row.monto_usd);
+      const bs = parseInputNumber(row.monto_bs);
+      if (esFondoUsd) {
+        if (usd <= 0) errors[key] = `Recaudado histórico fila ${idx + 1}: el monto USD debe ser mayor a 0.`;
+        return;
+      }
+      if (usd <= 0 || bs <= 0) {
+        errors[key] = `Recaudado histórico fila ${idx + 1}: los montos USD y Bs deben ser mayores a 0.`;
+      }
+    });
+
+    return errors;
+  }, [
+    form.total_cuotas,
+    form.cuotas_historicas,
+    form.monto_bs,
+    form.tasa_cambio,
+    hasHistoricalContext,
+    tipoRegistro,
+    mode,
+    initialValues,
+    totalsPagado.bs,
+    totalsPagado.usd,
+    totalsRecaudado.bs,
+    totalsRecaudado.usd,
+    historicoPagadoRows,
+    historicoRecaudadoRows,
+  ]);
+  const hasStep2Errors = Object.keys(step2ValidationErrors).length > 0;
+
   // NUEVO: Validación en tiempo real
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
@@ -641,9 +745,6 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
   const getFondoOptionsByCuenta = (cuentaId: string): SearchableComboboxOption[] =>
     fondoOptionsByCuenta.get(String(cuentaId || '')) || [];
 
-  const getFondoById = (fondoId: string): Fondo | undefined =>
-    (fondos || []).find((f) => String(f.id) === String(fondoId || ''));
-
   // Obtener fecha_saldo del fondo para validación de fechas
   const fetchFondoFechaSaldo = async (fondoId: string): Promise<void> => {
     if (!fondoId || fondosFechaSaldo.has(fondoId)) return;
@@ -734,6 +835,10 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
     if (!validateForm()) {
       return;
     }
+    if (hasStep2Errors) {
+      alert('Hay errores en el paso 2. Corrige los campos marcados antes de guardar.');
+      return;
+    }
     
     // Si es gasto histórico y no se ha configurado, mostrar advertencia
     if (tipoRegistro === 'historico' && !hasHistoricalContext) {
@@ -760,14 +865,13 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
       )
     );
     const montoTotalUsdReferencia = montoTotalUsdEdicion > 0 ? montoTotalUsdEdicion : montoCanonicoUsd;
-    const limiteBs = roundTwo(montoCanonico) + 0.01;
     const limiteUsd = roundTwo(montoTotalUsdReferencia) + 0.01;
     const totalCuotasCanonico = Math.max(1, parseInt(String(form.total_cuotas || '1'), 10) || 1);
-    const esHistorico = tipoRegistro === 'historico'
-      || (mode === 'edit' && hasHistoricalContext && cuotasHistoricasCanonico === totalCuotasCanonico);
     const cuotasHistoricasCanonico = hasHistoricalContext
       ? Math.max(0, Math.trunc(parseInputNumber(form.cuotas_historicas || '0')))
       : 0;
+    const esHistorico = tipoRegistro === 'historico'
+      || (mode === 'edit' && hasHistoricalContext && cuotasHistoricasCanonico === totalCuotasCanonico);
     const maxCuotasHistoricas = esHistorico ? totalCuotasCanonico : Math.max(0, totalCuotasCanonico - 1);
     if (cuotasHistoricasCanonico > maxCuotasHistoricas) {
       alert(esHistorico ? 'Las cuotas históricas no pueden superar el total de cuotas.' : 'Las cuotas históricas deben ser menores al total de cuotas.');
@@ -787,10 +891,6 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
       : 0;
     if (montoHistoricoProveedorUsdCanonico < 0 || montoHistoricoProveedorBsCanonico < 0 || montoHistoricoRecaudadoUsdCanonico < 0 || montoHistoricoRecaudadoBsCanonico < 0) {
       alert('Los montos históricos no pueden ser negativos.');
-      return;
-    }
-    if (montoHistoricoProveedorBsCanonico > limiteBs || montoHistoricoRecaudadoBsCanonico > limiteBs) {
-      alert('Los montos históricos en Bs no pueden superar el monto del gasto en Bs.');
       return;
     }
     if (montoHistoricoProveedorUsdCanonico > limiteUsd || montoHistoricoRecaudadoUsdCanonico > limiteUsd) {
@@ -1481,8 +1581,8 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
           <>
             {/* CUOTAS Y TOTAL DEL GASTO */}
             <div>
-              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Cuotas ya transcurridas</label>
-              <div className="flex items-center border border-amber-200 dark:border-amber-800 rounded-xl overflow-hidden bg-white dark:bg-gray-800">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cuotas ya transcurridas</label>
+              <div className={`flex items-center border rounded-xl overflow-hidden bg-white dark:bg-gray-800 ${step2ValidationErrors.cuotas_historicas ? 'border-red-400 bg-red-50 dark:border-red-700 dark:bg-red-900/10' : 'border-amber-200 dark:border-amber-800'}`}>
                 <button type="button" onClick={() => handleCuotasHistoricasChange(-1)} disabled={tipoRegistro === 'historico'} className="px-4 py-2 bg-amber-100 hover:bg-amber-200 disabled:opacity-50 dark:bg-amber-900/30 text-lg font-bold text-amber-700 dark:text-amber-300 transition-colors">-</button>
                 <input type="text" readOnly value={`${form.cuotas_historicas || '0'} cuota(s)`} className="w-full text-center bg-transparent font-medium dark:text-white outline-none" />
                 <button type="button" onClick={() => handleCuotasHistoricasChange(1)} disabled={tipoRegistro === 'historico'} className="px-4 py-2 bg-amber-100 hover:bg-amber-200 disabled:opacity-50 dark:bg-amber-900/30 text-lg font-bold text-amber-700 dark:text-amber-300 transition-colors">+</button>
@@ -1490,10 +1590,21 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
               {tipoRegistro === 'historico' && (
                 <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">Bloqueado: en gasto histórico equivale al total de cuotas.</p>
               )}
+              {step2ValidationErrors.cuotas_historicas && (
+                <p className="mt-1 text-xs text-red-600 dark:text-red-400">{step2ValidationErrors.cuotas_historicas}</p>
+              )}
             </div>
-            <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-300">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-300">
               <p>Total del gasto: Bs {formatMoneyDisplay(montoBsNum)} / ${formatMoneyDisplay(equivalenteUSD)} USD</p>
             </div>
+            {hasStep2Errors && (
+              <div className="md:col-span-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 dark:border-red-800/60 dark:bg-red-900/20">
+                <p className="text-xs font-bold text-red-700 dark:text-red-300">Hay validaciones pendientes en el paso 2:</p>
+                {Object.values(step2ValidationErrors).slice(0, 4).map((msg, idx) => (
+                  <p key={`${msg}-${idx}`} className="text-[11px] text-red-700 dark:text-red-300">• {msg}</p>
+                ))}
+              </div>
+            )}
 
             {/* PAGADO HISTÓRICO */}
             <div className="md:col-span-2 rounded-2xl border border-indigo-200 bg-indigo-50/60 p-3 dark:border-indigo-800/50 dark:bg-indigo-900/10">
@@ -1507,8 +1618,9 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                   const fondosOptions = getFondoOptionsByCuenta(row.cuenta_bancaria_id);
                   const fondoActual = getFondoById(row.fondo_id);
                   const esFondoUsd = String(fondoActual?.moneda || '').toUpperCase() === 'USD';
+                  const rowError = step2ValidationErrors[`pagado_row_${row.id}`];
                   return (
-                    <div key={row.id} className="grid grid-cols-1 md:grid-cols-14 gap-2 rounded-xl border border-indigo-200 bg-white p-2 dark:border-indigo-800/40 dark:bg-gray-900">
+                    <div key={row.id} className={`grid grid-cols-1 md:grid-cols-14 gap-2 rounded-xl border bg-white p-2 dark:bg-gray-900 ${rowError ? 'border-red-300 dark:border-red-800/60' : 'border-indigo-200 dark:border-indigo-800/40'}`}>
                       <div className="md:col-span-3">
                         <label className="block text-[10px] font-semibold text-indigo-700 dark:text-indigo-400 mb-1">Cuenta</label>
                         <SearchableCombobox options={cuentaOptions} value={row.cuenta_bancaria_id} onChange={(v) => updateOriginRow('pagado', row.id, 'cuenta_bancaria_id', v)} placeholder="Seleccione..." emptyMessage="Sin cuentas" className="w-full h-[42px] px-3 rounded-lg border border-indigo-200 bg-white outline-none focus:ring-2 focus:ring-indigo-500 dark:border-indigo-700 dark:bg-gray-900 dark:text-white" />
@@ -1549,6 +1661,11 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                       <div className="md:col-span-1 flex items-end justify-end pb-1">
                         <button type="button" onClick={() => removeOriginRow('pagado', row.id)} className="h-[42px] w-[42px] rounded-lg bg-red-50 text-red-700 font-bold hover:bg-red-100 dark:bg-red-900/30 dark:text-red-300" title="Eliminar fila">x</button>
                       </div>
+                      {rowError && (
+                        <div className="md:col-span-14">
+                          <p className="text-[11px] text-red-600 dark:text-red-400">{rowError}</p>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -1576,8 +1693,9 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                   const recaudadoMinDate = getRecaudadoMinDate(row.fondo_id);
                   const fondoActual = getFondoById(row.fondo_id);
                   const esFondoUsd = String(fondoActual?.moneda || '').toUpperCase() === 'USD';
+                  const rowError = step2ValidationErrors[`recaudado_row_${row.id}`];
                   return (
-                    <div key={row.id} className="grid grid-cols-1 md:grid-cols-12 gap-2 rounded-xl border border-emerald-200 bg-white p-2 dark:border-emerald-800/40 dark:bg-gray-900">
+                    <div key={row.id} className={`grid grid-cols-1 md:grid-cols-12 gap-2 rounded-xl border bg-white p-2 dark:bg-gray-900 ${rowError ? 'border-red-300 dark:border-red-800/60' : 'border-emerald-200 dark:border-emerald-800/40'}`}>
                       <div className="md:col-span-3">
                         <label className="block text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 mb-1">Cuenta</label>
                         <SearchableCombobox options={cuentaOptions} value={row.cuenta_bancaria_id} onChange={(v) => updateOriginRow('recaudado', row.id, 'cuenta_bancaria_id', v)} placeholder="Seleccione..." emptyMessage="Sin cuentas" className="w-full h-[42px] px-3 rounded-lg border border-emerald-200 bg-white outline-none focus:ring-2 focus:ring-emerald-500 dark:border-emerald-700 dark:bg-gray-900 dark:text-white" />
@@ -1649,6 +1767,11 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                       <div className="md:col-span-1 flex items-end justify-end pb-1">
                         <button type="button" onClick={() => removeOriginRow('recaudado', row.id)} className="h-[42px] w-[42px] rounded-lg bg-red-50 text-red-700 font-bold hover:bg-red-100 dark:bg-red-900/30 dark:text-red-300" title="Eliminar fila">x</button>
                       </div>
+                      {rowError && (
+                        <div className="md:col-span-12">
+                          <p className="text-[11px] text-red-600 dark:text-red-400">{rowError}</p>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -1706,6 +1829,9 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                   </p>
                 </div>
               )}
+              {step2ValidationErrors.totales_usd && (
+                <p className="mt-1 text-[11px] text-red-600 dark:text-red-400">{step2ValidationErrors.totales_usd}</p>
+              )}
             </div>
 
           {/* BOTONES DE NAVEGACIÓN - Paso 2 */}
@@ -1749,7 +1875,8 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
               </button>
               <button
                 type="submit"
-                className="px-6 py-3 rounded-xl bg-donezo-primary text-white font-bold hover:bg-green-800 transition-all shadow-md flex items-center gap-2"
+                disabled={hasStep2Errors}
+                className="px-6 py-3 rounded-xl bg-donezo-primary text-white font-bold hover:bg-green-800 transition-all shadow-md flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-donezo-primary"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -1766,6 +1893,9 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
 };
 
 export default ModalAgregarGasto;
+
+
+
 
 
 

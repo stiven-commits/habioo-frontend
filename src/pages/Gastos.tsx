@@ -1044,7 +1044,7 @@ const Gastos: FC<GastosProps> = () => {
                     concepto: String(gastoEnEdicion.concepto || ''),
                     numero_documento: notaFields.numero_documento,
                     monto_bs: formatMoney(toNumber(gastoEnEdicion.monto_bs)),
-                    monto_total_usd: toNumber((gastoEnEdicion as { monto_total_usd?: string | number; monto_usd?: string | number }).monto_total_usd ?? gastoEnEdicion.monto_usd),
+                    monto_total_usd: toNumber(gastoEnEdicion.monto_total_usd),
                     tasa_cambio: formatMoney(toNumber(gastoEnEdicion.tasa_cambio), 3),
                     total_cuotas: String(gastoEnEdicion.total_cuotas || 1),
                     nota: notaFields.nota,
