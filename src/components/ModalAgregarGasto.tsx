@@ -734,8 +734,18 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
       return;
     }
     const montoCanonicoUsd = roundTwo(montoCanonico / tasaCanonica);
+    const montoTotalUsdEdicion = roundTwo(
+      parseInputNumber(
+        String(
+          (initialValues as { monto_total_usd?: string | number; monto_usd?: string | number })?.monto_total_usd
+            ?? (initialValues as { monto_total_usd?: string | number; monto_usd?: string | number })?.monto_usd
+            ?? '0'
+        )
+      )
+    );
+    const montoTotalUsdReferencia = montoTotalUsdEdicion > 0 ? montoTotalUsdEdicion : montoCanonicoUsd;
     const limiteBs = roundTwo(montoCanonico) + 0.01;
-    const limiteUsd = roundTwo(montoCanonicoUsd) + 0.01;
+    const limiteUsd = roundTwo(montoTotalUsdReferencia) + 0.01;
     const totalCuotasCanonico = Math.max(1, parseInt(String(form.total_cuotas || '1'), 10) || 1);
     const esHistorico = tipoRegistro === 'historico';
     const cuotasHistoricasCanonico = hasHistoricalContext
@@ -1692,6 +1702,8 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
               <button
                 type="button"
                 onClick={() => {
+                  const confirmed = window.confirm('¿Seguro que deseas limpiar el contexto histórico? Se borrarán los montos y orígenes cargados en esta sección.');
+                  if (!confirmed) return;
                   setHasHistoricalContext(false);
                   setHistoricoPagadoRows([]);
                   setHistoricoRecaudadoRows([]);
