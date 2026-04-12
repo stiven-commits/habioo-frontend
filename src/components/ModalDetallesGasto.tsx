@@ -69,6 +69,29 @@ interface FondosResponse {
 
 const toNumber = (value: string | number | null | undefined): number => parseFloat(String(value ?? 0)) || 0;
 
+const toLocaleNumber = (value: string | number | null | undefined): number => {
+  const raw = String(value ?? '').trim();
+  if (!raw) return 0;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  const cleaned = raw.replace(/\s/g, '').replace(/[^\d,.-]/g, '');
+  if (!cleaned) return 0;
+  const hasDot = cleaned.includes('.');
+  const hasComma = cleaned.includes(',');
+  let normalized = cleaned;
+  if (hasDot && hasComma) {
+    const lastDot = cleaned.lastIndexOf('.');
+    const lastComma = cleaned.lastIndexOf(',');
+    const decimalSep = lastDot > lastComma ? '.' : ',';
+    const thousandsSep = decimalSep === '.' ? ',' : '.';
+    normalized = cleaned.split(thousandsSep).join('');
+    if (decimalSep === ',') normalized = normalized.replace(',', '.');
+  } else if (hasComma) {
+    normalized = cleaned.replace(',', '.');
+  }
+  const parsed = parseFloat(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
 const normalizeSoportes = (value: string[] | string | undefined): string[] => {
   if (Array.isArray(value)) {
     return value.map((item) => String(item || '').trim()).filter(Boolean);
@@ -95,6 +118,7 @@ const ModalDetallesGasto: FC<ModalDetallesGastoProps> = ({ gasto, onClose }) => 
   const [pagosRecaudacion, setPagosRecaudacion] = useState<PagoDetalle[]>([]);
   const [currentPagePagos, setCurrentPagePagos] = useState<number>(1);
   const [fondosCatalogo, setFondosCatalogo] = useState<FondoLite[]>([]);
+  const [showAllPagosHistoricos, setShowAllPagosHistoricos] = useState<boolean>(false);
 
   const isExtra = String(gasto?.tipo || '').trim().toLowerCase() === 'extra';
   const montoRecaudado = toNumber(gasto?.monto_recaudado_usd);
@@ -112,9 +136,13 @@ const ModalDetallesGasto: FC<ModalDetallesGastoProps> = ({ gasto, onClose }) => 
   const pagoHistoricoMatch = notaRaw.match(/\[hist\.proveedor_usd:([0-9]+(?:\.[0-9]+)?)\]/i);
   const pagoHistoricoBsMatch = notaRaw.match(/\[hist\.proveedor_bs:([0-9]+(?:\.[0-9]+)?)\]/i);
   const pagadoRowsB64Match = notaRaw.match(/\[hist\.pagado_rows_b64:([A-Za-z0-9+/=_-]+)\]/i);
+  const tasaHistoricaMatch = notaRaw.match(/\[hist\.tasa:([0-9]+(?:\.[0-9]+)?)\]/i);
   const cuotasHistoricas = cuotasHistoricasMatch?.[1] ? parseInt(cuotasHistoricasMatch[1], 10) : 0;
   const pagoHistoricoProveedorUsd = pagoHistoricoMatch?.[1] ? Number(pagoHistoricoMatch[1]) : 0;
   const pagoHistoricoProveedorBs = pagoHistoricoBsMatch?.[1] ? Number(pagoHistoricoBsMatch[1]) : 0;
+  const tasaHistorica = tasaHistoricaMatch?.[1]
+    ? Number(tasaHistoricaMatch[1])
+    : toLocaleNumber(gasto?.tasa_cambio);
   const pagadoRowsHistoricos: HistPagadoRow[] = (() => {
     if (!pagadoRowsB64Match?.[1]) return [];
     try {
@@ -124,6 +152,9 @@ const ModalDetallesGasto: FC<ModalDetallesGastoProps> = ({ gasto, onClose }) => 
       return [];
     }
   })();
+  const pagosHistoricosPreview = showAllPagosHistoricos
+    ? pagadoRowsHistoricos
+    : pagadoRowsHistoricos.slice(0, 3);
   const notaLimpia = notaRaw
     .replace(/\s*\|\s*\[hist\.[^\]]+\]/gi, '')
     .replace(/\[hist\.[^\]]+\]/gi, '')
@@ -205,6 +236,10 @@ const ModalDetallesGasto: FC<ModalDetallesGastoProps> = ({ gasto, onClose }) => 
   }, [gasto?.gasto_id, pagosRecaudacion.length]);
 
   useEffect(() => {
+    setShowAllPagosHistoricos(false);
+  }, [gasto?.gasto_id]);
+
+  useEffect(() => {
     if (currentPagePagos > totalPagesPagos) {
       setCurrentPagePagos(totalPagesPagos);
     }
@@ -257,12 +292,35 @@ const ModalDetallesGasto: FC<ModalDetallesGastoProps> = ({ gasto, onClose }) => 
                 )}
                 {pagadoRowsHistoricos.length > 0 && (
                   <div className="space-y-1">
-                    {pagadoRowsHistoricos.map((row, idx) => (
+                    {pagosHistoricosPreview.map((row, idx) => (
                       <p key={`hist-pagado-${idx}`}>
-                        <strong>Detalle pago histórico {idx + 1}:</strong>{' '}
-                        Fondo usado {fondosCatalogo.find((f) => String(f.id) === String(row.fondo_id || ''))?.nombre || `#${String(row.fondo_id || 'N/A')}`} | Fecha {row.fecha_operacion ? formatDateVE(row.fecha_operacion) : 'N/A'} | Bs {formatMoney(row.monto_bs || 0)}
+                        {(() => {
+                          const montoBs = toLocaleNumber(row.monto_bs);
+                          const montoUsd = toLocaleNumber(row.monto_usd);
+                          const bsVisible = montoBs > 0
+                            ? montoBs
+                            : (montoUsd > 0 && tasaHistorica > 0 ? montoUsd * tasaHistorica : 0);
+                          const bsEsEstimado = montoBs <= 0 && montoUsd > 0 && tasaHistorica > 0;
+                          return (
+                            <>
+                              <strong>Detalle pago histórico {idx + 1}:</strong>{' '}
+                              Fondo usado {fondosCatalogo.find((f) => String(f.id) === String(row.fondo_id || ''))?.nombre || `#${String(row.fondo_id || 'N/A')}`} | Fecha {row.fecha_operacion ? formatDateVE(row.fecha_operacion) : 'N/A'} | Bs {formatMoney(bsVisible)}{bsEsEstimado ? ' (estimado)' : ''}{montoUsd > 0 ? ` | USD ${formatMoney(montoUsd)}` : ''}
+                            </>
+                          );
+                        })()}
                       </p>
                     ))}
+                    {pagadoRowsHistoricos.length > 3 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllPagosHistoricos((prev) => !prev)}
+                        className="mt-1 text-xs font-bold text-amber-700 underline decoration-amber-400 underline-offset-2 hover:text-amber-800 dark:text-amber-300 dark:hover:text-amber-200"
+                      >
+                        {showAllPagosHistoricos
+                          ? 'Ver menos pagos históricos'
+                          : `Ver ${pagadoRowsHistoricos.length - 3} pago(s) histórico(s) más`}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
