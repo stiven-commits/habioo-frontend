@@ -349,8 +349,14 @@ export const ModalProveedorDetails: React.FC<ModalProveedorDetailsProps> = ({ is
             </div>
           </div>
 
-          <div className="flex justify-end pt-6 border-t border-gray-100 dark:border-gray-800">
-            <button type="button" onClick={() => setIsOpen(false)} className="px-8 py-3 rounded-xl font-bold bg-donezo-primary text-white hover:bg-green-700 transition-all shadow-md">Cerrar Detalles</button>
+          <div className="mt-6 flex justify-end space-x-3 border-t border-gray-100 pt-4">
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-donezo-primary"
+            >
+              Cerrar Detalles
+            </button>
           </div>
       </div>
     </ModalBase>
@@ -378,37 +384,13 @@ export const ModalCargaMasivaProveedores: React.FC<ModalCargaMasivaProveedoresPr
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-hidden animate-fadeIn"
-      onClick={!isUploadingLote ? handleClose : undefined}
+    <ModalBase
+      onClose={handleClose}
+      title="Carga Masiva de Proveedores"
+      subtitle={loteData.length > 0 ? <>Se encontraron {loteData.length} registros.{loteErrors > 0 && <span className="text-red-500 font-bold ml-2">Hay {loteErrors} errores detectados.</span>}</> : undefined}
+      maxWidth="3xl"
+      disableClose={isUploadingLote}
     >
-      <div
-        className="bg-white dark:bg-donezo-card-dark rounded-2xl w-full max-w-6xl shadow-2xl border border-gray-200/60 dark:border-gray-700/60 overflow-hidden flex flex-col max-h-[90vh] animate-modalEnter"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 dark:border-gray-700 shrink-0 bg-gradient-to-r from-gray-50/50 to-white dark:from-gray-800/50 dark:to-donezo-card-dark">
-          <div className="flex-1 min-w-0 pr-4">
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white truncate">Carga Masiva de Proveedores</h3>
-            {loteData.length > 0 && (
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Se encontraron {loteData.length} registros.
-                {loteErrors > 0 && <span className="text-red-500 font-bold ml-2">Hay {loteErrors} errores detectados.</span>}
-              </p>
-            )}
-          </div>
-          <button
-            onClick={handleClose}
-            disabled={isUploadingLote}
-            className={`shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all duration-200 ${
-              isUploadingLote ? 'opacity-30 cursor-not-allowed' : ''
-            }`}
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
         {loteData.length === 0 ? (
           <div className="p-10 flex flex-col items-center justify-center bg-white dark:bg-donezo-card-dark min-h-[300px]">
             <h4 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">Importar Directorio en Excel</h4>
@@ -481,7 +463,6 @@ export const ModalCargaMasivaProveedores: React.FC<ModalCargaMasivaProveedoresPr
             </div>
           </>
         )}
-      </div>
-    </div>
+    </ModalBase>
   );
 };

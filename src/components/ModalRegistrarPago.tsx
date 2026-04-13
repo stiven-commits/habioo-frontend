@@ -974,10 +974,24 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                 </FormField>
               </div>
 
-              <div className="lg:col-span-2 pt-2">
-                <button disabled={isSubmitting} type="submit" className="w-full py-3 bg-donezo-primary text-white font-bold rounded-xl hover:bg-green-700 shadow-lg shadow-green-500/30 transition-all disabled:opacity-60 disabled:cursor-not-allowed">
-                  Procesar Pago
-                </button>
+              <div className="lg:col-span-2">
+                <div className="mt-6 flex justify-end space-x-3 border-t border-gray-100 pt-4">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    disabled={isSubmitting}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-donezo-primary disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="px-4 py-2 text-sm font-medium text-white bg-donezo-primary border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-donezo-primary disabled:opacity-50"
+                  >
+                    {isSubmitting ? 'Procesando...' : 'Procesar Pago'}
+                  </button>
+                </div>
               </div>
             </form>
           </>

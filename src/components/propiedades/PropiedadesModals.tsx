@@ -676,30 +676,13 @@ export const ModalEstadoCuenta: FC<ModalEstadoCuentaProps> = ({
   const saldoFinal = estadoCuentaFiltrado.length > 0 ? (estadoCuentaFiltrado[estadoCuentaFiltrado.length - 1]?.saldoFila ?? 0) : 0;
 
   return (
-    <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-hidden animate-fadeIn"
-      onClick={() => setEstadoCuentaModalOpen(false)}
+    <ModalBase
+      onClose={() => setEstadoCuentaModalOpen(false)}
+      title={`${selectedPropCuenta.identificador} | ${selectedPropCuenta.prop_nombre}`}
+      subtitle={selectedPropCuenta.inq_nombre ? <>Residente: <span className="text-gray-700 dark:text-gray-300">{selectedPropCuenta.inq_nombre}</span></> : undefined}
+      maxWidth="7xl"
     >
-      <div
-        className="bg-white dark:bg-donezo-card-dark rounded-2xl w-full max-w-[96vw] xl:max-w-7xl shadow-2xl border border-gray-200/60 dark:border-gray-700/60 overflow-hidden flex flex-col max-h-[90vh] animate-modalEnter"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between px-6 py-5 border-b border-gray-200 dark:border-gray-700 shrink-0 bg-gradient-to-r from-gray-50/50 to-white dark:from-gray-800/50 dark:to-donezo-card-dark">
-          <div className="flex-1 min-w-0 pr-4">
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              {selectedPropCuenta.identificador} <span className="text-gray-300 font-normal">|</span> {selectedPropCuenta.prop_nombre}
-            </h3>
-            {selectedPropCuenta.inq_nombre && (
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1">Residente: <span className="text-gray-700 dark:text-gray-300">{selectedPropCuenta.inq_nombre}</span></p>
-            )}
-          </div>
-          <button type="button" onClick={() => setEstadoCuentaModalOpen(false)} className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all duration-200" aria-label="Cerrar">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
+      <div className="-mx-6 -my-5 flex flex-col">
         <div className="px-6 py-4 flex flex-wrap justify-between items-end gap-4 bg-white dark:bg-donezo-card-dark border-b border-gray-100 dark:border-gray-800">
           <div className="flex gap-3 items-center">
             <div className="min-w-[300px]">
@@ -817,7 +800,7 @@ export const ModalEstadoCuenta: FC<ModalEstadoCuentaProps> = ({
           </div>
         )}
       </div>
-    </div>
+    </ModalBase>
   );
 };
 
@@ -886,17 +869,17 @@ export const ModalAjusteSaldo: FC<ModalAjusteSaldoProps> = ({
           <p className="text-xs font-semibold text-blue-700 dark:text-blue-300">
             Este ajuste afecta solo el estado de cuenta del inmueble. No genera movimientos en los estados de cuenta bancarios.
           </p>
-          <div className="flex justify-end gap-3 pt-5 border-t border-gray-200/80 dark:border-gray-700/60">
+          <div className="mt-6 flex justify-end space-x-3 border-t border-gray-100 dark:border-gray-700 pt-4">
             <button
               type="button"
               onClick={() => setAjusteModalOpen(false)}
-              className="px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-700 hover:text-gray-900 hover:bg-gray-100/60 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800/50 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-donezo-primary dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="px-7 py-2.5 rounded-xl bg-green-600 text-sm font-bold text-white shadow-md shadow-green-600/20 transition-all hover:bg-green-700 hover:shadow-lg hover:shadow-green-600/30"
+              className="px-4 py-2 text-sm font-medium text-white bg-donezo-primary border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-donezo-primary disabled:opacity-50"
             >
               Aplicar Ajuste
             </button>
@@ -1267,34 +1250,23 @@ export const ModalCargaMasiva: FC<ModalCargaMasivaProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
-      <div className="bg-white dark:bg-donezo-card-dark rounded-3xl w-full max-w-5xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
-           <div>
-              <h3 className="text-xl font-black text-gray-800 dark:text-white flex items-center gap-2">
-                Carga Masiva de Inmuebles
-              </h3>
-              {loteData.length > 0 && (
-                <p className="text-sm text-gray-500 mt-1">
-                  Se encontraron {loteData.length} registros.
-                  {loteErrors > 0 && <span className="text-red-500 font-bold ml-2">Hay {loteErrors} errores detectados.</span>}
-                </p>
-              )}
-              {loteData.length > 0 && (
-                <p className="text-sm text-emerald-600 dark:text-emerald-400 font-bold mt-1">
-                  Monto total a ingresar en inmuebles: ${formatMoney(montoTotalIngresoLote)}
-                </p>
-              )}
-           </div>
-           <button
-             onClick={handleClose}
-             disabled={isUploadingLote}
-             className={`text-gray-400 font-bold text-2xl transition-colors ${isUploadingLote ? 'opacity-30 cursor-not-allowed' : 'hover:text-red-500'}`}
-           >
-             X
-           </button>
-        </div>
-
+    <ModalBase
+      onClose={handleClose}
+      title="Carga Masiva de Inmuebles"
+      subtitle={
+        loteData.length > 0 ? (
+          <>
+            Se encontraron {loteData.length} registros.
+            {loteErrors > 0 && <span className="text-red-500 font-bold ml-2">Hay {loteErrors} errores detectados.</span>}
+            <span className="block text-emerald-600 dark:text-emerald-400 font-bold mt-1">
+              Monto total a ingresar en inmuebles: ${formatMoney(montoTotalIngresoLote)}
+            </span>
+          </>
+        ) : undefined
+      }
+      maxWidth="3xl"
+      disableClose={isUploadingLote}
+    >
         {loteData.length === 0 ? (
           <div className="p-10 flex flex-col items-center justify-center bg-white dark:bg-donezo-card-dark min-h-[300px]">
             <div className="text-6xl mb-4">Excel</div>
@@ -1443,8 +1415,7 @@ export const ModalCargaMasiva: FC<ModalCargaMasivaProps> = ({
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </ModalBase>
   );
 };
 

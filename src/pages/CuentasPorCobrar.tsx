@@ -1218,7 +1218,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                       <p><span className="font-bold">Monto:</span> {monedaPago === 'USD' ? '$' : 'Bs '} {formatMoney(montoMostrar)}</p>
                       <p><span className="font-bold">Moneda:</span> {monedaPago}</p>
                       <p className={pago.es_ajuste_historico ? 'text-red-600 dark:text-red-300 font-semibold' : ''}>
-                        <span className="font-bold">Fecha:</span> {pago.fecha_pago ? String(pago.fecha_pago).slice(0, 10) : '-'}
+                        <span className="font-bold">Fecha:</span> {pago.fecha_pago ? (toYmdVE(pago.fecha_pago) || '-') : '-'}
                       </p>
                       <p><span className="font-bold">Metodo:</span> {pago.metodo || '-'}</p>
                       <p><span className="font-bold">Banco origen:</span> {pago.banco_origen || '-'}</p>

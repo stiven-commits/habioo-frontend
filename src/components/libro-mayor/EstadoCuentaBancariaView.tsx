@@ -1134,15 +1134,9 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       const saldoFondosBs = resumenFondos.reduce((acc, fondo) => (
         fondo.moneda === 'BS' ? acc + toNumber(fondo.saldo) : acc
       ), 0);
-      const saldoTransitoBs = extrasInfo.reduce((acc, row) => {
-        const montoBs = toNumber((row as { monto_bs?: unknown }).monto_bs ?? 0);
-        if (montoBs > 0) return acc + montoBs;
-        const montoUsd = toNumber((row as { monto_usd?: unknown }).monto_usd ?? 0);
-        return tasaBcvNum > 0 ? acc + (montoUsd * tasaBcvNum) : acc;
-      }, 0);
-      return round2(saldoFondosBs + saldoTransitoBs);
+      return round2(saldoFondosBs);
     },
-    [resumenFondos, extrasInfo, tasaBcvNum]
+    [resumenFondos]
   );
 
   const saldoCuentaUsdActual = useMemo(
@@ -1153,15 +1147,9 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
         if (fondo.moneda === 'BS' && tasaBcvNum > 0) return acc + (saldo / tasaBcvNum);
         return acc;
       }, 0);
-      const saldoTransitoUsd = extrasInfo.reduce((acc, row) => {
-        const montoUsd = toNumber((row as { monto_usd?: unknown }).monto_usd ?? 0);
-        if (montoUsd > 0) return acc + montoUsd;
-        const montoBs = toNumber((row as { monto_bs?: unknown }).monto_bs ?? 0);
-        return tasaBcvNum > 0 ? acc + (montoBs / tasaBcvNum) : acc;
-      }, 0);
-      return round2(saldoFondosUsd + saldoTransitoUsd);
+      return round2(saldoFondosUsd);
     },
-    [resumenFondos, extrasInfo, tasaBcvNum]
+    [resumenFondos, tasaBcvNum]
   );
 
   const ownerResumenActual = useMemo(

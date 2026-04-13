@@ -2,15 +2,36 @@ import type { FC, ReactNode } from 'react';
 import Tooltip from '@rc-component/tooltip';
 import '@rc-component/tooltip/assets/bootstrap_white.css';
 
+type ModalWidthSize = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl';
+type ModalWidth = ModalWidthSize | `max-w-${string}`;
+
 interface ModalBaseProps {
   onClose: () => void;
   title: string;
   subtitle?: ReactNode;
   helpTooltip?: ReactNode;
-  maxWidth?: string;
+  maxWidth?: ModalWidth;
   disableClose?: boolean;
   children: ReactNode;
 }
+
+const MODAL_WIDTH_CLASS: Record<ModalWidthSize, string> = {
+  sm: 'max-w-sm',
+  md: 'max-w-md',
+  lg: 'max-w-lg',
+  xl: 'max-w-xl',
+  '2xl': 'max-w-2xl',
+  '3xl': 'max-w-3xl',
+  '4xl': 'max-w-4xl',
+  '5xl': 'max-w-5xl',
+  '6xl': 'max-w-6xl',
+  '7xl': 'max-w-7xl',
+};
+
+const resolveMaxWidthClass = (maxWidth: ModalWidth): string => {
+  if (String(maxWidth).startsWith('max-w-')) return String(maxWidth);
+  return MODAL_WIDTH_CLASS[maxWidth as ModalWidthSize] || 'max-w-2xl';
+};
 
 const ModalBase: FC<ModalBaseProps> = ({
   onClose,
@@ -20,15 +41,17 @@ const ModalBase: FC<ModalBaseProps> = ({
   maxWidth = 'max-w-2xl',
   disableClose = false,
   children,
-}) => (
-  <div
-    className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-hidden animate-fadeIn"
-    onClick={!disableClose ? onClose : undefined}
-  >
+}) => {
+  const maxWidthClass = resolveMaxWidthClass(maxWidth);
+  return (
     <div
-      className={`bg-white dark:bg-donezo-card-dark rounded-2xl w-full ${maxWidth} shadow-2xl border border-gray-200/60 dark:border-gray-700/60 relative max-h-[90vh] overflow-hidden flex flex-col animate-modalEnter`}
-      onClick={(e) => e.stopPropagation()}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-hidden animate-fadeIn"
+      onClick={!disableClose ? onClose : undefined}
     >
+      <div
+        className={`bg-white dark:bg-donezo-card-dark rounded-2xl w-full ${maxWidthClass} shadow-2xl border border-gray-200/60 dark:border-gray-700/60 relative max-h-[90vh] overflow-hidden flex flex-col animate-modalEnter`}
+        onClick={(e) => e.stopPropagation()}
+      >
       <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 dark:border-gray-700 shrink-0 bg-gradient-to-r from-gray-50/50 to-white dark:from-gray-800/50 dark:to-donezo-card-dark">
         <div className="flex-1 min-w-0 pr-4">
           <div className="flex items-center gap-2 min-w-0">
@@ -75,8 +98,9 @@ const ModalBase: FC<ModalBaseProps> = ({
       <div className="px-6 py-5 min-h-0 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
         {children}
       </div>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default ModalBase;

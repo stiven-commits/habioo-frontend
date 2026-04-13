@@ -391,7 +391,7 @@ export const ModalPagoProveedor: React.FC<ModalActionProps> = ({ onClose, onSucc
     monto_origen: '',
     tasa_cambio: '',
     referencia: '',
-    fecha_pago: new Date().toISOString().split('T')[0] ?? '',
+    fecha_pago: dateToYmd(new Date()),
     nota: '',
   });
 
@@ -573,7 +573,7 @@ export const ModalTransferencia: React.FC<ModalActionProps> = ({ onClose, onSucc
     fondo_destino_id: '',
     monto_origen: '',
     referencia: '',
-    fecha: new Date().toISOString().split('T')[0] ?? '',
+    fecha: dateToYmd(new Date()),
     nota: '',
   });
   const resetTransferForm = (): void => {
@@ -582,7 +582,7 @@ export const ModalTransferencia: React.FC<ModalActionProps> = ({ onClose, onSucc
       fondo_destino_id: '',
       monto_origen: '',
       referencia: '',
-      fecha: new Date().toISOString().split('T')[0] ?? '',
+      fecha: dateToYmd(new Date()),
       nota: '',
     });
     setCuentaDestinoId('');
@@ -865,7 +865,7 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({
     tasa_cambio: '',
     referencia: '',
     concepto: '',
-    fecha: new Date().toISOString().split('T')[0] ?? '',
+    fecha: dateToYmd(new Date()),
   });
   const resetEgresoForm = (): void => {
     setForm({
@@ -875,7 +875,7 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({
       tasa_cambio: '',
       referencia: '',
       concepto: '',
-      fecha: new Date().toISOString().split('T')[0] ?? '',
+      fecha: dateToYmd(new Date()),
     });
   };
   const handleCloseEgresoModal = (): void => {
