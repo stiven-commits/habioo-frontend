@@ -1253,13 +1253,6 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   }
 
   const totalesPagina = useMemo(() => {
-    if (activeTab === 'cuenta') {
-      return {
-        montoBs: saldoCuentaBsActual,
-        cargoUsd: 0,
-        abonoUsd: 0,
-      };
-    }
     return movimientosPagina.reduce(
       (acc, movimiento) => {
         const montoBsVista = getMontoBsVista(movimiento);
@@ -1271,7 +1264,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       },
       { montoBs: 0, cargoUsd: 0, abonoUsd: 0 }
     );
-  }, [activeTab, movimientosPagina, saldoCuentaBsActual, tasaBcvNum]);
+  }, [movimientosPagina, tasaBcvNum]);
 
   const getConceptoVista = (movimiento: IMovimiento): string => {
     const fondoNombreMov = String(movimiento.fondo_nombre || '').trim();
