@@ -12,6 +12,7 @@ interface ModalBaseProps {
   helpTooltip?: ReactNode;
   maxWidth?: ModalWidth;
   disableClose?: boolean;
+  closeOnOverlayClick?: boolean;
   children: ReactNode;
 }
 
@@ -40,13 +41,14 @@ const ModalBase: FC<ModalBaseProps> = ({
   helpTooltip,
   maxWidth = 'max-w-2xl',
   disableClose = false,
+  closeOnOverlayClick = true,
   children,
 }) => {
   const maxWidthClass = resolveMaxWidthClass(maxWidth);
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-hidden animate-fadeIn"
-      onClick={!disableClose ? onClose : undefined}
+      onClick={!disableClose && closeOnOverlayClick ? onClose : undefined}
     >
       <div
         className={`bg-white dark:bg-donezo-card-dark rounded-2xl w-full ${maxWidthClass} shadow-2xl border border-gray-200/60 dark:border-gray-700/60 relative max-h-[90vh] overflow-hidden flex flex-col animate-modalEnter`}

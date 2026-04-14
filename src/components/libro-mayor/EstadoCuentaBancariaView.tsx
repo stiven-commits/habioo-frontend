@@ -1110,10 +1110,12 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       ), 0);
       const netoBs = ingresoBs - egresoBs;
 
-      // Fuente de verdad del saldo actual: fondos.saldo_actual (evita mostrar 0 cuando no existe movimiento de apertura).
+      // Si ya hay movimientos del fondo en la vista actual, usamos ese neto para
+      // mantener 1:1 con tabla/Excel. Solo hacemos fallback al saldo del fondo
+      // cuando no existen movimientos visibles para ese fondo.
       const saldoActualFondo = toNumber((fondo as { saldo_actual?: unknown }).saldo_actual ?? 0);
       const saldoCalculado = moneda === 'USD' ? netoUsd : netoBs;
-      const saldo = Number.isFinite(saldoActualFondo) ? saldoActualFondo : saldoCalculado;
+      const saldo = movimientosFondo.length > 0 ? saldoCalculado : saldoActualFondo;
       const equivalenteUsd = moneda === 'USD'
         ? saldo
         : (tasaBcvNum > 0 ? (saldo / tasaBcvNum) : 0);
@@ -1131,12 +1133,25 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
 
   const saldoCuentaBsActual = useMemo(
     () => {
+      // For BS accounts: derive balance from the consolidated movement list
+      // (same source as Excel export). This correctly includes undistributed transit
+      // amounts via monto_origen_pago in ingresosConsolidados, matching the real
+      // bank balance. For USD accounts there are no BS funds so fall through to 0.
+      if (!isCuentaUsd && movimientosCuentaConsolidados.length > 0) {
+        const total = movimientosCuentaConsolidados.reduce((acc, mov) => {
+          const montoBs = getMontoBsVista(mov);
+          if (mov.tipo === 'INGRESO') return acc + Math.abs(montoBs);
+          if (mov.tipo === 'EGRESO') return acc - Math.abs(montoBs);
+          return acc;
+        }, 0);
+        return round2(total);
+      }
       const saldoFondosBs = resumenFondos.reduce((acc, fondo) => (
         fondo.moneda === 'BS' ? acc + toNumber(fondo.saldo) : acc
       ), 0);
       return round2(saldoFondosBs);
     },
-    [resumenFondos]
+    [movimientosCuentaConsolidados, resumenFondos, isCuentaUsd]
   );
 
   const saldoCuentaUsdActual = useMemo(

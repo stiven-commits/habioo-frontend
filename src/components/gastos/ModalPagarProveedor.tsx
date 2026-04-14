@@ -127,9 +127,34 @@ const createFila = (): FilaOrigen => {
   };
 };
 
+const formatNumericInput = (value: string, maxDecimals: number): string => {
+  const clean = value.replace(/[^\d.,]/g, '');
+  if (!clean) return '';
+
+  const lastComma = clean.lastIndexOf(',');
+  const lastDot = clean.lastIndexOf('.');
+  const hasDecimal = lastComma >= 0 || lastDot >= 0;
+  const decimalIndex = Math.max(lastComma, lastDot);
+
+  const intRaw = hasDecimal ? clean.slice(0, decimalIndex) : clean;
+  const decRaw = hasDecimal ? clean.slice(decimalIndex + 1) : '';
+
+  const intDigits = intRaw.replace(/[^\d]/g, '');
+  const decDigits = decRaw.replace(/[^\d]/g, '').slice(0, maxDecimals);
+  if (!intDigits && !hasDecimal) return '';
+
+  const intPart = intDigits.replace(/^0+(?=\d)/, '') || '0';
+  const intWithDots = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+  if (hasDecimal) return `${intWithDots},${decDigits}`;
+  return intWithDots === '0' && intDigits === '' ? '' : intWithDots;
+};
+
 const parseFormattedAmount = (input: string): number => {
   if (!input.trim()) return 0;
-  const normalized = input.replace(/\./g, '').replace(',', '.');
+  const normalized = input.includes(',')
+    ? input.replace(/\./g, '').replace(',', '.')
+    : input.replace(/,/g, '');
   return parseFloat(normalized) || 0;
 };
 
@@ -143,20 +168,7 @@ const formatRateForInput = (value: number | ''): string => {
 };
 
 const formatRateInput = (value: string): string => {
-  const clean = value.replace(/[^\d.,]/g, '');
-  if (!clean) return '';
-
-  const [intRaw = '', ...decParts] = clean.split(',');
-  const intDigits = intRaw.replace(/[^\d]/g, '');
-  if (!intDigits && !clean.includes(',')) return '';
-
-  const intPart = intDigits.replace(/^0+(?=\d)/, '') || '0';
-  const intWithDots = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-
-  if (!clean.includes(',')) return intWithDots;
-
-  const decRaw = decParts.join('').replace(/[^\d]/g, '').slice(0, 3);
-  return `${intWithDots},${decRaw}`;
+  return formatNumericInput(value, 3);
 };
 
 const getCuentaLabel = (banco: ICuentaBancaria): string => {
@@ -170,18 +182,7 @@ const getCuentaLabel = (banco: ICuentaBancaria): string => {
 };
 
 const formatCurrency = (value: string): string => {
-  const clean = value.replace(/[^\d,]/g, '');
-  const parts = clean.split(',');
-  const intPartRaw = parts[0] || '';
-  const decPartRaw = (parts[1] || '').slice(0, 2);
-
-  const intPart = intPartRaw.replace(/^0+(?=\d)/, '') || '0';
-  const intWithDots = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-
-  if (clean.includes(',')) {
-    return `${intWithDots},${decPartRaw}`;
-  }
-  return intWithDots === '0' && intPartRaw === '' ? '' : intWithDots;
+  return formatNumericInput(value, 2);
 };
 
 const inferMonedaFromBanco = (banco?: ICuentaBancaria): 'Bs' | 'USD' => {
@@ -469,7 +470,7 @@ const handleFondoChange = (filaId: string, fondoIdRaw: string): void => {
     : 'Registre el pago al proveedor completando los siguientes campos.';
 
   return (
-    <ModalBase onClose={onClose} title="Pagar proveedor" helpTooltip="Desde aqui puedes registrar pagos al proveedor, distribuir montos por origen/fondo y confirmar el pago con su soporte." subtitle={subtitle} maxWidth="max-w-6xl" disableClose={saving}>
+    <ModalBase onClose={onClose} title="Pagar proveedor" helpTooltip="Desde aqui puedes registrar pagos al proveedor, distribuir montos por origen/fondo y confirmar el pago con su soporte." subtitle={subtitle} maxWidth="max-w-6xl" disableClose={saving} closeOnOverlayClick={false}>
       {saving && (
         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-white/70 backdrop-blur-sm dark:bg-donezo-card-dark/70 rounded-3xl">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-300 border-t-donezo-primary" />

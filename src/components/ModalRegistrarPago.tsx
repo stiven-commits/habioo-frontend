@@ -309,14 +309,10 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
   const getConversionUSD = (updatedForm: FormPagoState): string => {
     if (!updatedForm.monto_origen || !updatedForm.cuenta_id) return '0.00';
 
-    const banco = cuentasConFondos.find((b: BancoCuenta) => b.id.toString() === updatedForm.cuenta_id);
     const monto = parseInputNumber(updatedForm.monto_origen);
-    const tipoCuenta = String(banco?.tipo || '').toUpperCase();
-    const isForeign = !!banco && (tipoCuenta.includes('ZELLE') || tipoCuenta.includes('EFECTIVO'));
     const tasaRaw = parseInputNumber(updatedForm.tasa_cambio);
 
-    if (isForeign) return monto.toFixed(2);
-    if (tasaRaw && tasaRaw > 0) return (monto / tasaRaw).toFixed(2);
+    if (tasaRaw > 0) return (monto / tasaRaw).toFixed(2);
     return '0.00';
   };
 
@@ -390,8 +386,12 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
       setConversionUSD(parseInputNumber(montoUsdDirecto).toFixed(2));
       return;
     }
+    if (!requiresTasa) {
+      setConversionUSD(parseInputNumber(formPago.monto_origen).toFixed(2));
+      return;
+    }
     setConversionUSD(getConversionUSD(formPago));
-  }, [esCuentaUsd, montoUsdDirecto, formPago, cuentasConFondos]);
+  }, [esCuentaUsd, montoUsdDirecto, formPago, requiresTasa, cuentasConFondos]);
 
   useEffect(() => {
     if (formPago.metodo_pago !== 'Efectivo' && !esCuentaUsd) return;
@@ -694,6 +694,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
       helpTooltip="Este modal permite registrar pagos manuales, distribuirlos en conceptos y confirmar el asiento. Revisa montos, fecha y soportes antes de guardar."
       maxWidth="max-w-6xl"
       disableClose={isSubmitting}
+      closeOnOverlayClick={false}
     >
       {isSubmitting && (
         <div className="absolute inset-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm z-50 rounded-3xl flex flex-col items-center justify-center px-6 text-center">
@@ -1008,7 +1009,9 @@ const toNumber = (value: string | number | undefined | null): number => {
 const parseInputNumber = (value: string | number | undefined | null): number => {
   const raw = String(value ?? '').trim();
   if (!raw) return 0;
-  const normalized = raw.replace(/\./g, '').replace(',', '.');
+  const normalized = raw.includes(',')
+    ? raw.replace(/\./g, '').replace(',', '.')
+    : raw.replace(/,/g, '');
   const n = parseFloat(normalized);
   return Number.isFinite(n) ? n : 0;
 };
