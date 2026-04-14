@@ -33,6 +33,7 @@ interface FondoPagoProveedor {
   nombre: string;
   moneda?: string;
   saldo_actual?: number | string;
+  es_operativo?: boolean;
 }
 
 interface ModalPagarProveedorProps {
@@ -46,7 +47,7 @@ interface ModalPagarProveedorProps {
 interface FilaOrigen {
   id: string;
   cuenta_bancaria_id: number | '';
-  fondo_id: number | '';
+  fondo_id: number | '' | '__TRANSITO_EXTRA__';
   moneda: 'Bs' | 'USD' | '';
   requiere_ref: boolean;
   monto_input: string;
@@ -90,6 +91,23 @@ const dateToYmd = (date: Date | null): string => {
 const toSingleDate = (value: Date | Date[] | null): Date | null => {
   if (!value) return null;
   return Array.isArray(value) ? (value[0] ?? null) : value;
+};
+
+const BAUL_TRANSITO_EXTRA_VALUE = '__TRANSITO_EXTRA__' as const;
+const BAUL_TRANSITO_EXTRA_LABEL = 'Baúl virtual · Tránsito / Extra';
+
+const getDefaultFondoIdForCuenta = (
+  cuentaId: number | '',
+  fondos: FondoPagoProveedor[],
+): number | '__TRANSITO_EXTRA__' => {
+  if (!cuentaId) return BAUL_TRANSITO_EXTRA_VALUE;
+  const fondosCuenta = fondos.filter((f) => String(f.cuenta_bancaria_id) === String(cuentaId));
+  if (!fondosCuenta.length) return BAUL_TRANSITO_EXTRA_VALUE;
+
+  const fondoPrincipal = fondosCuenta.find((f) => Boolean(f.es_operativo));
+  if (fondoPrincipal) return parseInt(String(fondoPrincipal.id), 10);
+
+  return parseInt(String(fondosCuenta[0].id), 10);
 };
 
 const createFila = (): FilaOrigen => {
@@ -215,17 +233,18 @@ const ModalPagarProveedor: React.FC<ModalPagarProveedorProps> = ({ isOpen, onClo
     });
   };
 
-  const handleBancoChange = (filaId: string, bancoIdRaw: string): void => {
-    const bancoId = bancoIdRaw ? parseInt(bancoIdRaw, 10) : '';
-    const banco = bancos.find((b: ICuentaBancaria) => String(b.id) === String(bancoId));
-    const moneda = inferMonedaFromBanco(banco);
-    const tipo = String(banco?.tipo || '').toLowerCase();
-    const requiereRef = !tipo.includes('efectivo');
+const handleBancoChange = (filaId: string, bancoIdRaw: string): void => {
+  const bancoId = bancoIdRaw ? parseInt(bancoIdRaw, 10) : '';
+  const banco = bancos.find((b: ICuentaBancaria) => String(b.id) === String(bancoId));
+  const moneda = inferMonedaFromBanco(banco);
+  const tipo = String(banco?.tipo || '').toLowerCase();
+  const requiereRef = !tipo.includes('efectivo');
+  const fondoDefault = getDefaultFondoIdForCuenta(bancoId, fondos);
 
     setFila(filaId, (fila: FilaOrigen) => ({
       ...fila,
       cuenta_bancaria_id: bancoId,
-      fondo_id: '',
+      fondo_id: fondoDefault,
       moneda,
       requiere_ref: requiereRef,
       monto_input: '',
@@ -236,12 +255,14 @@ const ModalPagarProveedor: React.FC<ModalPagarProveedorProps> = ({ isOpen, onClo
     }));
   };
 
-  const handleFondoChange = (filaId: string, fondoIdRaw: string): void => {
-    setFila(filaId, (fila: FilaOrigen) => ({
-      ...fila,
-      fondo_id: fondoIdRaw ? parseInt(fondoIdRaw, 10) : '',
-    }));
-  };
+const handleFondoChange = (filaId: string, fondoIdRaw: string): void => {
+  setFila(filaId, (fila: FilaOrigen) => ({
+    ...fila,
+    fondo_id: fondoIdRaw === BAUL_TRANSITO_EXTRA_VALUE
+      ? BAUL_TRANSITO_EXTRA_VALUE
+      : (fondoIdRaw ? parseInt(fondoIdRaw, 10) : ''),
+  }));
+};
 
   const handleMontoChange = (filaId: string, raw: string): void => {
     const visual = formatCurrency(raw);
@@ -350,7 +371,7 @@ const ModalPagarProveedor: React.FC<ModalPagarProveedorProps> = ({ isOpen, onClo
     const consumoPorFondo: Record<string, { nombre: string; solicitado: number; disponible: number }> = {};
 
     for (const fila of origenes) {
-      if (!fila.fondo_id) continue;
+      if (!fila.fondo_id || fila.fondo_id === BAUL_TRANSITO_EXTRA_VALUE) continue;
 
       const fondo = fondos.find((f: FondoPagoProveedor) => String(f.id) === String(fila.fondo_id));
       if (!fondo) continue;
@@ -402,7 +423,10 @@ const ModalPagarProveedor: React.FC<ModalPagarProveedorProps> = ({ isOpen, onClo
           const montoOrigen = parseFormattedAmount(fila.monto_input);
           return {
             cuenta_bancaria_id: fila.cuenta_bancaria_id,
-            fondo_id: fila.fondo_id || undefined,
+            fondo_id:
+              fila.fondo_id && fila.fondo_id !== BAUL_TRANSITO_EXTRA_VALUE
+                ? fila.fondo_id
+                : undefined,
             moneda: fila.moneda,
             monto_origen: montoOrigen,
             tasa_cambio: fila.moneda === 'USD' ? 1 : toNumber(fila.tasa_cambio),
@@ -554,7 +578,7 @@ const ModalPagarProveedor: React.FC<ModalPagarProveedorProps> = ({ isOpen, onClo
                             disabled={saving || !fila.cuenta_bancaria_id}
                             className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-emerald-500 transition focus:ring-2 disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                           >
-                            <option value="">Sin fondo / tránsito</option>
+                            <option value={BAUL_TRANSITO_EXTRA_VALUE}>{BAUL_TRANSITO_EXTRA_LABEL}</option>
                             {fondosFila.map((f: FondoPagoProveedor) => (
                               <option key={f.id} value={f.id}>
                                 {f.nombre} {f.moneda ? `(${f.moneda})` : ''}
@@ -676,7 +700,7 @@ const ModalPagarProveedor: React.FC<ModalPagarProveedorProps> = ({ isOpen, onClo
                           disabled={saving || !fila.cuenta_bancaria_id}
                           className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-emerald-500 transition focus:ring-2 disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                         >
-                          <option value="">Sin fondo / tránsito</option>
+                          <option value={BAUL_TRANSITO_EXTRA_VALUE}>{BAUL_TRANSITO_EXTRA_LABEL}</option>
                           {fondosFila.map((f: FondoPagoProveedor) => (
                             <option key={f.id} value={f.id}>
                               {f.nombre} {f.moneda ? `(${f.moneda})` : ''}
