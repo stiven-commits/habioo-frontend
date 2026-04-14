@@ -170,6 +170,7 @@ const inferCuentaMoneda = (cuenta?: BancoCuenta): 'USD' | 'BS' => {
   if (apodo.includes('USD')) return 'USD';
   return 'BS';
 };
+const trunc2 = (value: number): number => Math.trunc((Number(value) || 0) * 100) / 100;
 
 const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
   propiedadPreseleccionada,
@@ -312,7 +313,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
     const monto = parseInputNumber(updatedForm.monto_origen);
     const tasaRaw = parseInputNumber(updatedForm.tasa_cambio);
 
-    if (tasaRaw > 0) return (monto / tasaRaw).toFixed(2);
+    if (tasaRaw > 0) return trunc2(monto / tasaRaw).toFixed(2);
     return '0.00';
   };
 
@@ -383,11 +384,11 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
 
   useEffect(() => {
     if (esCuentaUsd) {
-      setConversionUSD(parseInputNumber(montoUsdDirecto).toFixed(2));
+      setConversionUSD(trunc2(parseInputNumber(montoUsdDirecto)).toFixed(2));
       return;
     }
     if (!requiresTasa) {
-      setConversionUSD(parseInputNumber(formPago.monto_origen).toFixed(2));
+      setConversionUSD(trunc2(parseInputNumber(formPago.monto_origen)).toFixed(2));
       return;
     }
     setConversionUSD(getConversionUSD(formPago));
