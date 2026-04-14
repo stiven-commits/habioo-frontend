@@ -107,7 +107,8 @@ const getDefaultFondoIdForCuenta = (
   const fondoPrincipal = fondosCuenta.find((f) => Boolean(f.es_operativo));
   if (fondoPrincipal) return parseInt(String(fondoPrincipal.id), 10);
 
-  return parseInt(String(fondosCuenta[0].id), 10);
+  const primerFondo = fondosCuenta[0];
+  return primerFondo ? parseInt(String(primerFondo.id), 10) : BAUL_TRANSITO_EXTRA_VALUE;
 };
 
 const createFila = (): FilaOrigen => {
