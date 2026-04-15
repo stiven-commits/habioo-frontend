@@ -10,12 +10,18 @@ import { useDialog } from './ui/DialogProvider';
 import FormField from './ui/FormField';
 import SearchableCombobox from './ui/SearchableCombobox';
 import type { SearchableComboboxOption } from './ui/SearchableCombobox';
+import HabiooLoader from './ui/HabiooLoader';
 
 interface ModalRegistrarPagoProps {
   propiedadPreseleccionada: PropiedadPreseleccionada | null;
   reciboId?: number | null;
   soloCuentaPrincipal?: boolean;
   condominioId?: number | null;
+  montoBsBloqueado?: number | null;
+  tasaBloqueada?: number | null;
+  cuentaIdBloqueada?: string | null;
+  referenciaPrefill?: string | null;
+  movimientoFondoPendienteId?: number | null;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -177,6 +183,11 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
   reciboId = null,
   soloCuentaPrincipal = false,
   condominioId = null,
+  montoBsBloqueado = null,
+  tasaBloqueada = null,
+  cuentaIdBloqueada = null,
+  referenciaPrefill = null,
+  movimientoFondoPendienteId = null,
   onClose,
   onSuccess,
 }) => {
@@ -189,6 +200,9 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
   const [formPago, setFormPago] = useState<FormPagoState>(initialFormPago());
   const [montoUsdDirecto, setMontoUsdDirecto] = useState<string>('');
   const isOpen = Boolean(propiedadPreseleccionada);
+  const hasMontoBsBloqueado = Number.isFinite(Number(montoBsBloqueado)) && Number(montoBsBloqueado) > 0;
+  const hasTasaBloqueada = Number.isFinite(Number(tasaBloqueada)) && Number(tasaBloqueada) > 0;
+  const isFromIngresoPendiente = Number.isFinite(Number(movimientoFondoPendienteId)) && Number(movimientoFondoPendienteId) > 0;
 
   useEffect(() => {
     // Solo auto-completamos si la modal está abierta, hay cuentas y el usuario NO ha seleccionado una manualmente
@@ -209,6 +223,18 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
       }
     }
   }, [isOpen, cuentasConFondos]); // Importante: No poner formPago en las dependencias para evitar ciclos infinitos
+
+  useEffect(() => {
+    if (!isOpen || !cuentaIdBloqueada || !cuentasConFondos.length) return;
+    const cuenta = cuentasConFondos.find((c: BancoCuenta) => String(c.id) === String(cuentaIdBloqueada));
+    if (!cuenta) return;
+    const metodos = getMetodosCuenta(cuenta);
+    setFormPago((prev: FormPagoState) => {
+      if (prev.cuenta_id === String(cuenta.id)) return prev;
+      const nextMetodo = metodos.includes(prev.metodo_pago) ? prev.metodo_pago : (metodos[0] || 'Transferencia');
+      return { ...prev, cuenta_id: String(cuenta.id), metodo_pago: nextMetodo };
+    });
+  }, [isOpen, cuentaIdBloqueada, cuentasConFondos]);
 
   const getMetodosCuenta = (cuenta?: BancoCuenta): Array<FormPagoState['metodo_pago']> => {
     if (!cuenta) return [];
@@ -381,6 +407,32 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
     if (metodosCuentaSeleccionada.includes(formPago.metodo_pago)) return;
     setFormPago((prev: FormPagoState) => ({ ...prev, metodo_pago: metodosCuentaSeleccionada[0] || 'Transferencia' }));
   }, [selectedBank, metodosCuentaSeleccionada, formPago.metodo_pago]);
+
+  useEffect(() => {
+    if (!isOpen || !hasMontoBsBloqueado || esCuentaUsd) return;
+    const nextMonto = formatCurrencyInput(String(montoBsBloqueado).replace('.', ','), 2);
+    setFormPago((prev: FormPagoState) => {
+      if (prev.monto_origen === nextMonto) return prev;
+      return { ...prev, monto_origen: nextMonto };
+    });
+  }, [isOpen, hasMontoBsBloqueado, esCuentaUsd, montoBsBloqueado]);
+
+  useEffect(() => {
+    if (!isOpen || !hasMontoBsBloqueado || !esCuentaUsd) return;
+    const nextMonto = formatCurrencyInput(String(montoBsBloqueado).replace('.', ','), 2);
+    setMontoUsdDirecto((prev) => (prev === nextMonto ? prev : nextMonto));
+  }, [isOpen, hasMontoBsBloqueado, esCuentaUsd, montoBsBloqueado]);
+
+  useEffect(() => {
+    if (!isOpen || !referenciaPrefill?.trim()) return;
+    setFormPago((prev: FormPagoState) => (prev.referencia.trim() ? prev : { ...prev, referencia: referenciaPrefill.trim() }));
+  }, [isOpen, referenciaPrefill]);
+
+  useEffect(() => {
+    if (!isOpen || !hasTasaBloqueada || esCuentaUsd) return;
+    const nextTasa = formatCurrencyInput(String(tasaBloqueada).replace('.', ','), 3);
+    setFormPago((prev: FormPagoState) => (prev.tasa_cambio === nextTasa ? prev : { ...prev, tasa_cambio: nextTasa }));
+  }, [isOpen, hasTasaBloqueada, esCuentaUsd, tasaBloqueada]);
 
   useEffect(() => {
     if (esCuentaUsd) {
@@ -667,6 +719,10 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
         gasto_extra_id: mostrarDesvioExtra && desviosPayload[0] ? Number(desviosPayload[0].gasto_extra_id) : null,
         monto_desvio_usd: mostrarDesvioExtra && desviosPayload[0] ? Number(desviosPayload[0].monto_desvio_usd) : null,
         desvios_gastos: mostrarDesvioExtra ? desviosPayload : null,
+        movimiento_fondo_pendiente_id:
+          Number.isFinite(Number(movimientoFondoPendienteId)) && Number(movimientoFondoPendienteId) > 0
+            ? Number(movimientoFondoPendienteId)
+            : null,
       };
 
       const endpoint = soloCuentaPrincipal ? `${API_BASE_URL}/pagos-propietario` : `${API_BASE_URL}/pagos-admin`;
@@ -710,10 +766,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
       )}
 
         {isLoading ? (
-          <div className="flex justify-center items-center p-8">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 dark:border-indigo-400"></div>
-            <p className="ml-3 text-gray-500 dark:text-gray-400">Cargando información...</p>
-          </div>
+          <HabiooLoader size="sm" message="Cargando información del pago..." className="py-8" />
         ) : (
           <>
             <div className={`p-4 rounded-xl mb-4 text-center border ${toNumber(propiedadPreseleccionada.saldo_actual) > 0 ? 'bg-red-50 border-red-100 dark:bg-red-900/20 dark:border-red-800/50' : 'bg-green-50 border-green-100 dark:bg-green-900/20 dark:border-green-800/50'}`}>
@@ -736,6 +789,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                   onChange={handleCuentaComboboxChange}
                   placeholder={cuentasConFondos.length ? 'Seleccione cuenta bancaria...' : 'No hay cuentas con fondos activos'}
                   emptyMessage="Sin cuentas disponibles"
+                  disabled={Boolean(cuentaIdBloqueada)}
                   className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary"
                 />
                 {cuentasBancarias.length > 0 && cuentasConFondos.length === 0 && (
@@ -779,8 +833,12 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                     <input
                       type="text"
                       value={montoUsdDirecto}
-                      onChange={(e: ChangeEvent<HTMLInputElement>) => setMontoUsdDirecto(formatCurrencyInput(e.target.value, 2))}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                        if (hasMontoBsBloqueado) return;
+                        setMontoUsdDirecto(formatCurrencyInput(e.target.value, 2));
+                      }}
                       placeholder="0,00"
+                      readOnly={hasMontoBsBloqueado}
                       className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary"
                       required
                     />
@@ -788,7 +846,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                 ) : requiresTasa ? (
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-stretch">
                     <FormField label="Monto Pagado" required>
-                      <input type="text" name="monto_origen" value={formPago.monto_origen} onChange={handlePagoChange} placeholder="0,00" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
+                      <input type="text" name="monto_origen" value={formPago.monto_origen} onChange={handlePagoChange} placeholder="0,00" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary read-only:bg-gray-50 read-only:dark:bg-gray-800/70" required readOnly={hasMontoBsBloqueado} />
                     </FormField>
                     <FormField label="Tasa de Cambio" required>
                       <div className="flex w-full overflow-hidden rounded-xl border border-gray-200 dark:border-gray-600 focus-within:ring-2 focus-within:ring-donezo-primary">
@@ -796,18 +854,18 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                           type="text"
                           name="tasa_cambio"
                           value={formPago.tasa_cambio}
-                          readOnly={useAutoBcvMode}
+                          readOnly={useAutoBcvMode || hasTasaBloqueada}
                           onChange={handlePagoChange}
                           placeholder={isLoadingAutoRate ? 'Cargando tasa...' : (useAutoBcvMode ? 'Tasa automática' : 'Ingrese tasa')}
                           required
                           className={`h-[50px] flex-1 border-0 px-3 outline-none dark:text-white ${
-                            useAutoBcvMode ? 'bg-gray-50 dark:bg-gray-800/70' : 'bg-white dark:bg-gray-800'
+                            (useAutoBcvMode || hasTasaBloqueada) ? 'bg-gray-50 dark:bg-gray-800/70' : 'bg-white dark:bg-gray-800'
                           }`}
                         />
                         <button
                           type="button"
                           onClick={() => { void fetchBcvRate(false); }}
-                          disabled={isLoadingAutoRate}
+                          disabled={isLoadingAutoRate || hasTasaBloqueada}
                           className="h-[50px] min-w-[72px] border-l border-green-200 dark:border-green-800 bg-green-50 px-3 text-center text-xs font-black uppercase tracking-wider text-green-700 transition-colors hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-green-900/30 dark:text-green-300 dark:hover:bg-green-900/50"
                         >
                           {isLoadingAutoRate ? '...' : 'BCV'}
@@ -830,10 +888,16 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                   </div>
                 ) : (
                   <FormField label="Monto Pagado" required>
-                    <input type="text" name="monto_origen" value={formPago.monto_origen} onChange={handlePagoChange} placeholder="0,00" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
+                    <input type="text" name="monto_origen" value={formPago.monto_origen} onChange={handlePagoChange} placeholder="0,00" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary read-only:bg-gray-50 read-only:dark:bg-gray-800/70" required readOnly={hasMontoBsBloqueado} />
                   </FormField>
                 )}
               </div>
+
+              {hasMontoBsBloqueado && (
+                <div className="lg:col-span-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-800 dark:border-blue-800/60 dark:bg-blue-900/20 dark:text-blue-200">
+                  Monto bloqueado por trazabilidad bancaria: este pago viene de un ingreso ya registrado en estado de cuenta.
+                </div>
+              )}
 
               {requiresTasa && formPago.metodo_pago === 'Pago Movil' && (
                 <div className="lg:col-span-2 grid gap-3 mt-3 border-t border-gray-100 dark:border-gray-800 pt-3 grid-cols-1 md:grid-cols-2">
@@ -862,7 +926,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                 </div>
               )}
 
-              {!soloCuentaPrincipal && (
+              {!soloCuentaPrincipal && !isFromIngresoPendiente && (
                 <div className="lg:col-span-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-800/40 p-3">
                   <button
                     type="button"
@@ -1010,16 +1074,13 @@ const toNumber = (value: string | number | undefined | null): number => {
 const parseInputNumber = (value: string | number | undefined | null): number => {
   const raw = String(value ?? '').trim();
   if (!raw) return 0;
+  // Regla de formato local: punto para miles y coma para decimales.
+  // Si no hay coma, seguimos tratando los puntos como separadores de miles.
   const normalized = raw.includes(',')
     ? raw.replace(/\./g, '').replace(',', '.')
-    : raw.replace(/,/g, '');
+    : raw.replace(/\./g, '').replace(/,/g, '');
   const n = parseFloat(normalized);
   return Number.isFinite(n) ? n : 0;
 };
 
 export default ModalRegistrarPago;
-
-
-
-
-

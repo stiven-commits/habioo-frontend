@@ -6,6 +6,8 @@ export interface Column<T> {
   header: ReactNode;
   headerClassName?: string;
   className?: string;
+  headerStyle?: CSSProperties;
+  cellStyle?: CSSProperties;
   render: (row: T, index: number) => ReactNode;
 }
 
@@ -48,6 +50,7 @@ function DataTable<T>({
               <th
                 key={col.key}
                 className={`p-3 font-bold uppercase text-[11px] text-gray-500 dark:text-gray-400 ${col.headerClassName ?? ''}`}
+                style={col.headerStyle}
               >
                 {col.header}
               </th>
@@ -79,7 +82,7 @@ function DataTable<T>({
                   onDoubleClick={onRowDoubleClick ? () => onRowDoubleClick(row, index) : undefined}
                 >
                   {safeColumns.map((col) => (
-                    <td key={col.key} className={`p-3 ${col.className ?? ''}`}>
+                    <td key={col.key} className={`p-3 ${col.className ?? ''}`} style={col.cellStyle}>
                       {col.render(row, index)}
                     </td>
                   ))}

@@ -7,6 +7,7 @@ import { API_BASE_URL } from '../../../config/api';
 import { useDialog } from '../../ui/DialogProvider';
 import ModalBase from '../../ui/ModalBase';
 import FormField from '../../ui/FormField';
+import HabiooLoader from '../../ui/HabiooLoader';
 
 export interface ModalActionProps {
   onClose: () => void;
@@ -858,6 +859,8 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({
   const [saldosFondosCuenta, setSaldosFondosCuenta] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [isFetchingBCV, setIsFetchingBCV] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [marcarPendienteInmueble, setMarcarPendienteInmueble] = useState<boolean>(false);
   const [form, setForm] = useState<RegistrarEgresoForm>({
     cuenta_id: '',
     fondo_id: '',
@@ -868,6 +871,7 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({
     fecha: dateToYmd(new Date()),
   });
   const resetEgresoForm = (): void => {
+    setMarcarPendienteInmueble(false);
     setForm({
       cuenta_id: '',
       fondo_id: '',
@@ -879,6 +883,7 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({
     });
   };
   const handleCloseEgresoModal = (): void => {
+    if (isSubmitting) return;
     resetEgresoForm();
     onClose();
   };
@@ -1012,6 +1017,7 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({
     if (!ok) return;
 
     const token = localStorage.getItem('habioo_token');
+    setIsSubmitting(true);
     try {
       const res = await fetch(`${API_BASE_URL}/egresos-manuales`, {
         method: 'POST',
@@ -1025,6 +1031,7 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({
           referencia: form.referencia.trim(),
           concepto: form.concepto.trim(),
           fecha: form.fecha,
+          pendiente_inmueble: isIngreso ? marcarPendienteInmueble : false,
         }),
       });
       const result: ApiResult = (await res.json()) as ApiResult;
@@ -1044,17 +1051,25 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({
       onSuccess();
     } catch {
       await showAlert({ title: 'Error de red', message: `No se pudo registrar el ${isIngreso ? 'ingreso' : 'egreso'}.`, variant: 'danger' });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <ModalBase onClose={handleCloseEgresoModal} title={isIngreso ? 'Registrar Ingreso' : 'Registrar Egreso'} helpTooltip="Registra ingresos o egresos de banco con su concepto y monto para mantener los saldos y movimientos actualizados." maxWidth="max-w-md">
+    <ModalBase onClose={handleCloseEgresoModal} title={isIngreso ? 'Registrar Ingreso' : 'Registrar Egreso'} helpTooltip="Registra ingresos o egresos de banco con su concepto y monto para mantener los saldos y movimientos actualizados." maxWidth="max-w-md" disableClose={isSubmitting} closeOnOverlayClick={false}>
 
         {loading ? (
           <p className="text-center text-gray-500">Cargando...</p>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <FormField label={isIngreso ? 'Hacia cuenta' : 'Desde cuenta'} required>
+          <>
+            {isSubmitting && (
+              <div className="absolute inset-0 z-50 rounded-3xl bg-white/80 px-6 text-center backdrop-blur-sm dark:bg-slate-900/80">
+                <HabiooLoader size="sm" message={`Procesando ${isIngreso ? 'ingreso' : 'egreso'}...`} className="h-full py-0" />
+              </div>
+            )}
+            <form onSubmit={handleSubmit} className="space-y-4">
+            <FormField label={isIngreso ? 'Cuenta destino' : 'Desde cuenta'} required>
               <SearchableCombobox
                 required
                 value={form.cuenta_id}
@@ -1065,7 +1080,7 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({
               />
             </FormField>
 
-            <FormField label={isIngreso ? 'Hacia fondo' : 'Desde fondo'} required>
+            <FormField label={isIngreso ? 'Fondo destino' : 'Desde fondo'} required>
               <SearchableCombobox
                 required
                 disabled={!form.cuenta_id}
@@ -1153,16 +1168,29 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({
               />
             </FormField>
 
+            {isIngreso && (
+              <label className="flex items-start gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-800 dark:border-blue-800/60 dark:bg-blue-900/20 dark:text-blue-200">
+                <input
+                  type="checkbox"
+                  checked={marcarPendienteInmueble}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMarcarPendienteInmueble(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-blue-400 text-blue-600 focus:ring-blue-500"
+                />
+                Marcar este ingreso como pendiente por asignar a un inmueble para habilitar el botón de asignación en estado de cuenta.
+              </label>
+            )}
+
             <button
               type="submit"
-              disabled={!isValid}
+              disabled={!isValid || isSubmitting}
               className={`w-full py-3 text-white font-bold rounded-xl transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${
                 isIngreso ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'
               }`}
             >
-              {isIngreso ? 'Registrar Ingreso' : 'Registrar Egreso'}
+              {isSubmitting ? 'Procesando...' : (isIngreso ? 'Registrar Ingreso' : 'Registrar Egreso')}
             </button>
-          </form>
+            </form>
+          </>
         )}
     </ModalBase>
   );

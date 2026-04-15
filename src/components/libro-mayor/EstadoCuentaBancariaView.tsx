@@ -1,19 +1,24 @@
-﻿import { useEffect, useMemo, useState } from 'react';
-import type { ChangeEvent, FC } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties, ChangeEvent, FC, MouseEvent as ReactMouseEvent, ReactNode } from 'react';
 import DateRangePicker from '../ui/DateRangePicker';
 import { es } from 'date-fns/locale/es';
 import { useOutletContext } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { API_BASE_URL } from '../../config/api';
 import { ModalRegistrarEgreso, ModalTransferencia } from '../bancos';
+import ModalRegistrarPago from '../ModalRegistrarPago';
 import ModalDetalleMovimiento, { type IMovimientoDetalle } from './ModalDetalleMovimiento';
 import DataTable, { type Column } from '../ui/DataTable';
+import ModalBase from '../ui/ModalBase';
+import FormField from '../ui/FormField';
+import SearchableCombobox, { type SearchableComboboxOption } from '../ui/SearchableCombobox';
 import { useDialog } from '../ui/DialogProvider';
 
 type ViewMode = 'admin' | 'owner';
 type ActiveTab = 'cuenta' | 'sin-fondo' | `fondo-${number | string}`;
 type SortDirection = 'asc' | 'desc';
 type SortKey = 'ejecucion' | 'fecha' | 'referencia' | 'inmueble' | 'descripcion' | 'monto_bs' | 'cargo' | 'abono' | 'tasa';
+type MainTableColumnKey = 'fecha' | 'referencia' | 'inmueble' | 'descripcion' | 'monto_bs' | 'cargo' | 'abono' | 'tasa' | 'acciones';
 
 interface EstadoCuentaBancariaViewProps {
   mode: ViewMode;
@@ -61,6 +66,7 @@ interface IMovimiento extends IMovimientoDetalle {
   tipo_raw?: string;
   es_apertura?: boolean;
   apertura_sintetica?: boolean;
+  pendiente_inmueble_manual?: boolean;
 }
 
 interface RollbackTarget {
@@ -173,9 +179,45 @@ interface ExtrasInfoResponse {
   extras?: IExtraInfo[];
 }
 
+interface PropiedadAdminOption {
+  id: number;
+  identificador: string;
+  saldo_actual?: string | number;
+  prop_nombre?: string;
+}
+
+interface PropiedadesAdminResponse {
+  status: string;
+  propiedades?: PropiedadAdminOption[];
+}
+
 interface BcvResponse {
   promedio?: string | number;
 }
+
+const PENDIENTE_INMUEBLE_TAG = '[PENDIENTE_INMUEBLE]';
+const MAIN_TABLE_COLUMN_DEFAULT_WIDTHS: Record<MainTableColumnKey, number> = {
+  fecha: 165,
+  referencia: 130,
+  inmueble: 150,
+  descripcion: 360,
+  monto_bs: 170,
+  cargo: 140,
+  abono: 140,
+  tasa: 125,
+  acciones: 180,
+};
+const MAIN_TABLE_COLUMN_MIN_WIDTHS: Record<MainTableColumnKey, number> = {
+  fecha: 130,
+  referencia: 100,
+  inmueble: 120,
+  descripcion: 220,
+  monto_bs: 130,
+  cargo: 120,
+  abono: 120,
+  tasa: 100,
+  acciones: 130,
+};
 
 const toNumber = (value: unknown): number => {
   const n = parseFloat(String(value ?? 0));
@@ -187,6 +229,16 @@ const toNullableInt = (value: unknown): number | null => {
   if (value === null || value === undefined || value === '') return null;
   const n = parseInt(String(value), 10);
   return Number.isFinite(n) ? n : null;
+};
+
+const toBoolean = (value: unknown): boolean => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    return normalized === 'true' || normalized === '1' || normalized === 't' || normalized === 'yes';
+  }
+  if (typeof value === 'number') return value === 1;
+  return false;
 };
 
 const formatCurrency = (value: string | number | undefined | null): string => {
@@ -307,12 +359,97 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   const [tasaBcv, setTasaBcv] = useState<string>('');
   const [loadingBcv, setLoadingBcv] = useState<boolean>(false);
   const [rollbackingKey, setRollbackingKey] = useState<string>('');
+  const [showAsignarInmuebleModal, setShowAsignarInmuebleModal] = useState<boolean>(false);
+  const [movimientoPendienteAsignar, setMovimientoPendienteAsignar] = useState<IMovimiento | null>(null);
+  const [propiedadesAdmin, setPropiedadesAdmin] = useState<PropiedadAdminOption[]>([]);
+  const [loadingPropiedadesAdmin, setLoadingPropiedadesAdmin] = useState<boolean>(false);
+  const [propiedadAsignacionId, setPropiedadAsignacionId] = useState<string>('');
+  const [pagoPropiedadSeleccionada, setPagoPropiedadSeleccionada] = useState<{
+    id: number;
+    identificador: string;
+    saldo_actual: string | number;
+  } | null>(null);
+  const [pagoMontoBsBloqueado, setPagoMontoBsBloqueado] = useState<number>(0);
+  const [pagoTasaBloqueada, setPagoTasaBloqueada] = useState<number>(0);
+  const [pagoReferenciaPrefill, setPagoReferenciaPrefill] = useState<string>('');
+  const [pagoMovimientoFondoPendienteId, setPagoMovimientoFondoPendienteId] = useState<number | null>(null);
   const [tableFontBoost, setTableFontBoost] = useState<number>(0);
   const itemsPerPage = 13;
   const tableFontSizePx = 14 + tableFontBoost;
   const tableMetaFontPx = 10 + tableFontBoost;
   const tableTagFontPx = 9 + tableFontBoost;
   const tableCompactFontPx = 12 + tableFontBoost;
+  const mainTableWidthsStorageKey = useMemo(
+    () => `habioo_libro_mayor_column_widths_${mode}`,
+    [mode],
+  );
+  const [mainTableColumnWidths, setMainTableColumnWidths] = useState<Record<MainTableColumnKey, number>>({
+    ...MAIN_TABLE_COLUMN_DEFAULT_WIDTHS,
+  });
+  const tableResizeRef = useRef<{
+    columnKey: MainTableColumnKey;
+    startX: number;
+    startWidth: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem(mainTableWidthsStorageKey);
+      if (!raw) {
+        setMainTableColumnWidths({ ...MAIN_TABLE_COLUMN_DEFAULT_WIDTHS });
+        return;
+      }
+      const parsed = JSON.parse(raw) as Partial<Record<MainTableColumnKey, number>>;
+      const normalized: Record<MainTableColumnKey, number> = { ...MAIN_TABLE_COLUMN_DEFAULT_WIDTHS };
+      (Object.keys(MAIN_TABLE_COLUMN_DEFAULT_WIDTHS) as MainTableColumnKey[]).forEach((key) => {
+        const nextWidth = Number(parsed[key]);
+        if (!Number.isFinite(nextWidth)) return;
+        normalized[key] = Math.max(MAIN_TABLE_COLUMN_MIN_WIDTHS[key], Math.round(nextWidth));
+      });
+      setMainTableColumnWidths(normalized);
+    } catch {
+      setMainTableColumnWidths({ ...MAIN_TABLE_COLUMN_DEFAULT_WIDTHS });
+    }
+  }, [mainTableWidthsStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(mainTableWidthsStorageKey, JSON.stringify(mainTableColumnWidths));
+  }, [mainTableColumnWidths, mainTableWidthsStorageKey]);
+
+  useEffect(() => {
+    const handleMouseMove = (event: MouseEvent): void => {
+      const activeResize = tableResizeRef.current;
+      if (!activeResize) return;
+      const minWidth = MAIN_TABLE_COLUMN_MIN_WIDTHS[activeResize.columnKey];
+      const nextWidth = Math.max(
+        minWidth,
+        Math.round(activeResize.startWidth + (event.clientX - activeResize.startX)),
+      );
+      setMainTableColumnWidths((prev) => (
+        prev[activeResize.columnKey] === nextWidth
+          ? prev
+          : { ...prev, [activeResize.columnKey]: nextWidth }
+      ));
+    };
+
+    const handleMouseUp = (): void => {
+      if (!tableResizeRef.current) return;
+      tableResizeRef.current = null;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, []);
 
   const fetchCuentas = async (): Promise<void> => {
     const token = localStorage.getItem('habioo_token');
@@ -483,6 +620,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
             ? String((safeMov as { inmueble?: unknown }).inmueble)
             : '',
           pago_id: toNullableInt((safeMov as { pago_id?: unknown }).pago_id),
+          pendiente_inmueble_manual: toBoolean((safeMov as { pendiente_inmueble_manual?: unknown }).pendiente_inmueble_manual),
           fecha_registro: fechaRegistro,
           tipo_raw: tipoRaw,
           es_apertura: esApertura,
@@ -1288,10 +1426,13 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     const etiquetaFondo = fondoNombrePorId ? ` (${fondoNombrePorId})` : '';
     const conceptoOriginal = String(movimiento.concepto || '');
     const conceptoLimpio = conceptoOriginal
+      .replace(/\s*\[PENDIENTE_INMUEBLE\]\s*/gi, ' ')
       .replace(/\s*\[SYS_HIST_RECLASIF_INTERNA\]\s*/gi, ' ')
       .replace(/\s*\(gasto\s+\d+\)\s*/gi, ' ')
       .replace(/\s{2,}/g, ' ')
       .trim();
+    const esPendienteInmueble = conceptoOriginal.toUpperCase().includes(PENDIENTE_INMUEBLE_TAG);
+    const inmuebleAsignado = String(movimiento.inmueble || '').trim();
 
     if (movimiento.es_apertura && movimiento.apertura_sintetica) {
       return `Saldo de apertura del fondo${etiquetaFondo}`;
@@ -1301,6 +1442,12 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     }
     if (/^Reclasificaci[oó]n\/Recaudado hist[oó]rico desde fondo/i.test(conceptoLimpio)) {
       return 'Recaudado histórico movido a Tránsito / Extra';
+    }
+    if (esPendienteInmueble && inmuebleAsignado) {
+      return `Pago de inmueble ${inmuebleAsignado}`;
+    }
+    if (esPendienteInmueble) {
+      return 'Ingreso bancario pendiente por asignar a inmueble';
     }
     const banco = movimiento.banco_origen?.trim();
     const cedula = movimiento.cedula_origen?.trim();
@@ -1446,6 +1593,126 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     return sortConfig.direction === 'asc' ? '↑' : '↓';
   };
 
+  const startResizeColumn = (
+    event: ReactMouseEvent<HTMLSpanElement>,
+    columnKey: MainTableColumnKey,
+  ): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    const width = mainTableColumnWidths[columnKey] ?? MAIN_TABLE_COLUMN_DEFAULT_WIDTHS[columnKey];
+    tableResizeRef.current = {
+      columnKey,
+      startX: event.clientX,
+      startWidth: width,
+    };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
+  const getColumnStyle = (columnKey: MainTableColumnKey): CSSProperties => {
+    const width = Math.max(
+      MAIN_TABLE_COLUMN_MIN_WIDTHS[columnKey],
+      mainTableColumnWidths[columnKey] ?? MAIN_TABLE_COLUMN_DEFAULT_WIDTHS[columnKey],
+    );
+    return {
+      width: `${width}px`,
+      minWidth: `${width}px`,
+      maxWidth: `${width}px`,
+    };
+  };
+
+  const renderResizableHeader = (
+    columnKey: MainTableColumnKey,
+    content: ReactNode,
+    align: 'left' | 'center' | 'right' = 'left',
+  ): ReactNode => (
+    <div
+      className={`group relative flex items-center ${align === 'center'
+        ? 'justify-center'
+        : align === 'right'
+          ? 'justify-end'
+          : 'justify-start'} pr-2`}
+    >
+      <span className={align === 'right' ? 'ml-auto' : ''}>{content}</span>
+      <span
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={`Ajustar ancho de columna ${columnKey}`}
+        onMouseDown={(event) => startResizeColumn(event, columnKey)}
+        className="absolute -right-2 top-0 h-full w-3 cursor-col-resize touch-none select-none"
+        title="Arrastra para ajustar el ancho de la columna"
+      >
+        <span className="absolute left-1.5 top-1/2 h-6 -translate-y-1/2 border-r border-transparent transition-colors group-hover:border-gray-300 dark:group-hover:border-gray-600" />
+      </span>
+    </div>
+  );
+
+  const isIngresoPendienteInmueble = (movimiento: IMovimiento): boolean => {
+    if (movimiento.tipo !== 'INGRESO') return false;
+    if (movimiento.pago_id && Number.isFinite(movimiento.pago_id)) return false;
+    if (!Boolean(movimiento.pendiente_inmueble_manual)) return false;
+    const inmueble = String(movimiento.inmueble || '').trim();
+    if (inmueble) return false;
+    if (/INMUEBLE\s*[:\-]\s*[A-Z0-9]/i.test(String(movimiento.concepto || ''))) return false;
+    return !inmueble;
+  };
+
+  const fetchPropiedadesAdmin = async (): Promise<void> => {
+    if (mode !== 'admin' || userRole !== 'Administrador') return;
+    if (loadingPropiedadesAdmin) return;
+    setLoadingPropiedadesAdmin(true);
+    try {
+      const token = localStorage.getItem('habioo_token');
+      const res = await fetch(`${API_BASE_URL}/propiedades-admin`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data: PropiedadesAdminResponse = await res.json();
+      if (!res.ok || data.status !== 'success') {
+        setPropiedadesAdmin([]);
+        return;
+      }
+      const props = Array.isArray(data.propiedades) ? data.propiedades : [];
+      const ordenadas = [...props].sort((a, b) =>
+        String(a.identificador || '').localeCompare(String(b.identificador || ''), 'es', { numeric: true, sensitivity: 'base' }),
+      );
+      setPropiedadesAdmin(ordenadas);
+    } catch {
+      setPropiedadesAdmin([]);
+    } finally {
+      setLoadingPropiedadesAdmin(false);
+    }
+  };
+
+  const abrirAsignacionInmueble = async (movimiento: IMovimiento): Promise<void> => {
+    if (!isIngresoPendienteInmueble(movimiento)) return;
+    const montoBs = getMontoBsVista(movimiento);
+    if (montoBs <= 0) {
+      await showAlert({
+        title: 'Monto no válido',
+        message: 'Este ingreso pendiente no tiene un monto en Bs válido para asignar a un inmueble.',
+        confirmText: 'Entendido',
+        variant: 'warning',
+      });
+      return;
+    }
+    if (!propiedadesAdmin.length) {
+      await fetchPropiedadesAdmin();
+    }
+    setMovimientoPendienteAsignar(movimiento);
+    setPropiedadAsignacionId('');
+    setShowAsignarInmuebleModal(true);
+  };
+
+  const propiedadOptions = useMemo<SearchableComboboxOption[]>(
+    () =>
+      propiedadesAdmin.map((prop) => ({
+        value: String(prop.id),
+        label: `${prop.identificador}${prop.prop_nombre ? ` - ${prop.prop_nombre}` : ''}`,
+        searchText: `${prop.identificador} ${prop.prop_nombre || ''}`,
+      })),
+    [propiedadesAdmin],
+  );
+
   const extractPagoIdForRollback = (movimiento: IMovimiento): string | null => {
     if (movimiento.tipo !== 'INGRESO') return null;
     const concepto = String(movimiento.concepto || '');
@@ -1477,11 +1744,11 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   };
 
   const extractEgresoManualIdForRollback = (movimiento: IMovimiento): string | null => {
-    if (movimiento.tipo !== 'EGRESO') return null;
+    if (movimiento.tipo !== 'EGRESO' && movimiento.tipo !== 'INGRESO') return null;
     const rawId = String(movimiento.id || '');
-    const match = rawId.match(/^EGR-MF-(\d+)$/i);
+    const match = rawId.match(/^(?:EGR|ING)-MF-(\d+)$/i);
     if (!match?.[1]) return null;
-    // El backend valida si corresponde realmente a un egreso manual reversible.
+    // El backend valida si corresponde realmente a un movimiento manual reversible.
     return match[1];
   };
 
@@ -1528,7 +1795,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
           : target.kind === 'pago_proveedor'
             ? '¿Deseas revertir este pago a proveedor? Se restaurarán los saldos involucrados.'
           : target.kind === 'egreso'
-            ? '¿Deseas revertir este egreso manual? Se hará rollback del saldo del fondo.'
+            ? '¿Deseas revertir este movimiento manual? Se hará rollback del saldo del fondo.'
             : '¿Deseas revertir esta transferencia? Se hará rollback de los saldos entre fondos.';
     const ok = await showConfirm({
       title: 'Confirmar reversión',
@@ -1578,7 +1845,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
               : target.kind === 'pago_proveedor'
                 ? 'Pago a proveedor revertido correctamente.'
               : target.kind === 'egreso'
-                ? 'Egreso manual revertido correctamente.'
+                ? 'Movimiento manual revertido correctamente.'
                 : 'Transferencia revertida correctamente.'),
         confirmText: 'Entendido',
         variant: 'success',
@@ -2077,17 +2344,19 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
           <p className="text-center text-gray-400 py-10 font-medium">No hay movimientos registrados en esta cuenta.</p>
         ) : (
           <DataTable<IMovimiento>
-            tableStyle={{ fontSize: `${tableFontSizePx}px` }}
+            tableStyle={{ fontSize: `${tableFontSizePx}px`, tableLayout: 'fixed' }}
             columns={[
               {
                 key: 'fecha',
-                header: (
+                header: renderResizableHeader('fecha', (
                   <button type="button" onClick={() => handleSort('fecha')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
                     Fecha <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('fecha')}</span>
                   </button>
-                ),
-                headerClassName: 'w-[1%] whitespace-nowrap',
-                className: 'w-[1%] whitespace-nowrap',
+                )),
+                headerStyle: getColumnStyle('fecha'),
+                cellStyle: getColumnStyle('fecha'),
+                headerClassName: 'whitespace-nowrap',
+                className: 'whitespace-nowrap',
                 render: (movimiento) => (
                   <>
                     <span className="block font-mono font-bold text-gray-800 dark:text-gray-200" style={{ fontSize: `${tableCompactFontPx}px` }}>
@@ -2103,33 +2372,38 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
               },
               {
                 key: 'referencia',
-                header: (
+                header: renderResizableHeader('referencia', (
                   <button type="button" onClick={() => handleSort('referencia')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
                     Referencia <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('referencia')}</span>
                   </button>
-                ),
+                )),
+                headerStyle: getColumnStyle('referencia'),
+                cellStyle: getColumnStyle('referencia'),
                 className: 'font-mono text-gray-500',
                 render: (movimiento) => <span style={{ fontSize: `${tableCompactFontPx}px` }}>{movimiento.referencia || '-'}</span>,
               },
               {
                 key: 'inmueble',
-                header: (
+                header: renderResizableHeader('inmueble', (
                   <button type="button" onClick={() => handleSort('inmueble')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
                     Inmueble <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('inmueble')}</span>
                   </button>
-                ),
+                )),
+                headerStyle: getColumnStyle('inmueble'),
+                cellStyle: getColumnStyle('inmueble'),
                 className: 'font-semibold text-gray-700 dark:text-gray-300',
                 render: (movimiento) => <span style={{ fontSize: `${tableCompactFontPx}px` }}>{getInmuebleVista(movimiento)}</span>,
               },
               {
                 key: 'descripcion',
-                header: (
+                header: renderResizableHeader('descripcion', (
                   <button type="button" onClick={() => handleSort('descripcion')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
                     Descripción <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('descripcion')}</span>
                   </button>
-                ),
-                headerClassName: 'w-[300px] max-w-[300px]',
-                className: 'w-[300px] max-w-[300px] font-medium text-gray-800 dark:text-gray-200',
+                )),
+                headerStyle: getColumnStyle('descripcion'),
+                cellStyle: getColumnStyle('descripcion'),
+                className: 'font-medium text-gray-800 dark:text-gray-200',
                 render: (movimiento) => {
                   const conceptoVista = getConceptoVista(movimiento);
                   return (
@@ -2141,13 +2415,15 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
               },
               ...(!isCuentaUsd ? [{
                 key: 'monto_bs',
-                header: (
+                header: renderResizableHeader('monto_bs', (
                   <button type="button" onClick={() => handleSort('monto_bs')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
                     Monto (Bs) <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('monto_bs')}</span>
                   </button>
-                ),
-                headerClassName: 'text-right min-w-[160px] whitespace-nowrap',
-                className: 'text-right min-w-[160px] whitespace-nowrap font-black font-mono text-slate-700 dark:text-slate-200',
+                ), 'right'),
+                headerStyle: getColumnStyle('monto_bs'),
+                cellStyle: getColumnStyle('monto_bs'),
+                headerClassName: 'text-right whitespace-nowrap',
+                className: 'text-right whitespace-nowrap font-black font-mono text-slate-700 dark:text-slate-200',
                 render: (movimiento: IMovimiento) => {
                   const montoBsVista = getMontoBsVista(movimiento);
                   return montoBsVista > 0 ? (
@@ -2161,13 +2437,15 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
               } as Column<IMovimiento>] : []),
               {
                 key: 'cargo',
-                header: (
+                header: renderResizableHeader('cargo', (
                   <button type="button" onClick={() => handleSort('cargo')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
                     Cargo ($) <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('cargo')}</span>
                   </button>
-                ),
-                headerClassName: 'text-right min-w-[130px] whitespace-nowrap',
-                className: 'text-right min-w-[130px] whitespace-nowrap font-black font-mono',
+                ), 'right'),
+                headerStyle: getColumnStyle('cargo'),
+                cellStyle: getColumnStyle('cargo'),
+                headerClassName: 'text-right whitespace-nowrap',
+                className: 'text-right whitespace-nowrap font-black font-mono',
                 render: (movimiento) => {
                   const montoUsdVista = getMontoUsdVista(movimiento);
                   return movimiento.tipo === 'EGRESO' && montoUsdVista > 0 ? (
@@ -2179,13 +2457,15 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
               },
               {
                 key: 'abono',
-                header: (
+                header: renderResizableHeader('abono', (
                   <button type="button" onClick={() => handleSort('abono')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
                     Abono ($) <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('abono')}</span>
                   </button>
-                ),
-                headerClassName: 'text-right min-w-[130px] whitespace-nowrap',
-                className: 'text-right min-w-[130px] whitespace-nowrap font-black font-mono',
+                ), 'right'),
+                headerStyle: getColumnStyle('abono'),
+                cellStyle: getColumnStyle('abono'),
+                headerClassName: 'text-right whitespace-nowrap',
+                className: 'text-right whitespace-nowrap font-black font-mono',
                 render: (movimiento) => {
                   const montoUsdVista = getMontoUsdVista(movimiento);
                   return movimiento.tipo === 'INGRESO' && montoUsdVista > 0 ? (
@@ -2197,13 +2477,15 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
               },
               ...(!isCuentaUsd ? [{
                 key: 'tasa',
-                header: (
+                header: renderResizableHeader('tasa', (
                   <button type="button" onClick={() => handleSort('tasa')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
                     Tasa (Bs.) <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('tasa')}</span>
                   </button>
-                ),
-                headerClassName: 'text-right min-w-[115px] whitespace-nowrap',
-                className: 'text-right min-w-[115px] whitespace-nowrap font-mono text-blue-600 dark:text-blue-400',
+                ), 'right'),
+                headerStyle: getColumnStyle('tasa'),
+                cellStyle: getColumnStyle('tasa'),
+                headerClassName: 'text-right whitespace-nowrap',
+                className: 'text-right whitespace-nowrap font-mono text-blue-600 dark:text-blue-400',
                 render: (movimiento: IMovimiento) => (
                   <span style={{ fontSize: `${tableCompactFontPx}px` }}>
                     {movimiento.tasa_cambio ? formatCurrency(movimiento.tasa_cambio) : '-'}
@@ -2212,35 +2494,59 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
               } as Column<IMovimiento>] : []),
               ...(mode === 'admin' ? [{
                 key: 'acciones',
-                header: 'Acciones',
-                headerClassName: 'text-center min-w-[110px] whitespace-nowrap',
-                className: 'text-center min-w-[110px] whitespace-nowrap',
+                header: renderResizableHeader('acciones', 'Acciones', 'center'),
+                headerStyle: getColumnStyle('acciones'),
+                cellStyle: getColumnStyle('acciones'),
+                headerClassName: 'text-center whitespace-nowrap',
+                className: 'text-center whitespace-nowrap',
                 render: (movimiento: IMovimiento) => {
                   const rollbackTarget = extractRollbackTarget(movimiento);
                   const rollbackButtonKey = rollbackTarget ? `${rollbackTarget.kind}-${rollbackTarget.id}` : '';
-                  return rollbackTarget ? (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void handleRollbackMovimiento(movimiento);
-                      }}
-                      disabled={rollbackingKey === rollbackButtonKey}
-                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                      title={rollbackTarget.kind === 'pago'
-                        ? 'Disponible para reversión (sujeto a validaciones contables).'
-                        : rollbackTarget.kind === 'ajuste'
-                          ? 'Disponible para reversión (sujeto a validaciones contables).'
+                  const canAssignInmueble = isIngresoPendienteInmueble(movimiento);
+                  if (!rollbackTarget && !canAssignInmueble) {
+                    return (
+                      <span className="text-gray-300">-</span>
+                    );
+                  }
+
+                  return (
+                    <div className="flex items-center justify-center gap-1.5">
+                      {canAssignInmueble && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void abrirAsignacionInmueble(movimiento);
+                          }}
+                          className="px-2.5 py-1 rounded-lg text-[11px] font-bold border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
+                          title="Asignar este ingreso pendiente a un inmueble y abrir el registro de pago."
+                        >
+                          Asignar inmueble
+                        </button>
+                      )}
+                      {rollbackTarget && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleRollbackMovimiento(movimiento);
+                          }}
+                          disabled={rollbackingKey === rollbackButtonKey}
+                          className="px-2.5 py-1 rounded-lg text-[11px] font-bold border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                          title={rollbackTarget.kind === 'pago'
+                            ? 'Disponible para reversión (sujeto a validaciones contables).'
+                            : rollbackTarget.kind === 'ajuste'
+                              ? 'Disponible para reversión (sujeto a validaciones contables).'
                           : rollbackTarget.kind === 'pago_proveedor'
                             ? 'Revertir pago a proveedor y restaurar saldos.'
                           : rollbackTarget.kind === 'egreso'
-                            ? 'Revertir egreso manual y restaurar saldo en el fondo.'
+                            ? 'Revertir movimiento manual y restaurar saldo en el fondo.'
                             : 'Revertir transferencia y hacer rollback de saldos entre fondos.'}
-                    >
-                      {rollbackingKey === rollbackButtonKey ? 'Revirtiendo...' : 'Revertir'}
-                    </button>
-                  ) : (
-                    <span className="text-gray-300">-</span>
+                        >
+                          {rollbackingKey === rollbackButtonKey ? 'Revirtiendo...' : 'Revertir'}
+                        </button>
+                      )}
+                    </div>
                   );
                 },
               } as Column<IMovimiento>] : []),
@@ -2301,6 +2607,109 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
         )}
       </div>
 
+      {mode === 'admin' && showAsignarInmuebleModal && movimientoPendienteAsignar && (
+        <ModalBase
+          title="Asignar Inmueble"
+          onClose={() => {
+            setShowAsignarInmuebleModal(false);
+            setMovimientoPendienteAsignar(null);
+            setPropiedadAsignacionId('');
+          }}
+          maxWidth="max-w-lg"
+          helpTooltip="Selecciona el inmueble al que pertenece este ingreso bancario pendiente para abrir el registro de pago con monto bloqueado."
+        >
+          <div className="space-y-4">
+            <div className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800 dark:border-blue-800/60 dark:bg-blue-900/20 dark:text-blue-200">
+              Este ingreso ya impactó el saldo bancario. Aquí solo vas a vincularlo al inmueble y registrar el pago con el monto en Bs bloqueado.
+            </div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 text-sm">
+              <div><span className="font-semibold">Referencia:</span> {movimientoPendienteAsignar.referencia || '-'}</div>
+              <div><span className="font-semibold">Monto Bs:</span> Bs {formatCurrency(getMontoBsVista(movimientoPendienteAsignar))}</div>
+            </div>
+            <FormField label="Inmueble" required>
+              <SearchableCombobox
+                options={propiedadOptions}
+                value={propiedadAsignacionId}
+                onChange={setPropiedadAsignacionId}
+                disabled={loadingPropiedadesAdmin}
+                placeholder={loadingPropiedadesAdmin ? 'Cargando inmuebles...' : 'Buscar inmueble...'}
+                emptyMessage="Sin inmuebles disponibles"
+                className="w-full p-3 rounded-xl border border-gray-200 bg-white text-gray-900 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary"
+              />
+            </FormField>
+            <div className="flex justify-end gap-2 border-t border-gray-100 pt-3 dark:border-gray-800">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAsignarInmuebleModal(false);
+                  setMovimientoPendienteAsignar(null);
+                  setPropiedadAsignacionId('');
+                }}
+                className="px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const propiedad = propiedadesAdmin.find((p) => String(p.id) === propiedadAsignacionId) || null;
+                  if (!propiedad || !movimientoPendienteAsignar) {
+                    await showAlert({
+                      title: 'Seleccione un inmueble',
+                      message: 'Debes seleccionar un inmueble para continuar.',
+                      confirmText: 'Entendido',
+                      variant: 'warning',
+                    });
+                    return;
+                  }
+                  setPagoPropiedadSeleccionada({
+                    id: propiedad.id,
+                    identificador: propiedad.identificador,
+                    saldo_actual: propiedad.saldo_actual ?? 0,
+                  });
+                  setPagoMontoBsBloqueado(getMontoBsVista(movimientoPendienteAsignar));
+                  setPagoTasaBloqueada(toNumber(movimientoPendienteAsignar.tasa_cambio));
+                  setPagoReferenciaPrefill(String(movimientoPendienteAsignar.referencia || '').trim());
+                  setPagoMovimientoFondoPendienteId(toNullableInt(String(movimientoPendienteAsignar.id).replace(/^ING-MF-/i, '')));
+                  setShowAsignarInmuebleModal(false);
+                  setMovimientoPendienteAsignar(null);
+                  setPropiedadAsignacionId('');
+                }}
+                className="px-3 py-2 rounded-lg border border-transparent bg-donezo-primary text-sm font-semibold text-white hover:bg-green-700"
+              >
+                Continuar con registro de pago
+              </button>
+            </div>
+          </div>
+        </ModalBase>
+      )}
+
+      {mode === 'admin' && pagoPropiedadSeleccionada && (
+        <ModalRegistrarPago
+          propiedadPreseleccionada={pagoPropiedadSeleccionada}
+          montoBsBloqueado={pagoMontoBsBloqueado}
+          tasaBloqueada={pagoTasaBloqueada}
+          cuentaIdBloqueada={selectedCuenta || null}
+          referenciaPrefill={pagoReferenciaPrefill || null}
+          movimientoFondoPendienteId={pagoMovimientoFondoPendienteId}
+          onClose={() => {
+            setPagoPropiedadSeleccionada(null);
+            setPagoMontoBsBloqueado(0);
+            setPagoTasaBloqueada(0);
+            setPagoReferenciaPrefill('');
+            setPagoMovimientoFondoPendienteId(null);
+          }}
+          onSuccess={() => {
+            setPagoPropiedadSeleccionada(null);
+            setPagoMontoBsBloqueado(0);
+            setPagoTasaBloqueada(0);
+            setPagoReferenciaPrefill('');
+            setPagoMovimientoFondoPendienteId(null);
+            void Promise.all([fetchMovimientos(selectedCuenta), fetchFondos()]);
+          }}
+        />
+      )}
+
       {mode === 'admin' && showTransfModal && (
         <ModalTransferencia
           onClose={() => setShowTransfModal(false)}
@@ -2352,5 +2761,12 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
 };
 
 export default EstadoCuentaBancariaView;
+
+
+
+
+
+
+
 
 
