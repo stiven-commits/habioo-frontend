@@ -1477,7 +1477,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                         type="text"
                         value={montoUsdDirecto}
                         onChange={(e: ChangeEvent<HTMLInputElement>) => setMontoUsdDirecto(formatNumberInput(e.target.value, 2))}
-                        className="w-full min-h-11 p-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono text-base"
+                        className="w-full min-h-11 p-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white text-base"
                         placeholder="0,00"
                       />
                     </FormField>
@@ -1503,7 +1503,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                           type="text"
                           value={tasaBcvAjuste}
                           onChange={(e: ChangeEvent<HTMLInputElement>) => setTasaBcvAjuste(formatNumberInput(e.target.value, 3))}
-                          className="w-full min-h-11 p-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono text-base"
+                          className="w-full min-h-11 p-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white text-base"
                           placeholder="Ej: 36,500"
                         />
                       </FormField>
@@ -1528,7 +1528,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                           type="text"
                           value={montoBsAjuste}
                           onChange={(e: ChangeEvent<HTMLInputElement>) => setMontoBsAjuste(formatNumberInput(e.target.value))}
-                          className="w-full min-h-11 p-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono text-base"
+                          className="w-full min-h-11 p-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white text-base"
                           placeholder="0,00"
                         />
                       </FormField>
@@ -1554,7 +1554,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                         type="text"
                         value={tasaBcvAjuste}
                         onChange={(e: ChangeEvent<HTMLInputElement>) => setTasaBcvAjuste(formatNumberInput(e.target.value, 3))}
-                        className="w-full min-h-11 p-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono text-base"
+                        className="w-full min-h-11 p-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white text-base"
                         placeholder="Ej: 36,500"
                       />
                     </FormField>
@@ -1565,7 +1565,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                         type="text"
                         value={montoBsAjuste}
                         onChange={(e: ChangeEvent<HTMLInputElement>) => setMontoBsAjuste(formatNumberInput(e.target.value))}
-                        className="w-full min-h-11 p-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono text-base"
+                        className="w-full min-h-11 p-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white text-base"
                         placeholder="0,00"
                       />
                     </FormField>

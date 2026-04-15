@@ -1292,7 +1292,7 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                 onChange={handleMonedaChange}
                 placeholder="0,00"
                 required
-                className={`h-11 w-full rounded-xl border bg-gray-50 px-3 font-mono text-base outline-none focus:ring-2 focus:ring-emerald-600 dark:bg-gray-800 dark:text-white ${validationErrors.monto_bs ? 'border-red-500 bg-red-50 dark:bg-red-900/10' : 'border-gray-200 dark:border-gray-700'}`}
+                className={`h-11 w-full rounded-xl border bg-gray-50 px-3 text-base outline-none focus:ring-2 focus:ring-emerald-600 dark:bg-gray-800 dark:text-white ${validationErrors.monto_bs ? 'border-red-500 bg-red-50 dark:bg-red-900/10' : 'border-gray-200 dark:border-gray-700'}`}
               />
               {validationErrors.monto_bs && (
                 <p className="mt-1 text-xs text-red-600 dark:text-red-400">{validationErrors.monto_bs}</p>
@@ -1309,7 +1309,7 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                   onChange={handleMonedaChange}
                   placeholder="0,00"
                   required
-                  className={`h-11 w-full rounded-l-xl rounded-r-none border border-r-0 bg-gray-50 px-3 font-mono text-base outline-none focus:ring-2 focus:ring-emerald-600 dark:bg-gray-800 dark:text-white ${validationErrors.tasa_cambio ? 'border-red-500 bg-red-50 dark:bg-red-900/10' : 'border-gray-200 dark:border-gray-700'}`}
+                  className={`h-11 w-full rounded-l-xl rounded-r-none border border-r-0 bg-gray-50 px-3 text-base outline-none focus:ring-2 focus:ring-emerald-600 dark:bg-gray-800 dark:text-white ${validationErrors.tasa_cambio ? 'border-red-500 bg-red-50 dark:bg-red-900/10' : 'border-gray-200 dark:border-gray-700'}`}
                 />
                 <button
                   type="button"
@@ -1713,11 +1713,11 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                                 />
                               </td>
                               <td className="px-2 py-2">
-                                <input type="text" value={row.monto_usd} onChange={(e) => updateOriginRow('pagado', row.id, 'monto_usd', e.target.value)} placeholder="0,00" className="h-9 w-full px-2 rounded-lg border border-gray-200/90 bg-white font-mono text-xs outline-none focus:ring-2 focus:ring-green-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
+                                <input type="text" value={row.monto_usd} onChange={(e) => updateOriginRow('pagado', row.id, 'monto_usd', e.target.value)} placeholder="0,00" className="h-9 w-full px-2 rounded-lg border border-gray-200/90 bg-white text-xs outline-none focus:ring-2 focus:ring-green-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
                               </td>
                               <td className="px-2 py-2">
                                 {!esFondoUsd ? (
-                                  <input type="text" value={row.monto_bs} onChange={(e) => updateOriginRow('pagado', row.id, 'monto_bs', e.target.value)} placeholder="0,00" className="h-9 w-full px-2 rounded-lg border border-gray-200/90 bg-white font-mono text-xs outline-none focus:ring-2 focus:ring-green-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
+                                  <input type="text" value={row.monto_bs} onChange={(e) => updateOriginRow('pagado', row.id, 'monto_bs', e.target.value)} placeholder="0,00" className="h-9 w-full px-2 rounded-lg border border-gray-200/90 bg-white text-xs outline-none focus:ring-2 focus:ring-green-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white" />
                                 ) : (
                                   <span className="text-xs text-gray-400 dark:text-gray-500 pl-1">—</span>
                                 )}
@@ -1830,7 +1830,7 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                                         }
                                       }}
                                       placeholder="0,00"
-                                      className="h-9 w-full px-2 rounded-lg border border-gray-200/90 bg-white font-mono text-xs outline-none focus:ring-2 focus:ring-green-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                                      className="h-9 w-full px-2 rounded-lg border border-gray-200/90 bg-white text-xs outline-none focus:ring-2 focus:ring-green-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                                     />
                                     <p className="text-[10px] text-gray-400 mt-0.5">≈ ${montoUsdAuto} USD</p>
                                   </div>
@@ -1848,7 +1848,7 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                                     updateOriginRow('recaudado', row.id, 'monto_usd', e.target.value);
                                   }}
                                   placeholder="0,00"
-                                  className={`h-9 w-full px-2 rounded-lg border border-gray-200/90 font-mono text-xs outline-none dark:border-gray-700 dark:text-gray-300 ${
+                                  className={`h-9 w-full px-2 rounded-lg border border-gray-200/90 text-xs outline-none dark:border-gray-700 dark:text-gray-300 ${
                                     esFondoUsd
                                       ? 'bg-white focus:ring-2 focus:ring-green-500 dark:bg-gray-900'
                                       : 'bg-gray-50 dark:bg-gray-800/60 cursor-not-allowed'
@@ -1893,7 +1893,7 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                     value={form.monto_historico_recaudado_no_cuenta_bs}
                     onChange={handleMontoNoCuentaChange}
                     placeholder="0,00"
-                    className="h-11 w-full px-3 rounded-xl border border-gray-200/90 dark:border-gray-700 bg-white dark:bg-gray-900 font-mono text-sm outline-none focus:ring-2 focus:ring-green-500 dark:text-white"
+                    className="h-11 w-full px-3 rounded-xl border border-gray-200/90 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm outline-none focus:ring-2 focus:ring-green-500 dark:text-white"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1904,7 +1904,7 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
                     value={form.monto_historico_recaudado_no_cuenta_usd}
                     onChange={handleMontoNoCuentaChange}
                     placeholder="0,00"
-                    className="h-11 w-full px-3 rounded-xl border border-gray-200/90 dark:border-gray-700 bg-white dark:bg-gray-900 font-mono text-sm outline-none focus:ring-2 focus:ring-green-500 dark:text-white"
+                    className="h-11 w-full px-3 rounded-xl border border-gray-200/90 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm outline-none focus:ring-2 focus:ring-green-500 dark:text-white"
                   />
                 </div>
               </div>

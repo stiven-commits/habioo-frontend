@@ -1,5 +1,6 @@
 import type { FC, ReactNode } from 'react';
 import Tooltip from '@rc-component/tooltip';
+import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import '@rc-component/tooltip/assets/bootstrap_white.css';
 
 type ModalWidthSize = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl';
@@ -74,10 +75,10 @@ const ModalBase: FC<ModalBaseProps> = ({
                 <button
                   type="button"
                   className="shrink-0 inline-flex h-6 w-6 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-[11px] font-bold text-blue-600 transition-colors hover:bg-blue-100 dark:border-blue-800/60 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50"
-                  aria-label="Ayuda del modal"
+                  aria-label="Ayuda de la ventana"
                   title="Ayuda"
                 >
-                  ?
+                  <QuestionMarkCircleIcon className="h-4 w-4" aria-hidden="true" />
                 </button>
               </Tooltip>
             )}

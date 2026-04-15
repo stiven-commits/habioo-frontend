@@ -377,7 +377,7 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
                 <input type="text" name="identificador" value={form.identificador} onChange={handleChange} placeholder="Ej: A-12 o Casa 3" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" required />
               </FormField>
               <FormField label="Alícuota (%)" required>
-                <input type="text" name="alicuota" value={form.alicuota} onChange={handleChange} placeholder="Ej: 3,125" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono" required />
+                <input type="text" name="alicuota" value={form.alicuota} onChange={handleChange} placeholder="Ej: 3,125" className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white" required />
               </FormField>
 
               {!editingId && (
@@ -416,7 +416,7 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
                                 value={deuda.monto_deuda}
                                 onChange={(e: ChangeEvent<HTMLInputElement>) => updateDeudaInicial(index, 'monto_deuda', e.target.value)}
                                 placeholder="0,00"
-                                className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                                className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
                               />
                             </FormField>
                           </div>
@@ -427,7 +427,7 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
                                 value={deuda.monto_abono}
                                 onChange={(e: ChangeEvent<HTMLInputElement>) => updateDeudaInicial(index, 'monto_abono', e.target.value)}
                                 placeholder="Opcional"
-                                className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                                className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
                               />
                             </FormField>
                           </div>
@@ -463,7 +463,7 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
                             value={form.saldo_inicial_bs || ''}
                             onChange={(e: ChangeEvent<HTMLInputElement>) => handleSaldoBsChange(e.target.value)}
                             placeholder="0,00"
-                            className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                            className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
                           />
                         </FormField>
                         <FormField label="Tasa BCV">
@@ -472,7 +472,7 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
                             value={form.tasa_bcv || ''}
                             onChange={(e: ChangeEvent<HTMLInputElement>) => handleTasaChange(e.target.value)}
                             placeholder="Ej: 36,500"
-                            className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                            className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
                           />
                         </FormField>
                         <button
@@ -492,7 +492,7 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
                             value={form.monto_saldo_inicial}
                             readOnly
                             placeholder="Calculado automáticamente"
-                            className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-800/80 outline-none text-gray-600 dark:text-gray-300 font-mono cursor-not-allowed"
+                            className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-800/80 outline-none text-gray-600 dark:text-gray-300 cursor-not-allowed"
                           />
                         </FormField>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -850,11 +850,11 @@ export const ModalAjusteSaldo: FC<ModalAjusteSaldoProps> = ({
             </select>
           </FormField>
           <FormField label="Monto (Bs)">
-            <input type="text" value={formAjuste.monto_bs || ''} onChange={(e: ChangeEvent<HTMLInputElement>) => setFormAjuste({ ...formAjuste, monto_bs: e.target.value.replace(/\./g, ',').replace(/[^0-9,]/g, '') })} placeholder="Ej: 1.500,00" className="w-full p-3 rounded-xl border font-mono text-lg dark:bg-gray-900 dark:border-gray-700 outline-none dark:text-white" required />
+            <input type="text" value={formAjuste.monto_bs || ''} onChange={(e: ChangeEvent<HTMLInputElement>) => setFormAjuste({ ...formAjuste, monto_bs: e.target.value.replace(/\./g, ',').replace(/[^0-9,]/g, '') })} placeholder="Ej: 1.500,00" className="w-full p-3 rounded-xl border text-lg dark:bg-gray-900 dark:border-gray-700 outline-none dark:text-white" required />
           </FormField>
           <FormField label="Tasa BCV">
             <div className="flex gap-2">
-              <input type="text" value={formAjuste.tasa_cambio || ''} onChange={(e: ChangeEvent<HTMLInputElement>) => setFormAjuste({ ...formAjuste, tasa_cambio: e.target.value.replace(/\./g, ',').replace(/[^0-9,]/g, '') })} placeholder="Ej: 95,20" className="flex-1 p-3 rounded-xl border font-mono text-lg dark:bg-gray-900 dark:border-gray-700 outline-none dark:text-white" required />
+              <input type="text" value={formAjuste.tasa_cambio || ''} onChange={(e: ChangeEvent<HTMLInputElement>) => setFormAjuste({ ...formAjuste, tasa_cambio: e.target.value.replace(/\./g, ',').replace(/[^0-9,]/g, '') })} placeholder="Ej: 95,20" className="flex-1 p-3 rounded-xl border text-lg dark:bg-gray-900 dark:border-gray-700 outline-none dark:text-white" required />
               <button type="button" onClick={() => { void fetchBCV(); }} disabled={isFetchingBCV} className="px-3 rounded-xl border border-blue-300 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200 dark:border-blue-700 text-xs font-bold disabled:opacity-60">
                 {isFetchingBCV ? 'Consultando...' : 'Obtener BCV'}
               </button>
@@ -1140,7 +1140,7 @@ export const ModalResidenteForm: FC<ModalResidenteFormProps> = ({
     <ModalBase
       onClose={onClose}
       title={hasExistingResidente ? 'Editar Residente / Inquilino' : 'Agregar Residente / Inquilino'}
-      helpTooltip="Usa este modal para registrar o actualizar los datos del residente/inquilino y controlar su acceso al portal."
+      helpTooltip="Usa esta ventana para registrar o actualizar los datos del residente/inquilino y controlar su acceso al portal."
       subtitle={<>Inmueble: <strong>{propiedadIdentificador}</strong></>}
       maxWidth="max-w-xl"
       disableClose={isSubmitting}

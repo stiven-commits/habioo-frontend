@@ -167,7 +167,7 @@ const ModalVerificarPagoAlquiler: FC<ModalVerificarPagoAlquilerProps> = ({
   if (!isOpen || !solicitud) return null;
 
   return (
-    <ModalBase onClose={onClose} title={`Verificar Pago - ${solicitud.lugar}`} helpTooltip="Este modal es para validar o rechazar pagos reportados, revisar soportes y dejar observaciones de verificacion." subtitle="Revisión y validación del pago reportado." maxWidth="max-w-5xl" disableClose={isLoading}>
+    <ModalBase onClose={onClose} title={`Verificar Pago - ${solicitud.lugar}`} helpTooltip="Esta ventana es para validar o rechazar pagos reportados, revisar soportes y dejar observaciones de verificacion." subtitle="Revisión y validación del pago reportado." maxWidth="max-w-5xl" disableClose={isLoading}>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="space-y-4 rounded-2xl border border-gray-100 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-800/40 p-4">
               <div>

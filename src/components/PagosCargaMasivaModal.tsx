@@ -276,7 +276,7 @@ const PagosCargaMasivaModal: FC<Props> = ({ resultado, nombreArchivo, onClose, p
     <ModalBase
       onClose={onClose}
       title="Carga Masiva de Pagos"
-      helpTooltip="Este modal muestra el resultado de la carga masiva: total procesado, exitos, errores y observaciones para corregir el archivo."
+      helpTooltip="Esta ventana muestra el resultado de la carga masiva: total procesado, exitos, errores y observaciones para corregir el archivo."
       subtitle={subtitle}
       maxWidth="max-w-3xl"
     >

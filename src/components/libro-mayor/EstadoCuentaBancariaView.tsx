@@ -1740,12 +1740,18 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
               </div>
               <DataTable<IMovimiento>
                 columns={[
-                  { key: 'fecha', header: 'Fecha', className: 'font-mono text-gray-600 dark:text-gray-400 text-xs', render: (mov) => formatFecha(mov.fecha) },
+                  { key: 'fecha', header: 'Fecha', headerClassName: 'w-[1%] whitespace-nowrap', className: 'w-[1%] whitespace-nowrap font-mono text-gray-600 dark:text-gray-400 text-xs', render: (mov) => formatFecha(mov.fecha) },
                   { key: 'referencia', header: 'Referencia', className: 'font-mono text-xs text-gray-500', render: (mov) => mov.referencia || '-' },
-                  { key: 'descripcion', header: 'Descripción', className: 'font-medium text-gray-800 dark:text-gray-200', render: (mov) => mov.concepto || '-' },
-                  { key: 'monto_bs', header: 'Monto (Bs)', headerClassName: 'text-right', className: 'text-right font-black font-mono', render: (mov) => <>Bs {formatCurrency(getMontoBsVista(mov))}</> },
-                  { key: 'cargo', header: 'Cargo ($)', headerClassName: 'text-right', className: 'text-right font-black font-mono text-red-600 dark:text-red-400', render: (mov) => <>-{formatCurrency(mov.monto_usd)}</> },
-                  { key: 'tasa', header: 'Tasa', headerClassName: 'text-right', className: 'text-right font-mono text-xs text-blue-600 dark:text-blue-400', render: (mov) => mov.tasa_cambio ? formatCurrency(mov.tasa_cambio) : '-' },
+                  {
+                    key: 'descripcion',
+                    header: 'Descripción',
+                    headerClassName: 'w-[280px] max-w-[280px]',
+                    className: 'w-[280px] max-w-[280px] font-medium text-gray-800 dark:text-gray-200',
+                    render: (mov) => <span className="block truncate" title={mov.concepto || '-'}>{mov.concepto || '-'}</span>,
+                  },
+                  { key: 'monto_bs', header: 'Monto (Bs)', headerClassName: 'text-right min-w-[150px] whitespace-nowrap', className: 'text-right min-w-[150px] whitespace-nowrap font-black font-mono', render: (mov) => <>Bs {formatCurrency(getMontoBsVista(mov))}</> },
+                  { key: 'cargo', header: 'Cargo ($)', headerClassName: 'text-right min-w-[120px] whitespace-nowrap', className: 'text-right min-w-[120px] whitespace-nowrap font-black font-mono text-red-600 dark:text-red-400', render: (mov) => <>-{formatCurrency(mov.monto_usd)}</> },
+                  { key: 'tasa', header: 'Tasa', headerClassName: 'text-right min-w-[110px] whitespace-nowrap', className: 'text-right min-w-[110px] whitespace-nowrap font-mono text-xs text-blue-600 dark:text-blue-400', render: (mov) => mov.tasa_cambio ? formatCurrency(mov.tasa_cambio) : '-' },
                 ]}
                 data={ownerEgresosFondo}
                 keyExtractor={(mov) => String(mov.id)}
@@ -2080,6 +2086,8 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                     Fecha <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('fecha')}</span>
                   </button>
                 ),
+                headerClassName: 'w-[1%] whitespace-nowrap',
+                className: 'w-[1%] whitespace-nowrap',
                 render: (movimiento) => (
                   <>
                     <span className="block font-mono font-bold text-gray-800 dark:text-gray-200" style={{ fontSize: `${tableCompactFontPx}px` }}>
@@ -2120,8 +2128,16 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                     Descripción <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('descripcion')}</span>
                   </button>
                 ),
-                className: 'font-medium text-gray-800 dark:text-gray-200',
-                render: (movimiento) => getConceptoVista(movimiento),
+                headerClassName: 'w-[300px] max-w-[300px]',
+                className: 'w-[300px] max-w-[300px] font-medium text-gray-800 dark:text-gray-200',
+                render: (movimiento) => {
+                  const conceptoVista = getConceptoVista(movimiento);
+                  return (
+                    <span className="block truncate" title={typeof conceptoVista === 'string' ? conceptoVista : undefined}>
+                      {conceptoVista}
+                    </span>
+                  );
+                },
               },
               ...(!isCuentaUsd ? [{
                 key: 'monto_bs',
@@ -2130,8 +2146,8 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                     Monto (Bs) <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('monto_bs')}</span>
                   </button>
                 ),
-                headerClassName: 'text-right',
-                className: 'text-right font-black font-mono text-slate-700 dark:text-slate-200',
+                headerClassName: 'text-right min-w-[160px] whitespace-nowrap',
+                className: 'text-right min-w-[160px] whitespace-nowrap font-black font-mono text-slate-700 dark:text-slate-200',
                 render: (movimiento: IMovimiento) => {
                   const montoBsVista = getMontoBsVista(movimiento);
                   return montoBsVista > 0 ? (
@@ -2150,8 +2166,8 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                     Cargo ($) <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('cargo')}</span>
                   </button>
                 ),
-                headerClassName: 'text-right',
-                className: 'text-right font-black font-mono',
+                headerClassName: 'text-right min-w-[130px] whitespace-nowrap',
+                className: 'text-right min-w-[130px] whitespace-nowrap font-black font-mono',
                 render: (movimiento) => {
                   const montoUsdVista = getMontoUsdVista(movimiento);
                   return movimiento.tipo === 'EGRESO' && montoUsdVista > 0 ? (
@@ -2168,8 +2184,8 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                     Abono ($) <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('abono')}</span>
                   </button>
                 ),
-                headerClassName: 'text-right',
-                className: 'text-right font-black font-mono',
+                headerClassName: 'text-right min-w-[130px] whitespace-nowrap',
+                className: 'text-right min-w-[130px] whitespace-nowrap font-black font-mono',
                 render: (movimiento) => {
                   const montoUsdVista = getMontoUsdVista(movimiento);
                   return movimiento.tipo === 'INGRESO' && montoUsdVista > 0 ? (
@@ -2186,8 +2202,8 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                     Tasa (Bs.) <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('tasa')}</span>
                   </button>
                 ),
-                headerClassName: 'text-right',
-                className: 'text-right font-mono text-blue-600 dark:text-blue-400',
+                headerClassName: 'text-right min-w-[115px] whitespace-nowrap',
+                className: 'text-right min-w-[115px] whitespace-nowrap font-mono text-blue-600 dark:text-blue-400',
                 render: (movimiento: IMovimiento) => (
                   <span style={{ fontSize: `${tableCompactFontPx}px` }}>
                     {movimiento.tasa_cambio ? formatCurrency(movimiento.tasa_cambio) : '-'}
@@ -2197,8 +2213,8 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
               ...(mode === 'admin' ? [{
                 key: 'acciones',
                 header: 'Acciones',
-                headerClassName: 'text-center',
-                className: 'text-center',
+                headerClassName: 'text-center min-w-[110px] whitespace-nowrap',
+                className: 'text-center min-w-[110px] whitespace-nowrap',
                 render: (movimiento: IMovimiento) => {
                   const rollbackTarget = extractRollbackTarget(movimiento);
                   const rollbackButtonKey = rollbackTarget ? `${rollbackTarget.kind}-${rollbackTarget.id}` : '';

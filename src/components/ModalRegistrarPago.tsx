@@ -692,7 +692,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
     <ModalBase
       onClose={onClose}
       title="Registrar Pago"
-      helpTooltip="Este modal permite registrar pagos manuales, distribuirlos en conceptos y confirmar el asiento. Revisa montos, fecha y soportes antes de guardar."
+      helpTooltip="Esta ventana permite registrar pagos manuales, distribuirlos en conceptos y confirmar el asiento. Revisa montos, fecha y soportes antes de guardar."
       maxWidth="max-w-6xl"
       disableClose={isSubmitting}
       closeOnOverlayClick={false}
@@ -1018,7 +1018,6 @@ const parseInputNumber = (value: string | number | undefined | null): number => 
 };
 
 export default ModalRegistrarPago;
-
 
 
 

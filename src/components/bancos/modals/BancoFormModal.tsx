@@ -615,7 +615,7 @@ const BancoFormModal: FC<BancoFormModalProps> = ({
                 pattern="^[VEJG]-?[0-9]{5,9}$"
                 required
                 placeholder="Ej: J-123456789"
-                className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
               />
             </FormField>
           )}
@@ -631,7 +631,7 @@ const BancoFormModal: FC<BancoFormModalProps> = ({
                   onChange={handleChange}
                   required
                   placeholder="20 digitos"
-                  className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                  className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
                 />
               </FormField>
 
@@ -661,7 +661,7 @@ const BancoFormModal: FC<BancoFormModalProps> = ({
                           pattern="^[0-9]{7,15}$"
                           required
                           placeholder="Ej: 04141234567"
-                          className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                          className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
                         />
                       </FormField>
                       <FormField label="Cedula/RIF Pago Movil" required>
@@ -673,7 +673,7 @@ const BancoFormModal: FC<BancoFormModalProps> = ({
                           pattern="^[VEJG]-?[0-9]{5,9}$"
                           required
                           placeholder="Ej: V-12345678"
-                          className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                          className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
                         />
                       </FormField>
                     </div>
@@ -695,7 +695,7 @@ const BancoFormModal: FC<BancoFormModalProps> = ({
                 pattern="^[0-9]{7,15}$"
                 required
                 placeholder="Ej: 04141234567"
-                className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
               />
             </FormField>
           )}
@@ -711,7 +711,7 @@ const BancoFormModal: FC<BancoFormModalProps> = ({
                   onChange={handleChange}
                   required
                   placeholder="Ej: 123456789"
-                  className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono"
+                  className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
                 />
               </FormField>
               <FormField label="SWIFT / BIC" required>
@@ -723,7 +723,7 @@ const BancoFormModal: FC<BancoFormModalProps> = ({
                   required
                   placeholder="Ej: BOFAUS3N"
                   maxLength={11}
-                  className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono tracking-widest uppercase"
+                  className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white uppercase tracking-widest"
                 />
                 <p className="mt-1 text-[11px] text-gray-400">
                   8 u 11 caracteres alfanumericos · se formatea en mayusculas
@@ -739,7 +739,7 @@ const BancoFormModal: FC<BancoFormModalProps> = ({
                   required
                   placeholder="XXX-XXX-XXX"
                   inputMode="numeric"
-                  className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white font-mono tracking-widest"
+                  className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white tracking-widest"
                 />
                 <p className="mt-1 text-[11px] text-gray-400">
                   9 digitos · formato XXX-XXX-XXX

@@ -1,47 +1,90 @@
 @import url("https://fonts.googleapis.com/css2?family=Cal+Sans&display=swap");
 @import "tailwindcss";
 
-/* Definimos tu paleta de colores personalizada */
+/* Paleta de colores personalizada */
 @theme {
-  --color-donezo-primary: #0F5132;
+  --color-donezo-primary: #0f5132;
   --color-donezo-green: #198754;
   --color-donezo-bg: #f8f9fa;
   --color-donezo-dark-bg: #121212;
   --color-donezo-card-dark: #1e1e1e;
-  
-  /* Aquí podrás llamar a tus texturas webp luego */
+
   --background-image-donezo-pattern: url('/textures/tu-textura.webp');
 }
 
-/* Forzamos a que el Dark Mode funcione cuando le pongamos la clase 'dark' al HTML */
+/* Dark mode con clase .dark */
 @variant dark (&:where(.dark, .dark *));
 
-/* Algunos estilos base para que el fondo respete el modo oscuro/claro */
 @layer base {
   body {
     @apply bg-donezo-bg text-gray-900 transition-colors duration-300;
   }
+
   .dark body {
     @apply bg-donezo-dark-bg text-white;
   }
 
   /* Cursores globales para elementos interactivos */
-  button,
-  [role="button"],
-  a[href],
-  summary,
-  input[type="button"],
-  input[type="submit"],
-  input[type="reset"] {
+  :is(
+    button,
+    [role="button"],
+    a[href],
+    summary,
+    input[type="button"],
+    input[type="submit"],
+    input[type="reset"]
+  ) {
     cursor: pointer;
   }
 
-  button:disabled,
-  [role="button"][aria-disabled="true"],
-  input[type="button"]:disabled,
-  input[type="submit"]:disabled,
-  input[type="reset"]:disabled {
+  :is(
+    button:disabled,
+    [role="button"][aria-disabled="true"],
+    input[type="button"]:disabled,
+    input[type="submit"]:disabled,
+    input[type="reset"]:disabled
+  ) {
     cursor: not-allowed;
+  }
+
+  /* Tipografia unificada para campos de entrada */
+  :is(
+    input[type="text"],
+    input[type="number"],
+    input[type="tel"],
+    input[type="email"],
+    input[type="password"],
+    input[type="search"],
+    input[type="url"],
+    textarea,
+    select
+  ) {
+    font-family: inherit;
+    font-variant-numeric: tabular-nums;
+  }
+
+  td[class*="text-right"],
+  th[class*="text-right"] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Tipografia uniforme para todas las tablas del sistema */
+  table,
+  table :is(th, td, caption) {
+    font-family: inherit;
+  }
+
+  /* Evita mezcla visual por clases monospace dentro de tablas */
+  table .font-mono {
+    font-family: inherit !important;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
+  }
+
+  .font-mono {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace !important;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
   }
 }
 
@@ -51,7 +94,6 @@
     letter-spacing: -0.01em;
   }
 
-  /* Modal animations */
   @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
@@ -77,8 +119,11 @@
   }
 
   .custom-scrollbar {
+    --sb-thumb: #0f5132;
+    --sb-thumb-hover: #198754;
+    --sb-track: #e5e7eb;
     scrollbar-width: thin;
-    scrollbar-color: #0f5132 #e5e7eb;
+    scrollbar-color: var(--sb-thumb) var(--sb-track);
   }
 
   .custom-scrollbar::-webkit-scrollbar {
@@ -87,34 +132,30 @@
   }
 
   .custom-scrollbar::-webkit-scrollbar-track {
-    background: #e5e7eb;
+    background: var(--sb-track);
     border-radius: 9999px;
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #0f5132;
+    background: var(--sb-thumb);
     border-radius: 9999px;
-    border: 2px solid #e5e7eb;
+    border: 2px solid var(--sb-track);
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #198754;
+    background: var(--sb-thumb-hover);
   }
 
   .dark .custom-scrollbar {
-    scrollbar-color: #198754 #1f2937;
+    --sb-thumb: #198754;
+    --sb-thumb-hover: #0f5132;
+    --sb-track: #1f2937;
   }
 
-  .dark .custom-scrollbar::-webkit-scrollbar-track {
-    background: #1f2937;
-  }
-
-  .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #198754;
-    border-color: #1f2937;
-  }
-
-  .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #0f5132;
+  @media (prefers-reduced-motion: reduce) {
+    .animate-fadeIn,
+    .animate-modalEnter {
+      animation: none;
+    }
   }
 }

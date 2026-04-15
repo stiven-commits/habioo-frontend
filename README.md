@@ -2,19 +2,33 @@
 
 Documento tecnico y funcional del estado actual del sistema.
 
-- Ultima actualizacion: 2026-04-02
-- Frontend: React + Vite + Tailwind
+- Ultima actualizacion: 2026-04-14
+- Frontend: React 19 + Vite 7 + Tailwind CSS 4 + TypeScript (mixto)
 - Backend: Node.js + Express + PostgreSQL
+- **Nuevo**: Tipografía global unificada para valores numéricos/monetarios via `@layer base` en CSS
 
 ---
 
 ## 1) Stack y arquitectura
 
-- Frontend SPA con React Router.
+- Frontend SPA con React Router v7.
 - Backend REST con Express.
-- Autenticacion JWT (`/login`, `/me`).
+- Autenticacion JWT (`/login`, `/me`) con refresh token via headers.
 - Persistencia en PostgreSQL.
 - Manejo de archivos para gastos y alquileres en `/uploads`.
+- **React 19.2.0** (actualizado desde versiones anteriores).
+- **Tailwind CSS v4.2.1** con plugin nativo de Vite (sin PostCSS).
+- **Vite 7.3.1** (actualizado).
+- **TypeScript 5.9.3** con `allowJs: true` (codigo mixto JS/TS).
+- Editor de texto enriquecido con **Lexical** (`@lexical/*` v0.41.0).
+- Visualizacion de datos con **Recharts 3.8.0**.
+- Renderizado de Markdown con **react-markdown** (chat AI).
+- Iconos con **lucide-react** (v0.577.0).
+- Integracion con **Google OAuth** (`@react-oauth/google`) - instalado.
+- **MCP Server** (Model Context Protocol) integrado.
+- Tablas reutilizables con componente `DataTable` con sorting, pagination.
+- Date Pickers con `react-day-picker`.
+- Componentes UI reutilizables: modales, tooltips, badges, loaders, headers.
 
 ---
 
@@ -23,9 +37,14 @@ Documento tecnico y funcional del estado actual del sistema.
 Fuente: `habioo-frontend/src/App.jsx`
 
 ### Publicas
-- `/` -> Login
+- `/` -> Redirige a `/login`
 - `/login` -> Login
+- `/cambio-clave-obligatorio` -> CambioClaveObligatorio (cambio de contraseña forzado)
 - `/registro-junta` -> RegistroJunta
+- `/error-403` -> Error403
+- `/error-500` -> Error500
+- `/error-503` -> Error503
+- `*` -> NotFound (404)
 
 ### Junta (admin)
 - `/dashboard` -> DashboardHome
@@ -43,6 +62,9 @@ Fuente: `habioo-frontend/src/App.jsx`
 - `/carta-consulta` -> EncuestasAdmin
 - `/avisos-cobro` -> HistorialAvisos
 - `/aviso-cobro/:id` -> VistaAvisoCobro
+- `/soporte/condominios` -> SoporteSuperUsuario (acceso directo)
+
+**Modo Soporte**: Todas las rutas admin tienen espejo en `/soporte/:condominioId/*` para acceso de soporte multi-tab y deep links.
 
 ### Propietario / residente
 - `/propietario/gastos` -> GastosPropietario (solo lectura)
@@ -61,6 +83,17 @@ Fuente: `habioo-frontend/src/App.jsx`
 
 ## 3) Funcionalidades activas
 
+### 3.0 Autenticacion y sesion
+- Login con cedula/contrasena.
+- Cambio de clave obligatorio para primer acceso o cuando se requiere (`/cambio-clave-obligatorio`).
+- JWT con refresh automatico via headers `x-habioo-refreshed-token`.
+- Validacion de sesion al montar app via `/me`.
+- Manejo de errores HTTP:
+  - 401: evento `habioo:session-ended` y cierre de sesion.
+  - 403/500/503: redireccion a paginas de error con request ID.
+- Modo soporte con backup de credenciales en `habioo_super_*_backup`.
+- Sesion con debounce de 1500ms en botones/formularios sensibles.
+
 ### 3.1 Contabilidad y cobranza
 - Registro de gastos (comun, zona, individual, extra) con soportes.
 - Tabs de gastos: Todos, Comunes, Por Areas/Sectores, Individuales, Extra.
@@ -76,26 +109,41 @@ Fuente: `habioo-frontend/src/App.jsx`
 - Leyenda explicita de no impacto bancario en modal de ajuste desde estado de cuenta.
 
 ### 3.2 Tesoreria bancaria
-- CRUD de cuentas bancarias (tipos: Transferencia, Pago Movil, Zelle, Efectivo BS, Efectivo USD, Efectivo).
+- CRUD de cuentas bancarias con tipos: Transferencia, Pago Movil, Zelle, Efectivo BS, Efectivo USD, Efectivo.
+- **Nuevo**: Campo de moneda (USD/Bs) en cuentas bancarias.
+- **Nuevo**: Tarjetas de presentacion de cuenta bancaria con componente `BancoCard`.
+- **Nuevo**: Modales separados y reutilizables para CRUD de bancos (`BancoFormModal`, `BancosModals`).
 - CRUD y configuracion de fondos (operativo, visibilidad, porcentaje, renombrar).
 - Libro mayor por cuenta/fondo con filtros, orden, consolidacion y detalle.
+- **Nuevo**: Saldos iniciales y aperturas de cuenta en estado de cuenta bancario.
+- **Nuevo**: Footer con calculo corregido en filtros de estado de cuenta bancario.
 - Registro de egresos manuales.
+- **Nuevo**: Registro de ingresos manuales (reutiliza modal de egreso con accion inversa).
+- **Nuevo**: Boton de rollback para egresos manuales desde libro mayor.
 - Transferencias entre fondos.
+- **Nuevo**: Modal dedicado para transferencias interbancarias con combobox de fondo destino.
 - Pago a proveedores desde fondos.
+- **Nuevo**: Pago a proveedores habilitado desde gastos transito/extra.
 - Rollback de pagos validados desde libro mayor.
 - Rollback de ajustes bancarios (`movimientos_fondos/:id/rollback-ajuste`).
 - Rollback de transferencias (`transferencias/:id/rollback`).
 - Rollback de egresos manuales (`movimientos-fondos/:id/rollback-egreso-manual`).
+- **Nuevo**: Exportacion a Excel de estados de cuenta bancarios.
+- **Nuevo**: Filtro maximo 2 meses en descarga de Excel (o rango de fecha especifico).
 
 ### 3.3 Gestion de inmuebles
 - CRUD de propiedades con carga masiva (Excel).
 - CRUD de copropietarios y residentes por propiedad.
-- Ajuste de saldo por inmueble.
+- Ajuste de saldo por inmueble con concepto detallado.
+- **Nuevo**: Obligatorio referencia y cuenta destino para ajustes de estado de cuenta.
 - Estado de cuenta de propiedad (admin y propietario).
 - Acciones por fila: Editar datos, Agregar Residente, Agregar Co-propietarios, Eliminar.
+- **Nuevo**: Servicios basicos incluidos en lista de proveedores para inmuebles.
 
 ### 3.4 Modulos adicionales
 - Proveedores (individual y lote).
+  - **Nuevo**: Entidad bancaria para proveedores (cuentas bancarias de proveedores).
+  - **Nuevo**: Servicios basicos incluidos en catalogo de proveedores.
 - Zonas con reglas de bloqueo por historial contable; presentadas como "Areas / Sectores" en UI.
 - Encuestas / cartas consulta (tipos: Si/No, Opcion Multiple, Respuesta Abierta).
   - Admin: crear, cerrar, ver resultados, editar, eliminar.
@@ -104,10 +152,21 @@ Fuente: `habioo-frontend/src/App.jsx`
   - Admin: definir espacios, tabs Espacios / Solicitudes, aprobar/rechazar pagos.
   - Propietario: reservar, ver mis reservas, reportar pago.
 - Notificaciones para propietario con estados: En aprobacion, Aprobado, Rechazado.
-- Perfil del condominio (logos, mensajes de aviso, info legal).
+- Perfil del condominio (logos, mensajes de aviso, info legal, **editor de texto enriquecido con Lexical**).
 - Perfil del propietario (info personal, cambio de contrasena).
-- Dashboard admin: KPIs, graficos, alertas de pendientes, movimientos recientes.
-- Widget de chat AI (`AIChatWidget`).
+- Dashboard admin: KPIs, graficos (Recharts), alertas de pendientes, movimientos recientes, notificaciones internas.
+- Widget de chat AI (`AIChatWidget`) con:
+  - Integracion con n8n backend.
+  - Soporte de Markdown para respuestas.
+  - **Nuevo**: Carga masiva de pagos via Excel (`/chat/preview-carga-pagos`, `/chat/confirmar-carga-pagos`).
+  - **Nuevo**: Modo date-picker activado por patron de respuesta de AI.
+  - Historial de chat en localStorage.
+  - **Nuevo**: Validacion de pagos previo a carga masiva.
+- **Nuevo**: Pagos con carga masiva (`PagosCargaMasivaModal`) con resultados detallados.
+- **Nuevo**: Notificaciones flotantes toast con polling (15s):
+  - Propietario: cambios de estado de pagos (Validado/Rechazado/PendienteAprobacion).
+  - Admin: nuevos pagos pendientes, solicitudes de alquiler, notificaciones de Junta General.
+- **Nuevo**: Tema oscuro/claro con toggle (almacenado en `localStorage.theme`).
 
 ### 3.5 Soporte SuperUsuario
 - Vista de todos los condominios registrados.
@@ -120,9 +179,14 @@ Fuente: `habioo-frontend/src/App.jsx`
 - Cierre de ciclo General -> Individual con distribucion por partes iguales o alicuota.
 - Propagacion de cargo a Junta Individual como gasto de origen Junta General.
 - Estado de cuenta General <-> Individual en USD/Bs.
-- Conciliacion por periodo/junta/estado.
+- Conciliacion por periodo/junta/estado con badge `EstadoConciliacionBadge`.
 - Notificaciones internas de vinculacion y pagos relacionados.
 - Registro publico de nuevas juntas en `/registro-junta` (sin depender de soporte).
+- **Nuevo**: Auditoria de eventos criticos con log visible en UI.
+- **Nuevo**: Validaciones de RIF para miembros.
+- **Nuevo**: Reglas 1:1 de editar/eliminar vinculo por historial de avisos implementadas.
+- **Nuevo**: Endurecimiento de permisos jerarquicos en modulos de inmuebles.
+- **Nuevo**: Dashboard con KPIs especificos para Junta General.
 
 ---
 
@@ -143,6 +207,21 @@ Fuente: `habioo-frontend/src/App.jsx`
 - Junta General opera `Zonas/Sectores` sobre juntas individuales (incluyendo fantasmas).
 - Si una junta individual ya fue incluida en aviso de cobro de Junta General, su vinculo no puede editarse/eliminarse.
 - Endpoints legacy de inmuebles para Junta General retornan 403.
+- **Nuevo**: Gastos historicos con pagos y recaudaciones retroactivas soportados.
+- **Nuevo**: Gastos con pago adelantado sin recaudacion soportados.
+- **Nuevo**: Desvio de porciones de pago a gastos extras disponible.
+- **Nuevo**: Truncado de valores Bs->USD en modales de pago para evitar diferencias visuales con backend.
+- **Nuevo**: Bloqueo de cierre de modales de pago al hacer click fuera (previene perdida de datos).
+- **Nuevo**: Doble cargo evitado en saldo al aprobar pago notificado por inmueble.
+- **Nuevo**: Conceptos detallados obligatorios al crear ajustes en estado de cuenta de inmuebles.
+- **Nuevo**: Sort/tablas activado en estados de cuenta bancarios.
+- **Nuevo**: Animacion de loading global (`HabiooLoader`) en operaciones de carga.
+- **Nuevo**: Tooltip en ventanas modales para mejor UX.
+- **Nuevo**: Scroll interno optimizado en modales para pantallas de baja altura.
+- **Nuevo**: Manejo de mojibake (codificacion de caracteres) en chat y avisos de cobro.
+- **Nuevo**: Referencia de origen y banco de origen eliminados de flujos de pago.
+- **Nuevo**: Fecha de operacion agregada a registros de cobranza.
+- **Nuevo**: Label de pago pendiente por aprobar visible en cuentas por cobrar.
 
 ---
 
@@ -337,16 +416,42 @@ Fuente: `habioo-auth/index.ts` + `habioo-auth/routes/*`
 ### Frontend (`habioo-frontend`)
 1. Ejecutar Vite en `http://localhost:5173`.
 2. `API_BASE_URL`:
-   - `VITE_API_BASE_URL` si existe.
-   - `http://localhost:3000` en local.
+   - `VITE_API_BASE_URL` si existe (variable de entorno).
+   - `http://localhost:3000` en local (default).
    - `https://auth.habioo.cloud` en produccion.
+3. Comandos disponibles:
+   - `npm run dev` - servidor de desarrollo Vite
+   - `npm run build` - build de produccion
+   - `npm run preview` - preview del build
+   - `npm run start` - `serve -s dist -l 3000` (produccion)
+   - `npm run lint` - ESLint
+   - `npm run e2e` - Playwright tests (headless)
+   - `npm run e2e:headed` - Playwright tests (headed)
 
 ### Nota de sesion
 - Si cambias entre entornos y aparece `401`, limpiar `localStorage` y volver a iniciar sesion.
+- Credenciales de soporte se respaldan en `habioo_super_*_backup` para modo switch.
+
+### APIs externas
+- Tasa BCV: `https://ve.dolarapi.com/v1/dolares/oficial` (usada en Cierres, CuentasPorCobrar).
+
+### Utilidades de frontend
+- `src/utils/currency.ts` - `formatMoney()`
+- `src/utils/datetime.ts` - `toYmdVE()`, locale `es`
+- `src/utils/validators.ts` - sanitizacion de cedula/RIF, telefono, email
+- `src/utils/juntaGeneralAvisos.ts` - `metodoDivisionLabel()`
+
+### Arquitectura de autenticacion
+- Token JWT en `localStorage` como `habioo_token`.
+- Datos de sesion en `localStorage` como `habioo_session`.
+- Refresh token via headers `x-habioo-refreshed-token` (interceptado en `main.jsx`).
+- Evento `habioo:session-ended` para HTTP 401.
+- Redirecciones automaticas para HTTP 403/500/503 con request ID.
+- Debounce de 1500ms en botones y formularios sensibles.
 
 ---
 
-## 8) Estado del Plan Junta General (al 2026-04-02)
+## 8) Estado del Plan Junta General (al 2026-04-14)
 
 ### Completado
 - Sprint 1: base operativa, soporte, migracion legacy y jerarquia inicial.
@@ -354,21 +459,16 @@ Fuente: `habioo-auth/index.ts` + `habioo-auth/routes/*`
 - Sprint 2: vinculacion por codigo, CRUD de miembros y validaciones de RIF.
 - Sprint 3: distribucion General -> Individual con trazabilidad (`origen_*`) y miembros fantasma.
 - Sprint 4: conciliacion, estado de cuenta General<->Individual, pagos a Junta General como proveedor.
+- Sprint 5: reglas 1:1 de editar/eliminar vinculo por historial de avisos, endurecimiento de permisos jerarquicos, auditoria de eventos criticos, notificaciones internas ampliadas.
+
+### Completado - Sprint 6
+- **Tests unitarios backend**: `habioo-auth/tests/juntaGeneral.unit.test.js` (script `npm test` en `habioo-auth`).
+- **Tests de integracion API**: `habioo-auth/tests/api.integration.test.js` (flujos de permisos y resumen Junta General).
+- **Tests E2E frontend**: Playwright en `tests/e2e/junta-general.spec.ts` (script `npm run e2e`).
+- **Manual operativo**: `../docs/junta-general/MANUAL_OPERATIVO_JUNTA_GENERAL.md`.
+- **Plan despliegue/rollback**: `../docs/junta-general/DESPLIEGUE_Y_ROLLBACK_JUNTA_GENERAL.md`.
+- **Checklist QA formal**: `../docs/junta-general/QA_CHECKLIST_STAGING.md` (pendiente corrida completa en staging).
 
 ### En progreso
-- Sprint 5:
-  - reglas 1:1 de editar/eliminar vinculo por historial de avisos (implementado),
-  - endurecimiento de permisos jerarquicos en modulos de inmuebles (implementado en modulos clave),
-  - auditoria de eventos criticos de vinculacion (implementado),
-  - notificaciones internas ampliadas (implementado parcialmente; falta cierre total de cobertura).
-
-### Pendiente
-- Sprint 6 completo: pruebas unitarias, integracion, E2E, QA formal, manual operativo y plan de despliegue/rollback.
-
-### Avance Sprint 6 (actual)
-- Base de test unitario backend agregada en `habioo-auth/tests/juntaGeneral.unit.test.js` (script `npm test` en `habioo-auth`).
-- Test de integracion API agregados en `habioo-auth/tests/api.integration.test.js` (flujos de permisos y resumen Junta General).
-- Test E2E frontend agregados con Playwright en `tests/e2e/junta-general.spec.ts` (script `npm run e2e`).
-- Manual operativo: `../docs/junta-general/MANUAL_OPERATIVO_JUNTA_GENERAL.md`.
-- Plan despliegue/rollback: `../docs/junta-general/DESPLIEGUE_Y_ROLLBACK_JUNTA_GENERAL.md`.
-- Checklist QA formal: `../docs/junta-general/QA_CHECKLIST_STAGING.md` (pendiente corrida completa en staging).
+- Validacion completa de tests E2E en entorno de staging.
+- corrida completa del checklist QA formal.

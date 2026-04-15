@@ -175,7 +175,7 @@ export const ModalProveedorForm: React.FC<ModalProveedorFormProps> = ({
     <ModalBase
       onClose={() => setIsModalOpen(false)}
       title={editingId ? 'Editar Proveedor' : 'Registrar Proveedor'}
-      helpTooltip="Usa este modal para crear o actualizar proveedores: datos fiscales, contacto, rubro, ubicacion y estado operativo."
+      helpTooltip="Usa esta ventana para crear o actualizar proveedores: datos fiscales, contacto, rubro, ubicacion y estado operativo."
       subtitle={<>Los campos marcados con (<span className="text-red-500 font-bold">*</span>) son obligatorios.</>}
       maxWidth="max-w-3xl"
     >
