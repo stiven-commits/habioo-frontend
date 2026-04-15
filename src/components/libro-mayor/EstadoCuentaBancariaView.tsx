@@ -1,5 +1,6 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties, ChangeEvent, FC, MouseEvent as ReactMouseEvent, ReactNode } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
+import type { ChangeEvent, FC } from 'react';
+import type { SortingState } from '@tanstack/react-table';
 import DateRangePicker from '../ui/DateRangePicker';
 import { es } from 'date-fns/locale/es';
 import { useOutletContext } from 'react-router-dom';
@@ -16,8 +17,6 @@ import { useDialog } from '../ui/DialogProvider';
 
 type ViewMode = 'admin' | 'owner';
 type ActiveTab = 'cuenta' | 'sin-fondo' | `fondo-${number | string}`;
-type SortDirection = 'asc' | 'desc';
-type SortKey = 'ejecucion' | 'fecha' | 'referencia' | 'inmueble' | 'descripcion' | 'monto_bs' | 'cargo' | 'abono' | 'tasa';
 type MainTableColumnKey = 'fecha' | 'referencia' | 'inmueble' | 'descripcion' | 'monto_bs' | 'cargo' | 'abono' | 'tasa' | 'acciones';
 
 interface EstadoCuentaBancariaViewProps {
@@ -72,11 +71,6 @@ interface IMovimiento extends IMovimientoDetalle {
 interface RollbackTarget {
   kind: 'pago' | 'ajuste' | 'transferencia' | 'egreso' | 'pago_proveedor';
   id: string;
-}
-
-interface SortConfig {
-  key: SortKey;
-  direction: SortDirection;
 }
 
 interface DialogContextType {
@@ -353,9 +347,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   const [fechaDesde, setFechaDesde] = useState<string>('');
   const [fechaHasta, setFechaHasta] = useState<string>('');
   const [movimientoDetalle, setMovimientoDetalle] = useState<IMovimiento | null>(null);
-  const [currentPage, setCurrentPage] = useState<number>(1);
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'fecha', direction: 'desc' });
   const [tasaBcv, setTasaBcv] = useState<string>('');
   const [loadingBcv, setLoadingBcv] = useState<boolean>(false);
   const [rollbackingKey, setRollbackingKey] = useState<string>('');
@@ -374,83 +366,12 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   const [pagoReferenciaPrefill, setPagoReferenciaPrefill] = useState<string>('');
   const [pagoMovimientoFondoPendienteId, setPagoMovimientoFondoPendienteId] = useState<number | null>(null);
   const [tableFontBoost, setTableFontBoost] = useState<number>(0);
+  const [movimientosTablaVisibles, setMovimientosTablaVisibles] = useState<IMovimiento[]>([]);
   const itemsPerPage = 13;
   const tableFontSizePx = 14 + tableFontBoost;
   const tableMetaFontPx = 10 + tableFontBoost;
   const tableTagFontPx = 9 + tableFontBoost;
   const tableCompactFontPx = 12 + tableFontBoost;
-  const mainTableWidthsStorageKey = useMemo(
-    () => `habioo_libro_mayor_column_widths_${mode}`,
-    [mode],
-  );
-  const [mainTableColumnWidths, setMainTableColumnWidths] = useState<Record<MainTableColumnKey, number>>({
-    ...MAIN_TABLE_COLUMN_DEFAULT_WIDTHS,
-  });
-  const tableResizeRef = useRef<{
-    columnKey: MainTableColumnKey;
-    startX: number;
-    startWidth: number;
-  } | null>(null);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const raw = window.localStorage.getItem(mainTableWidthsStorageKey);
-      if (!raw) {
-        setMainTableColumnWidths({ ...MAIN_TABLE_COLUMN_DEFAULT_WIDTHS });
-        return;
-      }
-      const parsed = JSON.parse(raw) as Partial<Record<MainTableColumnKey, number>>;
-      const normalized: Record<MainTableColumnKey, number> = { ...MAIN_TABLE_COLUMN_DEFAULT_WIDTHS };
-      (Object.keys(MAIN_TABLE_COLUMN_DEFAULT_WIDTHS) as MainTableColumnKey[]).forEach((key) => {
-        const nextWidth = Number(parsed[key]);
-        if (!Number.isFinite(nextWidth)) return;
-        normalized[key] = Math.max(MAIN_TABLE_COLUMN_MIN_WIDTHS[key], Math.round(nextWidth));
-      });
-      setMainTableColumnWidths(normalized);
-    } catch {
-      setMainTableColumnWidths({ ...MAIN_TABLE_COLUMN_DEFAULT_WIDTHS });
-    }
-  }, [mainTableWidthsStorageKey]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(mainTableWidthsStorageKey, JSON.stringify(mainTableColumnWidths));
-  }, [mainTableColumnWidths, mainTableWidthsStorageKey]);
-
-  useEffect(() => {
-    const handleMouseMove = (event: MouseEvent): void => {
-      const activeResize = tableResizeRef.current;
-      if (!activeResize) return;
-      const minWidth = MAIN_TABLE_COLUMN_MIN_WIDTHS[activeResize.columnKey];
-      const nextWidth = Math.max(
-        minWidth,
-        Math.round(activeResize.startWidth + (event.clientX - activeResize.startX)),
-      );
-      setMainTableColumnWidths((prev) => (
-        prev[activeResize.columnKey] === nextWidth
-          ? prev
-          : { ...prev, [activeResize.columnKey]: nextWidth }
-      ));
-    };
-
-    const handleMouseUp = (): void => {
-      if (!tableResizeRef.current) return;
-      tableResizeRef.current = null;
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-  }, []);
-
   const fetchCuentas = async (): Promise<void> => {
     const token = localStorage.getItem('habioo_token');
     const storageKey = getCuentaStorageKey(mode, ownerCondominioId);
@@ -727,10 +648,6 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     if (mode !== 'owner') return;
     void fetchCortesOwner(selectedCuenta, ownerFiltroAnio, ownerFiltroMes);
   }, [mode, selectedCuenta, ownerCondominioId, ownerFiltroAnio, ownerFiltroMes]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [fechaDesde, fechaHasta, selectedCuenta, movimientos.length, activeTab, searchTerm, sortConfig.key, sortConfig.direction]);
 
   useEffect(() => {
     setActiveTab('cuenta');
@@ -1158,62 +1075,28 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     });
   }, [extrasInfo, searchTerm]);
 
-  const sortedMovimientosPorVista = useMemo(() => {
-    const getInmuebleTexto = (mov: IMovimiento): string => {
-      const inmuebleApi = String(mov.inmueble || '').trim();
-      if (inmuebleApi) return inmuebleApi;
-      const concepto = String(mov.concepto || '');
-      const matchConcepto = concepto.match(/Inmueble:\s*([^|]+)/i);
-      if (matchConcepto?.[1]) return matchConcepto[1].trim();
-      const matchNota = concepto.match(/Inmueble\s*[:\-]\s*([A-Za-z0-9\-_.\/ ]+)/i);
-      if (matchNota?.[1]) return matchNota[1].trim();
-      return '-';
-    };
-    const getConceptoTexto = (mov: IMovimiento): string => {
-      const banco = mov.banco_origen?.trim();
-      const cedula = mov.cedula_origen?.trim();
-      if (mov.tipo === 'INGRESO' && (banco || cedula)) {
-        const extras = [banco ? `Banco: ${banco}` : '', cedula ? `Cédula/RIF: ${cedula}` : ''].filter(Boolean);
-        return `${mov.concepto} | ${extras.join(' | ')}`;
-      }
-      return mov.concepto;
-    };
+  const isAperturaMovimiento = (movimiento: IMovimiento): boolean => {
+    if (Boolean(movimiento.es_apertura) || Boolean(movimiento.apertura_sintetica)) return true;
+    const referencia = String(movimiento.referencia || '').trim().toUpperCase();
+    if (referencia === 'APERTURA') return true;
+    const concepto = String(movimiento.concepto || '').toLowerCase();
+    return /saldo\s+de\s+apertura|apertura\s+del\s+fondo|apertura/.test(concepto);
+  };
 
-    const getExecutionOrder = (mov: IMovimiento): number => {
-      if (mov.pago_id && Number.isFinite(mov.pago_id)) return Number(mov.pago_id);
-      const refAjuste = String(mov.referencia || '').match(/^AJ-(\d+)$/i);
-      if (refAjuste?.[1]) return Number(refAjuste[1]);
-      const raw = String(mov.id || '');
-      const matchId = raw.match(/(\d+)/);
-      return matchId?.[1] ? Number(matchId[1]) : 0;
-    };
-
-    const getSortValue = (mov: IMovimiento, key: SortKey): string | number => {
-      if (key === 'ejecucion') return getExecutionOrder(mov);
-      if (key === 'fecha') return new Date(mov.fecha || '').getTime() || 0;
-      if (key === 'referencia') return String(mov.referencia || '').toLowerCase();
-      if (key === 'inmueble') return getInmuebleTexto(mov).toLowerCase();
-      if (key === 'descripcion') return getConceptoTexto(mov).toLowerCase();
-      if (key === 'monto_bs') return getMontoBsVista(mov);
-      if (key === 'cargo') return mov.tipo === 'EGRESO' ? toNumber(mov.monto_usd) : 0;
-      if (key === 'abono') return mov.tipo === 'INGRESO' ? toNumber(mov.monto_usd) : 0;
-      if (key === 'tasa') return toNumber(mov.tasa_cambio);
-      return 0;
-    };
-
-    return [...movimientosPorVista].sort((a, b) => {
-      const av = getSortValue(a, sortConfig.key);
-      const bv = getSortValue(b, sortConfig.key);
-      if (typeof av === 'number' && typeof bv === 'number') {
-        return sortConfig.direction === 'asc' ? av - bv : bv - av;
-      }
-      const comp = String(av).localeCompare(String(bv), 'es', { numeric: true, sensitivity: 'base' });
-      return sortConfig.direction === 'asc' ? comp : -comp;
+  const movimientosPorVistaConAperturaAlFinal = useMemo(() => {
+    const normales: IMovimiento[] = [];
+    const aperturas: IMovimiento[] = [];
+    movimientosPorVista.forEach((mov) => {
+      if (isAperturaMovimiento(mov)) aperturas.push(mov);
+      else normales.push(mov);
     });
-  }, [movimientosPorVista, sortConfig]);
+    return [...normales, ...aperturas];
+  }, [movimientosPorVista]);
 
-  const totalPages = Math.max(1, Math.ceil(sortedMovimientosPorVista.length / itemsPerPage));
-  const movimientosPagina = sortedMovimientosPorVista.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const movimientosPagina = useMemo(
+    () => movimientosPorVista.slice(0, itemsPerPage),
+    [movimientosPorVista, itemsPerPage],
+  );
   const cuentaActual = cuentas.find((c) => String(c.id) === selectedCuenta);
   const isCuentaUsd = String(cuentaActual?.moneda || '').toUpperCase() === 'USD';
 
@@ -1406,7 +1289,8 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   }
 
   const totalesPagina = useMemo(() => {
-    return movimientosPagina.reduce(
+    const rowsVisibles = movimientosTablaVisibles.length > 0 ? movimientosTablaVisibles : movimientosPagina;
+    return rowsVisibles.reduce(
       (acc, movimiento) => {
         const montoBsVista = getMontoBsVista(movimiento);
         const montoUsdVista = getMontoUsdVista(movimiento);
@@ -1417,7 +1301,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       },
       { montoBs: 0, cargoUsd: 0, abonoUsd: 0 }
     );
-  }, [movimientosPagina, tasaBcvNum]);
+  }, [movimientosTablaVisibles, movimientosPagina, tasaBcvNum]);
 
   const getConceptoVista = (movimiento: IMovimiento): string => {
     const fondoNombreMov = String(movimiento.fondo_nombre || '').trim();
@@ -1503,8 +1387,8 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     haceDosMeses.setHours(0, 0, 0, 0);
 
     const movimientosExportar = rangoAplicado
-      ? sortedMovimientosPorVista
-      : sortedMovimientosPorVista.filter((movimiento) => {
+      ? movimientosPorVista
+      : movimientosPorVista.filter((movimiento) => {
         const fechaMov = new Date(String(movimiento.fecha || ''));
         if (Number.isNaN(fechaMov.getTime())) return false;
         return fechaMov >= haceDosMeses && fechaMov <= hoy;
@@ -1577,76 +1461,6 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Estado de Cuenta');
     XLSX.writeFile(workbook, filename);
   };
-
-  const handleSort = (key: SortKey): void => {
-    setCurrentPage(1);
-    setSortConfig((prev) => {
-      if (prev.key === key) {
-        return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
-      }
-      return { key, direction: key === 'fecha' || key === 'ejecucion' ? 'desc' : 'asc' };
-    });
-  };
-
-  const getSortArrow = (key: SortKey): string => {
-    if (sortConfig.key !== key) return '↕';
-    return sortConfig.direction === 'asc' ? '↑' : '↓';
-  };
-
-  const startResizeColumn = (
-    event: ReactMouseEvent<HTMLSpanElement>,
-    columnKey: MainTableColumnKey,
-  ): void => {
-    event.preventDefault();
-    event.stopPropagation();
-    const width = mainTableColumnWidths[columnKey] ?? MAIN_TABLE_COLUMN_DEFAULT_WIDTHS[columnKey];
-    tableResizeRef.current = {
-      columnKey,
-      startX: event.clientX,
-      startWidth: width,
-    };
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-  };
-
-  const getColumnStyle = (columnKey: MainTableColumnKey): CSSProperties => {
-    const width = Math.max(
-      MAIN_TABLE_COLUMN_MIN_WIDTHS[columnKey],
-      mainTableColumnWidths[columnKey] ?? MAIN_TABLE_COLUMN_DEFAULT_WIDTHS[columnKey],
-    );
-    return {
-      width: `${width}px`,
-      minWidth: `${width}px`,
-      maxWidth: `${width}px`,
-    };
-  };
-
-  const renderResizableHeader = (
-    columnKey: MainTableColumnKey,
-    content: ReactNode,
-    align: 'left' | 'center' | 'right' = 'left',
-  ): ReactNode => (
-    <div
-      className={`group relative flex items-center ${align === 'center'
-        ? 'justify-center'
-        : align === 'right'
-          ? 'justify-end'
-          : 'justify-start'} pr-2`}
-    >
-      <span className={align === 'right' ? 'ml-auto' : ''}>{content}</span>
-      <span
-        role="separator"
-        aria-orientation="vertical"
-        aria-label={`Ajustar ancho de columna ${columnKey}`}
-        onMouseDown={(event) => startResizeColumn(event, columnKey)}
-        className="absolute -right-2 top-0 h-full w-3 cursor-col-resize touch-none select-none"
-        title="Arrastra para ajustar el ancho de la columna"
-      >
-        <span className="absolute left-1.5 top-1/2 h-6 -translate-y-1/2 border-r border-transparent transition-colors group-hover:border-gray-300 dark:group-hover:border-gray-600" />
-      </span>
-    </div>
-  );
-
   const isIngresoPendienteInmueble = (movimiento: IMovimiento): boolean => {
     if (movimiento.tipo !== 'INGRESO') return false;
     if (movimiento.pago_id && Number.isFinite(movimiento.pago_id)) return false;
@@ -2348,15 +2162,13 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
             columns={[
               {
                 key: 'fecha',
-                header: renderResizableHeader('fecha', (
-                  <button type="button" onClick={() => handleSort('fecha')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
-                    Fecha <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('fecha')}</span>
-                  </button>
-                )),
-                headerStyle: getColumnStyle('fecha'),
-                cellStyle: getColumnStyle('fecha'),
+                header: 'Fecha',
                 headerClassName: 'whitespace-nowrap',
                 className: 'whitespace-nowrap',
+                size: MAIN_TABLE_COLUMN_DEFAULT_WIDTHS.fecha,
+                minSize: MAIN_TABLE_COLUMN_MIN_WIDTHS.fecha,
+                enableSorting: true,
+                sortAccessor: (movimiento) => new Date(String(movimiento.fecha || movimiento.fecha_registro || '')).getTime() || 0,
                 render: (movimiento) => (
                   <>
                     <span className="block font-mono font-bold text-gray-800 dark:text-gray-200" style={{ fontSize: `${tableCompactFontPx}px` }}>
@@ -2372,38 +2184,36 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
               },
               {
                 key: 'referencia',
-                header: renderResizableHeader('referencia', (
-                  <button type="button" onClick={() => handleSort('referencia')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
-                    Referencia <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('referencia')}</span>
-                  </button>
-                )),
-                headerStyle: getColumnStyle('referencia'),
-                cellStyle: getColumnStyle('referencia'),
+                header: 'Referencia',
                 className: 'font-mono text-gray-500',
+                size: MAIN_TABLE_COLUMN_DEFAULT_WIDTHS.referencia,
+                minSize: MAIN_TABLE_COLUMN_MIN_WIDTHS.referencia,
+                enableSorting: true,
+                sortAccessor: (movimiento) => {
+                  const referencia = String(movimiento.referencia || '').trim();
+                  const numero = Number(referencia.replace(/[^\d.-]/g, ''));
+                  return Number.isFinite(numero) ? numero : referencia.toLowerCase();
+                },
                 render: (movimiento) => <span style={{ fontSize: `${tableCompactFontPx}px` }}>{movimiento.referencia || '-'}</span>,
               },
               {
                 key: 'inmueble',
-                header: renderResizableHeader('inmueble', (
-                  <button type="button" onClick={() => handleSort('inmueble')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
-                    Inmueble <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('inmueble')}</span>
-                  </button>
-                )),
-                headerStyle: getColumnStyle('inmueble'),
-                cellStyle: getColumnStyle('inmueble'),
+                header: 'Inmueble',
                 className: 'font-semibold text-gray-700 dark:text-gray-300',
+                size: MAIN_TABLE_COLUMN_DEFAULT_WIDTHS.inmueble,
+                minSize: MAIN_TABLE_COLUMN_MIN_WIDTHS.inmueble,
+                enableSorting: true,
+                sortAccessor: (movimiento) => getInmuebleVista(movimiento).toLowerCase(),
                 render: (movimiento) => <span style={{ fontSize: `${tableCompactFontPx}px` }}>{getInmuebleVista(movimiento)}</span>,
               },
               {
                 key: 'descripcion',
-                header: renderResizableHeader('descripcion', (
-                  <button type="button" onClick={() => handleSort('descripcion')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
-                    Descripción <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('descripcion')}</span>
-                  </button>
-                )),
-                headerStyle: getColumnStyle('descripcion'),
-                cellStyle: getColumnStyle('descripcion'),
+                header: 'Descripción',
                 className: 'font-medium text-gray-800 dark:text-gray-200',
+                size: MAIN_TABLE_COLUMN_DEFAULT_WIDTHS.descripcion,
+                minSize: MAIN_TABLE_COLUMN_MIN_WIDTHS.descripcion,
+                enableSorting: true,
+                sortAccessor: (movimiento) => getConceptoVista(movimiento).toLowerCase(),
                 render: (movimiento) => {
                   const conceptoVista = getConceptoVista(movimiento);
                   return (
@@ -2415,15 +2225,13 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
               },
               ...(!isCuentaUsd ? [{
                 key: 'monto_bs',
-                header: renderResizableHeader('monto_bs', (
-                  <button type="button" onClick={() => handleSort('monto_bs')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
-                    Monto (Bs) <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('monto_bs')}</span>
-                  </button>
-                ), 'right'),
-                headerStyle: getColumnStyle('monto_bs'),
-                cellStyle: getColumnStyle('monto_bs'),
+                header: 'Monto (Bs)',
                 headerClassName: 'text-right whitespace-nowrap',
                 className: 'text-right whitespace-nowrap font-black font-mono text-slate-700 dark:text-slate-200',
+                size: MAIN_TABLE_COLUMN_DEFAULT_WIDTHS.monto_bs,
+                minSize: MAIN_TABLE_COLUMN_MIN_WIDTHS.monto_bs,
+                enableSorting: true,
+                sortAccessor: (movimiento: IMovimiento) => getMontoBsVista(movimiento),
                 render: (movimiento: IMovimiento) => {
                   const montoBsVista = getMontoBsVista(movimiento);
                   return montoBsVista > 0 ? (
@@ -2437,15 +2245,13 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
               } as Column<IMovimiento>] : []),
               {
                 key: 'cargo',
-                header: renderResizableHeader('cargo', (
-                  <button type="button" onClick={() => handleSort('cargo')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
-                    Cargo ($) <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('cargo')}</span>
-                  </button>
-                ), 'right'),
-                headerStyle: getColumnStyle('cargo'),
-                cellStyle: getColumnStyle('cargo'),
+                header: 'Cargo ($)',
                 headerClassName: 'text-right whitespace-nowrap',
                 className: 'text-right whitespace-nowrap font-black font-mono',
+                size: MAIN_TABLE_COLUMN_DEFAULT_WIDTHS.cargo,
+                minSize: MAIN_TABLE_COLUMN_MIN_WIDTHS.cargo,
+                enableSorting: true,
+                sortAccessor: (movimiento) => (movimiento.tipo === 'EGRESO' ? getMontoUsdVista(movimiento) : 0),
                 render: (movimiento) => {
                   const montoUsdVista = getMontoUsdVista(movimiento);
                   return movimiento.tipo === 'EGRESO' && montoUsdVista > 0 ? (
@@ -2457,15 +2263,13 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
               },
               {
                 key: 'abono',
-                header: renderResizableHeader('abono', (
-                  <button type="button" onClick={() => handleSort('abono')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
-                    Abono ($) <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('abono')}</span>
-                  </button>
-                ), 'right'),
-                headerStyle: getColumnStyle('abono'),
-                cellStyle: getColumnStyle('abono'),
+                header: 'Abono ($)',
                 headerClassName: 'text-right whitespace-nowrap',
                 className: 'text-right whitespace-nowrap font-black font-mono',
+                size: MAIN_TABLE_COLUMN_DEFAULT_WIDTHS.abono,
+                minSize: MAIN_TABLE_COLUMN_MIN_WIDTHS.abono,
+                enableSorting: true,
+                sortAccessor: (movimiento) => (movimiento.tipo === 'INGRESO' ? getMontoUsdVista(movimiento) : 0),
                 render: (movimiento) => {
                   const montoUsdVista = getMontoUsdVista(movimiento);
                   return movimiento.tipo === 'INGRESO' && montoUsdVista > 0 ? (
@@ -2477,15 +2281,13 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
               },
               ...(!isCuentaUsd ? [{
                 key: 'tasa',
-                header: renderResizableHeader('tasa', (
-                  <button type="button" onClick={() => handleSort('tasa')} className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
-                    Tasa (Bs.) <span style={{ fontSize: `${tableMetaFontPx}px` }}>{getSortArrow('tasa')}</span>
-                  </button>
-                ), 'right'),
-                headerStyle: getColumnStyle('tasa'),
-                cellStyle: getColumnStyle('tasa'),
+                header: 'Tasa (Bs.)',
                 headerClassName: 'text-right whitespace-nowrap',
                 className: 'text-right whitespace-nowrap font-mono text-blue-600 dark:text-blue-400',
+                size: MAIN_TABLE_COLUMN_DEFAULT_WIDTHS.tasa,
+                minSize: MAIN_TABLE_COLUMN_MIN_WIDTHS.tasa,
+                enableSorting: true,
+                sortAccessor: (movimiento: IMovimiento) => toNumber(movimiento.tasa_cambio),
                 render: (movimiento: IMovimiento) => (
                   <span style={{ fontSize: `${tableCompactFontPx}px` }}>
                     {movimiento.tasa_cambio ? formatCurrency(movimiento.tasa_cambio) : '-'}
@@ -2494,11 +2296,11 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
               } as Column<IMovimiento>] : []),
               ...(mode === 'admin' ? [{
                 key: 'acciones',
-                header: renderResizableHeader('acciones', 'Acciones', 'center'),
-                headerStyle: getColumnStyle('acciones'),
-                cellStyle: getColumnStyle('acciones'),
+                header: 'Acciones',
                 headerClassName: 'text-center whitespace-nowrap',
                 className: 'text-center whitespace-nowrap',
+                size: MAIN_TABLE_COLUMN_DEFAULT_WIDTHS.acciones,
+                minSize: MAIN_TABLE_COLUMN_MIN_WIDTHS.acciones,
                 render: (movimiento: IMovimiento) => {
                   const rollbackTarget = extractRollbackTarget(movimiento);
                   const rollbackButtonKey = rollbackTarget ? `${rollbackTarget.kind}-${rollbackTarget.id}` : '';
@@ -2551,7 +2353,15 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                 },
               } as Column<IMovimiento>] : []),
             ]}
-            data={movimientosPagina}
+            data={movimientosPorVistaConAperturaAlFinal}
+            enableTanstackSorting
+            enableTanstackColumnSizing
+            defaultSorting={[{ id: 'referencia', desc: true }] as SortingState}
+            sortPinnedBottomPredicate={isAperturaMovimiento}
+            enableVirtualization
+            virtualizerHeight={620}
+            estimatedRowHeight={60}
+            onVisibleRowsChange={setMovimientosTablaVisibles}
             keyExtractor={(movimiento) => String(movimiento.id)}
             rowClassName="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors cursor-pointer"
             onRowDoubleClick={(movimiento) => setMovimientoDetalle(movimiento)}
@@ -2559,7 +2369,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
               <tfoot>
                 <tr className="border-t-2 border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/40">
                   <td colSpan={4} className="p-3 font-black text-right text-gray-700 dark:text-gray-200">
-                    Total página
+                    Total vista
                   </td>
                   {!isCuentaUsd && (
                     <td className="p-3 text-right font-black font-mono text-slate-700 dark:text-slate-200">
@@ -2584,27 +2394,6 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
           />
         )}
 
-        {!loading && movimientosPorVista.length > 0 && totalPages > 1 && (
-          <div className="flex justify-end items-center px-6 py-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-800">
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Página {currentPage} de {totalPages}</span>
-              <button
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="px-5 py-2 rounded-xl text-sm font-bold bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 transition-all shadow-sm"
-              >
-                ← Anterior
-              </button>
-              <button
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="px-5 py-2 rounded-xl text-sm font-bold bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 transition-all shadow-sm"
-              >
-                Siguiente →
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       {mode === 'admin' && showAsignarInmuebleModal && movimientoPendienteAsignar && (
@@ -2761,6 +2550,12 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
 };
 
 export default EstadoCuentaBancariaView;
+
+
+
+
+
+
 
 
 
