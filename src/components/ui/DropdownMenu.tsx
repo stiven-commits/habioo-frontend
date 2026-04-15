@@ -17,18 +17,17 @@ interface DropdownMenuProps {
   width?: number;
 }
 
+let _ddCounter = 0;
+
 const DropdownMenu: FC<DropdownMenuProps> = ({ items, label = 'Opciones', width = 200 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+  // Stable unique ID for this instance — used to match trigger + portal via data attribute
+  const ddId = useRef(`dd-${++_ddCounter}`).current;
 
-  const handleOpen = (e: React.MouseEvent<HTMLButtonElement>): void => {
+  const open = (e: React.MouseEvent<HTMLButtonElement>): void => {
     e.stopPropagation();
-    if (isOpen) {
-      setIsOpen(false);
-      return;
-    }
+    if (isOpen) { setIsOpen(false); return; }
 
     const rect = e.currentTarget.getBoundingClientRect();
     const estMenuHeight = items.length * 44 + 8;
@@ -52,36 +51,33 @@ const DropdownMenu: FC<DropdownMenuProps> = ({ items, label = 'Opciones', width 
   useEffect(() => {
     if (!isOpen) return;
 
-    const handleClickOutside = (e: MouseEvent): void => {
-      if (
-        menuRef.current?.contains(e.target as Node) ||
-        triggerRef.current?.contains(e.target as Node)
-      ) return;
+    const onMouseDown = (e: MouseEvent): void => {
+      // closest() walks up the real DOM from the click target.
+      // Both the trigger button and the portal div share the same data-dd attribute,
+      // so any click inside either of them will find the attribute and bail out.
+      const target = e.target as Element | null;
+      if (target?.closest(`[data-dd="${ddId}"]`)) return;
       setIsOpen(false);
     };
 
-    const handleKey = (e: KeyboardEvent): void => {
+    const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') setIsOpen(false);
     };
 
-    const handleScroll = (): void => setIsOpen(false);
-
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleKey);
-    window.addEventListener('scroll', handleScroll, true);
+    document.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('keydown', onKey);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleKey);
-      window.removeEventListener('scroll', handleScroll, true);
+      document.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('keydown', onKey);
     };
-  }, [isOpen]);
+  }, [isOpen, ddId]);
 
   return (
     <>
       <button
-        ref={triggerRef}
         type="button"
-        onClick={handleOpen}
+        data-dd={ddId}
+        onClick={open}
         className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
       >
         {label}
@@ -90,7 +86,7 @@ const DropdownMenu: FC<DropdownMenuProps> = ({ items, label = 'Opciones', width 
 
       {isOpen && createPortal(
         <div
-          ref={menuRef}
+          data-dd={ddId}
           className="fixed z-[120] overflow-hidden rounded-xl border border-gray-100 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800 animate-fadeIn"
           style={{ top: menuPos.top, left: menuPos.left, width }}
         >

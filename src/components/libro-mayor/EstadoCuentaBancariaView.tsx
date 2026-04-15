@@ -367,11 +367,26 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   const [pagoMovimientoFondoPendienteId, setPagoMovimientoFondoPendienteId] = useState<number | null>(null);
   const [tableFontBoost, setTableFontBoost] = useState<number>(0);
   const [movimientosTablaVisibles, setMovimientosTablaVisibles] = useState<IMovimiento[]>([]);
+  const [viewportHeight, setViewportHeight] = useState<number>(() => (
+    typeof window !== 'undefined' ? window.innerHeight : 900
+  ));
   const itemsPerPage = 13;
   const tableFontSizePx = 14 + tableFontBoost;
   const tableMetaFontPx = 10 + tableFontBoost;
   const tableTagFontPx = 9 + tableFontBoost;
   const tableCompactFontPx = 12 + tableFontBoost;
+  const topPanelHeight = Math.max(260, Math.round(viewportHeight * 0.4));
+  const tablePanelHeight = Math.max(320, Math.round(viewportHeight * 0.6));
+  const virtualRowsHeight = Math.max(220, tablePanelHeight - 260);
+
+  useEffect(() => {
+    const recalcViewportHeight = (): void => {
+      setViewportHeight(window.innerHeight);
+    };
+    recalcViewportHeight();
+    window.addEventListener('resize', recalcViewportHeight);
+    return () => window.removeEventListener('resize', recalcViewportHeight);
+  }, []);
   const fetchCuentas = async (): Promise<void> => {
     const token = localStorage.getItem('habioo_token');
     const storageKey = getCuentaStorageKey(mode, ownerCondominioId);
@@ -1877,6 +1892,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
 
   return (
     <div className="space-y-5 animate-fadeIn">
+      <div className="space-y-5 overflow-auto pr-1" style={{ maxHeight: `${topPanelHeight}px` }}>
       <section className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Estado de Cuentas</h1>
@@ -1976,8 +1992,12 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
           </article>
         ))}
       </section>
+      </div>
 
-      <div className="bg-white dark:bg-donezo-card-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+      <div
+        className="bg-white dark:bg-donezo-card-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden flex flex-col"
+        style={{ height: `${tablePanelHeight}px` }}
+      >
         <div className="p-5 border-b border-gray-100 dark:border-gray-800 space-y-4">
           <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
             <div className="flex items-center gap-2">
@@ -2085,10 +2105,11 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
 
         </div>
 
+        <div className="flex-1 min-h-0 overflow-hidden">
         {loading ? (
           <p className="text-center text-gray-500 py-10">Generando estado de cuenta...</p>
         ) : activeTab === 'sin-fondo' ? (
-          <div className="px-5 pt-4 pb-2 space-y-3">
+          <div className="h-full overflow-auto px-5 pt-4 pb-2 space-y-3">
             <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 dark:border-amber-900/60 dark:bg-amber-900/20">
               <p className="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
                 Extras Aplicados Al Fondo Principal (Informativo)
@@ -2359,7 +2380,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
             defaultSorting={[{ id: 'referencia', desc: true }] as SortingState}
             sortPinnedBottomPredicate={isAperturaMovimiento}
             enableVirtualization
-            virtualizerHeight={620}
+            virtualizerHeight={virtualRowsHeight}
             estimatedRowHeight={60}
             onVisibleRowsChange={setMovimientosTablaVisibles}
             keyExtractor={(movimiento) => String(movimiento.id)}
@@ -2393,7 +2414,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
             )}
           />
         )}
-
+        </div>
       </div>
 
       {mode === 'admin' && showAsignarInmuebleModal && movimientoPendienteAsignar && (

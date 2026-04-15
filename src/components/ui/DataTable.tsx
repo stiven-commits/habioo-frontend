@@ -1,4 +1,4 @@
-﻿import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+﻿import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   flexRender,
@@ -92,39 +92,70 @@ function DataTable<T>({
   const [sorting, setSorting] = useState<SortingState>(defaultSorting ?? []);
   const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
 
-  const tanstackColumns: ColumnDef<T>[] = safeColumns.map((col) => ({
-    id: col.key,
-    accessorFn: col.sortAccessor ? (row) => col.sortAccessor?.(row) : undefined,
-    size: col.size,
-    minSize: col.minSize,
-    maxSize: col.maxSize,
-    enableSorting: enableTanstackSorting && Boolean(col.enableSorting),
-    enableResizing: enableTanstackColumnSizing && col.enableResizing !== false,
-    sortingFn: (rowA: Row<T>, rowB: Row<T>) => {
-      if (sortPinnedBottomPredicate) {
-        const aPinned = Boolean(sortPinnedBottomPredicate(rowA.original));
-        const bPinned = Boolean(sortPinnedBottomPredicate(rowB.original));
-        if (aPinned || bPinned) return 0;
-      }
-      const aValue = col.sortAccessor ? col.sortAccessor(rowA.original) : rowA.getValue(col.key);
-      const bValue = col.sortAccessor ? col.sortAccessor(rowB.original) : rowB.getValue(col.key);
-      if (aValue instanceof Date && bValue instanceof Date) {
-        return aValue.getTime() - bValue.getTime();
-      }
-      if (typeof aValue === 'number' && typeof bValue === 'number') {
-        return aValue - bValue;
-      }
-      return String(aValue ?? '').localeCompare(String(bValue ?? ''), 'es', { numeric: true, sensitivity: 'base' });
-    },
-    header: () => col.header,
-    cell: (ctx) => col.render(ctx.row.original, ctx.row.index),
-    meta: {
-      headerClassName: col.headerClassName,
-      className: col.className,
-      headerStyle: col.headerStyle,
-      cellStyle: col.cellStyle,
-    },
-  }));
+  // Keep latest column defs in a ref so stable cell/header functions can read them
+  // without needing to be recreated on every render.
+  const colDefsRef = useRef(safeColumns);
+  colDefsRef.current = safeColumns;
+
+  // Keep other props that sortingFn needs in a ref too.
+  const tablePropsRef = useRef({ enableTanstackSorting, enableTanstackColumnSizing, sortPinnedBottomPredicate });
+  tablePropsRef.current = { enableTanstackSorting, enableTanstackColumnSizing, sortPinnedBottomPredicate };
+
+  // Stable column keys string — only changes when columns are structurally added/removed.
+  const colKeysId = safeColumns.map((c) => c.key).join('\x00');
+
+  // tanstackColumns is memoized on column structure (keys), NOT on render functions.
+  // This means flexRender always receives the SAME cell/header function references
+  // across re-renders, preventing React from unmounting stateful children
+  // (e.g. DropdownMenu) just because a parent re-rendered.
+  // All dynamic values (render, sortAccessor, etc.) are read via colDefsRef at call time.
+  const tanstackColumns = useMemo<ColumnDef<T>[]>(
+    () => colDefsRef.current.map((col) => {
+      const key = col.key;
+      return {
+        id: key,
+        accessorFn: (row: T) => colDefsRef.current.find((c) => c.key === key)?.sortAccessor?.(row),
+        size: col.size,
+        minSize: col.minSize,
+        maxSize: col.maxSize,
+        get enableSorting() {
+          const c = colDefsRef.current.find((d) => d.key === key);
+          return tablePropsRef.current.enableTanstackSorting && Boolean(c?.enableSorting);
+        },
+        get enableResizing() {
+          const c = colDefsRef.current.find((d) => d.key === key);
+          return tablePropsRef.current.enableTanstackColumnSizing && c?.enableResizing !== false;
+        },
+        sortingFn: (rowA: Row<T>, rowB: Row<T>) => {
+          const { sortPinnedBottomPredicate: pred } = tablePropsRef.current;
+          if (pred) {
+            const aPinned = Boolean(pred(rowA.original));
+            const bPinned = Boolean(pred(rowB.original));
+            if (aPinned || bPinned) return 0;
+          }
+          const c = colDefsRef.current.find((d) => d.key === key);
+          const aValue = c?.sortAccessor ? c.sortAccessor(rowA.original) : rowA.getValue(key);
+          const bValue = c?.sortAccessor ? c.sortAccessor(rowB.original) : rowB.getValue(key);
+          if (aValue instanceof Date && bValue instanceof Date) return aValue.getTime() - bValue.getTime();
+          if (typeof aValue === 'number' && typeof bValue === 'number') return aValue - bValue;
+          return String(aValue ?? '').localeCompare(String(bValue ?? ''), 'es', { numeric: true, sensitivity: 'base' });
+        },
+        header: () => colDefsRef.current.find((c) => c.key === key)?.header,
+        cell: (ctx) => {
+          const c = colDefsRef.current.find((d) => d.key === key);
+          return c ? c.render(ctx.row.original, ctx.row.index) : null;
+        },
+        meta: {
+          get headerClassName() { return colDefsRef.current.find((c) => c.key === key)?.headerClassName; },
+          get className() { return colDefsRef.current.find((c) => c.key === key)?.className; },
+          get headerStyle() { return colDefsRef.current.find((c) => c.key === key)?.headerStyle; },
+          get cellStyle() { return colDefsRef.current.find((c) => c.key === key)?.cellStyle; },
+        },
+      };
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [colKeysId],
+  );
 
   const table = useReactTable({
     data: safeData,

@@ -917,6 +917,16 @@ const Layout: React.FC<LayoutProps> = () => {
     formSubmitLockRef.current.set(form, now);
   };
 
+  // Must be before any early return (Rules of Hooks).
+  // Memoized so the Outlet context reference stays stable between re-renders
+  // caused by setSystemNow (fires every second). Without this every page
+  // re-renders each second, causing DataTable to recreate cell functions and
+  // unmount stateful children (e.g. DropdownMenu).
+  const outletContext = useMemo(
+    () => ({ user, userRole, misPropiedades, propiedadActiva, condominioTipo }),
+    [user, userRole, misPropiedades, propiedadActiva, condominioTipo],
+  );
+
   if (!user) {
     return <HabiooLoader fullscreen size="md" message="Cargando registros..." />;
   }
@@ -1165,7 +1175,7 @@ const Layout: React.FC<LayoutProps> = () => {
                 <HabiooLoader size="md" message="Cargando sección..." className="py-0" />
               </div>
             ) : (
-              <Outlet context={{ user, userRole, misPropiedades, propiedadActiva, condominioTipo }} />
+              <Outlet context={outletContext} />
             )}
           </div>
         </div>
