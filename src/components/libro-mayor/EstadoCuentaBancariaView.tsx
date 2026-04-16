@@ -376,8 +376,6 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   const tableTagFontPx = 9 + tableFontBoost;
   const tableCompactFontPx = 12 + tableFontBoost;
   const topPanelHeight = Math.max(260, Math.round(viewportHeight * 0.4));
-  const tablePanelHeight = Math.max(320, Math.round(viewportHeight * 0.6));
-  const virtualRowsHeight = Math.max(220, tablePanelHeight - 260);
 
   useEffect(() => {
     const recalcViewportHeight = (): void => {
@@ -1850,6 +1848,8 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                   { key: 'tasa', header: 'Tasa', headerClassName: 'text-right min-w-[110px] whitespace-nowrap', className: 'text-right min-w-[110px] whitespace-nowrap font-mono text-xs text-blue-600 dark:text-blue-400', render: (mov) => mov.tasa_cambio ? formatCurrency(mov.tasa_cambio) : '-' },
                 ]}
                 data={ownerEgresosFondo}
+                enableTanstackPagination
+                pageSize={10}
                 keyExtractor={(mov) => String(mov.id)}
                 emptyMessage="No hay egresos en el fondo seleccionado."
                 rowClassName="border-b border-gray-50 dark:border-gray-800/50"
@@ -1879,6 +1879,8 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                   { key: 'tasa', header: 'Tasa Ref.', headerClassName: 'text-right', className: 'text-right text-blue-600 dark:text-blue-400 font-mono', render: (corte) => corte.tasa_referencia ? formatCurrency(corte.tasa_referencia) : '-' },
                 ]}
                 data={ownerCortesFiltrados}
+                enableTanstackPagination
+                pageSize={10}
                 keyExtractor={(corte) => corte.id}
                 emptyMessage="No hay cortes mensuales para el período seleccionado."
                 rowClassName="border-b border-gray-50 dark:border-gray-800/50"
@@ -1995,8 +1997,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
       </div>
 
       <div
-        className="bg-white dark:bg-donezo-card-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden flex flex-col"
-        style={{ height: `${tablePanelHeight}px` }}
+        className="bg-white dark:bg-donezo-card-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden"
       >
         <div className="p-5 border-b border-gray-100 dark:border-gray-800 space-y-4">
           <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
@@ -2105,11 +2106,11 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
 
         </div>
 
-        <div className="flex-1 min-h-0 overflow-hidden">
+        <div>
         {loading ? (
           <p className="text-center text-gray-500 py-10">Generando estado de cuenta...</p>
         ) : activeTab === 'sin-fondo' ? (
-          <div className="h-full overflow-auto px-5 pt-4 pb-2 space-y-3">
+          <div className="px-5 pt-4 pb-2 space-y-3">
             <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 dark:border-amber-900/60 dark:bg-amber-900/20">
               <p className="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
                 Extras Aplicados Al Fondo Principal (Informativo)
@@ -2154,6 +2155,8 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                 { key: 'fondo_destino', header: 'Fondo destino', className: 'font-semibold text-gray-700 dark:text-gray-300', render: (row) => row.fondo_destino || 'Fondo principal' },
               ]}
               data={extrasInfoPorVista}
+              enableTanstackPagination
+              pageSize={25}
               keyExtractor={(row, index) => `extra-${row.pago_id}-${index}`}
               onRowDoubleClick={(row) => {
                 const montoBs = toNumber(row.monto_bs);
@@ -2379,9 +2382,8 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
             enableTanstackColumnSizing
             defaultSorting={[{ id: 'referencia', desc: true }] as SortingState}
             sortPinnedBottomPredicate={isAperturaMovimiento}
-            enableVirtualization
-            virtualizerHeight={virtualRowsHeight}
-            estimatedRowHeight={60}
+            enableTanstackPagination
+            pageSize={10}
             onVisibleRowsChange={setMovimientosTablaVisibles}
             keyExtractor={(movimiento) => String(movimiento.id)}
             rowClassName="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors cursor-pointer"
@@ -2571,17 +2573,6 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
 };
 
 export default EstadoCuentaBancariaView;
-
-
-
-
-
-
-
-
-
-
-
 
 
 

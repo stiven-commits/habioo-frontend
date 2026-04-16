@@ -51,6 +51,7 @@ interface DataTableProps<T> {
   estimatedRowHeight?: number;
   virtualizerOverscan?: number;
   pageSize?: number;
+  pageSizeOptions?: number[];
   onVisibleRowsChange?: (rows: T[]) => void;
 }
 
@@ -77,6 +78,7 @@ function DataTable<T>({
   estimatedRowHeight = 58,
   virtualizerOverscan = 8,
   pageSize = 13,
+  pageSizeOptions = [10, 25, 50, 100],
   onVisibleRowsChange,
 }: DataTableProps<T>) {
   const safeColumns = Array.isArray(columns) ? columns : [];
@@ -346,27 +348,50 @@ function DataTable<T>({
         </tbody>
         {renderFooter && renderFooter()}
       </table>
-      {enableTanstackPagination && !loading && safeData.length > 0 && pageCount > 1 && (
-        <div className="flex justify-end items-center px-6 py-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-800">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Pagina {pageIndex + 1} de {pageCount}</span>
-            <button
-              type="button"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-              className="px-5 py-2 rounded-xl text-sm font-bold bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 transition-all shadow-sm"
+      {enableTanstackPagination && !loading && safeData.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-800">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap">Filas por página</span>
+            <select
+              value={table.getState().pagination.pageSize}
+              onChange={(e) => {
+                table.setPageSize(Number(e.target.value));
+                table.setPageIndex(0);
+              }}
+              className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm font-bold text-gray-600 dark:text-gray-300 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500/40 cursor-pointer"
             >
-              Anterior
-            </button>
-            <button
-              type="button"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-              className="px-5 py-2 rounded-xl text-sm font-bold bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 transition-all shadow-sm"
-            >
-              Siguiente
-            </button>
+              {(pageSizeOptions.includes(table.getState().pagination.pageSize)
+                ? pageSizeOptions
+                : [...pageSizeOptions, table.getState().pagination.pageSize].sort((a, b) => a - b)
+              ).map((size) => (
+                <option key={size} value={size}>{size}</option>
+              ))}
+            </select>
+            <span className="text-xs text-gray-400 dark:text-gray-500">{safeData.length} registros</span>
           </div>
+          {pageCount > 1 && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                Página {pageIndex + 1} de {pageCount}
+              </span>
+              <button
+                type="button"
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+                className="px-4 py-1.5 rounded-lg text-sm font-bold bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 transition-all shadow-sm"
+              >
+                Anterior
+              </button>
+              <button
+                type="button"
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+                className="px-4 py-1.5 rounded-lg text-sm font-bold bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 transition-all shadow-sm"
+              >
+                Siguiente
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
