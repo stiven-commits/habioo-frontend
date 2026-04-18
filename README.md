@@ -1,11 +1,12 @@
-# Habioo - Plataforma de gestion de condominios
+﻿# Habioo - Plataforma de gestion de condominios
 
 Documento tecnico y funcional del estado actual del sistema.
 
-- Ultima actualizacion: 2026-04-14
+- Ultima actualizacion: 2026-04-17
 - Frontend: React 19 + Vite 7 + Tailwind CSS 4 + TypeScript (mixto)
 - Backend: Node.js + Express + PostgreSQL
-- **Nuevo**: Tipografía global unificada para valores numéricos/monetarios via `@layer base` en CSS
+- **Nuevo**: Rate limit distribuido en login con Redis (backend `habioo-auth/routes/auth.ts`)
+- **Nuevo**: TipografÃ­a global unificada para valores numÃ©ricos/monetarios via `@layer base` en CSS
 
 ---
 
@@ -15,6 +16,7 @@ Documento tecnico y funcional del estado actual del sistema.
 - Backend REST con Express.
 - Autenticacion JWT (`/login`, `/me`) con refresh token via headers.
 - Persistencia en PostgreSQL.
+- Seguridad de login con rate limiting distribuido en Redis (POST /login).
 - Manejo de archivos para gastos y alquileres en `/uploads`.
 - **React 19.2.0** (actualizado desde versiones anteriores).
 - **Tailwind CSS v4.2.1** con plugin nativo de Vite (sin PostCSS).
@@ -39,7 +41,7 @@ Fuente: `habioo-frontend/src/App.jsx`
 ### Publicas
 - `/` -> Redirige a `/login`
 - `/login` -> Login
-- `/cambio-clave-obligatorio` -> CambioClaveObligatorio (cambio de contraseña forzado)
+- `/cambio-clave-obligatorio` -> CambioClaveObligatorio (cambio de contraseÃ±a forzado)
 - `/registro-junta` -> RegistroJunta
 - `/error-403` -> Error403
 - `/error-500` -> Error500
@@ -85,6 +87,18 @@ Fuente: `habioo-frontend/src/App.jsx`
 
 ### 3.0 Autenticacion y sesion
 - Login con cedula/contrasena.
+- `POST /login` con rate limit distribuido por IP (Redis):
+  - ventana: 15 minutos
+  - maximo: 5 intentos
+  - excedido: `429` con JSON amigable
+  - headers estandar de rate limit activos (`standardHeaders: true`)
+- Implementacion tecnica en backend (`habioo-auth/routes/auth.ts`):
+  - `redis` client (`createClient`) con `REDIS_URL`
+  - `express-rate-limit`
+  - `rate-limit-redis` (`RedisStore`)
+- Modo degradado controlado:
+  - si Redis no conecta, el backend no se cae y `/login` sigue respondiendo
+  - se desactiva temporalmente el limiter distribuido y se registra warning en logs
 - Cambio de clave obligatorio para primer acceso o cuando se requiere (`/cambio-clave-obligatorio`).
 - JWT con refresh automatico via headers `x-habioo-refreshed-token`.
 - Validacion de sesion al montar app via `/me`.
@@ -93,7 +107,6 @@ Fuente: `habioo-frontend/src/App.jsx`
   - 403/500/503: redireccion a paginas de error con request ID.
 - Modo soporte con backup de credenciales en `habioo_super_*_backup`.
 - Sesion con debounce de 1500ms en botones/formularios sensibles.
-
 ### 3.1 Contabilidad y cobranza
 - Registro de gastos (comun, zona, individual, extra) con soportes.
 - Tabs de gastos: Todos, Comunes, Por Areas/Sectores, Individuales, Extra.
@@ -409,10 +422,24 @@ Fuente: `habioo-auth/index.ts` + `habioo-auth/routes/*`
 ## 7) Ejecucion local
 
 ### Backend (`habioo-auth`)
-1. Configurar `.env` con `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `JWT_SECRET`.
+1. Configurar `.env` con `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `JWT_SECRET`, `REDIS_URL`.
 2. (Opcional) `ENABLE_TEST_SEEDER=true`.
 3. Ejecutar servidor en `http://localhost:3000`.
 
+#### Redis para seguridad de login
+- Variable requerida para rate limit distribuido: `REDIS_URL`.
+- Ejemplo local: `REDIS_URL=redis://default:TU_CLAVE@127.0.0.1:6379/0`.
+- Ejemplo remoto: `REDIS_URL=redis://default:TU_CLAVE@HOST:6379/0`.
+- Si Redis no esta disponible:
+  - log esperado: `[auth-rate-limit] Redis connection failed...`
+  - el backend continua en modo degradado (sin rate limit distribuido en login).
+
+#### Verificacion tecnica del limiter
+- Log esperado al iniciar: `[auth-rate-limit] Redis limiter enabled.`
+- Con intentos invalidos consecutivos a `/login`:
+  - intentos 1-5: `401`
+  - intento 6 (misma ventana de 15 minutos): `429`
+- Deben verse headers de rate limit en la respuesta (`RateLimit-*`).
 ### Frontend (`habioo-frontend`)
 1. Ejecutar Vite en `http://localhost:5173`.
 2. `API_BASE_URL`:
@@ -472,3 +499,6 @@ Fuente: `habioo-auth/index.ts` + `habioo-auth/routes/*`
 ### En progreso
 - Validacion completa de tests E2E en entorno de staging.
 - corrida completa del checklist QA formal.
+
+
+

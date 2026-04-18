@@ -13,7 +13,9 @@ import { QuoteNode } from '@lexical/rich-text';
 import { FORMAT_TEXT_COMMAND, $createParagraphNode, $getRoot } from 'lexical';
 import type { LexicalCommand } from 'lexical';
 import { $convertFromMarkdownString, $convertToMarkdownString, TRANSFORMERS } from '@lexical/markdown';
+import { useParams } from 'react-router-dom';
 import { API_BASE_URL } from '../config/api';
+import PanelElecciones from '../components/junta-general/PanelElecciones';
 
 type UploadTipo = 'logo' | 'logo-condominio' | 'firma';
 
@@ -227,6 +229,7 @@ const MarkdownEditorField: FC<MarkdownEditorFieldProps> = ({ value, placeholder,
 };
 
 const PerfilCondominio: FC = () => {
+  const { condominioId: condominioIdParam } = useParams<{ condominioId?: string }>();
   const [form, setForm] = useState<PerfilCondominioFormData>(initialPerfil);
   const [passwordForm, setPasswordForm] = useState<PasswordFormData>(initialPasswordForm);
   const [loading, setLoading] = useState<boolean>(true);
@@ -247,6 +250,10 @@ const PerfilCondominio: FC = () => {
   const [linkingInvitacion, setLinkingInvitacion] = useState<boolean>(false);
 
   const token = useMemo<string>(() => localStorage.getItem('habioo_token') || '', []);
+  const supportCondominioId = Number.parseInt(String(condominioIdParam || ''), 10);
+  const panelCondominioId = Number.isFinite(supportCondominioId) && supportCondominioId > 0
+    ? supportCondominioId
+    : null;
 
   useEffect(() => {
     const loadPerfil = async (): Promise<void> => {
@@ -814,6 +821,10 @@ const PerfilCondominio: FC = () => {
                 </button>
               </div>
             </form>
+          </section>
+
+          <section className="xl:col-span-2" data-testid="perfil-elecciones-section">
+            <PanelElecciones condominioId={panelCondominioId} />
           </section>
         </div>
       )}

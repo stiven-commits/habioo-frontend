@@ -207,6 +207,8 @@ const Layout: React.FC<LayoutProps> = () => {
   // Helper: genera la URL correcta según si estamos en modo soporte con ID en URL o no
   const navTo = (path: string): string =>
     soporteCondominioId ? `/soporte/${soporteCondominioId}${path}` : path;
+  const isSupportSession = Boolean(sessionData?.is_support_session);
+  const isSupportScopedAdmin = Boolean(soporteCondominioId) && (userRole === 'SuperUsuario' || isSupportSession);
 
   const pushFloating = (item: FloatingNotification): void => {
     setFloatingNotifications((prev: FloatingNotification[]) => [item, ...prev].slice(0, 4));
@@ -386,7 +388,8 @@ const Layout: React.FC<LayoutProps> = () => {
   useEffect(() => {
     const loadHeaderDisplayName = async (): Promise<void> => {
       if (!user) return;
-      if (userRole !== 'Administrador') {
+      const canReadAdminProfile = userRole === 'Administrador' || isSupportScopedAdmin;
+      if (!canReadAdminProfile) {
         setHeaderDisplayName(String(user.nombre || '').trim());
         setCondominioTipo('');
         return;
@@ -420,7 +423,7 @@ const Layout: React.FC<LayoutProps> = () => {
     };
 
     void loadHeaderDisplayName();
-  }, [userRole, user]);
+  }, [isSupportScopedAdmin, userRole, user]);
 
   useEffect(() => {
     setMobileSidebarOpen(false);
@@ -743,8 +746,6 @@ const Layout: React.FC<LayoutProps> = () => {
     navigate('/');
   };
 
-  const isSupportSession = Boolean(sessionData?.is_support_session);
-
   const handleExitSupport = async (): Promise<void> => {
     const readBackup = (): { token: string | null; user: string | null; session: string | null } => {
       const token = localStorage.getItem('habioo_super_token_backup') || sessionStorage.getItem('habioo_super_token_backup');
@@ -968,15 +969,41 @@ const Layout: React.FC<LayoutProps> = () => {
         <nav className={`flex-1 px-3 py-4 space-y-1.5 overflow-y-auto ${sidebarCollapsed ? 'items-center' : ''}`}>
           <p className={sectionTitleClass}>Principal</p>
           <Link
-            to={userRole === 'SuperUsuario' ? '/soporte/condominios' : navTo(esJuntaGeneral ? '/junta-general' : '/dashboard')}
-            className={navClass(userRole === 'SuperUsuario' ? '/soporte/condominios' : (esJuntaGeneral ? '/junta-general' : '/dashboard'))}
-            title={userRole === 'SuperUsuario' ? 'Soporte' : (esJuntaGeneral ? 'Junta General' : 'Dashboard')}
+            to={
+              isSupportScopedAdmin
+                ? navTo(esJuntaGeneral ? '/junta-general' : '/dashboard')
+                : userRole === 'SuperUsuario'
+                  ? '/soporte/condominios'
+                  : navTo(esJuntaGeneral ? '/junta-general' : '/dashboard')
+            }
+            className={navClass(
+              isSupportScopedAdmin
+                ? (esJuntaGeneral ? '/junta-general' : '/dashboard')
+                : userRole === 'SuperUsuario'
+                  ? '/soporte/condominios'
+                  : (esJuntaGeneral ? '/junta-general' : '/dashboard')
+            )}
+            title={
+              isSupportScopedAdmin
+                ? (esJuntaGeneral ? 'Junta General' : 'Dashboard')
+                : userRole === 'SuperUsuario'
+                  ? 'Soporte'
+                  : (esJuntaGeneral ? 'Junta General' : 'Dashboard')
+            }
           >
             <LayoutDashboard size={18} />
-            {!sidebarCollapsed && <span>{userRole === 'SuperUsuario' ? 'Soporte' : (esJuntaGeneral ? 'Junta General' : 'Dashboard')}</span>}
+            {!sidebarCollapsed && (
+              <span>
+                {isSupportScopedAdmin
+                  ? (esJuntaGeneral ? 'Junta General' : 'Dashboard')
+                  : userRole === 'SuperUsuario'
+                    ? 'Soporte'
+                    : (esJuntaGeneral ? 'Junta General' : 'Dashboard')}
+              </span>
+            )}
           </Link>
 
-          {userRole === 'SuperUsuario' && (
+          {userRole === 'SuperUsuario' && !isSupportScopedAdmin && (
             <>
               <p className={`mt-6 ${sectionTitleClass}`}>Accesos</p>
               <Link to="/soporte/condominios" className={navClass('/soporte/condominios')} title="Juntas">
@@ -986,7 +1013,7 @@ const Layout: React.FC<LayoutProps> = () => {
             </>
           )}
 
-          {userRole === 'Administrador' && (
+          {(userRole === 'Administrador' || isSupportScopedAdmin) && (
             <>
               {!esJuntaGeneral && (
                 <Link to={navTo('/inmuebles')} className={navClass('/inmuebles')} title="Inmuebles">

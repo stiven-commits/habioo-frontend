@@ -12,6 +12,7 @@ import CuentasPorCobrar from './pages/CuentasPorCobrar';
 import Bancos from './pages/Bancos';
 import Zonas from './pages/Zonas';
 import VistaAlquileres from './pages/VistaAlquileres';
+import EleccionesAdmin from './pages/EleccionesAdmin';
 import EncuestasAdmin from './pages/EncuestasAdmin';
 import HistorialAvisos from './pages/HistorialAvisos';
 import EstadoCuentasBancarias from './pages/EstadoCuentasBancarias';
@@ -59,6 +60,7 @@ export default function App() {
             <Route path="/estado-cuentas" element={<EstadoCuentasBancarias />} />
             <Route path="/zonas" element={<Zonas />} />
             <Route path="/alquileres" element={<VistaAlquileres />} />
+            <Route path="/elecciones" element={<EleccionesAdmin />} />
             <Route path="/carta-consulta" element={<EncuestasAdmin />} />
             <Route path="/avisos-cobro" element={<HistorialAvisos />} />
             <Route path="/aviso-cobro/:id" element={<VistaAvisoCobro />} />
@@ -86,6 +88,7 @@ export default function App() {
             <Route path="/soporte/:condominioId/avisos-cobro" element={<HistorialAvisos />} />
             <Route path="/soporte/:condominioId/aviso-cobro/:id" element={<VistaAvisoCobro />} />
             <Route path="/soporte/:condominioId/alquileres" element={<VistaAlquileres />} />
+            <Route path="/soporte/:condominioId/elecciones" element={<EleccionesAdmin />} />
             <Route path="/soporte/:condominioId/carta-consulta" element={<EncuestasAdmin />} />
           </Route>
           <Route path="*" element={<NotFound />} />

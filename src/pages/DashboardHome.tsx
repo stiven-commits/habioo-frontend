@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState, type FC } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useLocation, useOutletContext } from 'react-router-dom';
 import {
   TrendingUp,
   AlertCircle,
@@ -24,6 +24,7 @@ import {
 import { API_BASE_URL } from '../config/api';
 import { formatMoney } from '../utils/currency';
 import StatusBadge from '../components/ui/StatusBadge';
+import ModalVotacionPropietario from '../components/elecciones/ModalVotacionPropietario';
 
 interface DashboardHomeProps {}
 
@@ -37,6 +38,10 @@ interface OutletContextType {
   user?: DashboardUser;
   userRole?: UserRole;
   condominioTipo?: string;
+  propiedadActiva?: {
+    id_propiedad: number;
+    id_condominio: number;
+  } | null;
 }
 
 interface BalanceRow {
@@ -131,7 +136,10 @@ const toSafeNumber = (...values: unknown[]): number => {
 };
 
 const DashboardHome: FC<DashboardHomeProps> = () => {
-  const { user, userRole, condominioTipo } = useOutletContext<OutletContextType>();
+  const { user, userRole, condominioTipo, propiedadActiva } = useOutletContext<OutletContextType>();
+  const location = useLocation();
+  const isSupportScoped = location.pathname.startsWith('/soporte/');
+  const canUseAdminDashboard = userRole === 'Administrador' || (userRole === 'SuperUsuario' && isSupportScoped);
   const isJuntaGeneral = String(condominioTipo || '').trim().toLowerCase() === 'junta general';
   const [kpis, setKpis] = useState<KpisState>({
     liquidez: 0,
@@ -155,7 +163,7 @@ const DashboardHome: FC<DashboardHomeProps> = () => {
   const [notificacionesBusyId, setNotificacionesBusyId] = useState<number | null>(null);
 
   useEffect(() => {
-    if (userRole !== 'Administrador') return;
+    if (!canUseAdminDashboard) return;
     if (isJuntaGeneral) return;
     const token = localStorage.getItem('habioo_token');
     if (!token) return;
@@ -259,10 +267,10 @@ const DashboardHome: FC<DashboardHomeProps> = () => {
     };
 
     void fetchDashboardData();
-  }, [userRole, isJuntaGeneral]);
+  }, [canUseAdminDashboard, userRole, isJuntaGeneral]);
 
   useEffect(() => {
-    if (userRole !== 'Administrador') return;
+    if (!canUseAdminDashboard) return;
     if (isJuntaGeneral) return;
     const token = localStorage.getItem('habioo_token');
     if (!token) return;
@@ -287,7 +295,7 @@ const DashboardHome: FC<DashboardHomeProps> = () => {
     };
 
     void fetchNotificaciones();
-  }, [userRole, isJuntaGeneral]);
+  }, [canUseAdminDashboard, userRole, isJuntaGeneral]);
 
   const marcarNotificacionLeida = async (id: number): Promise<void> => {
     const token = localStorage.getItem('habioo_token');
@@ -321,35 +329,50 @@ const DashboardHome: FC<DashboardHomeProps> = () => {
     }
   };
 
-  if (userRole !== 'Administrador') {
+  if (!canUseAdminDashboard) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
-        <p className="text-gray-700 dark:text-gray-200">
-          Esta vista de panel principal esta disponible para la Junta de Condominio.
-        </p>
-      </div>
+      <>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+          <p className="text-gray-700 dark:text-gray-200">
+            Esta vista de panel principal esta disponible para la Junta de Condominio.
+          </p>
+        </div>
+        <ModalVotacionPropietario
+          enabled={userRole === 'Propietario'}
+          condominioId={propiedadActiva?.id_condominio ?? null}
+          propiedadId={propiedadActiva?.id_propiedad ?? null}
+        />
+      </>
     );
   }
 
   if (isJuntaGeneral) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
-        <p className="text-gray-700 dark:text-gray-200">
-          Esta vista de panel por inmuebles no aplica para Junta General.
-          Usa el módulo <b>Junta General</b> para conciliación y estado de cuenta entre juntas.
-        </p>
-      </div>
+      <>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+          <p className="text-gray-700 dark:text-gray-200">
+            Esta vista de panel por inmuebles no aplica para Junta General.
+            Usa el módulo <b>Junta General</b> para conciliación y estado de cuenta entre juntas.
+          </p>
+        </div>
+        <ModalVotacionPropietario
+          enabled={userRole === 'Propietario'}
+          condominioId={propiedadActiva?.id_condominio ?? null}
+          propiedadId={propiedadActiva?.id_propiedad ?? null}
+        />
+      </>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <section className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+    <>
+      <div className="space-y-6">
+        <section className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
         <h2 className="text-2xl font-black text-gray-900 dark:text-white">Panel Principal</h2>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
           Bienvenido, {user?.nombre || 'Usuario'}. Resumen financiero y operativo del condominio.
         </p>
-      </section>
+        </section>
 
       <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <article className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
@@ -512,8 +535,8 @@ const DashboardHome: FC<DashboardHomeProps> = () => {
         </article>
       </section>
 
-      {!isJuntaGeneral && (
-        <section className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+        {!isJuntaGeneral && (
+          <section className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">Notificaciones internas</h3>
@@ -572,9 +595,16 @@ const DashboardHome: FC<DashboardHomeProps> = () => {
               ))}
             </div>
           )}
-        </section>
-      )}
-    </div>
+          </section>
+        )}
+
+      </div>
+      <ModalVotacionPropietario
+        enabled={userRole === 'Propietario'}
+        condominioId={propiedadActiva?.id_condominio ?? null}
+        propiedadId={propiedadActiva?.id_propiedad ?? null}
+      />
+    </>
   );
 };
 
