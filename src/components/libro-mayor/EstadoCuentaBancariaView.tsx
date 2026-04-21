@@ -6,6 +6,7 @@ import { es } from 'date-fns/locale/es';
 import { useOutletContext } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { API_BASE_URL } from '../../config/api';
+import { getCurrentBcvRate } from '../../utils/bcv';
 import { ModalRegistrarEgreso, ModalTransferencia } from '../bancos';
 import ModalRegistrarPago from '../ModalRegistrarPago';
 import ModalDetalleMovimiento, { type IMovimientoDetalle } from './ModalDetalleMovimiento';
@@ -183,10 +184,6 @@ interface PropiedadAdminOption {
 interface PropiedadesAdminResponse {
   status: string;
   propiedades?: PropiedadAdminOption[];
-}
-
-interface BcvResponse {
-  promedio?: string | number;
 }
 
 const PENDIENTE_INMUEBLE_TAG = '[PENDIENTE_INMUEBLE]';
@@ -623,13 +620,9 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   const fetchBCV = async (): Promise<void> => {
     setLoadingBcv(true);
     try {
-      const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
-      if (!response.ok) throw new Error('No se pudo consultar BCV');
-      const data: BcvResponse = await response.json();
-      if (data?.promedio) {
-        const rateNumber = parseFloat(String(data.promedio));
-        setTasaBcv(Number.isFinite(rateNumber) ? rateNumber.toFixed(3) : String(data.promedio));
-      }
+      const rateNumber = await getCurrentBcvRate();
+      if (!Number.isFinite(rateNumber) || (rateNumber ?? 0) <= 0) throw new Error('No se pudo consultar BCV');
+      setTasaBcv(Number(rateNumber).toFixed(3));
     } catch {
       await showAlert({
         title: 'Error BCV',

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import DatePicker from '../../ui/DatePicker';
 import { es } from 'date-fns/locale/es';
 import { formatMoney } from '../../../utils/currency';
+import { getCurrentBcvRate } from '../../../utils/bcv';
 import { API_BASE_URL } from '../../../config/api';
 import { useDialog } from '../../ui/DialogProvider';
 import ModalBase from '../../ui/ModalBase';
@@ -75,10 +76,6 @@ interface TransferenciaForm {
   referencia: string;
   fecha: string;
   nota: string;
-}
-
-interface BcvResponse {
-  promedio?: number | string;
 }
 
 interface ModalEliminarFondoProps extends ModalActionProps {
@@ -426,15 +423,10 @@ export const ModalPagoProveedor: React.FC<ModalActionProps> = ({ onClose, onSucc
   const fetchBCV = async (): Promise<void> => {
     setIsFetchingBCV(true);
     try {
-      const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
-      const json: BcvResponse = (await response.json()) as BcvResponse;
-      if (json?.promedio) {
-        const rateNumber = parseFloat(String(json.promedio));
-        const formattedRate = Number.isFinite(rateNumber)
-          ? formatNumberInput(rateNumber.toFixed(3).replace('.', ','), 3)
-          : formatNumberInput(String(json.promedio).replace('.', ','), 3);
-        setForm((prev: PagoProveedorForm) => ({ ...prev, tasa_cambio: formattedRate }));
-      }
+      const rateNumber = await getCurrentBcvRate();
+      if (!Number.isFinite(rateNumber) || (rateNumber ?? 0) <= 0) throw new Error('invalid_rate');
+      const formattedRate = formatNumberInput(Number(rateNumber).toFixed(3).replace('.', ','), 3);
+      setForm((prev: PagoProveedorForm) => ({ ...prev, tasa_cambio: formattedRate }));
     } catch {
       await showAlert({ title: 'BCV no disponible', message: 'No se pudo obtener la tasa BCV.', variant: 'warning' });
     } finally {
@@ -977,15 +969,10 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({
   const fetchBCV = async (): Promise<void> => {
     setIsFetchingBCV(true);
     try {
-      const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
-      const json: BcvResponse = (await response.json()) as BcvResponse;
-      if (json?.promedio) {
-        const rateNumber = parseFloat(String(json.promedio));
-        const formattedRate = Number.isFinite(rateNumber)
-          ? formatNumberInput(rateNumber.toFixed(3).replace('.', ','), 3)
-          : formatNumberInput(String(json.promedio).replace('.', ','), 3);
-        setForm((prev: RegistrarEgresoForm) => ({ ...prev, tasa_cambio: formattedRate }));
-      }
+      const rateNumber = await getCurrentBcvRate();
+      if (!Number.isFinite(rateNumber) || (rateNumber ?? 0) <= 0) throw new Error('invalid_rate');
+      const formattedRate = formatNumberInput(Number(rateNumber).toFixed(3).replace('.', ','), 3);
+      setForm((prev: RegistrarEgresoForm) => ({ ...prev, tasa_cambio: formattedRate }));
     } catch {
       await showAlert({ title: 'BCV no disponible', message: 'No se pudo obtener la tasa BCV.', variant: 'warning' });
     } finally {

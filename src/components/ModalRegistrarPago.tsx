@@ -4,6 +4,7 @@ import ModalBase from './ui/ModalBase';
 import DatePicker from './ui/DatePicker';
 import { es } from 'date-fns/locale/es';
 import { formatMoney } from '../utils/currency';
+import { getBcvRateForPaymentDate } from '../utils/bcv';
 import { API_BASE_URL } from '../config/api';
 import { sanitizeCedulaRif, isValidCedulaRif, sanitizePhone, isValidPhone } from '../utils/validators';
 import { useDialog } from './ui/DialogProvider';
@@ -452,14 +453,15 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
     setFormPago((prev: FormPagoState) => ({ ...prev, referencia: referenciaSugerida }));
   }, [esCuentaUsd, formPago.metodo_pago, formPago.referencia, nombreCuentaSeleccionada]);
 
-  const fetchBcvRate = async (silent = false): Promise<void> => {
+  const fetchBcvRate = async (fechaPagoYmd: string, silent = false): Promise<void> => {
+    const fechaObjetivo = String(fechaPagoYmd || '').trim();
+    const ymdValido = /^\d{4}-\d{2}-\d{2}$/.test(fechaObjetivo) ? fechaObjetivo : getLocalYmd();
+
     setIsLoadingAutoRate(true);
     try {
-      const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
-      if (!response.ok) throw new Error('API Error');
-      const json = await response.json() as { promedio?: number | string };
-      const rateNumber = parseFloat(String(json?.promedio ?? ''));
-      if (!Number.isFinite(rateNumber) || rateNumber <= 0) throw new Error('BCV invalid');
+      const rateNumber = await getBcvRateForPaymentDate(ymdValido);
+
+      if (!rateNumber || rateNumber <= 0) throw new Error('BCV invalid');
       const formattedRate = formatCurrencyInput(rateNumber.toFixed(3).replace('.', ','), 3);
 
       setFormPago((prev: FormPagoState) => {
@@ -472,7 +474,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
       if (!silent) {
         await showAlert({
           title: 'BCV no disponible',
-          message: 'No se pudo cargar la tasa BCV automática. Intente nuevamente.',
+          message: `No se pudo cargar la tasa BCV para la fecha ${ymdValido}. Intente nuevamente o ingrese la tasa manual.`,
           variant: 'warning',
         });
       }
@@ -481,10 +483,25 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
     }
   };
 
+  const handleFechaPagoChange = (date: Date | null): void => {
+    const nextYmd = dateToYmd(date);
+    const shouldAutoFetchRate = Boolean(nextYmd) && !esCuentaUsd && requiresTasa && !hasTasaBloqueada;
+
+    setFormPago((prev: FormPagoState) => ({
+      ...prev,
+      fecha_pago: nextYmd,
+      ...(shouldAutoFetchRate ? { tasa_cambio: '' } : {}),
+    }));
+
+    if (shouldAutoFetchRate) {
+      void fetchBcvRate(nextYmd, false);
+    }
+  };
+
   useEffect(() => {
-    if (!useAutoBcvMode || !isOpen || !formPago.cuenta_id || esCuentaUsd || !requiresTasa) return;
-    void fetchBcvRate(true);
-  }, [useAutoBcvMode, isOpen, formPago.cuenta_id, esCuentaUsd, requiresTasa]);
+    if (!isOpen || !formPago.cuenta_id || esCuentaUsd || !requiresTasa || hasTasaBloqueada) return;
+    void fetchBcvRate(formPago.fecha_pago, true);
+  }, [isOpen, formPago.cuenta_id, esCuentaUsd, requiresTasa, hasTasaBloqueada]);
 
   useEffect(() => {
     const fetchGastosExtras = async (): Promise<void> => {
@@ -828,67 +845,141 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
 
               <div className="lg:col-span-2">
                 {esCuentaUsd ? (
-                  <FormField label="Monto Pagado (USD)" required>
-                    <input
-                      type="text"
-                      value={montoUsdDirecto}
-                      onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                        if (hasMontoBsBloqueado) return;
-                        setMontoUsdDirecto(formatCurrencyInput(e.target.value, 2));
-                      }}
-                      placeholder="0,00"
-                      readOnly={hasMontoBsBloqueado}
-                      className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary"
-                      required
-                    />
-                  </FormField>
-                ) : requiresTasa ? (
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-stretch">
-                    <FormField label="Monto Pagado" required>
-                      <input type="text" name="monto_origen" value={formPago.monto_origen} onChange={handlePagoChange} placeholder="0,00" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary read-only:bg-gray-50 read-only:dark:bg-gray-800/70" required readOnly={hasMontoBsBloqueado} />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-stretch">
+                    <FormField label="Monto Pagado (USD)" required>
+                      <input
+                        type="text"
+                        value={montoUsdDirecto}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                          if (hasMontoBsBloqueado) return;
+                          setMontoUsdDirecto(formatCurrencyInput(e.target.value, 2));
+                        }}
+                        placeholder="0,00"
+                        readOnly={hasMontoBsBloqueado}
+                        className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary"
+                        required
+                      />
                     </FormField>
-                    <FormField label="Tasa de Cambio" required>
-                      <div className="flex w-full overflow-hidden rounded-xl border border-gray-200 dark:border-gray-600 focus-within:ring-2 focus-within:ring-donezo-primary">
-                        <input
-                          type="text"
-                          name="tasa_cambio"
-                          value={formPago.tasa_cambio}
-                          readOnly={useAutoBcvMode || hasTasaBloqueada}
-                          onChange={handlePagoChange}
-                          placeholder={isLoadingAutoRate ? 'Cargando tasa...' : (useAutoBcvMode ? 'Tasa automática' : 'Ingrese tasa')}
-                          required
-                          className={`h-[50px] flex-1 border-0 px-3 outline-none dark:text-white ${
-                            (useAutoBcvMode || hasTasaBloqueada) ? 'bg-gray-50 dark:bg-gray-800/70' : 'bg-white dark:bg-gray-800'
-                          }`}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => { void fetchBcvRate(false); }}
-                          disabled={isLoadingAutoRate || hasTasaBloqueada}
-                          className="h-[50px] min-w-[72px] border-l border-green-200 dark:border-green-800 bg-green-50 px-3 text-center text-xs font-black uppercase tracking-wider text-green-700 transition-colors hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-green-900/30 dark:text-green-300 dark:hover:bg-green-900/50"
-                        >
-                          {isLoadingAutoRate ? '...' : 'BCV'}
-                        </button>
-                      </div>
-                    </FormField>
-                    <FormField label="Cedula Origen" required>
-                      <input type="text" name="cedula_origen" value={formPago.cedula_origen} onChange={handlePagoChange} pattern="^[VEJG][0-9]{5,9}$" placeholder="V12345678" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
-                    </FormField>
-                    <FormField label="Banco de Origen" required>
-                      <SearchableCombobox
-                        options={bancoOrigenOptions}
-                        value={formPago.banco_origen}
-                        onChange={(value: string) => applyFormChange('banco_origen', value)}
-                        placeholder="Seleccione banco..."
-                        emptyMessage="Sin bancos"
-                        className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary"
+                    <FormField label="Fecha Pago" required>
+                      <DatePicker
+                        selected={ymdToDate(formPago.fecha_pago)}
+                        onChange={(date: Date | Date[] | null) => {
+                          const nextDate = toSingleDate(date);
+                          handleFechaPagoChange(nextDate);
+                        }}
+                        {...(ymdToDate(getLocalYmd()) ? { maxDate: ymdToDate(getLocalYmd()) as Date } : {})}
+                        dateFormat="dd/MM/yyyy"
+                        locale={es}
+                        placeholderText="Fecha (dd/mm/yyyy)"
+                        showIcon
+                        toggleCalendarOnIconClick
+                        wrapperClassName="w-full min-w-0"
+                        popperClassName="habioo-datepicker-popper"
+                        calendarClassName="habioo-datepicker-calendar"
+                        className="h-[50px] w-full rounded-xl border border-gray-200 bg-white p-3 pr-10 outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                        required
                       />
                     </FormField>
                   </div>
+                ) : requiresTasa ? (
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-stretch">
+                    <div className="md:col-span-2">
+                      <FormField label="Monto Pagado" required>
+                        <input type="text" name="monto_origen" value={formPago.monto_origen} onChange={handlePagoChange} placeholder="0,00" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary read-only:bg-gray-50 read-only:dark:bg-gray-800/70" required readOnly={hasMontoBsBloqueado} />
+                      </FormField>
+                    </div>
+                    <div className="md:col-span-2">
+                      <FormField label="Fecha Pago" required>
+                        <DatePicker
+                          selected={ymdToDate(formPago.fecha_pago)}
+                          onChange={(date: Date | Date[] | null) => {
+                            const nextDate = toSingleDate(date);
+                            handleFechaPagoChange(nextDate);
+                          }}
+                          {...(ymdToDate(getLocalYmd()) ? { maxDate: ymdToDate(getLocalYmd()) as Date } : {})}
+                          dateFormat="dd/MM/yyyy"
+                          locale={es}
+                          placeholderText="Fecha (dd/mm/yyyy)"
+                          showIcon
+                          toggleCalendarOnIconClick
+                          wrapperClassName="w-full min-w-0"
+                          popperClassName="habioo-datepicker-popper"
+                          calendarClassName="habioo-datepicker-calendar"
+                          className="h-[50px] w-full rounded-xl border border-gray-200 bg-white p-3 pr-10 outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                          required
+                        />
+                      </FormField>
+                    </div>
+                    <div className="md:col-span-2">
+                      <FormField label="Tasa de Cambio" required>
+                        <div className="flex w-full overflow-hidden rounded-xl border border-gray-200 dark:border-gray-600 focus-within:ring-2 focus-within:ring-donezo-primary">
+                          <input
+                            type="text"
+                            name="tasa_cambio"
+                            value={formPago.tasa_cambio}
+                            readOnly={useAutoBcvMode || hasTasaBloqueada}
+                            onChange={handlePagoChange}
+                            placeholder={isLoadingAutoRate ? 'Cargando tasa...' : (useAutoBcvMode ? 'Tasa automática' : 'Ingrese tasa')}
+                            required
+                            className={`h-[50px] flex-1 border-0 px-3 outline-none dark:text-white ${
+                              (useAutoBcvMode || hasTasaBloqueada) ? 'bg-gray-50 dark:bg-gray-800/70' : 'bg-white dark:bg-gray-800'
+                            }`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => { void fetchBcvRate(formPago.fecha_pago, false); }}
+                            disabled={isLoadingAutoRate || hasTasaBloqueada}
+                            className="h-[50px] min-w-[72px] border-l border-green-200 dark:border-green-800 bg-green-50 px-3 text-center text-xs font-black uppercase tracking-wider text-green-700 transition-colors hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-green-900/30 dark:text-green-300 dark:hover:bg-green-900/50"
+                          >
+                            {isLoadingAutoRate ? '...' : 'BCV'}
+                          </button>
+                        </div>
+                      </FormField>
+                    </div>
+                    <div className="md:col-span-3">
+                      <FormField label="Cedula Origen" required>
+                        <input type="text" name="cedula_origen" value={formPago.cedula_origen} onChange={handlePagoChange} pattern="^[VEJG][0-9]{5,9}$" placeholder="V12345678" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required />
+                      </FormField>
+                    </div>
+                    <div className="md:col-span-3">
+                      <FormField label="Banco de Origen" required>
+                        <SearchableCombobox
+                          options={bancoOrigenOptions}
+                          value={formPago.banco_origen}
+                          onChange={(value: string) => applyFormChange('banco_origen', value)}
+                          placeholder="Seleccione banco..."
+                          emptyMessage="Sin bancos"
+                          className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary"
+                        />
+                      </FormField>
+                    </div>
+                  </div>
                 ) : (
-                  <FormField label="Monto Pagado" required>
-                    <input type="text" name="monto_origen" value={formPago.monto_origen} onChange={handlePagoChange} placeholder="0,00" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary read-only:bg-gray-50 read-only:dark:bg-gray-800/70" required readOnly={hasMontoBsBloqueado} />
-                  </FormField>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-stretch">
+                    <FormField label="Monto Pagado" required>
+                      <input type="text" name="monto_origen" value={formPago.monto_origen} onChange={handlePagoChange} placeholder="0,00" className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary read-only:bg-gray-50 read-only:dark:bg-gray-800/70" required readOnly={hasMontoBsBloqueado} />
+                    </FormField>
+                    <FormField label="Fecha Pago" required>
+                      <DatePicker
+                        selected={ymdToDate(formPago.fecha_pago)}
+                        onChange={(date: Date | Date[] | null) => {
+                          const nextDate = toSingleDate(date);
+                          handleFechaPagoChange(nextDate);
+                        }}
+                        {...(ymdToDate(getLocalYmd()) ? { maxDate: ymdToDate(getLocalYmd()) as Date } : {})}
+                        dateFormat="dd/MM/yyyy"
+                        locale={es}
+                        placeholderText="Fecha (dd/mm/yyyy)"
+                        showIcon
+                        toggleCalendarOnIconClick
+                        wrapperClassName="w-full min-w-0"
+                        popperClassName="habioo-datepicker-popper"
+                        calendarClassName="habioo-datepicker-calendar"
+                        className="h-[50px] w-full rounded-xl border border-gray-200 bg-white p-3 pr-10 outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                        required
+                      />
+                    </FormField>
+                  </div>
                 )}
               </div>
 
@@ -915,13 +1006,6 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                       />
                     </FormField>
                   )}
-                </div>
-              )}
-
-              {!esCuentaUsd && (
-                <div className="lg:col-span-2 flex justify-between items-center px-2 py-1 mt-1 mb-2 bg-green-50 dark:bg-green-900/10 rounded-lg">
-                  <span className="text-xs text-green-700 dark:text-green-500 font-bold uppercase tracking-wider">Abono Equivalente:</span>
-                  <span className="font-black text-green-600 dark:text-green-400 text-lg">+ ${formatMoney(conversionUSD)}</span>
                 </div>
               )}
 
@@ -1013,30 +1097,16 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                 </div>
               )}
 
-              <div className="lg:col-span-2 grid grid-cols-2 gap-3">
+              <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
                 <FormField label="Referencia" required={formPago.metodo_pago !== 'Efectivo'}>
                   <input type="text" name="referencia" value={formPago.referencia} onChange={handlePagoChange} placeholder={formPago.metodo_pago === 'Efectivo' ? 'EFECTIVO (opcional)' : 'Ref / Comprobante'} className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary" required={formPago.metodo_pago !== 'Efectivo'} />
                 </FormField>
-                <FormField label="Fecha Pago" required>
-                  <DatePicker
-                    selected={ymdToDate(formPago.fecha_pago)}
-                    onChange={(date: Date | Date[] | null) => {
-                      const nextDate = toSingleDate(date);
-                      setFormPago((prev: FormPagoState) => ({ ...prev, fecha_pago: dateToYmd(nextDate) }));
-                    }}
-                    {...(ymdToDate(getLocalYmd()) ? { maxDate: ymdToDate(getLocalYmd()) as Date } : {})}
-                    dateFormat="dd/MM/yyyy"
-                    locale={es}
-                    placeholderText="Fecha (dd/mm/yyyy)"
-                    showIcon
-                    toggleCalendarOnIconClick
-                    wrapperClassName="w-full min-w-0"
-                    popperClassName="habioo-datepicker-popper"
-                    calendarClassName="habioo-datepicker-calendar"
-                    className="h-[50px] w-full rounded-xl border border-gray-200 bg-white p-3 pr-10 outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                    required
-                  />
-                </FormField>
+                {!esCuentaUsd && (
+                  <div className="rounded-xl bg-green-50 dark:bg-green-900/10 px-3 py-2 flex justify-between items-center">
+                    <span className="text-xs text-green-700 dark:text-green-500 font-bold uppercase tracking-wider">Abono Equivalente:</span>
+                    <span className="font-black text-green-600 dark:text-green-400 text-lg">+ ${formatMoney(conversionUSD)}</span>
+                  </div>
+                )}
               </div>
 
               <div className="lg:col-span-2">

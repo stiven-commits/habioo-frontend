@@ -4,6 +4,7 @@ import DatePicker from '../ui/DatePicker';
 import { es } from 'date-fns/locale/es';
 import { API_BASE_URL } from '../../config/api';
 import { formatMoney } from '../../utils/currency';
+import { getCurrentBcvRate } from '../../utils/bcv';
 
 interface GastoPagoProveedor {
   gasto_id: number | string;
@@ -316,14 +317,7 @@ const handleFondoChange = (filaId: string, fondoIdRaw: string): void => {
     setErrorMsg('');
 
     try {
-      const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
-      if (!response.ok) throw new Error('No se pudo consultar la tasa BCV.');
-
-      const data: unknown = await response.json();
-      const promedio =
-        typeof data === 'object' && data !== null && 'promedio' in data
-          ? parseFloat(String((data as { promedio?: number | string }).promedio ?? 0))
-          : 0;
+      const promedio = await getCurrentBcvRate();
 
       if (!Number.isFinite(promedio) || promedio <= 0) {
         throw new Error('La tasa BCV recibida no es válida.');

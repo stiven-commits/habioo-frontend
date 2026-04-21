@@ -12,6 +12,7 @@ import DateRangePicker from '../ui/DateRangePicker';
 import ModalBase from '../ui/ModalBase';
 import { es } from 'date-fns/locale/es';
 import { formatMoney } from '../../utils/currency';
+import { getCurrentBcvRate } from '../../utils/bcv';
 import { formatDateVE } from '../../utils/datetime';
 import DataTable from '../ui/DataTable';
 import FormField from '../ui/FormField';
@@ -43,10 +44,6 @@ interface PropiedadFormData {
     monto_deuda: string;
     monto_abono: string;
   }>;
-}
-
-interface BcvApiResponse {
-  promedio?: number | string;
 }
 
 interface ModalPropiedadFormProps {
@@ -344,16 +341,12 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
   const fetchBCV = async (): Promise<void> => {
     setIsFetchingBCV(true);
     try {
-      const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
-      if (!response.ok) throw new Error('API Error');
-      const json: BcvApiResponse = (await response.json()) as BcvApiResponse;
-      const rate = json?.promedio;
-      if (!rate) {
+      const rate = await getCurrentBcvRate();
+      if (!Number.isFinite(rate) || (rate ?? 0) <= 0) {
         alert('No se pudo obtener la tasa BCV actual.');
         return;
       }
-      const rateNumber = parseFloat(String(rate));
-      const formattedRate = Number.isFinite(rateNumber) ? rateNumber.toFixed(3).replace('.', ',') : String(rate).replace('.', ',');
+      const formattedRate = Number(rate).toFixed(3).replace('.', ',');
       handleTasaChange(formattedRate);
     } catch (error) {
       alert('Error al consultar BCV.');
@@ -821,10 +814,7 @@ export const ModalAjusteSaldo: FC<ModalAjusteSaldoProps> = ({
   const fetchBCV = async (): Promise<void> => {
     setIsFetchingBCV(true);
     try {
-      const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
-      if (!response.ok) throw new Error('No se pudo consultar BCV');
-      const json: BcvApiResponse = (await response.json()) as BcvApiResponse;
-      const rate = Number.parseFloat(String(json?.promedio ?? 0)) || 0;
+      const rate = await getCurrentBcvRate();
       if (rate <= 0) throw new Error('Tasa inválida');
       setFormAjuste((prev) => ({ ...prev, tasa_cambio: String(rate) }));
     } catch {

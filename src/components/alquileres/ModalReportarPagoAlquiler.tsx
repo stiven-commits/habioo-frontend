@@ -4,6 +4,7 @@ import { CalendarDays, UploadCloud } from 'lucide-react';
 import DatePicker from '../ui/DatePicker';
 import { es } from 'date-fns/locale/es';
 import { API_BASE_URL } from '../../config/api';
+import { getCurrentBcvRate } from '../../utils/bcv';
 import { useDialog } from '../ui/DialogProvider';
 
 interface ReservacionPago {
@@ -38,10 +39,6 @@ interface CuentaPrincipalResponse {
 interface PagoResponse {
   status?: 'success' | 'error';
   message?: string;
-}
-
-interface BcvResponse {
-  promedio?: number | string;
 }
 
 const getTodayYmd = (): string => {
@@ -180,10 +177,7 @@ const ModalReportarPagoAlquiler: FC<ModalReportarPagoAlquilerProps> = ({
     if (!isOpen) return;
     const fetchBcv = async (): Promise<void> => {
       try {
-        const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
-        if (!response.ok) throw new Error('BCV error');
-        const json = (await response.json()) as BcvResponse;
-        const promedio = Number.parseFloat(String(json.promedio ?? '').replace(',', '.'));
+        const promedio = await getCurrentBcvRate();
         if (!Number.isFinite(promedio) || promedio <= 0) throw new Error('BCV invalido');
         const tasaRedondeada = Number(promedio.toFixed(3));
         const tasaFormatted = tasaRedondeada.toFixed(3).replace('.', ',');
@@ -431,4 +425,3 @@ const ModalReportarPagoAlquiler: FC<ModalReportarPagoAlquilerProps> = ({
 };
 
 export default ModalReportarPagoAlquiler;
-

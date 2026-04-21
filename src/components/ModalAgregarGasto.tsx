@@ -6,6 +6,7 @@ import SearchableCombobox from './ui/SearchableCombobox';
 import type { SearchableComboboxOption } from './ui/SearchableCombobox';
 import { es } from 'date-fns/locale/es';
 import { API_BASE_URL } from '../config/api';
+import { getCurrentBcvRate } from '../utils/bcv';
 
 // Helper function for currency display
 const formatMoneyDisplay = (value: string | number): string => {
@@ -829,9 +830,7 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
   const fetchTasaHistoricaDia = async (): Promise<void> => {
     setLoadingTasaHistoricaDia(true);
     try {
-      const res = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
-      const data: { promedio?: number | string } = await res.json();
-      const rateNumber = parseFloat(String(data?.promedio ?? 0));
+      const rateNumber = await getCurrentBcvRate();
       if (Number.isFinite(rateNumber) && rateNumber > 0) {
         setTasaHistoricaDia(rateNumber);
       }
@@ -851,12 +850,10 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
   const handleFetchBCV = async (): Promise<void> => {
     setLoadingBCV(true);
     try {
-      const res = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
-      const data: { promedio?: number | string } = await res.json();
-      if (data && data.promedio) {
+      const rateNumber = await getCurrentBcvRate();
+      if (Number.isFinite(rateNumber) && rateNumber > 0) {
         // Convertimos el punto en coma y lo pasamos por nuestro formateador
-        const rateNumber = parseFloat(String(data.promedio));
-        const tasaRaw = Number.isFinite(rateNumber) ? rateNumber.toFixed(3).replace('.', ',') : String(data.promedio).replace('.', ',');
+        const tasaRaw = rateNumber.toFixed(3).replace('.', ',');
         const formattedTasa = formatCurrencyInput(tasaRaw, 3);
         setForm((prev: FormState) => ({ ...prev, tasa_cambio: formattedTasa }));
       } else {
