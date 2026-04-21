@@ -202,7 +202,6 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
   const isOpen = Boolean(propiedadPreseleccionada);
   const hasMontoBsBloqueado = Number.isFinite(Number(montoBsBloqueado)) && Number(montoBsBloqueado) > 0;
   const hasTasaBloqueada = Number.isFinite(Number(tasaBloqueada)) && Number(tasaBloqueada) > 0;
-  const isFromIngresoPendiente = Number.isFinite(Number(movimientoFondoPendienteId)) && Number(movimientoFondoPendienteId) > 0;
 
   useEffect(() => {
     // Solo auto-completamos si la modal está abierta, hay cuentas y el usuario NO ha seleccionado una manualmente
@@ -926,7 +925,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                 </div>
               )}
 
-              {!soloCuentaPrincipal && !isFromIngresoPendiente && (
+              {!soloCuentaPrincipal && (
                 <div className="lg:col-span-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-800/40 p-3">
                   <button
                     type="button"
