@@ -194,6 +194,7 @@ interface HistoricalOriginRow {
 }
 
 const toNumber = (value: string | number | undefined | null): number => parseFloat(String(value ?? 0)) || 0;
+const toCents = (value: string | number | undefined | null): number => Math.round(toNumber(value) * 100);
 
 const parseSoportes = (value: unknown): string[] => {
   if (Array.isArray(value)) {
@@ -572,10 +573,10 @@ const Gastos: FC<GastosProps> = () => {
   }, [filteredBySearchAndDate]);
 
   const getEstadoPago = (gasto: GastoAgrupado): 'Pendiente' | 'Abonado' | 'Pagado' => {
-    const total = toNumber(gasto.monto_total_usd);
-    const pagado = toNumber(gasto.monto_pagado_proveedor_usd);
-    if (pagado <= 0) return 'Pendiente';
-    if (pagado < total) return 'Abonado';
+    const totalCents = toCents(gasto.monto_total_usd);
+    const pagadoCents = toCents(gasto.monto_pagado_proveedor_usd);
+    if (pagadoCents <= 0) return 'Pendiente';
+    if (pagadoCents < totalCents) return 'Abonado';
     return 'Pagado';
   };
 
@@ -914,9 +915,11 @@ const Gastos: FC<GastosProps> = () => {
                     render: (g) => {
                       const montoTotal = toNumber(g.monto_total_usd);
                       const montoPagado = toNumber(g.monto_pagado_proveedor_usd);
-                      const progresoPago = montoTotal > 0 ? Math.min(100, (montoPagado / montoTotal) * 100) : 0;
+                      const montoTotalCents = toCents(g.monto_total_usd);
+                      const montoPagadoCents = toCents(g.monto_pagado_proveedor_usd);
+                      const progresoPago = montoTotalCents > 0 ? Math.min(100, (montoPagadoCents / montoTotalCents) * 100) : 0;
                       const estadoPago: 'Pendiente' | 'Abonado' | 'Pagado' =
-                        montoPagado <= 0 ? 'Pendiente' : montoPagado < montoTotal ? 'Abonado' : 'Pagado';
+                        montoPagadoCents <= 0 ? 'Pendiente' : montoPagadoCents < montoTotalCents ? 'Abonado' : 'Pagado';
                       const estadoPagoColor = estadoPago === 'Pagado' ? 'emerald' : estadoPago === 'Abonado' ? 'amber' : 'red';
                       return (
                         <>
@@ -942,7 +945,7 @@ const Gastos: FC<GastosProps> = () => {
                     render: (g) => (
                       <DropdownMenu width={208} items={[
                         { label: 'Ver pagos', onClick: () => { setGastoVerPagos(g); setIsModalVerPagosOpen(true); } },
-                        { label: 'Registrar pago', onClick: () => { void handleRegistrarPago(g); }, disabled: toNumber(g.monto_pagado_proveedor_usd) >= toNumber(g.monto_total_usd) },
+                        { label: 'Registrar pago', onClick: () => { void handleRegistrarPago(g); }, disabled: toCents(g.monto_pagado_proveedor_usd) >= toCents(g.monto_total_usd) },
                         { label: 'Editar gasto', onClick: () => handleEditGasto(g), disabled: !g.canEdit },
                         { label: 'Eliminar', onClick: () => { void handleDelete(g.gasto_id); }, variant: 'danger', disabled: !g.canDelete },
                       ]} />
