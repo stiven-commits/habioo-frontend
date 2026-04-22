@@ -796,6 +796,11 @@ const Gastos: FC<GastosProps> = () => {
                   {
                     key: 'expand',
                     header: '',
+                    size: 44,
+                    minSize: 44,
+                    maxSize: 44,
+                    headerClassName: 'w-[44px]',
+                    className: 'w-[44px]',
                     render: (g) => (
                       <button
                         type="button"
@@ -808,6 +813,11 @@ const Gastos: FC<GastosProps> = () => {
                   },
                   {
                     key: 'fechas',
+                    size: 124,
+                    minSize: 124,
+                    maxSize: 124,
+                    headerClassName: 'whitespace-nowrap',
+                    className: 'whitespace-nowrap',
                     header: (
                       <button type="button" onClick={() => toggleSort('fecha_factura')} className="font-bold hover:text-donezo-primary">
                         Fechas {sortIndicator('fecha_factura')}
