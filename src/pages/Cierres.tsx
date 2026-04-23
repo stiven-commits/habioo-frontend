@@ -243,7 +243,7 @@ const Cierres: FC<CierresProps> = () => {
       }
       const promedio = parseFloat(String(dataBcv?.promedio ?? 0));
       if (Number.isFinite(promedio) && promedio > 0) {
-        setTasaBcvHoy(parseFloat(promedio.toFixed(3)));
+        setTasaBcvHoy(parseFloat(promedio.toFixed(4)));
       }
     } catch (error) { console.error(error); }
     finally { setLoading(false); }
@@ -582,7 +582,7 @@ const Cierres: FC<CierresProps> = () => {
                 <div className="w-full sm:w-1/4 sm:text-right flex flex-col justify-end h-full">
                   <p className="text-xs text-blue-700 dark:text-blue-300 font-bold mb-1">Pagaria</p>
                   <p className="text-3xl font-black text-blue-600 dark:text-blue-400 leading-none">${formatMoney(montoSimuladoUsd)}</p>
-                  <p className="text-xs font-semibold text-blue-700/80 dark:text-blue-300 mt-1">Bs {formatMoney(montoSimuladoBs)} {tasaBcvHoy > 0 ? `(@${formatMoney(tasaBcvHoy, 3)} BCV)` : ''}</p>
+                  <p className="text-xs font-semibold text-blue-700/80 dark:text-blue-300 mt-1">Bs {formatMoney(montoSimuladoBs)} {tasaBcvHoy > 0 ? `(@${formatMoney(tasaBcvHoy, 4)} BCV)` : ''}</p>
                 </div>
               </>
             ) : (
@@ -806,4 +806,3 @@ const Cierres: FC<CierresProps> = () => {
 };
 
 export default Cierres;
-

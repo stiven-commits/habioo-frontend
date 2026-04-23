@@ -58,7 +58,7 @@ const parseLocaleNumber = (value: number | string): number => {
 
 const formatTasa = (value: number | string): string => {
   const safe = parseLocaleNumber(value);
-  return safe.toLocaleString('es-VE', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+  return safe.toLocaleString('es-VE', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 };
 
 const formatDateVe = (value: string): string => {

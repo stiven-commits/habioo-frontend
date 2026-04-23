@@ -1073,7 +1073,7 @@ const Gastos: FC<GastosProps> = () => {
                     historico_en_cuenta: notaFields.historico_en_cuenta,
                     historico_cuenta_bancaria_id: notaFields.historico_cuenta_bancaria_id,
                     historico_fondo_id: notaFields.historico_fondo_id,
-                    tasa_historica: tasaHistoricaNum > 0 ? formatMoney(tasaHistoricaNum, 3) : '',
+                    tasa_historica: tasaHistoricaNum > 0 ? formatMoney(tasaHistoricaNum, 4) : '',
                     es_historico: notaFields.es_historico,
                     clasificacion: String(gastoEnEdicion.clasificacion || 'Variable') === 'Fijo' ? 'Fijo' : 'Variable',
                     asignacion_tipo: (gastoEnEdicion.tipo === 'No Comun' ? 'Zona' : (gastoEnEdicion.tipo || 'Comun')) as 'Comun' | 'Zona' | 'Individual' | 'Extra',

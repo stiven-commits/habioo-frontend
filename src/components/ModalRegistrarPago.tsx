@@ -177,7 +177,7 @@ const inferCuentaMoneda = (cuenta?: BancoCuenta): 'USD' | 'BS' => {
   if (apodo.includes('USD')) return 'USD';
   return 'BS';
 };
-const trunc2 = (value: number): number => Math.trunc((Number(value) || 0) * 100) / 100;
+const round2 = (value: number): number => Math.round(((Number(value) || 0) + Number.EPSILON) * 100) / 100;
 
 const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
   propiedadPreseleccionada,
@@ -339,7 +339,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
     const monto = parseInputNumber(updatedForm.monto_origen);
     const tasaRaw = parseInputNumber(updatedForm.tasa_cambio);
 
-    if (tasaRaw > 0) return trunc2(monto / tasaRaw).toFixed(2);
+    if (tasaRaw > 0) return round2(monto / tasaRaw).toFixed(2);
     return '0.00';
   };
 
@@ -371,7 +371,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
     let newVal = value;
 
     if (field === 'monto_origen') newVal = formatCurrencyInput(value, 2);
-    if (field === 'tasa_cambio') newVal = formatCurrencyInput(value, 3);
+    if (field === 'tasa_cambio') newVal = formatCurrencyInput(value, 4);
     if (field === 'cedula_origen') newVal = sanitizeCedulaRif(value);
     if (field === 'telefono_origen') newVal = sanitizePhone(value);
 
@@ -430,17 +430,17 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
 
   useEffect(() => {
     if (!isOpen || !hasTasaBloqueada || esCuentaUsd) return;
-    const nextTasa = formatCurrencyInput(String(tasaBloqueada).replace('.', ','), 3);
+    const nextTasa = formatCurrencyInput(String(tasaBloqueada).replace('.', ','), 4);
     setFormPago((prev: FormPagoState) => (prev.tasa_cambio === nextTasa ? prev : { ...prev, tasa_cambio: nextTasa }));
   }, [isOpen, hasTasaBloqueada, esCuentaUsd, tasaBloqueada]);
 
   useEffect(() => {
     if (esCuentaUsd) {
-      setConversionUSD(trunc2(parseInputNumber(montoUsdDirecto)).toFixed(2));
+      setConversionUSD(round2(parseInputNumber(montoUsdDirecto)).toFixed(2));
       return;
     }
     if (!requiresTasa) {
-      setConversionUSD(trunc2(parseInputNumber(formPago.monto_origen)).toFixed(2));
+      setConversionUSD(round2(parseInputNumber(formPago.monto_origen)).toFixed(2));
       return;
     }
     setConversionUSD(getConversionUSD(formPago));
@@ -462,7 +462,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
       const rateNumber = await getBcvRateForPaymentDate(ymdValido);
 
       if (!rateNumber || rateNumber <= 0) throw new Error('BCV invalid');
-      const formattedRate = formatCurrencyInput(rateNumber.toFixed(3).replace('.', ','), 3);
+      const formattedRate = formatCurrencyInput(rateNumber.toFixed(4).replace('.', ','), 4);
 
       setFormPago((prev: FormPagoState) => {
         if (prev.tasa_cambio === formattedRate) return prev;
@@ -1089,7 +1089,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                           + Agregar fila de desvío
                         </button>
                         <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                          Tasa aplicada: {getEffectiveRateForDesvio() > 0 ? formatMoney(getEffectiveRateForDesvio(), 3) : 'N/A'}
+                          Tasa aplicada: {getEffectiveRateForDesvio() > 0 ? formatMoney(getEffectiveRateForDesvio(), 4) : 'N/A'}
                         </div>
                       </div>
                     </div>

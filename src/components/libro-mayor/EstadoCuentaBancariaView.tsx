@@ -243,8 +243,8 @@ const formatCurrency = (value: string | number | undefined | null): string => {
 const formatRate = (value: string | number | undefined | null): string => {
   const n = toNumber(value);
   return new Intl.NumberFormat('es-VE', {
-    minimumFractionDigits: 3,
-    maximumFractionDigits: 3
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4
   }).format(n);
 };
 
@@ -622,7 +622,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     try {
       const rateNumber = await getCurrentBcvRate();
       if (!Number.isFinite(rateNumber) || (rateNumber ?? 0) <= 0) throw new Error('No se pudo consultar BCV');
-      setTasaBcv(Number(rateNumber).toFixed(3));
+      setTasaBcv(Number(rateNumber).toFixed(4));
     } catch {
       await showAlert({
         title: 'Error BCV',
@@ -1194,6 +1194,29 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     [resumenFondos, tasaBcvNum]
   );
 
+  const saldoFondosBsActual = useMemo(
+    () => round2(resumenFondos.reduce((acc, fondo) => (
+      fondo.moneda === 'BS' ? acc + toNumber(fondo.saldo) : acc
+    ), 0)),
+    [resumenFondos],
+  );
+
+  const saldoTransitoExtraBsActual = useMemo(
+    () => {
+      if (isCuentaUsd) return 0;
+      return round2(saldoCuentaBsActual - saldoFondosBsActual);
+    },
+    [isCuentaUsd, saldoCuentaBsActual, saldoFondosBsActual],
+  );
+
+  const saldoTransitoExtraUsdActual = useMemo(
+    () => {
+      if (tasaBcvNum <= 0) return 0;
+      return round2(saldoTransitoExtraBsActual / tasaBcvNum);
+    },
+    [saldoTransitoExtraBsActual, tasaBcvNum],
+  );
+
   const ownerResumenActual = useMemo(
     () => resumenFondos.filter((fondo) => String(fondo.id) !== ''),
     [resumenFondos],
@@ -1284,14 +1307,12 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   }
 
   function getMontoUsdVista(movimiento: IMovimiento): number {
-    const montoUsd = toNumber(movimiento.monto_usd);
-    if (montoUsd > 0) return montoUsd;
     const montoBs = toNumber(movimiento.monto_bs);
-    if (montoBs <= 0) return 0;
     const tasaMovimiento = toNumber(movimiento.tasa_cambio);
-    if (tasaMovimiento > 0) return montoBs / tasaMovimiento;
-    if (tasaBcvNum > 0) return montoBs / tasaBcvNum;
-    return 0;
+    if (montoBs > 0 && tasaMovimiento > 0) return round2(montoBs / tasaMovimiento);
+    if (montoBs > 0 && tasaBcvNum > 0) return round2(montoBs / tasaBcvNum);
+    const montoUsd = toNumber(movimiento.monto_usd);
+    return montoUsd > 0 ? montoUsd : 0;
   }
 
   const totalesPagina = useMemo(() => {
@@ -1838,7 +1859,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                   },
                   { key: 'monto_bs', header: 'Monto (Bs)', headerClassName: 'text-right min-w-[150px] whitespace-nowrap', className: 'text-right min-w-[150px] whitespace-nowrap font-black font-mono', render: (mov) => <>Bs {formatCurrency(getMontoBsVista(mov))}</> },
                   { key: 'cargo', header: 'Cargo ($)', headerClassName: 'text-right min-w-[120px] whitespace-nowrap', className: 'text-right min-w-[120px] whitespace-nowrap font-black font-mono text-red-600 dark:text-red-400', render: (mov) => <>-{formatCurrency(mov.monto_usd)}</> },
-                  { key: 'tasa', header: 'Tasa', headerClassName: 'text-right min-w-[110px] whitespace-nowrap', className: 'text-right min-w-[110px] whitespace-nowrap font-mono text-xs text-blue-600 dark:text-blue-400', render: (mov) => mov.tasa_cambio ? formatCurrency(mov.tasa_cambio) : '-' },
+                  { key: 'tasa', header: 'Tasa', headerClassName: 'text-right min-w-[110px] whitespace-nowrap', className: 'text-right min-w-[110px] whitespace-nowrap font-mono text-xs text-blue-600 dark:text-blue-400', render: (mov) => mov.tasa_cambio ? formatRate(mov.tasa_cambio) : '-' },
                 ]}
                 data={ownerEgresosFondo}
                 enableTanstackPagination
@@ -1869,7 +1890,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                   { key: 'banco', header: 'Banco', className: 'text-gray-600 dark:text-gray-400', render: (corte) => `${corte.nombre_banco || 'Cuenta'} (${corte.apodo_cuenta || '-'})` },
                   { key: 'saldo_bs', header: 'Saldo (Bs)', headerClassName: 'text-right', className: 'text-right font-black font-mono', render: (corte) => <>Bs {formatCurrency(corte.saldo_bs)}</> },
                   { key: 'saldo_usd', header: 'Saldo (USD)', headerClassName: 'text-right', className: 'text-right font-black font-mono', render: (corte) => <>$ {formatCurrency(corte.saldo_usd)}</> },
-                  { key: 'tasa', header: 'Tasa Ref.', headerClassName: 'text-right', className: 'text-right text-blue-600 dark:text-blue-400 font-mono', render: (corte) => corte.tasa_referencia ? formatCurrency(corte.tasa_referencia) : '-' },
+                  { key: 'tasa', header: 'Tasa Ref.', headerClassName: 'text-right', className: 'text-right text-blue-600 dark:text-blue-400 font-mono', render: (corte) => corte.tasa_referencia ? formatRate(corte.tasa_referencia) : '-' },
                 ]}
                 data={ownerCortesFiltrados}
                 enableTanstackPagination
@@ -1944,6 +1965,21 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
             <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">≈ ${formatCurrency(fondo.equivalenteUsd)} USD</p>
           </article>
         ))}
+        {!isCuentaUsd && (
+          <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <p className="text-xs font-black uppercase tracking-wider text-gray-400">Tránsito / Extra</p>
+            <p className="mt-1 text-4xl font-black text-gray-900 dark:text-white">
+              {saldoTransitoExtraBsActual < 0
+                ? `-Bs ${formatCurrency(Math.abs(saldoTransitoExtraBsActual))}`
+                : `Bs ${formatCurrency(saldoTransitoExtraBsActual)}`}
+            </p>
+            <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">
+              {saldoTransitoExtraUsdActual < 0
+                ? `≈ -$${formatCurrency(Math.abs(saldoTransitoExtraUsdActual))} USD`
+                : `≈ $${formatCurrency(saldoTransitoExtraUsdActual)} USD`}
+            </p>
+          </article>
+        )}
         <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <p className="text-xs font-black uppercase tracking-wider text-gray-400">Tasa BCV</p>
           <div className="mt-1 flex items-center gap-2">
@@ -2142,7 +2178,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                     const montoUsd = toNumber(row.monto_usd);
                     if (montoBs <= 0 || montoUsd <= 0) return '-';
                     const tasa = montoBs / montoUsd;
-                    return formatCurrency(tasa);
+                    return formatRate(tasa);
                   }
                 },
                 { key: 'fondo_destino', header: 'Fondo destino', className: 'font-semibold text-gray-700 dark:text-gray-300', render: (row) => row.fondo_destino || 'Fondo principal' },
@@ -2154,7 +2190,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
               onRowDoubleClick={(row) => {
                 const montoBs = toNumber(row.monto_bs);
                 const montoUsd = toNumber(row.monto_usd);
-                const tasa = montoBs > 0 && montoUsd > 0 ? Number((montoBs / montoUsd).toFixed(2)) : 0;
+                const tasa = montoBs > 0 && montoUsd > 0 ? Number((montoBs / montoUsd).toFixed(4)) : 0;
                 setMovimientoDetalle({
                   id: `extra-${row.pago_id}`,
                   fecha: row.fecha,
@@ -2307,15 +2343,15 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                 sortAccessor: (movimiento: IMovimiento) => toNumber(movimiento.tasa_cambio),
                 render: (movimiento: IMovimiento) => (
                   <span style={{ fontSize: `${tableCompactFontPx}px` }}>
-                    {movimiento.tasa_cambio ? formatCurrency(movimiento.tasa_cambio) : '-'}
+                    {movimiento.tasa_cambio ? formatRate(movimiento.tasa_cambio) : '-'}
                   </span>
                 ),
               } as Column<IMovimiento>] : []),
               ...(mode === 'admin' ? [{
                 key: 'acciones',
                 header: 'Acciones',
-                headerClassName: 'text-center whitespace-nowrap',
-                className: 'text-center whitespace-nowrap',
+                headerClassName: 'text-right whitespace-nowrap',
+                className: 'text-right whitespace-nowrap',
                 size: MAIN_TABLE_COLUMN_DEFAULT_WIDTHS.acciones,
                 minSize: MAIN_TABLE_COLUMN_MIN_WIDTHS.acciones,
                 render: (movimiento: IMovimiento) => {
@@ -2329,7 +2365,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                   }
 
                   return (
-                    <div className="flex items-center justify-center gap-1.5">
+                    <div className="flex items-center justify-end gap-1.5">
                       {canAssignInmueble && (
                         <button
                           type="button"
@@ -2403,7 +2439,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                   {!isCuentaUsd && (
                     <td className="p-3 text-right font-mono text-gray-400">-</td>
                   )}
-                  {mode === 'admin' && <td className="p-3 text-center text-gray-400">-</td>}
+                  {mode === 'admin' && <td className="p-3 text-right text-gray-400">-</td>}
                 </tr>
               </tfoot>
             )}

@@ -234,10 +234,18 @@ function DataTable<T>({
                 headerClassName?: string;
                 headerStyle?: CSSProperties;
               };
+              const headerClassName = meta.headerClassName ?? '';
+              const isRightAlignedHeader = /\btext-right\b/.test(headerClassName);
+              const sortJustifyClass = isRightAlignedHeader
+                ? 'justify-end'
+                : /\btext-center\b/.test(headerClassName)
+                  ? 'justify-center'
+                  : 'justify-start';
+              const headerContentSpacingClass = isRightAlignedHeader ? 'pr-4' : '';
               return (
                 <th
                   key={header.id}
-                  className={`p-3 font-bold uppercase text-[11px] text-gray-500 dark:text-gray-400 ${meta.headerClassName ?? ''}`}
+                  className={`p-3 font-bold uppercase text-[11px] text-gray-500 dark:text-gray-400 border-r border-gray-300 dark:border-gray-600 last:border-r-0 ${headerClassName}`}
                   style={{
                     ...meta.headerStyle,
                     width: header.getSize(),
@@ -251,7 +259,7 @@ function DataTable<T>({
                         <button
                           type="button"
                           onClick={header.column.getToggleSortingHandler()}
-                          className="inline-flex w-full items-center justify-start gap-1 hover:text-gray-700 dark:hover:text-gray-200"
+                          className={`inline-flex w-full items-center ${sortJustifyClass} ${headerContentSpacingClass} gap-1 hover:text-gray-700 dark:hover:text-gray-200`}
                         >
                           {flexRender(header.column.columnDef.header, header.getContext())}
                           <span className="shrink-0">
@@ -263,18 +271,25 @@ function DataTable<T>({
                           </span>
                         </button>
                       ) : (
-                        flexRender(header.column.columnDef.header, header.getContext())
+                        <div className={`flex w-full items-center ${sortJustifyClass} ${headerContentSpacingClass}`}>
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                        </div>
                       )
                     )}
                     {enableTanstackColumnSizing && header.column.getCanResize() && (
                       <span
                         onMouseDown={header.getResizeHandler()}
                         onTouchStart={header.getResizeHandler()}
-                        className={`absolute right-0 top-0 h-full w-2 cursor-col-resize select-none touch-none ${
+                        className={`absolute right-0 top-0 h-full w-3 cursor-col-resize select-none touch-none ${
                           header.column.getIsResizing() ? 'bg-blue-200/70 dark:bg-blue-700/60' : 'hover:bg-gray-300/40 dark:hover:bg-gray-600/40'
                         }`}
+                        title="Arrastrar para ajustar ancho de columna"
                         aria-hidden="true"
-                      />
+                      >
+                        <span className="pointer-events-none absolute right-[3px] top-1/2 -translate-y-1/2 text-[10px] leading-none text-gray-400 dark:text-gray-500">
+                          ||
+                        </span>
+                      </span>
                     )}
                   </div>
                 </th>

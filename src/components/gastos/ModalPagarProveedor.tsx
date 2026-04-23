@@ -65,7 +65,7 @@ interface ApiResponse {
 }
 
 const toNumber = (value: number | string | undefined | null): number => parseFloat(String(value ?? 0)) || 0;
-const trunc2 = (value: number): number => Math.trunc((Number(value) || 0) * 100) / 100;
+const round2 = (value: number): number => Math.round(((Number(value) || 0) + Number.EPSILON) * 100) / 100;
 const getLocalYmd = (): string => {
   const now = new Date();
   const year = now.getFullYear();
@@ -162,7 +162,7 @@ const parseFormattedAmount = (input: string): number => {
 
 const formatRateForInput = (value: number | ''): string => {
   if (value === '' || !Number.isFinite(value)) return '';
-  const fixed = value.toFixed(3);
+  const fixed = value.toFixed(4);
   const [intPart = '0', decPartRaw = ''] = fixed.split('.');
   const intWithDots = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   const decPart = decPartRaw.replace(/0+$/, '');
@@ -170,7 +170,7 @@ const formatRateForInput = (value: number | ''): string => {
 };
 
 const formatRateInput = (value: string): string => {
-  return formatNumericInput(value, 3);
+  return formatNumericInput(value, 4);
 };
 
 const getCuentaLabel = (banco: ICuentaBancaria): string => {
@@ -283,7 +283,7 @@ const handleFondoChange = (filaId: string, fondoIdRaw: string): void => {
       }
 
       const tasa = toNumber(fila.tasa_cambio);
-      const usd = tasa > 0 ? trunc2(montoNumero / tasa) : 0;
+      const usd = tasa > 0 ? round2(montoNumero / tasa) : 0;
       return {
         ...fila,
         monto_input: visual,
@@ -295,10 +295,10 @@ const handleFondoChange = (filaId: string, fondoIdRaw: string): void => {
   const handleTasaChange = (filaId: string, value: string): void => {
     const tasaInput = formatRateInput(value);
     const tasaNumber = parseFormattedAmount(tasaInput);
-    const tasa = tasaNumber > 0 ? parseFloat(tasaNumber.toFixed(3)) : '';
+    const tasa = tasaNumber > 0 ? parseFloat(tasaNumber.toFixed(4)) : '';
     setFila(filaId, (fila: FilaOrigen) => {
       const montoBs = parseFormattedAmount(fila.monto_input);
-      const usd = Number(tasa) > 0 ? trunc2(montoBs / Number(tasa)) : 0;
+      const usd = Number(tasa) > 0 ? round2(montoBs / Number(tasa)) : 0;
       return {
         ...fila,
         tasa_input: tasaInput,
@@ -325,11 +325,11 @@ const handleFondoChange = (filaId: string, fondoIdRaw: string): void => {
 
       setFila(filaId, (fila: FilaOrigen) => {
         const montoBs = parseFormattedAmount(fila.monto_input);
-        const usd = montoBs > 0 ? trunc2(montoBs / promedio) : 0;
+        const usd = montoBs > 0 ? round2(montoBs / promedio) : 0;
         return {
           ...fila,
-          tasa_input: formatRateForInput(parseFloat(promedio.toFixed(3))),
-          tasa_cambio: parseFloat(promedio.toFixed(3)),
+          tasa_input: formatRateForInput(parseFloat(promedio.toFixed(4))),
+          tasa_cambio: parseFloat(promedio.toFixed(4)),
           monto_usd: usd,
         };
       });

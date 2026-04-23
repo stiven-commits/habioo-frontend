@@ -332,7 +332,7 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
   };
 
   const handleTasaChange = (value: string): void => {
-    const tasaBcv = formatNumberInput(value, 3);
+    const tasaBcv = formatNumberInput(value, 4);
     const saldoBs = form.saldo_inicial_bs || '';
     const saldoUsd = parseNumberInput(tasaBcv) > 0 ? (parseNumberInput(saldoBs) / parseNumberInput(tasaBcv)).toFixed(2).replace('.', ',') : '';
     setForm({ ...form, tasa_bcv: tasaBcv, monto_saldo_inicial: saldoUsd });
@@ -346,7 +346,7 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
         alert('No se pudo obtener la tasa BCV actual.');
         return;
       }
-      const formattedRate = Number(rate).toFixed(3).replace('.', ',');
+      const formattedRate = Number(rate).toFixed(4).replace('.', ',');
       handleTasaChange(formattedRate);
     } catch (error) {
       alert('Error al consultar BCV.');
@@ -464,7 +464,7 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
                             type="text"
                             value={form.tasa_bcv || ''}
                             onChange={(e: ChangeEvent<HTMLInputElement>) => handleTasaChange(e.target.value)}
-                            placeholder="Ej: 36,500"
+                            placeholder="Ej: 36,5000"
                             className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white"
                           />
                         </FormField>
@@ -725,7 +725,7 @@ export const ModalEstadoCuenta: FC<ModalEstadoCuentaProps> = ({
                   }
                 },
                 { key: 'monto_bs', header: 'Monto Bs', headerClassName: 'text-right', className: 'text-right font-mono text-gray-700 dark:text-gray-300', render: (m) => m.monto_bs > 0 ? `Bs ${formatMoney(m.monto_bs)}` : '-' },
-                { key: 'tasa', header: 'Tasa', headerClassName: 'text-right', className: 'text-right font-mono text-gray-700 dark:text-gray-300', render: (m) => m.tasa_cambio > 0 ? formatMoney(m.tasa_cambio) : '-' },
+                { key: 'tasa', header: 'Tasa', headerClassName: 'text-right', className: 'text-right font-mono text-gray-700 dark:text-gray-300', render: (m) => m.tasa_cambio > 0 ? formatMoney(m.tasa_cambio, 4) : '-' },
                 { key: 'cargos', header: 'Cargos (Deuda)', headerClassName: 'text-right', className: 'text-right text-red-500 font-mono font-medium', render: (m) => m.cargo > 0 ? `$${formatMoney(m.cargo)}` : '-' },
                 { key: 'abonos', header: 'Abonos (Pago)', headerClassName: 'text-right', className: 'text-right text-green-500 font-mono font-medium', render: (m) => m.abono > 0 ? `$${formatMoney(m.abono)}` : '-' },
                 { key: 'saldo', header: 'Saldo Final', headerClassName: 'text-right text-donezo-primary', className: 'text-right font-mono font-black text-gray-800 dark:text-white', render: (m) => `$${formatMoney(m.saldoFila)}` },
@@ -816,7 +816,7 @@ export const ModalAjusteSaldo: FC<ModalAjusteSaldoProps> = ({
     try {
       const rate = await getCurrentBcvRate();
       if (rate <= 0) throw new Error('Tasa inválida');
-      setFormAjuste((prev) => ({ ...prev, tasa_cambio: String(rate) }));
+      setFormAjuste((prev) => ({ ...prev, tasa_cambio: Number(rate).toFixed(4).replace('.', ',') }));
     } catch {
       alert('No se pudo obtener la tasa BCV.');
     } finally {
@@ -844,7 +844,7 @@ export const ModalAjusteSaldo: FC<ModalAjusteSaldoProps> = ({
           </FormField>
           <FormField label="Tasa BCV">
             <div className="flex gap-2">
-              <input type="text" value={formAjuste.tasa_cambio || ''} onChange={(e: ChangeEvent<HTMLInputElement>) => setFormAjuste({ ...formAjuste, tasa_cambio: e.target.value.replace(/\./g, ',').replace(/[^0-9,]/g, '') })} placeholder="Ej: 95,20" className="flex-1 p-3 rounded-xl border text-lg dark:bg-gray-900 dark:border-gray-700 outline-none dark:text-white" required />
+              <input type="text" value={formAjuste.tasa_cambio || ''} onChange={(e: ChangeEvent<HTMLInputElement>) => setFormAjuste({ ...formAjuste, tasa_cambio: formatNumberInput(e.target.value, 4) })} placeholder="Ej: 95,2000" className="flex-1 p-3 rounded-xl border text-lg dark:bg-gray-900 dark:border-gray-700 outline-none dark:text-white" required />
               <button type="button" onClick={() => { void fetchBCV(); }} disabled={isFetchingBCV} className="px-3 rounded-xl border border-blue-300 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200 dark:border-blue-700 text-xs font-bold disabled:opacity-60">
                 {isFetchingBCV ? 'Consultando...' : 'Obtener BCV'}
               </button>

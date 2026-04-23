@@ -172,6 +172,7 @@ interface DesvioPagoDraft {
 type DesvioPagoDraftMap = Record<number, DesvioPagoDraft>;
 
 const toNumber = (value: string | number | undefined | null): number => parseFloat(String(value ?? 0)) || 0;
+const round2 = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
 const inferBancoMoneda = (cuenta: any): 'USD' | 'BS' => {
   // El tipo tiene prioridad para tipos que implican claramente una moneda
   const tipo = String(cuenta?.tipo || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -332,11 +333,11 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
   };
 
   const esUsdDirecto = ajusteTipo === 'FAVOR' && monedaAjuste === 'USD';
-  const montoUsdAjuste = esUsdDirecto
-    ? parseNumberInput(montoUsdDirecto)
-    : (parseNumberInput(tasaBcvAjuste) > 0
-        ? (parseNumberInput(montoBsAjuste) / parseNumberInput(tasaBcvAjuste))
-        : 0);
+const montoUsdAjuste = esUsdDirecto
+  ? parseNumberInput(montoUsdDirecto)
+  : (parseNumberInput(tasaBcvAjuste) > 0
+      ? round2(parseNumberInput(montoBsAjuste) / parseNumberInput(tasaBcvAjuste))
+      : 0);
   const cuentaPrincipal = cuentasBancarias.find((c: any) => c.es_predeterminada) ?? null;
 
   const fetchData = async (): Promise<void> => {
@@ -621,8 +622,8 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
         return;
       }
       const rateNumber = parseFloat(String(json.promedio));
-      const formattedRate = Number.isFinite(rateNumber) ? rateNumber.toFixed(3).replace('.', ',') : String(json.promedio).replace('.', ',');
-      setTasaBcvAjuste(formatNumberInput(formattedRate, 3));
+      const formattedRate = Number.isFinite(rateNumber) ? rateNumber.toFixed(4).replace('.', ',') : String(json.promedio).replace('.', ',');
+      setTasaBcvAjuste(formatNumberInput(formattedRate, 4));
     } catch {
       alert('Error al consultar BCV.');
     } finally {
@@ -1197,7 +1198,7 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                                   + Agregar fila
                                 </button>
                                 <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                                  Tasa usada: {tasaEfectiva > 0 ? formatMoney(tasaEfectiva, 3) : 'N/A'}
+                                  Tasa usada: {tasaEfectiva > 0 ? formatMoney(tasaEfectiva, 4) : 'N/A'}
                                 </span>
                               </div>
                               <div className="rounded-lg border border-emerald-200/70 dark:border-emerald-800/50 bg-emerald-50/70 dark:bg-emerald-900/20 px-3 py-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
@@ -1502,9 +1503,9 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                         <input
                           type="text"
                           value={tasaBcvAjuste}
-                          onChange={(e: ChangeEvent<HTMLInputElement>) => setTasaBcvAjuste(formatNumberInput(e.target.value, 3))}
+                          onChange={(e: ChangeEvent<HTMLInputElement>) => setTasaBcvAjuste(formatNumberInput(e.target.value, 4))}
                           className="w-full min-h-11 p-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white text-base"
-                          placeholder="Ej: 36,500"
+                          placeholder="Ej: 36,5000"
                         />
                       </FormField>
                     </div>
@@ -1553,9 +1554,9 @@ const CuentasPorCobrar: FC<CuentasPorCobrarProps> = () => {
                       <input
                         type="text"
                         value={tasaBcvAjuste}
-                        onChange={(e: ChangeEvent<HTMLInputElement>) => setTasaBcvAjuste(formatNumberInput(e.target.value, 3))}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => setTasaBcvAjuste(formatNumberInput(e.target.value, 4))}
                         className="w-full min-h-11 p-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white text-base"
-                        placeholder="Ej: 36,500"
+                        placeholder="Ej: 36,5000"
                       />
                     </FormField>
                   </div>

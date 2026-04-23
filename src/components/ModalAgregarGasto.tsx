@@ -853,8 +853,8 @@ const ModalAgregarGasto: FC<ModalAgregarGastoProps> = ({
       const rateNumber = await getCurrentBcvRate();
       if (Number.isFinite(rateNumber) && rateNumber > 0) {
         // Convertimos el punto en coma y lo pasamos por nuestro formateador
-        const tasaRaw = rateNumber.toFixed(3).replace('.', ',');
-        const formattedTasa = formatCurrencyInput(tasaRaw, 3);
+        const tasaRaw = rateNumber.toFixed(4).replace('.', ',');
+        const formattedTasa = formatCurrencyInput(tasaRaw, 4);
         setForm((prev: FormState) => ({ ...prev, tasa_cambio: formattedTasa }));
       } else {
         alert('No se pudo obtener la tasa oficial en este momento.');

@@ -423,7 +423,7 @@ export const ModalPagoProveedor: React.FC<ModalActionProps> = ({ onClose, onSucc
     try {
       const rateNumber = await getCurrentBcvRate();
       if (!Number.isFinite(rateNumber) || (rateNumber ?? 0) <= 0) throw new Error('invalid_rate');
-      const formattedRate = formatNumberInput(Number(rateNumber).toFixed(3).replace('.', ','), 3);
+      const formattedRate = formatNumberInput(Number(rateNumber).toFixed(4).replace('.', ','), 4);
       setForm((prev: PagoProveedorForm) => ({ ...prev, tasa_cambio: formattedRate }));
     } catch {
       await showAlert({ title: 'BCV no disponible', message: 'No se pudo obtener la tasa BCV.', variant: 'warning' });
@@ -504,7 +504,7 @@ export const ModalPagoProveedor: React.FC<ModalActionProps> = ({ onClose, onSucc
               {isBs && (
                 <FormField label="Tasa BCV" required>
                   <div className="flex gap-2">
-                    <input required type="text" value={form.tasa_cambio} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, tasa_cambio: formatNumberInput(e.target.value, 3) })} placeholder="Ej: 36,500" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
+                    <input required type="text" value={form.tasa_cambio} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, tasa_cambio: formatNumberInput(e.target.value, 4) })} placeholder="Ej: 36,5000" className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary" />
                     <button type="button" onClick={fetchBCV} disabled={isFetchingBCV} className="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200 px-3 rounded-xl font-bold border border-blue-300 dark:border-blue-700">
                       {isFetchingBCV ? '...' : 'BCV'}
                     </button>
@@ -959,7 +959,7 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
     try {
       const rateNumber = await getCurrentBcvRate();
       if (!Number.isFinite(rateNumber) || (rateNumber ?? 0) <= 0) throw new Error('invalid_rate');
-      const formattedRate = formatNumberInput(Number(rateNumber).toFixed(3).replace('.', ','), 3);
+      const formattedRate = formatNumberInput(Number(rateNumber).toFixed(4).replace('.', ','), 4);
       setForm((prev: RegistrarEgresoForm) => ({ ...prev, tasa_cambio: formattedRate }));
     } catch {
       await showAlert({ title: 'BCV no disponible', message: 'No se pudo obtener la tasa BCV.', variant: 'warning' });
@@ -1066,7 +1066,7 @@ export const ModalRegistrarEgreso: React.FC<ModalRegistrarEgresoProps> = ({ onCl
                       required
                       type="text"
                       value={form.tasa_cambio}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((prev: RegistrarEgresoForm) => ({ ...prev, tasa_cambio: formatNumberInput(e.target.value, 3) }))}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((prev: RegistrarEgresoForm) => ({ ...prev, tasa_cambio: formatNumberInput(e.target.value, 4) }))}
                       placeholder="0,000"
                       className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100 outline-none focus:ring-2 focus:ring-donezo-primary"
                     />

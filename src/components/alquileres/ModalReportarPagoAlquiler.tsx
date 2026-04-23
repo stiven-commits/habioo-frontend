@@ -179,8 +179,8 @@ const ModalReportarPagoAlquiler: FC<ModalReportarPagoAlquilerProps> = ({
       try {
         const promedio = await getCurrentBcvRate();
         if (!Number.isFinite(promedio) || promedio <= 0) throw new Error('BCV invalido');
-        const tasaRedondeada = Number(promedio.toFixed(3));
-        const tasaFormatted = tasaRedondeada.toFixed(3).replace('.', ',');
+        const tasaRedondeada = Number(promedio.toFixed(4));
+        const tasaFormatted = tasaRedondeada.toFixed(4).replace('.', ',');
         setTasaCambio(tasaFormatted);
         const restanteBsAuto = restanteUsd * tasaRedondeada;
         setMontoBs(restanteBsAuto.toFixed(2).replace('.', ','));
