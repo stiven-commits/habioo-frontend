@@ -15,6 +15,7 @@ import ModalBase from '../ui/ModalBase';
 import FormField from '../ui/FormField';
 import SearchableCombobox, { type SearchableComboboxOption } from '../ui/SearchableCombobox';
 import { useDialog } from '../ui/DialogProvider';
+import HabiooLoader from '../ui/HabiooLoader';
 
 type ViewMode = 'admin' | 'owner';
 type ActiveTab = 'cuenta' | 'sin-fondo' | `fondo-${number | string}`;
@@ -469,7 +470,6 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     if (mode === 'admin' && !cuentaId) return;
     if (mode === 'owner' && !ownerCondominioId) return;
 
-    setLoading(true);
     const token = localStorage.getItem('habioo_token');
     try {
       const endpoint = mode === 'admin'
@@ -563,8 +563,6 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     } catch (error) {
       console.error(error);
       setMovimientos([]);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -635,20 +633,40 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     }
   };
 
+  const refreshCuentaData = async (cuentaId: string): Promise<void> => {
+    if (mode === 'admin' && !cuentaId) {
+      setLoading(false);
+      return;
+    }
+    if (mode === 'owner' && (!ownerCondominioId || !cuentaId)) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await Promise.all([
+        fetchMovimientos(cuentaId),
+        fetchFondos(),
+        fetchExtrasInfo(cuentaId),
+        mode === 'owner'
+          ? fetchCortesOwner(cuentaId, ownerFiltroAnio, ownerFiltroMes)
+          : Promise.resolve(),
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if ((mode === 'admin' && userRole === 'Administrador') || (mode === 'owner' && userRole === 'Propietario')) {
       fetchCuentas();
-      fetchFondos();
     }
   }, [mode, userRole, ownerCondominioId]);
 
   useEffect(() => {
-    fetchMovimientos(selectedCuenta);
+    void refreshCuentaData(selectedCuenta);
   }, [selectedCuenta, mode, ownerCondominioId]);
-
-  useEffect(() => {
-    void fetchExtrasInfo(selectedCuenta);
-  }, [selectedCuenta, mode]);
 
   useEffect(() => {
     if (mode !== 'owner') return;
@@ -1674,7 +1692,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
         });
         return;
       }
-      await Promise.all([fetchMovimientos(selectedCuenta), fetchFondos()]);
+      await refreshCuentaData(selectedCuenta);
       await showAlert({
         title: 'Reversión completada',
         message:
@@ -1705,6 +1723,11 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
 
   if (mode === 'admin' && userRole !== 'Administrador') return <p className="p-6">No tienes permisos.</p>;
   if (mode === 'owner' && userRole !== 'Propietario') return <p className="p-6">No tienes permisos.</p>;
+  const loadingOverlay = loading ? (
+    <div className="absolute inset-0 z-40 flex items-center justify-center rounded-2xl bg-white/80 backdrop-blur-sm dark:bg-slate-900/80">
+      <HabiooLoader size="md" message="Generando estado de cuenta..." className="py-0" />
+    </div>
+  ) : null;
 
   if (mode === 'owner') {
     const meses = [
@@ -1723,7 +1746,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
     const noHayPeriodos = aniosDisponibles.length === 0;
 
     return (
-      <div className="space-y-6 animate-fadeIn">
+      <div className="relative space-y-6 animate-fadeIn">
         <div className="bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
           <div className={`grid grid-cols-1 gap-4 ${ownerVista === 'actual' ? 'md:grid-cols-3' : 'md:grid-cols-4'}`}>
             <div>
@@ -1902,12 +1925,13 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
             </div>
           </>
         )}
+        {loadingOverlay}
       </div>
     );
   }
 
   return (
-    <div className="space-y-5 animate-fadeIn">
+    <div className="relative space-y-5 animate-fadeIn">
       <div className="space-y-5 overflow-auto pr-1" style={{ maxHeight: `${topPanelHeight}px` }}>
       <section className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
         <div>
@@ -2137,7 +2161,9 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
 
         <div>
         {loading ? (
-          <p className="text-center text-gray-500 py-10">Generando estado de cuenta...</p>
+          <div className="py-10 flex items-center justify-center">
+            <HabiooLoader size="sm" message="Generando estado de cuenta..." className="py-0" />
+          </div>
         ) : activeTab === 'sin-fondo' ? (
           <div className="px-5 pt-4 pb-2 space-y-3">
             <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 dark:border-amber-900/60 dark:bg-amber-900/20">
@@ -2546,7 +2572,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
             setPagoTasaBloqueada(0);
             setPagoReferenciaPrefill('');
             setPagoMovimientoFondoPendienteId(null);
-            void Promise.all([fetchMovimientos(selectedCuenta), fetchFondos()]);
+            void refreshCuentaData(selectedCuenta);
           }}
         />
       )}
@@ -2556,8 +2582,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
           onClose={() => setShowTransfModal(false)}
           onSuccess={() => {
             setShowTransfModal(false);
-            fetchMovimientos(selectedCuenta);
-            fetchFondos();
+            void refreshCuentaData(selectedCuenta);
           }}
         />
       )}
@@ -2569,8 +2594,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
           onClose={() => setShowEgresoModal(false)}
           onSuccess={() => {
             setShowEgresoModal(false);
-            fetchMovimientos(selectedCuenta);
-            fetchFondos();
+            void refreshCuentaData(selectedCuenta);
           }}
         />
       )}
@@ -2582,8 +2606,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
           onClose={() => setShowIngresoModal(false)}
           onSuccess={() => {
             setShowIngresoModal(false);
-            fetchMovimientos(selectedCuenta);
-            fetchFondos();
+            void refreshCuentaData(selectedCuenta);
           }}
         />
       )}
@@ -2597,6 +2620,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
           formatFecha={formatFecha}
         />
       )}
+      {loadingOverlay}
     </div>
   );
 };
