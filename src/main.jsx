@@ -10,6 +10,17 @@ if (typeof window !== 'undefined') {
   let sessionEndEventDispatched = false
   const LAST_ERROR_STORAGE_KEY = 'habioo:last-http-error'
   const MAX_ERROR_MESSAGE_LENGTH = 500
+  const AUTH_EXPIRED_PATTERNS = [
+    'jwt expired',
+    'token expired',
+    'token vencido',
+    'sesion expirada',
+    'sesion vencida',
+    'session expired',
+    'unauthorized',
+    'unauthenticated',
+    'invalid token',
+  ]
 
   const refreshSessionFromHeaders = (response) => {
     const refreshedToken = response.headers.get('x-habioo-refreshed-token')
@@ -51,23 +62,32 @@ if (typeof window !== 'undefined') {
     || ''
   )
 
+  const readErrorMessageFromResponse = async (response) => {
+    try {
+      const cloned = response.clone()
+      const contentType = String(cloned.headers.get('content-type') || '').toLowerCase()
+      if (contentType.includes('application/json')) {
+        const json = await cloned.json()
+        return safeTrim(json?.message || json?.error || '')
+      }
+      return safeTrim(await cloned.text())
+    } catch {
+      return ''
+    }
+  }
+
+  const isAuthExpiredResponse = async (response) => {
+    if (response.status === 401) return true
+    if (response.status < 400) return false
+    const message = (await readErrorMessageFromResponse(response)).toLowerCase()
+    if (!message) return false
+    return AUTH_EXPIRED_PATTERNS.some((pattern) => message.includes(pattern))
+  }
+
   const saveLastHttpError = async ({ response, status, url, method }) => {
     try {
       const requestId = safeTrim(extractRequestId(response))
-      let message = ''
-      try {
-        const cloned = response.clone()
-        const contentType = String(cloned.headers.get('content-type') || '').toLowerCase()
-        if (contentType.includes('application/json')) {
-          const json = await cloned.json()
-          message = safeTrim(json?.message || json?.error || '')
-        } else {
-          const text = await cloned.text()
-          message = safeTrim(text)
-        }
-      } catch {
-        message = ''
-      }
+      const message = await readErrorMessageFromResponse(response)
 
       const payload = {
         status,
@@ -133,14 +153,15 @@ if (typeof window !== 'undefined') {
 
     if (isApiCall) {
       refreshSessionFromHeaders(response)
-      if (response.status === 401) {
+      const authExpired = await isAuthExpiredResponse(response)
+      if (authExpired) {
         const hasToken = Boolean(localStorage.getItem('habioo_token'))
         if (hasToken && !sessionEndEventDispatched) {
           sessionEndEventDispatched = true
           window.dispatchEvent(new CustomEvent('habioo:session-ended', {
             detail: {
-              reason: 'unauthorized',
-              status: 401,
+              reason: response.status === 401 ? 'unauthorized' : 'expired-session-detected',
+              status: response.status,
               url: effectiveUrl,
             },
           }))

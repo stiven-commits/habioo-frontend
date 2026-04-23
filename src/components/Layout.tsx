@@ -230,6 +230,12 @@ const Layout: React.FC<LayoutProps> = () => {
     setSessionEndedModalOpen(true);
   };
 
+  const expireSessionAndRedirect = (): void => {
+    clearAuthStorage();
+    setSessionEndedModalOpen(false);
+    navigate('/login', { replace: true });
+  };
+
   useEffect(() => {
     const validateSession = async (): Promise<void> => {
       const readBackup = (): { token: string | null; user: string | null; session: string | null } => {
@@ -271,7 +277,7 @@ const Layout: React.FC<LayoutProps> = () => {
         if (!res.ok) {
           if (res.status === 401) {
             if (tryRestoreSuperBackup()) return;
-            openSessionEndedModal('Tu sesion expiro o fue cerrada. Debes iniciar sesion de nuevo para seguir operando.');
+            expireSessionAndRedirect();
           }
           return;
         }
@@ -307,8 +313,8 @@ const Layout: React.FC<LayoutProps> = () => {
     const onSessionEnded = (event: Event): void => {
       const custom = event as CustomEvent<SessionEndedEventDetail>;
       const reason = String(custom.detail?.reason || '');
-      if (reason === 'unauthorized') {
-        openSessionEndedModal('Tu sesion expiro o fue cerrada por seguridad. Debes iniciar sesion nuevamente para continuar.');
+      if (reason === 'unauthorized' || reason === 'expired-session-detected') {
+        expireSessionAndRedirect();
         return;
       }
       openSessionEndedModal();
@@ -318,7 +324,7 @@ const Layout: React.FC<LayoutProps> = () => {
     return () => {
       window.removeEventListener('habioo:session-ended', onSessionEnded as EventListener);
     };
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     if (theme === 'dark') document.documentElement.classList.add('dark');
