@@ -279,6 +279,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
   const [copropModalOpen, setCopropModalOpen] = useState<boolean>(false);
   const [residenteModalOpen, setResidenteModalOpen] = useState<boolean>(false);
   const [residenteSubmitting, setResidenteSubmitting] = useState<boolean>(false);
+  const [residenteDeleting, setResidenteDeleting] = useState<boolean>(false);
   const [copropSubmitting, setCopropSubmitting] = useState<boolean>(false);
   const [selectedPropCoprop, setSelectedPropCoprop] = useState<Propiedad | null>(null);
   const [selectedPropResidente, setSelectedPropResidente] = useState<Propiedad | null>(null);
@@ -506,8 +507,8 @@ const Propiedades: FC<PropiedadesProps> = () => {
       setForm((prev) => ({ ...prev, [key]: sanitizePhone(value) }));
       return;
     }
-    if (name === 'prop_email' || name === 'inq_email') {
-      const key = name as 'prop_email' | 'inq_email';
+    if (name === 'prop_email' || name === 'prop_email_secundario' || name === 'inq_email') {
+      const key = name as 'prop_email' | 'prop_email_secundario' | 'inq_email';
       setForm((prev) => ({ ...prev, [key]: sanitizeEmail(value) }));
       return;
     }
@@ -574,6 +575,19 @@ const Propiedades: FC<PropiedadesProps> = () => {
     return null;
   };
 
+  const buildPropiedadAdminPayloadBase = (prop: Propiedad): Record<string, unknown> => ({
+    identificador: prop.identificador,
+    alicuota: String(prop.alicuota ?? ''),
+    zona_id: (prop as { zona_id?: number | string | null }).zona_id ?? null,
+    prop_nombre: prop.prop_nombre || '',
+    prop_cedula: prop.prop_cedula || '',
+    prop_email: prop.prop_email || '',
+    prop_email_secundario: String((prop as { prop_email_secundario?: string }).prop_email_secundario || ''),
+    prop_telefono: prop.prop_telefono || '',
+    prop_telefono_secundario: String((prop as { prop_telefono_secundario?: string }).prop_telefono_secundario || ''),
+    prop_password: '',
+  });
+
   const handleSubmitResidente = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     if (!selectedPropResidente?.id) return;
@@ -588,15 +602,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          identificador: selectedPropResidente.identificador,
-          alicuota: String(selectedPropResidente.alicuota ?? ''),
-          prop_nombre: selectedPropResidente.prop_nombre || '',
-          prop_cedula: selectedPropResidente.prop_cedula || '',
-          prop_email: selectedPropResidente.prop_email || '',
-          prop_email_secundario: String((selectedPropResidente as { prop_email_secundario?: string }).prop_email_secundario || ''),
-          prop_telefono: selectedPropResidente.prop_telefono || '',
-          prop_telefono_secundario: String((selectedPropResidente as { prop_telefono_secundario?: string }).prop_telefono_secundario || ''),
-          prop_password: '',
+          ...buildPropiedadAdminPayloadBase(selectedPropResidente),
           tiene_inquilino: true,
           inq_cedula: residenteForm.cedula,
           inq_nombre: residenteForm.nombre,
@@ -618,6 +624,59 @@ const Propiedades: FC<PropiedadesProps> = () => {
       alert('Error de conexion al guardar residente / inquilino.');
     } finally {
       setResidenteSubmitting(false);
+    }
+  };
+
+  const handleDeleteResidente = async (): Promise<void> => {
+    if (!selectedPropResidente?.id) return;
+    if (!selectedPropResidente?.inq_cedula) return;
+
+    const ok = await showConfirm({
+      title: 'Eliminar inquilino',
+      message: `Deseas eliminar al inquilino del inmueble ${selectedPropResidente.identificador}?`,
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      variant: 'warning',
+    });
+    if (!ok) return;
+
+    setResidenteDeleting(true);
+    try {
+      const token = localStorage.getItem('habioo_token');
+      const res = await fetch(`${API_BASE_URL}/propiedades-admin/${selectedPropResidente.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          ...buildPropiedadAdminPayloadBase(selectedPropResidente),
+          tiene_inquilino: false,
+          inq_cedula: '',
+          inq_nombre: '',
+          inq_email: '',
+          inq_telefono: '',
+          inq_password: '',
+          inq_permitir_acceso: false,
+        }),
+      });
+      const data: ApiActionResponse = await res.json();
+      if (data.status === 'success') {
+        alert(data.message || 'Inquilino eliminado correctamente.');
+        setResidenteForm({ cedula: '', nombre: '', email: '', telefono: '', acceso_portal: true });
+        setSelectedPropResidente((prev) => (prev ? {
+          ...prev,
+          inq_cedula: '',
+          inq_nombre: '',
+          inq_email: '',
+          inq_telefono: '',
+          inq_acceso_portal: false,
+        } : prev));
+        await fetchPropiedades();
+      } else {
+        alert(data.error || data.message || 'No se pudo eliminar el inquilino.');
+      }
+    } catch {
+      alert('Error de conexion al eliminar inquilino.');
+    } finally {
+      setResidenteDeleting(false);
     }
   };
 
@@ -820,6 +879,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
     if (!usaPropietarioExistente) {
       if (!isValidCedulaRif(form.prop_cedula)) return alert('Error: la cedula del propietario debe iniciar con V, E, J o G y contener solo numeros.');
       if (form.prop_email && !isValidEmail(form.prop_email)) return alert('Error: el correo del propietario no tiene un formato valido.');
+      if (form.prop_email_secundario && !isValidEmail(form.prop_email_secundario)) return alert('Error: el correo secundario del propietario no tiene un formato valido.');
       if (form.prop_telefono && !isValidPhone(form.prop_telefono)) return alert('Error: el telefono del propietario debe tener solo numeros.');
     }
     if (form.tiene_inquilino) {
@@ -1694,10 +1754,13 @@ const Propiedades: FC<PropiedadesProps> = () => {
         onClose={() => {
           setResidenteModalOpen(false);
           setSelectedPropResidente(null);
+          setResidenteDeleting(false);
         }}
         onSubmit={handleSubmitResidente}
         onChange={handleResidenteChange}
+        onDeleteExisting={handleDeleteResidente}
         isSubmitting={residenteSubmitting}
+        isDeleting={residenteDeleting}
         hasExistingResidente={Boolean(selectedPropResidente?.inq_cedula)}
       />
 

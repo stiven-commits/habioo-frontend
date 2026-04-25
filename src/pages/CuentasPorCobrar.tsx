@@ -808,26 +808,26 @@ const montoUsdAjuste = esUsdDirecto
     return (
       <div className="space-y-6">
         <div className="bg-white dark:bg-donezo-card-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
-          <h3 className="text-2xl font-black text-gray-800 dark:text-white">Cuentas por Cobrar</h3>
+          <h3 className="text-xl font-black text-gray-800 dark:text-white">Cuentas por Cobrar</h3>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             Estado de cuenta entre Junta General y Juntas Individuales (sin detalle de inmuebles).
           </p>
           <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
             <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
               <p className="text-xs font-bold uppercase text-gray-500">Total juntas</p>
-              <p className="mt-1 text-2xl font-black text-gray-900 dark:text-white">{metricasGeneral?.total_juntas || 0}</p>
+              <p className="mt-1 text-xl font-black text-gray-900 dark:text-white">{metricasGeneral?.total_juntas || 0}</p>
             </div>
             <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
               <p className="text-xs font-bold uppercase text-gray-500">USD generado</p>
-              <p className="mt-1 text-2xl font-black text-gray-900 dark:text-white">${formatMoney(metricasGeneral?.total_usd_generado || 0)}</p>
+              <p className="mt-1 text-xl font-black text-gray-900 dark:text-white">${formatMoney(metricasGeneral?.total_usd_generado || 0)}</p>
             </div>
             <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
               <p className="text-xs font-bold uppercase text-gray-500">USD pagado</p>
-              <p className="mt-1 text-2xl font-black text-emerald-600 dark:text-emerald-400">${formatMoney(metricasGeneral?.total_usd_pagado || 0)}</p>
+              <p className="mt-1 text-xl font-black text-emerald-600 dark:text-emerald-400">${formatMoney(metricasGeneral?.total_usd_pagado || 0)}</p>
             </div>
             <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
               <p className="text-xs font-bold uppercase text-gray-500">USD pendiente</p>
-              <p className="mt-1 text-2xl font-black text-red-600 dark:text-red-400">${formatMoney(metricasGeneral?.total_usd_pendiente || 0)}</p>
+              <p className="mt-1 text-xl font-black text-red-600 dark:text-red-400">${formatMoney(metricasGeneral?.total_usd_pendiente || 0)}</p>
             </div>
           </div>
         </div>
@@ -899,8 +899,8 @@ const montoUsdAjuste = esUsdDirecto
 
         {filteredProperties.length === 0 ? (
           <div className="text-center py-10">
-            <p className="text-gray-500 dark:text-gray-400 text-lg">
-              {activeTab === 'Deudores' ? '🎉 ¡Genial! No hay inmuebles con deuda pendiente.' : 'No se encontraron inmuebles.'}
+            <p className="text-base text-gray-500 dark:text-gray-400">
+              {activeTab === 'Deudores' ? '¡Genial! No hay inmuebles con deuda pendiente.' : 'No se encontraron inmuebles.'}
             </p>
           </div>
         ) : (
@@ -942,10 +942,10 @@ const montoUsdAjuste = esUsdDirecto
                     const isFavor = saldo < 0;
                     return (
                       <>
-                        <div className={`font-black font-mono tracking-tight text-lg ${isDeuda ? 'text-red-500' : isFavor ? 'text-green-500' : 'text-gray-500 dark:text-gray-400'}`}>
+                        <div className={`font-black font-mono tracking-tight text-base ${isDeuda ? 'text-red-500' : isFavor ? 'text-green-500' : 'text-gray-500 dark:text-gray-400'}`}>
                           {isFavor ? '+' : ''}${formatMoney(Math.abs(saldo))}
                         </div>
-                        <div className={`text-[10px] uppercase font-bold tracking-wider ${isDeuda ? 'text-red-400' : isFavor ? 'text-green-400' : 'text-gray-400'}`}>
+                        <div className={`text-xs uppercase font-bold tracking-wider ${isDeuda ? 'text-red-400' : isFavor ? 'text-green-400' : 'text-gray-400'}`}>
                           {isDeuda ? 'Deuda' : isFavor ? 'A Favor' : 'Al Día'}
                         </div>
                       </>
@@ -960,7 +960,7 @@ const montoUsdAjuste = esUsdDirecto
                     const pendientes = Number(pendingByPropiedad[p.id] || 0);
                     if (pendientes > 0) {
                       return (
-                        <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-700 dark:border-amber-800/50 dark:bg-amber-900/20 dark:text-amber-300">
+                        <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-amber-700 dark:border-amber-800/50 dark:bg-amber-900/20 dark:text-amber-300">
                           Pendiente aprobacion ({pendientes})
                         </span>
                       );
@@ -1113,7 +1113,7 @@ const montoUsdAjuste = esUsdDirecto
 
                           {draft.enabled && (
                             <div className="mt-3 space-y-2">
-                              <div className="grid grid-cols-12 gap-2 text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                              <div className="grid grid-cols-12 gap-2 text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                 <div className="col-span-6">Gasto Extra / Proyecto</div>
                                 <div className="col-span-3">Monto Bs</div>
                                 <div className="col-span-2">Equiv. USD</div>
@@ -1228,7 +1228,7 @@ const montoUsdAjuste = esUsdDirecto
                       );
                     })()}
                     {pago.es_ajuste_historico && (
-                      <div className="mt-2 inline-flex items-center rounded-full border border-red-300 bg-red-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-red-700 dark:border-red-700 dark:bg-red-900/20 dark:text-red-300">
+                      <div className="mt-2 inline-flex items-center rounded-full border border-red-300 bg-red-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-red-700 dark:border-red-700 dark:bg-red-900/20 dark:text-red-300">
                         SOLICITUD DE AJUSTE HISTORICO
                       </div>
                     )}
@@ -1588,7 +1588,7 @@ const montoUsdAjuste = esUsdDirecto
               {!esUsdDirecto && (
                 <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-4">
                   <p className="text-xs uppercase font-bold text-gray-500 mb-1">Equivalente en USD</p>
-                  <p className="text-2xl font-black text-gray-800 dark:text-white">${formatMoney(montoUsdAjuste)}</p>
+                  <p className="text-base font-black text-gray-800 dark:text-white">${formatMoney(montoUsdAjuste)}</p>
                 </div>
               )}
             </div>

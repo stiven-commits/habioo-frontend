@@ -10,12 +10,30 @@
   --color-donezo-card-dark: #1e1e1e;
 
   --background-image-donezo-pattern: url('/textures/tu-textura.webp');
+
+  /* Escala tipográfica consistente (basada en rem) */
+  --font-size-xs: 0.75rem;    /* 12px */
+  --font-size-sm: 0.875rem;   /* 14px */
+  --font-size-base: 1rem;     /* 16px */
+  --font-size-lg: 1.125rem;   /* 18px */
+  --font-size-xl: 1.25rem;    /* 20px */
+  --font-size-2xl: 1.5rem;    /* 24px */
+  --font-size-3xl: 1.875rem;  /* 30px */
+  --font-size-4xl: 2.25rem;   /* 36px */
+
+  /* Tamaños de fuente específicos para mobile */
+  --font-size-heading-mobile: 1.5rem;
+  --font-size-subheading-mobile: 1.125rem;
 }
 
 /* Dark mode con clase .dark */
 @variant dark (&:where(.dark, .dark *));
 
 @layer base {
+  html {
+    font-size: 100%;
+  }
+
   body {
     @apply bg-donezo-bg text-gray-900 transition-colors duration-300;
   }
