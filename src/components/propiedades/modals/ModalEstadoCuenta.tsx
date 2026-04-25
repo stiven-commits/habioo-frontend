@@ -78,13 +78,15 @@ export const ModalEstadoCuenta: FC<ModalEstadoCuentaProps> = ({
         <div className="flex-1 overflow-y-auto p-6 bg-white dark:bg-donezo-card-dark custom-scrollbar">
           {loadingCuenta ? <p className="text-center text-gray-400 py-10">Cargando movimientos...</p> : estadoCuentaFiltrado.length === 0 ? <p className="text-center text-gray-400 py-10">No hay movimientos en este rango de fechas.</p> : (
             <DataTable
-              tableStyle={{ minWidth: '1100px' }}
               columns={[
-                { key: 'fecha_op', header: 'Fecha Op.', className: 'text-gray-600 dark:text-gray-300 font-mono text-xs', render: (m) => formatDateVE(m.fecha_operacion) },
-                { key: 'fecha_reg', header: 'Ingreso al Sistema', className: 'text-gray-400 font-mono text-[10px]', render: (m) => formatDateVE(m.fecha_registro) },
+                { key: 'fecha_op', header: 'Fecha Op.', hideOnMobile: true, minSize: 72, size: 84, className: 'text-gray-600 dark:text-gray-300 font-mono text-xs', render: (m) => formatDateVE(m.fecha_operacion) },
+                { key: 'fecha_reg', header: 'Ingreso al Sistema', hideOnMobile: true, minSize: 72, size: 90, className: 'text-gray-400 font-mono text-[10px]', render: (m) => formatDateVE(m.fecha_registro) },
                 {
                   key: 'concepto',
                   header: 'Concepto',
+                  keepVisible: true,
+                  minSize: 120,
+                  size: 180,
                   className: 'font-medium text-gray-800 dark:text-gray-200',
                   render: (m) => {
                     const concepto = String(m.concepto || '').trim();
@@ -95,14 +97,26 @@ export const ModalEstadoCuenta: FC<ModalEstadoCuentaProps> = ({
                     return `${esPago ? 'PAGO' : 'AJUSTE'} ${concepto}`.trim();
                   }
                 },
-                { key: 'monto_bs', header: 'Monto Bs', headerClassName: 'text-right', className: 'text-right font-mono text-gray-700 dark:text-gray-300', render: (m) => m.monto_bs > 0 ? `Bs ${formatMoney(m.monto_bs)}` : '-' },
-                { key: 'tasa', header: 'Tasa', headerClassName: 'text-right', className: 'text-right font-mono text-gray-700 dark:text-gray-300', render: (m) => m.tasa_cambio > 0 ? formatMoney(m.tasa_cambio, 4) : '-' },
-                { key: 'cargos', header: 'Cargos (Deuda)', headerClassName: 'text-right', className: 'text-right text-red-500 font-mono font-medium', render: (m) => m.cargo > 0 ? `$${formatMoney(m.cargo)}` : '-' },
-                { key: 'abonos', header: 'Abonos (Pago)', headerClassName: 'text-right', className: 'text-right text-green-500 font-mono font-medium', render: (m) => m.abono > 0 ? `$${formatMoney(m.abono)}` : '-' },
-                { key: 'saldo', header: 'Saldo Final', headerClassName: 'text-right text-donezo-primary', className: 'text-right font-mono font-black text-gray-800 dark:text-white', render: (m) => `$${formatMoney(m.saldoFila)}` },
+                {
+                  key: 'monto_bs',
+                  header: 'Monto Bs',
+                  keepVisible: true,
+                  minSize: 90,
+                  size: 110,
+                  headerClassName: 'text-right',
+                  className: 'text-right font-mono text-gray-700 dark:text-gray-300',
+                  render: (m) => m.monto_bs > 0 ? `Bs ${formatMoney(m.monto_bs)}` : '-'
+                },
+                { key: 'tasa', header: 'Tasa', hideOnMobile: true, minSize: 72, size: 84, headerClassName: 'text-right', className: 'text-right font-mono text-gray-700 dark:text-gray-300', render: (m) => m.tasa_cambio > 0 ? formatMoney(m.tasa_cambio, 4) : '-' },
+                { key: 'cargos', header: 'Cargos (Deuda)', hideOnMobile: true, minSize: 72, size: 98, headerClassName: 'text-right', className: 'text-right text-red-500 font-mono font-medium', render: (m) => m.cargo > 0 ? `$${formatMoney(m.cargo)}` : '-' },
+                { key: 'abonos', header: 'Abonos (Pago)', hideOnMobile: true, minSize: 72, size: 98, headerClassName: 'text-right', className: 'text-right text-green-500 font-mono font-medium', render: (m) => m.abono > 0 ? `$${formatMoney(m.abono)}` : '-' },
+                { key: 'saldo', header: 'Saldo Final', hideOnMobile: true, minSize: 72, size: 98, headerClassName: 'text-right text-donezo-primary', className: 'text-right font-mono font-black text-gray-800 dark:text-white', render: (m) => `$${formatMoney(m.saldoFila)}` },
                 {
                   key: 'ver',
                   header: 'Acciones',
+                  hideOnMobile: true,
+                  minSize: 72,
+                  size: 86,
                   headerClassName: 'text-center',
                   className: 'text-center',
                   render: (m) => {
@@ -132,15 +146,29 @@ export const ModalEstadoCuenta: FC<ModalEstadoCuentaProps> = ({
               data={movimientosPagina}
               keyExtractor={(_, idx) => idx}
               rowClassName="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50"
-              renderFooter={() => (
-                <tfoot>
-                  <tr className="bg-gray-50 dark:bg-gray-900 border-t-2 border-gray-200 dark:border-gray-700">
-                    <td colSpan={7} className="p-3 text-right font-black uppercase text-xs text-gray-600 dark:text-gray-300 tracking-wider">Saldo Final:</td>
-                    <td className="p-3 text-right font-black text-donezo-primary dark:text-cyan-300 font-mono">${formatMoney(saldoFinal)}</td>
-                    <td className="p-3"></td>
-                  </tr>
-                </tfoot>
-              )}
+              renderFooter={(context) => {
+                const visibleColumns = Math.max(context?.visibleColumnCount ?? 1, 1);
+                if (visibleColumns <= 1) {
+                  return (
+                    <tfoot>
+                      <tr className="bg-gray-50 dark:bg-gray-900 border-t-2 border-gray-200 dark:border-gray-700">
+                        <td className="p-3 text-right font-black uppercase text-xs text-gray-600 dark:text-gray-300 tracking-wider">
+                          Saldo Final: <span className="text-donezo-primary dark:text-cyan-300 font-mono">${formatMoney(saldoFinal)}</span>
+                        </td>
+                      </tr>
+                    </tfoot>
+                  );
+                }
+
+                return (
+                  <tfoot>
+                    <tr className="bg-gray-50 dark:bg-gray-900 border-t-2 border-gray-200 dark:border-gray-700">
+                      <td colSpan={visibleColumns - 1} className="p-3 text-right font-black uppercase text-xs text-gray-600 dark:text-gray-300 tracking-wider">Saldo Final:</td>
+                      <td className="p-3 text-right font-black text-donezo-primary dark:text-cyan-300 font-mono">${formatMoney(saldoFinal)}</td>
+                    </tr>
+                  </tfoot>
+                );
+              }}
             />
           )}
         </div>

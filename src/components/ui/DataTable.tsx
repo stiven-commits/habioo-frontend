@@ -170,8 +170,10 @@ function DataTable<T>({
   }, []);
 
   const getColumnEstimatedWidth = (column: Column<T>): number => {
-    const baseWidth = column.minSize ?? column.size ?? 120;
-    return Math.max(72, baseWidth) + 56;
+    // Keep the estimate realistic to avoid hiding columns too early.
+    // We still include horizontal cell padding, but avoid overestimating.
+    const baseWidth = column.size ?? column.minSize ?? 120;
+    return Math.max(64, baseWidth) + 24;
   };
 
   const responsiveHiddenColumnKeys = useMemo(() => {

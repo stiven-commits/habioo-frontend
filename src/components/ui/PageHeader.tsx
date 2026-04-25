@@ -23,7 +23,7 @@ const PageHeader: FC<PageHeaderProps> = ({ title, subtitle, children, actions, v
     return result;
   };
 
-  const actionItems = flattenActionNodes(actions);
+  const actionItems = Children.toArray(flattenActionNodes(actions));
   const hasSearch = Boolean(children);
   const hasMultipleActions = actionItems.length > 1;
   const totalActions = actionItems.length;
