@@ -912,6 +912,7 @@ const montoUsdAjuste = esUsdDirecto
               columns={[
                 {
                   key: 'inmueble',
+                  keepVisible: true,
                   header: 'Inmueble',
                   className: 'font-bold text-gray-800 dark:text-white text-base',
                   render: (p) => p.identificador,
@@ -935,6 +936,7 @@ const montoUsdAjuste = esUsdDirecto
                 },
                 {
                   key: 'saldo',
+                  keepVisible: true,
                   header: 'Saldo Actual',
                   headerClassName: 'text-right',
                   className: 'text-right',

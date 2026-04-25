@@ -12,6 +12,7 @@ import {
   type Row,
   type SortingState,
 } from '@tanstack/react-table';
+import { ChevronRight } from 'lucide-react';
 import HabiooLoader from './HabiooLoader';
 
 export interface Column<T> {
@@ -19,6 +20,8 @@ export interface Column<T> {
   header: ReactNode;
   headerClassName?: string;
   className?: string;
+  hideOnMobile?: boolean;
+  keepVisible?: boolean;
   headerStyle?: CSSProperties;
   cellStyle?: CSSProperties;
   size?: number;
@@ -27,7 +30,11 @@ export interface Column<T> {
   enableResizing?: boolean;
   enableSorting?: boolean;
   sortAccessor?: (row: T) => string | number | Date | null | undefined;
-  render: (row: T, index: number) => ReactNode;
+  render: (row: T, index: number, context?: {
+    hiddenColumnKeys: ReadonlySet<string>;
+    visibleColumnCount: number;
+    hasHiddenColumns: boolean;
+  }) => ReactNode;
 }
 
 interface DataTableProps<T> {
@@ -36,10 +43,23 @@ interface DataTableProps<T> {
   loading?: boolean;
   emptyMessage?: string;
   keyExtractor: (row: T, index: number) => string | number;
-  renderExpandedRow?: (row: T, index: number) => ReactNode | null;
+  renderExpandedRow?: (row: T, index: number, context?: {
+    hiddenColumns: Array<{
+      key: string;
+      headerLabel: string;
+      value: ReactNode;
+    }>;
+    hiddenColumnKeys: ReadonlySet<string>;
+    visibleColumnCount: number;
+    hasHiddenColumns: boolean;
+  }) => ReactNode | null;
   rowClassName?: string | ((row: T, index: number) => string);
   onRowDoubleClick?: (row: T, index: number) => void;
-  renderFooter?: () => ReactNode;
+  renderFooter?: (context?: {
+    hiddenColumnKeys: ReadonlySet<string>;
+    visibleColumnCount: number;
+    hasHiddenColumns: boolean;
+  }) => ReactNode;
   tableStyle?: CSSProperties;
   enableTanstackPagination?: boolean;
   enableTanstackSorting?: boolean;
@@ -56,6 +76,15 @@ interface DataTableProps<T> {
 }
 
 const DEFAULT_ROW_CLASS = 'border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50/70 dark:hover:bg-gray-800/50';
+
+const toHeaderLabel = (key: string, header: ReactNode): string => {
+  if (typeof header === 'string' || typeof header === 'number') return String(header);
+  return key
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+};
 
 function DataTable<T>({
   columns,
@@ -93,6 +122,20 @@ function DataTable<T>({
 
   const [sorting, setSorting] = useState<SortingState>(defaultSorting ?? []);
   const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
+  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  const toggleRow = (rowIndex: number) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(rowIndex)) {
+        next.delete(rowIndex);
+      } else {
+        next.add(rowIndex);
+      }
+      return next;
+    });
+  };
 
   // Keep latest column defs in a ref so stable cell/header functions can read them
   // without needing to be recreated on every render.
@@ -105,6 +148,80 @@ function DataTable<T>({
 
   // Stable column keys string — only changes when columns are structurally added/removed.
   const colKeysId = safeColumns.map((c) => c.key).join('\x00');
+  const widthSignature = safeColumns
+    .map((column) => `${column.key}:${column.minSize ?? ''}:${column.size ?? ''}:${column.maxSize ?? ''}`)
+    .join('\x00');
+  const canCollapseColumns = safeColumns.length > 1;
+  const hasPriorityResponsiveColumns = safeColumns.some((column) => column.hideOnMobile);
+  const hasKeepVisibleColumns = safeColumns.some((column) => column.keepVisible);
+  const scrollElementRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const element = scrollElementRef.current;
+    if (!element) return;
+    const resizeObserver = new ResizeObserver((entries) => {
+      const nextWidth = Math.floor(entries[0]?.contentRect.width ?? 0);
+      setContainerWidth(nextWidth);
+    });
+    resizeObserver.observe(element);
+    setContainerWidth(Math.floor(element.getBoundingClientRect().width));
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  const getColumnEstimatedWidth = (column: Column<T>): number => {
+    const baseWidth = column.minSize ?? column.size ?? 120;
+    return Math.max(72, baseWidth) + 56;
+  };
+
+  const responsiveHiddenColumnKeys = useMemo(() => {
+    if (!canCollapseColumns || containerWidth <= 0) return new Set<string>();
+
+    let requiredWidth = safeColumns.reduce((total, column) => total + getColumnEstimatedWidth(column), 0);
+    if (requiredWidth <= containerWidth) return new Set<string>();
+
+    const hiddenKeys = new Set<string>();
+    if (hasPriorityResponsiveColumns) {
+      for (let index = safeColumns.length - 1; index >= 0 && requiredWidth > containerWidth; index -= 1) {
+        const column = safeColumns[index];
+        if (!column?.hideOnMobile || column.keepVisible) continue;
+        hiddenKeys.add(column.key);
+        requiredWidth -= getColumnEstimatedWidth(column);
+      }
+    }
+
+    // If the table still overflows after hiding preferred responsive columns,
+    // keep collapsing from right to left with the remaining columns
+    // (preserving at least the first column as visible anchor).
+    const minIndexToPreserve = hasKeepVisibleColumns ? 0 : 1;
+    for (let index = safeColumns.length - 1; index >= minIndexToPreserve && requiredWidth > containerWidth; index -= 1) {
+      const column = safeColumns[index];
+      if (!column || hiddenKeys.has(column.key) || column.keepVisible) continue;
+      hiddenKeys.add(column.key);
+      requiredWidth -= getColumnEstimatedWidth(column);
+    }
+
+    if (!hasKeepVisibleColumns) {
+      // Emergency fallback: if width is still insufficient and there are no
+      // keepVisible columns, collapse remaining columns from right to left
+      // while preserving at least the first column.
+      for (let index = safeColumns.length - 1; index >= 1 && requiredWidth > containerWidth; index -= 1) {
+        const column = safeColumns[index];
+        if (!column || hiddenKeys.has(column.key)) continue;
+        hiddenKeys.add(column.key);
+        requiredWidth -= getColumnEstimatedWidth(column);
+      }
+    }
+
+    return hiddenKeys;
+  }, [canCollapseColumns, containerWidth, hasKeepVisibleColumns, hasPriorityResponsiveColumns, safeColumns, widthSignature]);
+
+  const hasHiddenColumns = responsiveHiddenColumnKeys.size > 0;
+  const visibleColumnsCount = Math.max(
+    safeColumns.filter((column) => !responsiveHiddenColumnKeys.has(column.key)).length,
+    1,
+  );
+  const useResponsiveFluidLayout = hasHiddenColumns;
 
   // tanstackColumns is memoized on column structure (keys), NOT on render functions.
   // This means flexRender always receives the SAME cell/header function references
@@ -145,18 +262,25 @@ function DataTable<T>({
         header: () => colDefsRef.current.find((c) => c.key === key)?.header,
         cell: (ctx) => {
           const c = colDefsRef.current.find((d) => d.key === key);
-          return c ? c.render(ctx.row.original, ctx.row.index) : null;
+          return c
+            ? c.render(ctx.row.original, ctx.row.index, {
+                hiddenColumnKeys: responsiveHiddenColumnKeys,
+                visibleColumnCount: visibleColumnsCount,
+                hasHiddenColumns,
+              })
+            : null;
         },
         meta: {
           get headerClassName() { return colDefsRef.current.find((c) => c.key === key)?.headerClassName; },
           get className() { return colDefsRef.current.find((c) => c.key === key)?.className; },
+          get hideOnMobile() { return colDefsRef.current.find((c) => c.key === key)?.hideOnMobile; },
           get headerStyle() { return colDefsRef.current.find((c) => c.key === key)?.headerStyle; },
           get cellStyle() { return colDefsRef.current.find((c) => c.key === key)?.cellStyle; },
         },
       };
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [colKeysId],
+    [colKeysId, hasHiddenColumns, responsiveHiddenColumnKeys, visibleColumnsCount],
   );
 
   const table = useReactTable({
@@ -186,8 +310,7 @@ function DataTable<T>({
     ? table.getPaginationRowModel().rows
     : table.getRowModel().rows;
 
-  const canVirtualize = enableVirtualization && !loading && !renderExpandedRow && modelRows.length > 0;
-  const scrollElementRef = useRef<HTMLDivElement | null>(null);
+  const canVirtualize = enableVirtualization && !loading && !renderExpandedRow && !hasHiddenColumns && modelRows.length > 0;
   const rowVirtualizer = useVirtualizer({
     count: canVirtualize ? modelRows.length : 0,
     getScrollElement: () => scrollElementRef.current,
@@ -220,21 +343,33 @@ function DataTable<T>({
     table.setPageIndex(0);
   }, [safeData.length, enableTanstackPagination, table]);
 
+  useEffect(() => {
+    setExpandedRows(new Set());
+  }, [safeData.length, colKeysId]);
+
   return (
     <div
       ref={scrollElementRef}
-      className={`overflow-x-auto ${canVirtualize ? 'overflow-y-auto' : ''}`}
+      className={`w-full min-w-0 max-w-full ${useResponsiveFluidLayout ? 'overflow-x-clip' : 'overflow-x-auto'} ${canVirtualize ? 'overflow-y-auto' : ''}`}
       style={canVirtualize ? { maxHeight: `${virtualizerHeight}px` } : undefined}
     >
-      <table className="w-full border-collapse text-left text-sm" style={tableStyle}>
+      <table
+        className="w-full max-w-full border-collapse text-left text-sm"
+        style={{
+          ...tableStyle,
+          ...(useResponsiveFluidLayout ? { tableLayout: 'fixed' } : {}),
+        }}
+      >
         <thead className="sticky top-0 z-20 bg-gray-50 dark:bg-gray-800">
           <tr className="border-b border-gray-200 dark:border-gray-700">
             {headerGroup?.headers.map((header) => {
               const meta = (header.column.columnDef.meta ?? {}) as {
                 headerClassName?: string;
+                hideOnMobile?: boolean;
                 headerStyle?: CSSProperties;
               };
               const headerClassName = meta.headerClassName ?? '';
+              const responsiveHeaderClass = responsiveHiddenColumnKeys.has(header.column.id) ? 'hidden' : '';
               const isRightAlignedHeader = /\btext-right\b/.test(headerClassName);
               const sortJustifyClass = isRightAlignedHeader
                 ? 'justify-end'
@@ -245,12 +380,16 @@ function DataTable<T>({
               return (
                 <th
                   key={header.id}
-                  className={`p-3 font-bold uppercase text-[11px] text-gray-500 dark:text-gray-400 border-r border-gray-300 dark:border-gray-600 last:border-r-0 ${headerClassName}`}
+                  className={`p-3 font-bold uppercase text-[11px] text-gray-500 dark:text-gray-400 border-r border-gray-300 dark:border-gray-600 last:border-r-0 ${responsiveHeaderClass} ${headerClassName}`}
                   style={{
                     ...meta.headerStyle,
-                    width: header.getSize(),
-                    minWidth: header.column.columnDef.minSize,
-                    maxWidth: header.column.columnDef.maxSize,
+                    ...(!useResponsiveFluidLayout
+                      ? {
+                          width: header.getSize(),
+                          minWidth: header.column.columnDef.minSize,
+                          maxWidth: header.column.columnDef.maxSize,
+                        }
+                      : {}),
                   }}
                 >
                   <div className="relative flex items-center">
@@ -319,6 +458,20 @@ function DataTable<T>({
               )}
               {rows.map(({ row, item }) => (
                 <Fragment key={keyExtractor(row.original, row.index)}>
+                  {(() => {
+                    const cells = row.getVisibleCells();
+                    const dateAnchorCellId = cells.find(
+                      (cell) => !responsiveHiddenColumnKeys.has(cell.column.id) && /fecha/i.test(cell.column.id),
+                    )?.id;
+                    const conceptAnchorCellId = cells.find(
+                      (cell) => !responsiveHiddenColumnKeys.has(cell.column.id) && /concept/i.test(cell.column.id),
+                    )?.id;
+                    const firstVisibleCellId = cells.find((cell) => !responsiveHiddenColumnKeys.has(cell.column.id))?.id;
+                    const toggleAnchorCellId = visibleColumnsCount <= 2
+                      ? (conceptAnchorCellId ?? dateAnchorCellId ?? firstVisibleCellId)
+                      : (dateAnchorCellId ?? firstVisibleCellId);
+                    return (
+                      <>
                   <tr
                     data-index={item ? item.index : undefined}
                     ref={item ? (node) => { if (node) rowVirtualizer.measureElement(node); } : undefined}
@@ -329,28 +482,101 @@ function DataTable<T>({
                     }
                     onDoubleClick={onRowDoubleClick ? () => onRowDoubleClick(row.original, row.index) : undefined}
                   >
-                    {row.getVisibleCells().map((cell) => {
+                    {cells.map((cell) => {
                       const meta = (cell.column.columnDef.meta ?? {}) as {
                         className?: string;
                         cellStyle?: CSSProperties;
                       };
+                      const isHiddenCell = responsiveHiddenColumnKeys.has(cell.column.id);
+                      const isPrimaryCell = !isHiddenCell && cell.id === toggleAnchorCellId;
                       return (
                         <td
                           key={cell.id}
-                          className={`p-3 ${meta.className ?? ''}`}
+                          className={`p-3 ${isHiddenCell ? 'hidden' : ''} ${useResponsiveFluidLayout ? 'min-w-0 overflow-hidden' : ''} ${meta.className ?? ''}`}
                           style={{
                             ...meta.cellStyle,
-                            width: cell.column.getSize(),
-                            minWidth: cell.column.columnDef.minSize,
-                            maxWidth: cell.column.columnDef.maxSize,
+                            ...(!useResponsiveFluidLayout
+                              ? {
+                                  width: cell.column.getSize(),
+                                  minWidth: cell.column.columnDef.minSize,
+                                  maxWidth: cell.column.columnDef.maxSize,
+                                }
+                              : {}),
                           }}
                         >
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          <div className={isPrimaryCell ? 'flex items-start gap-2' : undefined}>
+                            {isPrimaryCell && hasHiddenColumns && !renderExpandedRow && (
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  toggleRow(row.index);
+                                }}
+                                className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border border-transparent bg-donezo-primary text-white transition-colors hover:bg-green-700"
+                                aria-label={expandedRows.has(row.index) ? 'Ocultar detalles' : 'Mostrar detalles'}
+                                aria-expanded={expandedRows.has(row.index)}
+                              >
+                                <ChevronRight
+                                  size={12}
+                                  className={`text-white transition-transform duration-200 ${expandedRows.has(row.index) ? 'rotate-90' : ''}`}
+                                />
+                              </button>
+                            )}
+                            <div className={`min-w-0 flex-1 ${useResponsiveFluidLayout ? 'overflow-hidden' : ''}`}>
+                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </div>
+                          </div>
                         </td>
                       );
                     })}
                   </tr>
-                  {renderExpandedRow?.(row.original, row.index)}
+                  {hasHiddenColumns && !renderExpandedRow && expandedRows.has(row.index) && (
+                    <tr>
+                      <td colSpan={visibleColumnsCount} className="bg-gray-50 px-3 py-3 text-sm dark:bg-gray-900/40">
+                        <div className="grid gap-2">
+                          {cells
+                            .filter((cell) => responsiveHiddenColumnKeys.has(cell.column.id))
+                            .map((cell) => {
+                              const header = headerGroup?.headers.find((candidate) => candidate.column.id === cell.column.id);
+                              const headerNode = header ? flexRender(header.column.columnDef.header, header.getContext()) : cell.column.id;
+                              const headerLabel = toHeaderLabel(cell.column.id, headerNode);
+                              return (
+                                <div
+                                  key={`${cell.id}-mobile-details`}
+                                  className="grid grid-cols-[minmax(110px,auto)_1fr] gap-x-3 gap-y-1 border-b border-gray-200/70 pb-2 last:border-b-0 last:pb-0 dark:border-gray-700/70"
+                                >
+                                  <div className="text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    {headerLabel}
+                                  </div>
+                                  <div className="min-w-0 text-gray-700 dark:text-gray-200">
+                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  {renderExpandedRow?.(row.original, row.index, {
+                    hiddenColumns: cells
+                      .filter((cell) => responsiveHiddenColumnKeys.has(cell.column.id))
+                      .map((cell) => {
+                        const header = headerGroup?.headers.find((candidate) => candidate.column.id === cell.column.id);
+                        const headerNode = header ? flexRender(header.column.columnDef.header, header.getContext()) : cell.column.id;
+                        return {
+                          key: cell.column.id,
+                          headerLabel: toHeaderLabel(cell.column.id, headerNode),
+                          value: flexRender(cell.column.columnDef.cell, cell.getContext()),
+                        };
+                      }),
+                    hiddenColumnKeys: responsiveHiddenColumnKeys,
+                    visibleColumnCount: visibleColumnsCount,
+                    hasHiddenColumns,
+                  })}
+                      </>
+                    );
+                  })()}
                 </Fragment>
               ))}
               {canVirtualize && paddingBottom > 0 && (
@@ -361,7 +587,11 @@ function DataTable<T>({
             </>
           )}
         </tbody>
-        {renderFooter && renderFooter()}
+        {renderFooter && renderFooter({
+          hiddenColumnKeys: responsiveHiddenColumnKeys,
+          visibleColumnCount: visibleColumnsCount,
+          hasHiddenColumns,
+        })}
       </table>
       {enableTanstackPagination && !loading && safeData.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-800">

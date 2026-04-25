@@ -365,24 +365,11 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   const [pagoMovimientoFondoPendienteId, setPagoMovimientoFondoPendienteId] = useState<number | null>(null);
   const [tableFontBoost, setTableFontBoost] = useState<number>(0);
   const [movimientosTablaVisibles, setMovimientosTablaVisibles] = useState<IMovimiento[]>([]);
-  const [viewportHeight, setViewportHeight] = useState<number>(() => (
-    typeof window !== 'undefined' ? window.innerHeight : 900
-  ));
   const itemsPerPage = 13;
   const tableFontSizePx = 14 + tableFontBoost;
   const tableMetaFontPx = 10 + tableFontBoost;
   const tableTagFontPx = 9 + tableFontBoost;
   const tableCompactFontPx = 12 + tableFontBoost;
-  const topPanelHeight = Math.max(260, Math.round(viewportHeight * 0.4));
-
-  useEffect(() => {
-    const recalcViewportHeight = (): void => {
-      setViewportHeight(window.innerHeight);
-    };
-    recalcViewportHeight();
-    window.addEventListener('resize', recalcViewportHeight);
-    return () => window.removeEventListener('resize', recalcViewportHeight);
-  }, []);
   const fetchCuentas = async (): Promise<void> => {
     const token = localStorage.getItem('habioo_token');
     const storageKey = getCuentaStorageKey(mode, ownerCondominioId);
@@ -1931,8 +1918,8 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   }
 
   return (
-    <div className="relative space-y-5 animate-fadeIn">
-      <div className="space-y-5 overflow-auto pr-1" style={{ maxHeight: `${topPanelHeight}px` }}>
+    <div className="relative space-y-4 md:space-y-5 animate-fadeIn">
+      <div className="space-y-4 md:space-y-5 md:pr-1">
       <section className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Estado de Cuentas</h1>
@@ -1975,39 +1962,39 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
         </div>
       </section>
 
-      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <p className="text-xs font-black uppercase tracking-wider text-gray-400">Saldo en bolívares</p>
-          <p className="mt-2 text-4xl font-black text-gray-900 dark:text-white">Bs {formatCurrency(saldoCuentaBsActual)}</p>
+      <section className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+        <article className="rounded-xl md:rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <p className="text-[10px] md:text-xs font-black uppercase tracking-wider text-gray-400">Saldo en bolívares</p>
+          <p className="mt-1 md:mt-2 text-xl sm:text-2xl md:text-4xl font-black text-gray-900 dark:text-white">Bs {formatCurrency(saldoCuentaBsActual)}</p>
         </article>
         {fondosDestacadosBs.map((fondo) => (
-          <article key={`bs-${fondo.id}`} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <p className="text-xs font-black uppercase tracking-wider text-gray-400">{fondo.nombre}</p>
-            <p className="mt-1 text-4xl font-black text-gray-900 dark:text-white">
+          <article key={`bs-${fondo.id}`} className="rounded-xl md:rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <p className="text-[10px] md:text-xs font-black uppercase tracking-wider text-gray-400">{fondo.nombre}</p>
+            <p className="mt-1 text-xl sm:text-2xl md:text-4xl font-black text-gray-900 dark:text-white">
               Bs {formatCurrency(fondo.saldo)}
             </p>
-            <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">≈ ${formatCurrency(fondo.equivalenteUsd)} USD</p>
+            <p className="text-[11px] sm:text-xs md:text-sm font-semibold text-gray-500 dark:text-gray-400">≈ ${formatCurrency(fondo.equivalenteUsd)} USD</p>
           </article>
         ))}
         {!isCuentaUsd && (
-          <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <p className="text-xs font-black uppercase tracking-wider text-gray-400">Tránsito / Extra</p>
-            <p className="mt-1 text-4xl font-black text-gray-900 dark:text-white">
+          <article className="rounded-xl md:rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <p className="text-[10px] md:text-xs font-black uppercase tracking-wider text-gray-400">Tránsito / Extra</p>
+            <p className="mt-1 text-xl sm:text-2xl md:text-4xl font-black text-gray-900 dark:text-white">
               {saldoTransitoExtraBsActual < 0
                 ? `-Bs ${formatCurrency(Math.abs(saldoTransitoExtraBsActual))}`
                 : `Bs ${formatCurrency(saldoTransitoExtraBsActual)}`}
             </p>
-            <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">
+            <p className="text-[11px] sm:text-xs md:text-sm font-semibold text-gray-500 dark:text-gray-400">
               {saldoTransitoExtraUsdActual < 0
                 ? `≈ -$${formatCurrency(Math.abs(saldoTransitoExtraUsdActual))} USD`
                 : `≈ $${formatCurrency(saldoTransitoExtraUsdActual)} USD`}
             </p>
           </article>
         )}
-        <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <p className="text-xs font-black uppercase tracking-wider text-gray-400">Tasa BCV</p>
+        <article className="rounded-xl md:rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <p className="text-[10px] md:text-xs font-black uppercase tracking-wider text-gray-400">Tasa BCV</p>
           <div className="mt-1 flex items-center gap-2">
-            <p className="text-4xl font-black text-gray-900 dark:text-white">{tasaBcvNum > 0 ? formatRate(tasaBcvNum) : '-'}</p>
+            <p className="text-xl sm:text-2xl md:text-4xl font-black text-gray-900 dark:text-white">{tasaBcvNum > 0 ? formatRate(tasaBcvNum) : '-'}</p>
             <button
               type="button"
               onClick={fetchBCV}
@@ -2018,32 +2005,32 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
               <span className={loadingBcv ? 'animate-spin' : ''}>↻</span>
             </button>
           </div>
-          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Bs por USD</p>
+          <p className="text-[11px] sm:text-xs md:text-sm font-semibold text-gray-500 dark:text-gray-400">Bs por USD</p>
         </article>
-        <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <p className="text-xs font-black uppercase tracking-wider text-gray-400">Saldo equivalente USD</p>
-          <p className="mt-2 text-4xl font-black text-gray-900 dark:text-white">${formatCurrency(saldoCuentaUsdActual)}</p>
+        <article className="rounded-xl md:rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <p className="text-[10px] md:text-xs font-black uppercase tracking-wider text-gray-400">Saldo equivalente USD</p>
+          <p className="mt-1 md:mt-2 text-xl sm:text-2xl md:text-4xl font-black text-gray-900 dark:text-white">${formatCurrency(saldoCuentaUsdActual)}</p>
         </article>
-        <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <p className="text-xs font-black uppercase tracking-wider text-gray-400">Total ingresos</p>
-          <p className="mt-2 text-4xl font-black text-emerald-600 dark:text-emerald-400">+${formatCurrency(totalIngresosUsd)}</p>
-          <p className="mt-1 text-sm font-semibold text-gray-500 dark:text-gray-400">+Bs {formatCurrency(totalIngresosBs)}</p>
+        <article className="rounded-xl md:rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <p className="text-[10px] md:text-xs font-black uppercase tracking-wider text-gray-400">Total ingresos</p>
+          <p className="mt-1 md:mt-2 text-xl sm:text-2xl md:text-4xl font-black text-emerald-600 dark:text-emerald-400">+${formatCurrency(totalIngresosUsd)}</p>
+          <p className="mt-1 text-[11px] sm:text-xs md:text-sm font-semibold text-gray-500 dark:text-gray-400">+Bs {formatCurrency(totalIngresosBs)}</p>
         </article>
-        <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <p className="text-xs font-black uppercase tracking-wider text-gray-400">Total egresos</p>
-          <p className="mt-2 text-4xl font-black text-red-600 dark:text-red-400">-${formatCurrency(totalEgresosUsd)}</p>
-          <p className="mt-1 text-sm font-semibold text-gray-500 dark:text-gray-400">-Bs {formatCurrency(totalEgresosBs)}</p>
+        <article className="rounded-xl md:rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <p className="text-[10px] md:text-xs font-black uppercase tracking-wider text-gray-400">Total egresos</p>
+          <p className="mt-1 md:mt-2 text-xl sm:text-2xl md:text-4xl font-black text-red-600 dark:text-red-400">-${formatCurrency(totalEgresosUsd)}</p>
+          <p className="mt-1 text-[11px] sm:text-xs md:text-sm font-semibold text-gray-500 dark:text-gray-400">-Bs {formatCurrency(totalEgresosBs)}</p>
         </article>
       </section>
 
-      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <section className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-3 xl:grid-cols-4">
         {fondosDestacadosUsd.map((fondo) => (
-          <article key={fondo.id} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <p className="text-xs font-black uppercase tracking-wider text-gray-400">{fondo.nombre}</p>
-            <p className="mt-1 text-4xl font-black text-gray-900 dark:text-white">
+          <article key={fondo.id} className="rounded-xl md:rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <p className="text-[10px] md:text-xs font-black uppercase tracking-wider text-gray-400">{fondo.nombre}</p>
+            <p className="mt-1 text-xl sm:text-2xl md:text-4xl font-black text-gray-900 dark:text-white">
               $ {formatCurrency(fondo.saldo)}
             </p>
-            <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">≈ ${formatCurrency(fondo.equivalenteUsd)} USD</p>
+            <p className="text-[11px] sm:text-xs md:text-sm font-semibold text-gray-500 dark:text-gray-400">≈ ${formatCurrency(fondo.equivalenteUsd)} USD</p>
           </article>
         ))}
       </section>
@@ -2060,8 +2047,8 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                 {cuentaActual ? getCuentaLabel(cuentaActual) : 'Sin cuenta'}
               </span>
             </div>
-            <div className="flex flex-wrap items-end gap-2 xl:justify-end">
-              <div className="min-w-[300px]">
+            <div className="flex w-full flex-wrap items-end gap-2 xl:w-auto xl:justify-end">
+              <div className="w-full sm:w-auto sm:min-w-[300px]">
                 <label className="block text-[10px] uppercase font-black tracking-wider text-gray-400 mb-1">Rango</label>
                 <DateRangePicker
                   from={ymdToDate(fechaDesde)}
@@ -2077,27 +2064,29 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                   className="h-10 w-full rounded-lg border border-gray-200 bg-gray-50 p-2 pr-10 text-xs outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                 />
               </div>
-              <div>
-                <label className="block text-[10px] uppercase font-black tracking-wider text-gray-400 mb-1">Buscar</label>
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
-                  placeholder="Inmueble, referencia o monto"
-                  className="h-10 w-56 rounded-lg border border-gray-200 bg-gray-50 px-3 text-xs outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                />
+              <div className="w-full sm:w-auto sm:min-w-[320px] flex items-end gap-2">
+                <div className="flex-1">
+                  <label className="block text-[10px] uppercase font-black tracking-wider text-gray-400 mb-1">Buscar</label>
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
+                    placeholder="Inmueble, referencia o monto"
+                    className="h-10 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-xs outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFechaDesde('');
+                    setFechaHasta('');
+                    setSearchTerm('');
+                  }}
+                  className="h-10 shrink-0 px-3 rounded-lg text-xs font-bold bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300"
+                >
+                  Limpiar
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setFechaDesde('');
-                  setFechaHasta('');
-                  setSearchTerm('');
-                }}
-                className="px-3 py-2 rounded-lg text-xs font-bold bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300"
-              >
-                Limpiar
-              </button>
               <button
                 type="button"
                 onClick={handleExportExcel}
@@ -2117,7 +2106,23 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
           </div>
 
           <div className="rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
-            <div className="flex flex-wrap gap-1">
+            <div className="md:hidden p-1">
+              <select
+                value={activeTab}
+                onChange={(e: ChangeEvent<HTMLSelectElement>) => setActiveTab(e.target.value as ActiveTab)}
+                className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                aria-label="Seleccionar fondo"
+              >
+                <option value="cuenta">Cuenta bancaria</option>
+                {fondosCuenta.map((fondo) => (
+                  <option key={String(fondo.id)} value={`fondo-${fondo.id}`}>
+                    {fondo.nombre || `Fondo ${fondo.id}`}
+                  </option>
+                ))}
+                <option value="sin-fondo">Tránsito / Extra</option>
+              </select>
+            </div>
+            <div className="hidden md:flex md:flex-wrap gap-1">
               <button
                 type="button"
                 onClick={() => setActiveTab('cuenta')}
@@ -2265,6 +2270,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                 key: 'referencia',
                 header: 'Referencia',
                 className: 'font-mono text-gray-500',
+                hideOnMobile: true,
                 size: MAIN_TABLE_COLUMN_DEFAULT_WIDTHS.referencia,
                 minSize: MAIN_TABLE_COLUMN_MIN_WIDTHS.referencia,
                 enableSorting: true,
@@ -2279,6 +2285,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                 key: 'inmueble',
                 header: 'Inmueble',
                 className: 'font-semibold text-gray-700 dark:text-gray-300',
+                hideOnMobile: true,
                 size: MAIN_TABLE_COLUMN_DEFAULT_WIDTHS.inmueble,
                 minSize: MAIN_TABLE_COLUMN_MIN_WIDTHS.inmueble,
                 enableSorting: true,
@@ -2289,6 +2296,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                 key: 'descripcion',
                 header: 'Descripción',
                 className: 'font-medium text-gray-800 dark:text-gray-200',
+                hideOnMobile: true,
                 size: MAIN_TABLE_COLUMN_DEFAULT_WIDTHS.descripcion,
                 minSize: MAIN_TABLE_COLUMN_MIN_WIDTHS.descripcion,
                 enableSorting: true,
@@ -2327,6 +2335,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                 header: 'Cargo ($)',
                 headerClassName: 'text-right whitespace-nowrap',
                 className: 'text-right whitespace-nowrap font-black font-mono',
+                hideOnMobile: true,
                 size: MAIN_TABLE_COLUMN_DEFAULT_WIDTHS.cargo,
                 minSize: MAIN_TABLE_COLUMN_MIN_WIDTHS.cargo,
                 enableSorting: true,
@@ -2345,6 +2354,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                 header: 'Abono ($)',
                 headerClassName: 'text-right whitespace-nowrap',
                 className: 'text-right whitespace-nowrap font-black font-mono',
+                hideOnMobile: true,
                 size: MAIN_TABLE_COLUMN_DEFAULT_WIDTHS.abono,
                 minSize: MAIN_TABLE_COLUMN_MIN_WIDTHS.abono,
                 enableSorting: true,
@@ -2363,6 +2373,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                 header: 'Tasa (Bs.)',
                 headerClassName: 'text-right whitespace-nowrap',
                 className: 'text-right whitespace-nowrap font-mono text-blue-600 dark:text-blue-400',
+                hideOnMobile: true,
                 size: MAIN_TABLE_COLUMN_DEFAULT_WIDTHS.tasa,
                 minSize: MAIN_TABLE_COLUMN_MIN_WIDTHS.tasa,
                 enableSorting: true,
@@ -2378,6 +2389,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                 header: 'Acciones',
                 headerClassName: 'text-right whitespace-nowrap',
                 className: 'text-right whitespace-nowrap',
+                hideOnMobile: true,
                 size: MAIN_TABLE_COLUMN_DEFAULT_WIDTHS.acciones,
                 minSize: MAIN_TABLE_COLUMN_MIN_WIDTHS.acciones,
                 render: (movimiento: IMovimiento) => {
@@ -2443,32 +2455,45 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
             keyExtractor={(movimiento) => String(movimiento.id)}
             rowClassName="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors cursor-pointer"
             onRowDoubleClick={(movimiento) => setMovimientoDetalle(movimiento)}
-            renderFooter={() => (
-              <tfoot>
-                <tr className="border-t-2 border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/40">
-                  <td colSpan={4} className="p-3 font-black text-right text-gray-700 dark:text-gray-200">
-                    Total vista
-                  </td>
-                  {!isCuentaUsd && (
-                    <td className="p-3 text-right font-black font-mono text-slate-700 dark:text-slate-200">
-                      {totalesPagina.montoBs < 0
-                        ? `-Bs ${formatCurrency(Math.abs(totalesPagina.montoBs))}`
-                        : `Bs ${formatCurrency(totalesPagina.montoBs)}`}
+            renderFooter={(context) => {
+              const hiddenColumnKeys = context?.hiddenColumnKeys ?? new Set<string>();
+              const isVisible = (columnKey: string) => !hiddenColumnKeys.has(columnKey);
+              const summaryColSpan = Math.max(
+                ['fecha', 'referencia', 'inmueble', 'descripcion'].filter((columnKey) => isVisible(columnKey)).length,
+                1,
+              );
+
+              return (
+                <tfoot>
+                  <tr className="border-t-2 border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/40">
+                    <td colSpan={summaryColSpan} className="p-3 font-black text-right text-gray-700 dark:text-gray-200">
+                      Total vista
                     </td>
-                  )}
-                  <td className="p-3 text-right font-black font-mono text-red-600 dark:text-red-400">
-                    {`-${formatCurrency(totalesPagina.cargoUsd)}`}
-                  </td>
-                  <td className="p-3 text-right font-black font-mono text-emerald-600 dark:text-emerald-400">
-                    {`+${formatCurrency(totalesPagina.abonoUsd)}`}
-                  </td>
-                  {!isCuentaUsd && (
-                    <td className="p-3 text-right font-mono text-gray-400">-</td>
-                  )}
-                  {mode === 'admin' && <td className="p-3 text-right text-gray-400">-</td>}
-                </tr>
-              </tfoot>
-            )}
+                    {!isCuentaUsd && isVisible('monto_bs') && (
+                      <td className="p-3 text-right font-black font-mono text-slate-700 dark:text-slate-200">
+                        {totalesPagina.montoBs < 0
+                          ? `-Bs ${formatCurrency(Math.abs(totalesPagina.montoBs))}`
+                          : `Bs ${formatCurrency(totalesPagina.montoBs)}`}
+                      </td>
+                    )}
+                    {isVisible('cargo') && (
+                      <td className="p-3 text-right font-black font-mono text-red-600 dark:text-red-400">
+                        {`-${formatCurrency(totalesPagina.cargoUsd)}`}
+                      </td>
+                    )}
+                    {isVisible('abono') && (
+                      <td className="p-3 text-right font-black font-mono text-emerald-600 dark:text-emerald-400">
+                        {`+${formatCurrency(totalesPagina.abonoUsd)}`}
+                      </td>
+                    )}
+                    {!isCuentaUsd && isVisible('tasa') && (
+                      <td className="p-3 text-right font-mono text-gray-400">-</td>
+                    )}
+                    {mode === 'admin' && isVisible('acciones') && <td className="p-3 text-right text-gray-400">-</td>}
+                  </tr>
+                </tfoot>
+              );
+            }}
           />
         )}
         </div>

@@ -6,6 +6,7 @@ import ModalBase from './ui/ModalBase';
 import HabiooLoader from './ui/HabiooLoader';
 import habiooIsoHabioBlanco from '../assets/brand/habioo_iso_habio_blanco.svg';
 import {
+  ArrowLeft,
   Bell,
   BookOpen,
   Building2,
@@ -1136,9 +1137,22 @@ const Layout: React.FC<LayoutProps> = () => {
           )}
 
           {!sidebarCollapsed && (
-            <div className="mx-1 mt-6 rounded-xl border border-emerald-900/70 bg-[#0d4f2f] p-3">
-              <p className="text-[11px] font-black uppercase tracking-wider text-emerald-100/70">Hora del sistema</p>
-              <p className="mt-1 text-xs font-semibold text-emerald-50">{systemDateTimeLabel}</p>
+            <div className="mx-1 mt-6 space-y-2">
+              <div className="rounded-xl border border-emerald-900/70 bg-[#0d4f2f] p-3">
+                <p className="text-[11px] font-black uppercase tracking-wider text-emerald-100/70">Hora del sistema</p>
+                <p className="mt-1 text-xs font-semibold text-emerald-50">{systemDateTimeLabel}</p>
+              </div>
+              {isSupportSession && (
+                <button
+                  type="button"
+                  onClick={() => { void handleExitSupport(); }}
+                  className="h-9 w-full rounded-lg border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200 dark:hover:bg-amber-900/40 flex items-center justify-center"
+                  title="Salir del modo soporte"
+                  aria-label="Salir del modo soporte"
+                >
+                  <ArrowLeft size={16} />
+                </button>
+              )}
             </div>
           )}
         </nav>
@@ -1166,16 +1180,6 @@ const Layout: React.FC<LayoutProps> = () => {
             {mobileSidebarOpen ? <PanelLeftClose size={17} /> : sidebarCollapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
           </button>
           <div className="flex items-center gap-3">
-            {isSupportSession && (
-              <button
-                type="button"
-                onClick={() => { void handleExitSupport(); }}
-                className="h-9 rounded-lg border border-amber-300 bg-amber-50 px-3 text-xs font-black text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200 dark:hover:bg-amber-900/40"
-                title="Salir del modo soporte"
-              >
-                Modo Soporte
-              </button>
-            )}
             <p className="max-w-[52vw] truncate text-xs sm:text-sm text-gray-500 dark:text-gray-300">
               Hola, <span className="font-semibold text-gray-900 dark:text-white">{displayName}</span>
             </p>

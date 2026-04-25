@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import type { FC, MouseEvent as ReactMouseEvent, ChangeEvent } from 'react';
+import { ChevronRight } from 'lucide-react';
 import DataTable from '../components/ui/DataTable';
 import DateRangePicker from '../components/ui/DateRangePicker';
 import PageHeader from '../components/ui/PageHeader';
@@ -764,21 +765,39 @@ const Gastos: FC<GastosProps> = () => {
       </div>
 
       <div className="bg-white dark:bg-donezo-card-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
-        <div className="flex border-b border-gray-100 dark:border-gray-800 px-6 pt-4 gap-6">
-          {(['Todos', 'Comun', 'Zona', 'Individual', 'Extra'] as ActiveTab[]).map((tab: ActiveTab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`pb-3 px-2 font-bold text-sm transition-all relative rounded-t-lg ${
-                activeTab === tab
-                  ? 'text-donezo-primary dark:text-white'
-                  : 'text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white'
-              }`}
-            >
-              {tab === 'Comun' ? 'Comunes' : tab === 'Zona' ? 'Por Áreas / Sectores' : tab === 'Individual' ? 'Individuales' : tab}
-              {activeTab === tab && <span className="absolute bottom-0 left-0 w-full h-1 bg-donezo-primary dark:bg-white rounded-t-full"></span>}
-            </button>
-          ))}
+        <div className="border-b border-gray-100 dark:border-gray-800 px-6 pt-4 pb-4">
+          <div className="rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
+            <div className="md:hidden p-1">
+              <select
+                value={activeTab}
+                onChange={(e: ChangeEvent<HTMLSelectElement>) => setActiveTab(e.target.value as ActiveTab)}
+                className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                aria-label="Seleccionar tipo de gasto"
+              >
+                <option value="Todos">Todos</option>
+                <option value="Comun">Comunes</option>
+                <option value="Zona">Por Áreas / Sectores</option>
+                <option value="Individual">Individuales</option>
+                <option value="Extra">Extra</option>
+              </select>
+            </div>
+            <div className="hidden md:flex md:flex-wrap gap-1">
+              {(['Todos', 'Comun', 'Zona', 'Individual', 'Extra'] as ActiveTab[]).map((tab: ActiveTab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-3 py-2 text-sm font-bold rounded-lg transition-colors ${
+                    activeTab === tab
+                      ? 'bg-white text-gray-800 shadow-sm dark:bg-gray-700 dark:text-white'
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                  }`}
+                >
+                  {tab === 'Comun' ? 'Comunes' : tab === 'Zona' ? 'Por Áreas / Sectores' : tab === 'Individual' ? 'Individuales' : tab}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className="p-6">
@@ -794,24 +813,6 @@ const Gastos: FC<GastosProps> = () => {
               <DataTable
                 columns={[
                   {
-                    key: 'expand',
-                    header: '',
-                    size: 44,
-                    minSize: 44,
-                    maxSize: 44,
-                    headerClassName: 'w-[44px]',
-                    className: 'w-[44px]',
-                    render: (g) => (
-                      <button
-                        type="button"
-                        className="text-gray-400 hover:text-donezo-primary transition-colors text-lg"
-                        onClick={(e: ReactMouseEvent<HTMLButtonElement>) => toggleRow(g.gasto_id, e)}
-                      >
-                        {expandedRows[String(g.gasto_id)] ? '▼' : '▶'}
-                      </button>
-                    ),
-                  },
-                  {
                     key: 'fechas',
                     size: 124,
                     minSize: 124,
@@ -823,15 +824,32 @@ const Gastos: FC<GastosProps> = () => {
                         Fechas {sortIndicator('fecha_factura')}
                       </button>
                     ),
-                    render: (g) => (
-                      <>
-                        <span className="block text-xs font-bold text-gray-800 dark:text-gray-300">📄 {g.fecha_factura}</span>
-                        <span className="block text-[10px] text-gray-400">💻 {g.fecha_registro}</span>
-                      </>
+                    render: (g, _index, responsiveCtx) => (
+                      <div className="flex items-start gap-2">
+                        {(responsiveCtx?.visibleColumnCount ?? 99) > 2 && (
+                          <button
+                            type="button"
+                            className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border border-transparent bg-donezo-primary text-white transition-colors hover:bg-green-700"
+                            onClick={(e: ReactMouseEvent<HTMLButtonElement>) => toggleRow(g.gasto_id, e)}
+                            aria-label={expandedRows[String(g.gasto_id)] ? 'Ocultar cuotas y detalles' : 'Mostrar cuotas y detalles'}
+                            aria-expanded={Boolean(expandedRows[String(g.gasto_id)])}
+                          >
+                            <ChevronRight
+                              size={12}
+                              className={`text-white transition-transform duration-200 ${expandedRows[String(g.gasto_id)] ? 'rotate-90' : ''}`}
+                            />
+                          </button>
+                        )}
+                        <div>
+                          <span className="block text-xs font-bold text-gray-800 dark:text-gray-300">📄 {g.fecha_factura}</span>
+                          <span className="block text-[10px] text-gray-400">💻 {g.fecha_registro}</span>
+                        </div>
+                      </div>
                     ),
                   },
                   {
                     key: 'proveedor',
+                    hideOnMobile: true,
                     header: (
                       <button type="button" onClick={() => toggleSort('proveedor')} className="font-bold hover:text-donezo-primary">
                         Proveedor {sortIndicator('proveedor')}
@@ -842,15 +860,32 @@ const Gastos: FC<GastosProps> = () => {
                   },
                   {
                     key: 'concepto',
+                    keepVisible: true,
                     header: (
                       <button type="button" onClick={() => toggleSort('concepto')} className="font-bold hover:text-donezo-primary">
                         Concepto {sortIndicator('concepto')}
                       </button>
                     ),
-                    render: (g) => (
+                    render: (g, _index, responsiveCtx) => (
                       <>
-                        <div className="text-gray-600 dark:text-gray-400 truncate max-w-[200px] text-sm" title={g.concepto}>
-                          {g.concepto}
+                        <div className="flex items-start gap-2">
+                          {(responsiveCtx?.visibleColumnCount ?? 99) <= 2 && (
+                            <button
+                              type="button"
+                              className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border border-transparent bg-donezo-primary text-white transition-colors hover:bg-green-700"
+                              onClick={(e: ReactMouseEvent<HTMLButtonElement>) => toggleRow(g.gasto_id, e)}
+                              aria-label={expandedRows[String(g.gasto_id)] ? 'Ocultar cuotas y detalles' : 'Mostrar cuotas y detalles'}
+                              aria-expanded={Boolean(expandedRows[String(g.gasto_id)])}
+                            >
+                              <ChevronRight
+                                size={12}
+                                className={`text-white transition-transform duration-200 ${expandedRows[String(g.gasto_id)] ? 'rotate-90' : ''}`}
+                              />
+                            </button>
+                          )}
+                          <div className="text-gray-600 dark:text-gray-400 truncate max-w-[200px] text-sm" title={g.concepto}>
+                            {g.concepto}
+                          </div>
                         </div>
                         <StatusBadge color={String(g.clasificacion || 'Variable') === 'Fijo' ? 'blue' : 'slate'} className="mt-1 mr-1">
                           {String(g.clasificacion || 'Variable') === 'Fijo' ? 'Gasto fijo' : 'Gasto variable'}
@@ -869,6 +904,7 @@ const Gastos: FC<GastosProps> = () => {
                   },
                   {
                     key: 'monto',
+                    keepVisible: true,
                     header: (
                       <button type="button" onClick={() => toggleSort('monto_total_usd')} className="font-bold hover:text-donezo-primary">
                         Monto Total {sortIndicator('monto_total_usd')}
@@ -966,31 +1002,35 @@ const Gastos: FC<GastosProps> = () => {
                 keyExtractor={(g) => g.gasto_id}
                 rowClassName="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer transition-colors select-none"
                 onRowDoubleClick={(g) => setSelectedGasto(g)}
-                renderExpandedRow={(g) =>
+                renderExpandedRow={(g, _rowIndex, context) =>
                   expandedRows[String(g.gasto_id)]
-                    ? g.cuotas.map((c: GastoCuota, cuotaIndex: number) => (
-                        <tr key={c.cuota_id} className="bg-gray-50/50 dark:bg-gray-800/30 border-b border-gray-50 dark:border-gray-800/50">
-                          <td className="p-3 border-l-2 border-donezo-primary"></td>
-                          <td className="p-3 text-gray-500 text-xs dark:text-gray-400" colSpan={2}>
-                            Cobro en: <strong>{formatMonthText(c.mes_asignado)}</strong>
+                    ? (
+                        <tr className="bg-gray-50/50 dark:bg-gray-800/30 border-b border-gray-50 dark:border-gray-800/50">
+                          <td className="p-3 border-l-2 border-donezo-primary text-xs text-gray-600 dark:text-gray-300" colSpan={context?.visibleColumnCount ?? 1}>
+                            <div className="space-y-1.5">
+                              {context?.hasHiddenColumns && (
+                                <div className="space-y-1">
+                                  {context.hiddenColumns.map((column) => (
+                                    <div key={column.key} className="flex items-start gap-2 border-b border-gray-200/70 pb-1 last:border-b-0 last:pb-0 dark:border-gray-700/70">
+                                      <span className="min-w-[120px] font-bold uppercase tracking-wide text-[10px] text-gray-500 dark:text-gray-400">{column.headerLabel}:</span>
+                                      <span className="min-w-0">{column.value}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              {g.cuotas.map((c: GastoCuota, cuotaIndex: number) => (
+                                <div key={c.cuota_id} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                  <span>Cobro en: <strong>{formatMonthText(c.mes_asignado)}</strong></span>
+                                  <span>Fracción {c.numero_cuota}/{g.total_cuotas}</span>
+                                  <span className="inline-flex items-center rounded border border-gray-200 bg-white px-2 py-0.5 text-[10px] font-bold dark:border-gray-600 dark:bg-gray-700">{c.estado}</span>
+                                  <span>Monto: <strong>${formatMoney(c.monto_cuota_usd)}</strong></span>
+                                  {cuotaIndex > 0 && <span>Restan: ${formatMoney(c.saldo_pendiente)}</span>}
+                                </div>
+                              ))}
+                            </div>
                           </td>
-                          <td className="p-3 text-gray-500 text-xs dark:text-gray-400">
-                            Fracción {c.numero_cuota}/{g.total_cuotas}
-                          </td>
-                          <td className="p-3 text-center">
-                            <span className="text-[10px] font-bold bg-white dark:bg-gray-700 px-2 py-1 rounded border border-gray-200 dark:border-gray-600">
-                              {c.estado}
-                            </span>
-                          </td>
-                          <td className="p-3 text-right text-gray-400 text-xs">
-                            {cuotaIndex > 0 ? `Restan: $${formatMoney(c.saldo_pendiente)}` : ''}
-                          </td>
-                          <td className="p-3 text-right text-gray-600 dark:text-gray-400 font-medium text-sm">
-                            ${formatMoney(c.monto_cuota_usd)}
-                          </td>
-                          <td></td>
                         </tr>
-                      ))
+                      )
                     : null
                 }
               />

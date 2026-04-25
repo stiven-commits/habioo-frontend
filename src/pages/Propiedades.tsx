@@ -1536,6 +1536,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
               columns={[
                 {
                   key: 'identificador',
+                  keepVisible: true,
                   header: (
                     <button type="button" onClick={() => toggleSort('identificador')} className="font-bold hover:text-donezo-primary">
                       Inmueble {sortIndicator('identificador')}
@@ -1578,6 +1579,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
                 },
                 {
                   key: 'prop_nombre',
+                  keepVisible: true,
                   header: (
                     <button type="button" onClick={() => toggleSort('prop_nombre')} className="font-bold hover:text-donezo-primary">
                       Propietario {sortIndicator('prop_nombre')}
