@@ -704,6 +704,7 @@ const Gastos: FC<GastosProps> = () => {
     <div className="space-y-6 relative">
       <PageHeader
         title="Gestión de Gastos"
+        subtitle="Registro, consulta y control de egresos del condominio"
         actions={
           <button
             onClick={() => { setGastoEnEdicion(null); setIsModalOpen(true); }}
@@ -724,24 +725,28 @@ const Gastos: FC<GastosProps> = () => {
               className="w-full pl-10 p-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white transition-all"
             />
           </div>
-          <div className="min-w-[290px]">
-            <DateRangePicker
-              from={ymdToDate(fechaDesde)}
-              to={ymdToDate(fechaHasta)}
-              onChange={({ from, to }) => { setFechaDesde(dateToYmd(from)); setFechaHasta(dateToYmd(to)); }}
-              locale={es}
-              placeholderText="Rango (dd/mm/yyyy - dd/mm/yyyy)"
-              wrapperClassName="w-full min-w-0"
-              className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 p-2 pr-10 text-xs outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-            />
+          <div className="min-w-[320px]">
+            <div className="flex items-stretch overflow-hidden rounded-xl border border-gray-200 bg-gray-50 transition-all focus-within:ring-2 focus-within:ring-donezo-primary dark:border-gray-600 dark:bg-gray-700">
+              <div className="flex-1 min-w-0">
+                <DateRangePicker
+                  from={ymdToDate(fechaDesde)}
+                  to={ymdToDate(fechaHasta)}
+                  onChange={({ from, to }) => { setFechaDesde(dateToYmd(from)); setFechaHasta(dateToYmd(to)); }}
+                  locale={es}
+                  placeholderText="Rango (dd/mm/yyyy - dd/mm/yyyy)"
+                  wrapperClassName="w-full min-w-0"
+                  className="h-10 w-full rounded-none border-0 bg-transparent p-2 pr-10 text-xs outline-none focus:ring-0 dark:text-white"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => { setFechaDesde(''); setFechaHasta(''); }}
+                className="h-10 border-l border-emerald-800/30 bg-emerald-600 px-4 text-xs font-bold text-white transition-colors hover:bg-emerald-700"
+              >
+                Limpiar
+              </button>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={() => { setFechaDesde(''); setFechaHasta(''); }}
-            className="px-3 py-2 rounded-xl text-xs font-bold bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300"
-          >
-            Limpiar
-          </button>
         </div>
       </PageHeader>
 

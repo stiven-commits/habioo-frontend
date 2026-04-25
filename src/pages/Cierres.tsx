@@ -668,22 +668,19 @@ const Cierres: FC<CierresProps> = () => {
       )}
 
       <div className="bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
           <h3 className="text-xl font-bold text-gray-800 dark:text-white">Borrador: {data.mes_texto}</h3>
           
-          <div className="flex gap-3">
-             {/* BOTON DE PRUEBA */}
-             <button onClick={handleSeeder} className="bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 font-bold py-2 px-4 rounded-xl transition-all shadow-sm text-sm border border-purple-200 dark:border-purple-800">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-0 w-full md:w-auto">
+             <button onClick={handleSeeder} className="bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 font-bold py-2 px-4 rounded-xl sm:rounded-l-xl sm:rounded-r-none transition-all shadow-sm text-sm border border-purple-200 dark:border-purple-800 sm:border-r-0">
                Inyectar datos
              </button>
 
-             {/* FORZAR CIERRE DE PRUEBA */}
-             <button disabled={hasRequisitosPendientes} onClick={handleCerrarCiclo} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-xl transition-all shadow-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+             <button disabled={hasRequisitosPendientes} onClick={handleCerrarCiclo} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-xl sm:rounded-none transition-all shadow-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed border-t border-b sm:border-t-0 sm:border-b-0 border-red-400">
                FORZAR CIERRE (Pruebas)
              </button>
 
-             {/* BOTON REAL DE CIERRE */}
-             <button disabled={!canCloseMonth || hasRequisitosPendientes} onClick={handleCerrarCiclo} className="bg-donezo-primary hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-xl transition-all shadow-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+             <button disabled={!canCloseMonth || hasRequisitosPendientes} onClick={handleCerrarCiclo} className="bg-donezo-primary hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-xl sm:rounded-r-xl sm:rounded-l-none transition-all shadow-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed">
                Generar Recibos
              </button>
           </div>

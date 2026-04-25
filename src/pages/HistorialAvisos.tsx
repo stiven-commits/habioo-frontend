@@ -11,6 +11,7 @@ import { metodoDivisionLabel } from '../utils/juntaGeneralAvisos';
 import VistaAvisoCobro from '../components/recibos/VistaAvisoCobro';
 import StatusBadge from '../components/ui/StatusBadge';
 import EstadoConciliacionBadge from '../components/junta-general/EstadoConciliacionBadge';
+import PageHeader from '../components/ui/PageHeader';
 
 interface HistorialAvisosProps {}
 
@@ -454,46 +455,42 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
 
   return (
     <div className="space-y-6 relative">
-      <div className="bg-white dark:bg-donezo-card-dark p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 mb-6 space-y-5">
-        <div className="flex flex-col xl:flex-row justify-between gap-4 items-end">
-          <div className="flex-1 w-full xl:w-auto">
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1.5">Buscar Inmueble</label>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">🔍</span>
-              <input
-                type="text"
-                placeholder="Buscar por apartamento o casa..."
-                value={search}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary text-sm font-medium dark:text-white transition-all"
-              />
-            </div>
+      <PageHeader
+        title="Historial de Avisos"
+        subtitle="Cobranza de Inmuebles"
+      >
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+          <div className="relative flex-1">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">🔍</span>
+            <input
+              type="text"
+              placeholder="Buscar por apartamento o casa..."
+              value={search}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary text-sm font-medium dark:text-white transition-all"
+            />
           </div>
-
-          <div className="flex items-center gap-3 w-full xl:w-auto">
-            <div className="flex-1 min-w-[320px]">
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1.5">Rango de fechas</label>
-              <DateRangePicker
-                from={ymdToDate(fechaDesde)}
-                to={ymdToDate(fechaHasta)}
-                onChange={({ from, to }) => {
-                  setFechaDesde(dateToYmd(from));
-                  setFechaHasta(dateToYmd(to));
-                }}
-                {...(minDateHasta ? { minDate: minDateHasta } : {})}
-                locale={es}
-                placeholderText="Rango (dd/mm/yyyy - dd/mm/yyyy)"
-                wrapperClassName="w-full min-w-0"
-                className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 p-2.5 pr-10 text-sm font-mono outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-              />
-            </div>
+          <div className="flex w-full items-center gap-3 xl:w-auto xl:min-w-[360px]">
+            <DateRangePicker
+              from={ymdToDate(fechaDesde)}
+              to={ymdToDate(fechaHasta)}
+              onChange={({ from, to }) => {
+                setFechaDesde(dateToYmd(from));
+                setFechaHasta(dateToYmd(to));
+              }}
+              {...(minDateHasta ? { minDate: minDateHasta } : {})}
+              locale={es}
+              placeholderText="Rango (dd/mm/yyyy - dd/mm/yyyy)"
+              wrapperClassName="w-full min-w-0"
+              className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 p-2.5 pr-10 text-sm font-mono outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+            />
             {(fechaDesde || fechaHasta) && (
               <button
                 onClick={() => {
                   setFechaDesde('');
                   setFechaHasta('');
                 }}
-                className="mb-1 text-gray-400 hover:text-red-500 font-bold p-2 text-xl transition-colors"
+                className="text-gray-400 hover:text-red-500 font-bold p-2 text-xl transition-colors"
                 title="Limpiar Fechas"
               >
                 ×
@@ -501,24 +498,38 @@ const HistorialAvisos: FC<HistorialAvisosProps> = () => {
             )}
           </div>
         </div>
-      </div>
+      </PageHeader>
 
       <div className="bg-white dark:bg-donezo-card-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
         <div className="px-6 pt-5 pb-3 border-b border-gray-100 dark:border-gray-800">
-          <div className="inline-flex flex-wrap gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
-          {(['Todos', 'Pagados', 'Abonado', 'Pendiente'] as EstadoFiltro[]).map((estado: EstadoFiltro) => (
-            <button
-              key={estado}
-              onClick={() => setFiltroEstado(estado)}
-              className={`px-3 py-2 rounded-lg font-bold text-sm transition-all whitespace-nowrap ${
-                filtroEstado === estado
-                  ? 'bg-white text-gray-800 shadow-sm dark:bg-gray-700 dark:text-white'
-                  : 'text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white'
-              }`}
+          <div className="md:hidden p-1">
+            <select
+              value={filtroEstado}
+              onChange={(e) => setFiltroEstado(e.target.value as EstadoFiltro)}
+              className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-700 outline-none focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+              aria-label="Seleccionar estado de aviso"
             >
-              {estado === 'Abonado' ? 'Abonados' : estado}
-            </button>
-          ))}
+              {(['Todos', 'Pagados', 'Abonado', 'Pendiente'] as EstadoFiltro[]).map((estado) => (
+                <option key={estado} value={estado}>
+                  {estado === 'Abonado' ? 'Abonados' : estado}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="hidden md:inline-flex md:flex-wrap gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
+            {(['Todos', 'Pagados', 'Abonado', 'Pendiente'] as EstadoFiltro[]).map((estado: EstadoFiltro) => (
+              <button
+                key={estado}
+                onClick={() => setFiltroEstado(estado)}
+                className={`px-3 py-2 rounded-lg font-bold text-sm transition-all whitespace-nowrap ${
+                  filtroEstado === estado
+                    ? 'bg-donezo-primary text-white shadow-sm'
+                    : 'text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white'
+                }`}
+              >
+                {estado === 'Abonado' ? 'Abonados' : estado}
+              </button>
+            ))}
           </div>
         </div>
 

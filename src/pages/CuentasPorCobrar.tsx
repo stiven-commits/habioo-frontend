@@ -13,6 +13,7 @@ import { ModalEstadoCuenta } from '../components/propiedades/PropiedadesModals';
 import FormField from '../components/ui/FormField';
 import DatePicker from '../components/ui/DatePicker';
 import { useDialog } from '../components/ui/DialogProvider';
+import PageHeader from '../components/ui/PageHeader';
 
 interface CuentasPorCobrarProps { }
 
@@ -856,49 +857,44 @@ const montoUsdAjuste = esUsdDirecto
 
   return (
     <div className="space-y-6">
+      <PageHeader
+        title="Cuentas por Cobrar"
+        subtitle="Cobranza de Inmuebles"
+      >
+        <div className="relative">
+          <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">🔍</span>
+          <input
+            type="text"
+            placeholder="Buscar inmueble o propietario..."
+            value={searchTerm}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 p-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white transition-all"
+          />
+        </div>
+      </PageHeader>
+
       <div className="bg-white dark:bg-donezo-card-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
-
-        <div className="px-6 pt-6">
-        <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 mb-4">
-          <div className="flex items-center gap-2">
-            <h3 className="text-2xl font-black text-gray-800 dark:text-white">Cuentas por Cobrar</h3>
-            <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-gray-600 dark:bg-gray-700 dark:text-gray-200">
-              Cobranza de Inmuebles
-            </span>
+        <div className="px-6 pt-5 pb-3 border-b border-gray-100 dark:border-gray-800">
+          <div className="grid grid-cols-2 rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
+            <button
+              onClick={() => setActiveTab('Deudores')}
+              className={`py-2.5 px-3 font-bold text-sm rounded-lg transition-all ${activeTab === 'Deudores'
+                ? 'bg-donezo-primary text-white shadow-sm'
+                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                }`}
+            >
+              ⚠️ Con Deuda Pendiente
+            </button>
+            <button
+              onClick={() => setActiveTab('Todos')}
+              className={`py-2.5 px-3 font-bold text-sm rounded-lg transition-all ${activeTab === 'Todos'
+                ? 'bg-donezo-primary text-white shadow-sm'
+                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                }`}
+            >
+              🏢 Todos los Inmuebles
+            </button>
           </div>
-          <div className="flex-1 w-full max-w-md relative">
-            <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">🔍</span>
-            <input
-              type="text"
-              placeholder="Buscar inmueble o propietario..."
-              value={searchTerm}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 p-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none focus:ring-2 focus:ring-donezo-primary dark:text-white transition-all"
-            />
-          </div>
-        </div>
-
-        <div className="rounded-xl bg-gray-100 p-1 dark:bg-gray-800 mb-6 inline-flex flex-wrap gap-1">
-          <button
-            onClick={() => setActiveTab('Deudores')}
-            className={`py-2.5 px-3 font-bold text-sm rounded-lg transition-all ${activeTab === 'Deudores'
-              ? 'bg-white text-gray-800 shadow-sm dark:bg-gray-700 dark:text-white'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-              }`}
-          >
-            ⚠️ Con Deuda Pendiente
-          </button>
-          <button
-            onClick={() => setActiveTab('Todos')}
-            className={`py-2.5 px-3 font-bold text-sm rounded-lg transition-all ${activeTab === 'Todos'
-              ? 'bg-white text-gray-800 shadow-sm dark:bg-gray-700 dark:text-white'
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-              }`}
-          >
-            🏢 Todos los Inmuebles
-          </button>
-        </div>
-
         </div>
 
         {filteredProperties.length === 0 ? (

@@ -21,6 +21,13 @@ interface DateRangePickerProps {
 }
 
 const DATE_FORMAT = 'dd/MM/yyyy';
+const DAY_PICKER_GREEN_THEME = {
+  '--rdp-accent-color': '#0f5132',
+  '--rdp-accent-background-color': '#dcefe5',
+  '--rdp-range_middle-background-color': '#dcefe5',
+  '--rdp-range_middle-color': '#0f5132',
+  '--rdp-selected-border': '2px solid #0f5132',
+} as React.CSSProperties;
 
 const formatRangeLabel = (from: Date | null, to: Date | null, locale: Locale): string => {
   if (!from && !to) return '';
@@ -128,6 +135,7 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
           style={{ top: `${popoverPos.top}px`, left: `${popoverPos.left}px` }}
         >
           <DayPicker
+            style={DAY_PICKER_GREEN_THEME}
             mode="range"
             month={month}
             onMonthChange={setMonth}

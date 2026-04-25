@@ -86,6 +86,25 @@
     font-variant-numeric: tabular-nums;
     letter-spacing: 0;
   }
+
+  /* Tema global para react-day-picker: activo/seleccionado en verde Habioo */
+  .rdp-root {
+    --rdp-accent-color: #0f5132;
+    --rdp-accent-background-color: #dcefe5;
+    --rdp-range_middle-background-color: #dcefe5;
+    --rdp-range_middle-color: #0f5132;
+    --rdp-today-color: #0f5132;
+    --rdp-selected-border: 2px solid #0f5132;
+  }
+
+  .dark .rdp-root {
+    --rdp-accent-color: #198754;
+    --rdp-accent-background-color: rgba(25, 135, 84, 0.28);
+    --rdp-range_middle-background-color: rgba(25, 135, 84, 0.28);
+    --rdp-range_middle-color: #d1fae5;
+    --rdp-today-color: #6ee7b7;
+    --rdp-selected-border: 2px solid #198754;
+  }
 }
 
 @layer utilities {

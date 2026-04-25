@@ -16,6 +16,7 @@ import FormField from '../ui/FormField';
 import SearchableCombobox, { type SearchableComboboxOption } from '../ui/SearchableCombobox';
 import { useDialog } from '../ui/DialogProvider';
 import HabiooLoader from '../ui/HabiooLoader';
+import PageHeader from '../ui/PageHeader';
 
 type ViewMode = 'admin' | 'owner';
 type ActiveTab = 'cuenta' | 'sin-fondo' | `fondo-${number | string}`;
@@ -1920,47 +1921,36 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
   return (
     <div className="relative space-y-4 md:space-y-5 animate-fadeIn">
       <div className="space-y-4 md:space-y-5 md:pr-1">
-      <section className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Estado de Cuentas</h1>
-          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Libro mayor y movimientos bancarios del condominio</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={selectedCuenta}
-            onChange={(e: ChangeEvent<HTMLSelectElement>) => setSelectedCuenta(e.target.value)}
-            className="h-11 min-w-[260px] rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-700 outline-none focus:ring-2 focus:ring-emerald-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-          >
-            {cuentas.map((c) => (
-              <option key={c.id} value={c.id}>
-                {getCuentaLabel(c)}
-              </option>
-            ))}
-          </select>
-          {mode === 'admin' && (
-            <>
-              <button
-                onClick={() => setShowTransfModal(true)}
-                className="h-11 rounded-xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
-              >
-                Transf. Interbancaria
-              </button>
-              <button
-                onClick={() => setShowEgresoModal(true)}
-                className="h-11 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-bold text-red-600 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300"
-              >
-                Egreso Bancario
-              </button>
-              <button
-                onClick={() => setShowIngresoModal(true)}
-                className="h-11 rounded-xl border border-emerald-200 bg-emerald-50 px-4 text-sm font-bold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
-              >
-                Ingreso Bancario
-              </button>
-            </>
-          )}
-        </div>
-      </section>
+      <PageHeader
+        title="Estado de Cuentas"
+        subtitle="Libro mayor y movimientos bancarios del condominio"
+        verticalActionsOnMobile
+        actions={mode === 'admin' ? (
+          <>
+            <button onClick={() => setShowTransfModal(true)} className="h-11 px-4 text-sm">
+              Transf. Interbancaria
+            </button>
+            <button onClick={() => setShowEgresoModal(true)} className="h-11 px-4 text-sm">
+              Egreso Bancario
+            </button>
+            <button onClick={() => setShowIngresoModal(true)} className="h-11 px-4 text-sm">
+              Ingreso Bancario
+            </button>
+          </>
+        ) : undefined}
+      >
+        <select
+          value={selectedCuenta}
+          onChange={(e: ChangeEvent<HTMLSelectElement>) => setSelectedCuenta(e.target.value)}
+          className="h-11 w-full xl:max-w-[420px] rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-700 outline-none focus:ring-2 focus:ring-emerald-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+        >
+          {cuentas.map((c) => (
+            <option key={c.id} value={c.id}>
+              {getCuentaLabel(c)}
+            </option>
+          ))}
+        </select>
+      </PageHeader>
 
       <section className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-3 xl:grid-cols-4">
         <article className="rounded-xl md:rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
@@ -2064,44 +2054,46 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                   className="h-10 w-full rounded-lg border border-gray-200 bg-gray-50 p-2 pr-10 text-xs outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                 />
               </div>
-              <div className="w-full sm:w-auto sm:min-w-[320px] flex items-end gap-2">
-                <div className="flex-1">
-                  <label className="block text-[10px] uppercase font-black tracking-wider text-gray-400 mb-1">Buscar</label>
+              <div className="w-full sm:w-auto sm:min-w-[400px]">
+                <label className="block text-[10px] uppercase font-black tracking-wider text-gray-400 mb-1">Buscar</label>
+                <div className="flex items-stretch overflow-hidden rounded-lg border border-gray-200 bg-gray-50 transition-all focus-within:ring-2 focus-within:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800">
                   <input
                     type="text"
                     value={searchTerm}
                     onChange={(e: ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
                     placeholder="Inmueble, referencia o monto"
-                    className="h-10 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-xs outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                    className="h-10 w-full border-0 bg-transparent px-3 text-xs outline-none focus:ring-0 dark:text-white"
                   />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFechaDesde('');
+                      setFechaHasta('');
+                      setSearchTerm('');
+                    }}
+                    className="h-10 shrink-0 border-l border-emerald-800/30 bg-emerald-600 px-4 text-xs font-bold text-white transition-colors hover:bg-emerald-700"
+                  >
+                    Limpiar
+                  </button>
                 </div>
+              </div>
+              <div className="inline-flex overflow-hidden rounded-lg border border-emerald-800/25">
                 <button
                   type="button"
-                  onClick={() => {
-                    setFechaDesde('');
-                    setFechaHasta('');
-                    setSearchTerm('');
-                  }}
-                  className="h-10 shrink-0 px-3 rounded-lg text-xs font-bold bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300"
+                  onClick={handleExportExcel}
+                  className="h-10 bg-emerald-600 px-4 text-xs font-bold text-white transition-colors hover:bg-emerald-700"
                 >
-                  Limpiar
+                  Descargar Excel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTableFontBoost((prev) => (prev >= 4 ? 0 : prev + 1))}
+                  className="h-10 border-l border-emerald-800/30 bg-emerald-600 px-4 text-xs font-bold text-white transition-colors hover:bg-emerald-700"
+                  title="Aumentar tamaño de fuente de la tabla"
+                >
+                  A+
                 </button>
               </div>
-              <button
-                type="button"
-                onClick={handleExportExcel}
-                className="px-3 py-2 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800"
-              >
-                Descargar Excel
-              </button>
-              <button
-                type="button"
-                onClick={() => setTableFontBoost((prev) => (prev >= 4 ? 0 : prev + 1))}
-                className="px-3 py-2 rounded-lg text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800"
-                title="Aumentar tamaño de fuente de la tabla"
-              >
-                A+
-              </button>
             </div>
           </div>
 
@@ -2128,7 +2120,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                 onClick={() => setActiveTab('cuenta')}
                 className={`px-3 py-2 text-sm font-bold rounded-lg transition-colors ${
                   activeTab === 'cuenta'
-                    ? 'bg-white text-gray-800 shadow-sm dark:bg-gray-700 dark:text-white'
+                    ? 'bg-donezo-primary text-white shadow-sm'
                     : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                 }`}
               >
@@ -2141,7 +2133,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                   onClick={() => setActiveTab(`fondo-${fondo.id}`)}
                   className={`px-3 py-2 text-sm font-bold rounded-lg transition-colors ${
                     activeTab === `fondo-${fondo.id}`
-                      ? 'bg-white text-gray-800 shadow-sm dark:bg-gray-700 dark:text-white'
+                      ? 'bg-donezo-primary text-white shadow-sm'
                       : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                   }`}
                 >
@@ -2153,7 +2145,7 @@ const EstadoCuentaBancariaView: FC<EstadoCuentaBancariaViewProps> = ({ mode }) =
                 onClick={() => setActiveTab('sin-fondo')}
                 className={`px-3 py-2 text-sm font-bold rounded-lg transition-colors ${
                   activeTab === 'sin-fondo'
-                    ? 'bg-amber-50 text-amber-700 shadow-sm dark:bg-amber-900/20 dark:text-amber-300'
+                    ? 'bg-donezo-primary text-white shadow-sm'
                     : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                 }`}
               >

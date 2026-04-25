@@ -358,6 +358,7 @@ export const ModalPropiedadForm: FC<ModalPropiedadFormProps> = ({
   return (
     <ModalBase
       onClose={() => setIsModalOpen(false)}
+      closeOnOverlayClick={!Boolean(editingId)}
       title={editingId ? 'Editar Inmueble' : 'Nuevo Inmueble'}
       helpTooltip="Este formulario te permite registrar o editar un inmueble, propietario, datos de contacto y configuraciones iniciales de saldo/deuda."
       maxWidth="max-w-3xl"

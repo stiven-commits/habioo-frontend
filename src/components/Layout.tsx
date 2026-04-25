@@ -808,7 +808,6 @@ const Layout: React.FC<LayoutProps> = () => {
     '/cierres': 'Cierres y Recibos',
     '/inmuebles': 'Directorio de Inmuebles',
     '/cuentas-cobrar': 'Cuentas por Cobrar',
-    '/bancos': 'Cuentas Bancarias',
     '/zonas': 'Areas / Sectores',
     '/avisos-cobro': 'Avisos de cobro',
     '/estado-cuentas': 'Estado de Cuenta',
@@ -836,15 +835,7 @@ const Layout: React.FC<LayoutProps> = () => {
     return pageTitles[location.pathname] ?? 'Bienvenido';
   })();
 
-  const hideOuterPageHeader = (() => {
-    const effectivePath = soporteCondominioId
-      ? location.pathname.replace(`/soporte/${soporteCondominioId}`, '')
-      : location.pathname;
-    return effectivePath === '/estado-cuentas'
-      || effectivePath === '/cuentas-cobrar'
-      || effectivePath === '/gastos'
-      || effectivePath === '/proveedores';
-  })();
+  const hideOuterPageHeader = true;
 
   const navClass = (path: string): string => {
     const fullPath = navTo(path);
@@ -1170,7 +1161,11 @@ const Layout: React.FC<LayoutProps> = () => {
       </aside>
 
       <main className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
-        <header className="h-14 md:h-16 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161b22] px-4 md:px-6 flex items-center justify-between">
+        <header
+          className={`fixed top-0 right-0 z-40 h-14 md:h-16 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-[#161b22] px-4 md:px-6 flex items-center justify-between ${
+            sidebarCollapsed ? 'lg:left-20' : 'lg:left-64'
+          } left-0`}
+        >
           <button
             type="button"
             onClick={handleSidebarToggle}
@@ -1196,7 +1191,7 @@ const Layout: React.FC<LayoutProps> = () => {
           </div>
         </header>
 
-        <div className="p-4 md:p-8">
+        <div className="p-4 md:p-8 pt-[calc(3.5rem+1rem)] md:pt-[calc(4rem+2rem)]">
           {navTo('/dashboard') !== location.pathname && !hideOuterPageHeader && (
             <header className="mb-8">
               <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{resolvedPageTitle}</h2>

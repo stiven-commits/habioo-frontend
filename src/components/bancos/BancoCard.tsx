@@ -27,9 +27,10 @@ interface BancoCardProps {
 interface SaldosDisplayProps {
   banco: Banco;
   fondos: Fondo[];
+  isPredeterminada?: boolean;
 }
 
-const SaldosDisplay: FC<SaldosDisplayProps> = React.memo(({ banco, fondos }) => {
+const SaldosDisplay: FC<SaldosDisplayProps> = React.memo(({ banco, fondos, isPredeterminada }) => {
   const fondosCuenta = fondos.filter(
     (f: Fondo) => f?.cuenta_bancaria_id === banco.id
   );
@@ -58,7 +59,7 @@ const SaldosDisplay: FC<SaldosDisplayProps> = React.memo(({ banco, fondos }) => 
   return (
     <div className="space-y-1.5">
       {Object.entries(saldos).length === 0 ? (
-        <p className="text-sm text-gray-400 italic text-center">
+        <p className={`text-sm text-center italic ${isPredeterminada ? 'text-white/60' : 'text-gray-400'}`}>
           Sin fondos registrados
         </p>
       ) : (
@@ -67,12 +68,14 @@ const SaldosDisplay: FC<SaldosDisplayProps> = React.memo(({ banco, fondos }) => 
             key={moneda}
             className="flex justify-between items-center gap-6 border-b border-gray-200 dark:border-gray-700/50 pb-1 last:border-0 last:pb-0"
           >
-            <span className="text-xs font-bold text-gray-500">{moneda}</span>
+            <span className={`text-xs font-bold ${isPredeterminada ? 'text-white/70' : 'text-gray-500'}`}>{moneda}</span>
             <span
               className={`font-black tracking-tight ${
-                moneda === 'USD' || moneda === 'EUR'
-                  ? 'text-green-600 dark:text-green-400'
-                  : 'text-gray-800 dark:text-white'
+                isPredeterminada 
+                  ? 'text-white' 
+                  : (moneda === 'USD' || moneda === 'EUR'
+                      ? 'text-green-600 dark:text-green-400'
+                      : 'text-gray-800 dark:text-white')
               }`}
             >
               {formatMoney(monto)}
@@ -81,11 +84,15 @@ const SaldosDisplay: FC<SaldosDisplayProps> = React.memo(({ banco, fondos }) => 
         ))
       )}
       {showFondosTransito && (
-        <div className="flex justify-between items-center gap-6 mt-2 px-2 py-2 rounded-lg border border-dashed border-yellow-500/50 bg-yellow-50/60 dark:bg-yellow-900/10">
-          <span className="text-xs font-bold text-yellow-700 dark:text-yellow-400">
+        <div className={`flex justify-between items-center gap-6 mt-2 px-2 py-2 rounded-lg border ${
+          isPredeterminada 
+            ? 'border-white/20 bg-white/10' 
+            : 'border-dashed border-yellow-500/50 bg-yellow-50/60 dark:bg-yellow-900/10'
+        }`}>
+          <span className={`text-xs font-bold ${isPredeterminada ? 'text-white/80' : 'text-yellow-700 dark:text-yellow-400'}`}>
             Fondos en Transito / Gastos Extra
           </span>
-          <span className="font-black tracking-tight text-yellow-700 dark:text-yellow-300">
+          <span className={`font-black tracking-tight ${isPredeterminada ? 'text-white' : 'text-yellow-700 dark:text-yellow-300'}`}>
             {formatMoney(fondosTransito)}
           </span>
         </div>
@@ -101,27 +108,28 @@ SaldosDisplay.displayName = 'SaldosDisplay';
 interface ChannelBadgesProps {
   channels: string[];
   tipo: string;
+  isPredeterminada?: boolean;
 }
 
-const ChannelBadges: FC<ChannelBadgesProps> = React.memo(({ channels, tipo }) => (
+const ChannelBadges: FC<ChannelBadgesProps> = React.memo(({ channels, tipo, isPredeterminada }) => (
   <>
     {channels.includes('TRANSFERENCIA') && (
-      <StatusBadge color="indigo" shape="tag" size="md" border className="shadow-sm">
+      <StatusBadge color={isPredeterminada ? "white" : "indigo"} shape="tag" size="md" border className="shadow-sm">
         Transferencia
       </StatusBadge>
     )}
     {channels.includes('PAGO MOVIL') && (
-      <StatusBadge color="emerald" shape="tag" size="md" border className="shadow-sm">
+      <StatusBadge color={isPredeterminada ? "white" : "emerald"} shape="tag" size="md" border className="shadow-sm">
         Pago Móvil
       </StatusBadge>
     )}
     {tipo === 'Zelle' && (
-      <StatusBadge color="blue" shape="tag" size="md" border className="shadow-sm">
+      <StatusBadge color={isPredeterminada ? "white" : "blue"} shape="tag" size="md" border className="shadow-sm">
         Zelle
       </StatusBadge>
     )}
     {tipo === 'Transferencia Internacional' && (
-      <StatusBadge color="blue" shape="tag" size="md" border className="shadow-sm">
+      <StatusBadge color={isPredeterminada ? "white" : "blue"} shape="tag" size="md" border className="shadow-sm">
         Wire Transfer
       </StatusBadge>
     )}
@@ -154,36 +162,38 @@ const BancoCard: FC<BancoCardProps> = React.memo(({
 
   return (
     <div
-      className={`bg-white dark:bg-donezo-card-dark p-6 rounded-2xl shadow-sm border flex flex-col xl:flex-row gap-6 justify-between xl:items-center transition-all ${
+      className={`p-6 rounded-2xl shadow-sm border flex flex-col xl:flex-row gap-6 justify-between xl:items-center transition-all overflow-hidden ${
         isPredeterminada
-          ? 'border-green-400 dark:border-green-600 bg-green-50/10'
-          : 'border-gray-200 dark:border-gray-700'
+          ? 'border-[#0f5132] bg-[#198754] dark:bg-[#157347]'
+          : 'bg-white dark:bg-donezo-card-dark border-gray-200 dark:border-gray-700'
       }`}
     >
       {/* Banco Info */}
       <div className="flex-1">
-        <div className="flex items-center gap-3 mb-3">
-          <h3 className="text-xl font-black text-gray-800 dark:text-white uppercase tracking-tight">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-3 w-full">
+          <h3 className={`text-xl font-black uppercase tracking-tight w-full ${isPredeterminada ? 'text-white' : 'text-gray-800 dark:text-white'}`}>
             {banco.nombre_banco || 'Efectivo'}
           </h3>
 
-          <ChannelBadges channels={channels} tipo={banco.tipo} />
+          <div className="flex flex-wrap gap-2">
+            <ChannelBadges channels={channels} tipo={banco.tipo} isPredeterminada={isPredeterminada} />
 
-          <StatusBadge color="gray" shape="tag" size="md">
-            {banco.apodo}
-          </StatusBadge>
+            <StatusBadge color={isPredeterminada ? "white" : "gray"} shape="tag" size="md">
+              {banco.apodo}
+            </StatusBadge>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm text-gray-600 dark:text-gray-400">
+        <div className={`grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm ${isPredeterminada ? 'text-white' : 'text-gray-600 dark:text-gray-400'}`}>
           <p>
-            <strong className="text-gray-800 dark:text-gray-300 font-medium">
+            <strong className={`font-medium ${isPredeterminada ? 'text-white' : 'text-gray-800 dark:text-gray-300'}`}>
               Titular/Custodio:
             </strong>{' '}
             {banco.nombre_titular}
           </p>
           {banco.cedula_rif && (
             <p>
-              <strong className="text-gray-800 dark:text-gray-300 font-medium">
+              <strong className={`font-medium ${isPredeterminada ? 'text-white' : 'text-gray-800 dark:text-gray-300'}`}>
                 CI/RIF:
               </strong>{' '}
               {banco.cedula_rif}
@@ -191,7 +201,7 @@ const BancoCard: FC<BancoCardProps> = React.memo(({
           )}
           {banco.numero_cuenta && (
             <p>
-              <strong className="text-gray-800 dark:text-gray-300 font-medium">
+              <strong className={`font-medium ${isPredeterminada ? 'text-white' : 'text-gray-800 dark:text-gray-300'}`}>
                 {banco.tipo === 'Zelle' ? 'Correo:' : 'N Cuenta:'}
               </strong>{' '}
               {banco.tipo === 'Zelle'
@@ -201,7 +211,7 @@ const BancoCard: FC<BancoCardProps> = React.memo(({
           )}
           {banco.tipo === 'Transferencia Internacional' && banco.swift && (
             <p>
-              <strong className="text-gray-800 dark:text-gray-300 font-medium">
+              <strong className={`font-medium ${isPredeterminada ? 'text-white' : 'text-gray-800 dark:text-gray-300'}`}>
                 SWIFT/BIC:
               </strong>{' '}
               <span className="font-mono tracking-widest">{banco.swift}</span>
@@ -209,7 +219,7 @@ const BancoCard: FC<BancoCardProps> = React.memo(({
           )}
           {banco.tipo === 'Transferencia Internacional' && banco.aba && (
             <p>
-              <strong className="text-gray-800 dark:text-gray-300 font-medium">
+              <strong className={`font-medium ${isPredeterminada ? 'text-white' : 'text-gray-800 dark:text-gray-300'}`}>
                 ABA:
               </strong>{' '}
               <span className="font-mono tracking-widest">
@@ -219,7 +229,7 @@ const BancoCard: FC<BancoCardProps> = React.memo(({
           )}
           {banco.telefono && (
             <p>
-              <strong className="text-gray-800 dark:text-gray-300 font-medium">
+              <strong className={`font-medium ${isPredeterminada ? 'text-white' : 'text-gray-800 dark:text-gray-300'}`}>
                 Telefono:
               </strong>{' '}
               {banco.telefono}
@@ -228,7 +238,7 @@ const BancoCard: FC<BancoCardProps> = React.memo(({
           {(banco.acepta_pago_movil || banco.tipo === 'Pago Movil') &&
             banco.pago_movil_telefono && (
               <p>
-                <strong className="text-gray-800 dark:text-gray-300 font-medium">
+                <strong className={`font-medium ${isPredeterminada ? 'text-white' : 'text-gray-800 dark:text-gray-300'}`}>
                   Tel. Pago Móvil:
                 </strong>{' '}
                 {banco.pago_movil_telefono}
@@ -238,11 +248,15 @@ const BancoCard: FC<BancoCardProps> = React.memo(({
       </div>
 
       {/* Balances */}
-      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 min-w-[240px] border border-gray-100 dark:border-gray-700/50">
-        <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest mb-3 flex items-center justify-center gap-1.5">
+      <div className={`rounded-xl p-4 min-w-[240px] border ${
+        isPredeterminada 
+          ? 'bg-white/10 border-white/20' 
+          : 'bg-gray-50 dark:bg-gray-800/50 border-gray-100 dark:border-gray-700/50'
+      }`}>
+        <p className={`text-[10px] uppercase font-black tracking-widest mb-3 flex items-center justify-center gap-1.5 ${isPredeterminada ? 'text-white/70' : 'text-gray-400'}`}>
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            className="w-3.5 h-3.5 text-donezo-primary"
+            className={`w-3.5 h-3.5 ${isPredeterminada ? 'text-white' : 'text-donezo-primary'}`}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -256,14 +270,18 @@ const BancoCard: FC<BancoCardProps> = React.memo(({
           </svg>
           Saldos Virtuales
         </p>
-        <SaldosDisplay banco={banco} fondos={fondos} />
+        <SaldosDisplay banco={banco} fondos={fondos} isPredeterminada={isPredeterminada} />
       </div>
 
       {/* Actions */}
-      <div className="flex flex-col gap-2 min-w-[220px]">
+      <div className={`flex flex-col gap-2 min-w-[220px] ${isPredeterminada ? 'opacity-90' : ''}`}>
         <button
           onClick={handleOpenFondos}
-          className="w-full py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 dark:text-blue-400 text-[11px] uppercase tracking-wide font-bold rounded-xl flex items-center justify-center gap-2 transition-colors border border-blue-200 dark:border-blue-800/50 shadow-sm"
+          className={`w-full py-2.5 text-[11px] uppercase tracking-wide font-bold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm ${
+            isPredeterminada
+              ? 'bg-white text-donezo-primary hover:bg-white/90'
+              : 'bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 dark:text-blue-400 border border-blue-200 dark:border-blue-800/50'
+          }`}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"

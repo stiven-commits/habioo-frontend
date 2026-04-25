@@ -404,6 +404,7 @@ const Proveedores: React.FC<ProveedoresProps> = () => {
     <div className="space-y-6 relative">
       <PageHeader
         title="Directorio Proveedores"
+        subtitle="Gestión de proveedores, datos de contacto y rubros"
         actions={
           <>
             <button onClick={() => setLoteModalOpen(true)} className="flex-1 xl:flex-none bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 dark:border-blue-800/50 dark:text-blue-400 font-bold py-2.5 px-5 rounded-xl transition-all shadow-sm text-sm">

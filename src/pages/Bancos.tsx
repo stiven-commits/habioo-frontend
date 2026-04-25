@@ -4,10 +4,10 @@ import { useOutletContext } from 'react-router-dom';
 import ModalFondos from '../components/ModalFondos';
 import { API_BASE_URL } from '../config/api';
 import { useDialog } from '../components/ui/DialogProvider';
-import PageHeader from '../components/ui/PageHeader';
 import { BancoCard, BancoFormModal } from '../components/bancos';
 import type { Banco, Fondo } from '../components/bancos';
 import { inferBancoMoneda, preserveBancosOrder } from '../components/bancos/utils';
+import PageHeader from '../components/ui/PageHeader';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -216,9 +216,9 @@ const Bancos: FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
       <PageHeader
         title="Cuentas Bancarias"
+        subtitle="Administración de cuentas y fondos bancarios"
         actions={
           <button
             onClick={handleOpenCreateModal}

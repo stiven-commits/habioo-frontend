@@ -5,6 +5,7 @@ import { useOutletContext } from 'react-router-dom';
 import ModalNuevoAlquiler from '../components/alquileres/ModalNuevoAlquiler';
 import VistaSolicitudesAlquiler from '../components/alquileres/VistaSolicitudesAlquiler';
 import { API_BASE_URL } from '../config/api';
+import PageHeader from '../components/ui/PageHeader';
 
 interface Alquiler {
   id: number;
@@ -277,26 +278,23 @@ const VistaAlquileres: FC = () => {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      <div className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-donezo-card-dark p-6 shadow-sm">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              Administra espacios reservables y gestiona solicitudes de vecinos.
-            </p>
-          </div>
-          {activeTab === 'espacios' && (
-            <button
-              type="button"
-              onClick={openCreateModal}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-3 transition-colors shadow-[0_14px_30px_-14px_rgba(16,185,129,0.8)]"
-            >
-              <Plus size={18} />
-              Nuevo Alquiler
-            </button>
-          )}
-        </div>
+      <PageHeader
+        title="Gestión de Alquileres"
+        subtitle="Espacios y Solicitudes"
+        actions={activeTab === 'espacios' ? (
+          <button
+            type="button"
+            onClick={openCreateModal}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-3 transition-colors shadow-[0_14px_30px_-14px_rgba(16,185,129,0.8)]"
+          >
+            <Plus size={18} />
+            Nuevo Alquiler
+          </button>
+        ) : undefined}
+      />
 
-        <div className="mt-5 border-t border-gray-100 dark:border-gray-800 pt-4 flex flex-wrap gap-2">
+      <div className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-donezo-card-dark p-6 shadow-sm">
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => setActiveTab('espacios')}

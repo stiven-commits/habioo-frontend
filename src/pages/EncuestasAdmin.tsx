@@ -7,6 +7,7 @@ import { useDialog } from '../components/ui/DialogProvider';
 import DataTable from '../components/ui/DataTable';
 import FormField from '../components/ui/FormField';
 import StatusBadge, { type BadgeColor } from '../components/ui/StatusBadge';
+import PageHeader from '../components/ui/PageHeader';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -537,12 +538,12 @@ const EncuestasAdmin: FC = () => {
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <div className="p-4 sm:p-6 max-w-screen-xl mx-auto">
-      {/* Encabezado */}
+      <PageHeader
+        title="Cartas Consulta"
+        subtitle="Crea cartas consulta para que los propietarios voten desde su portal. Los resultados son en tiempo real."
+      />
+
       <div className="mb-6">
-        <h1 className="text-2xl font-black text-gray-800 dark:text-white">Cartas Consulta</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Crea cartas consulta para que los propietarios voten desde su portal. Los resultados son en tiempo real.
-        </p>
         {accessDeniedMessage && (
           <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200">
             {accessDeniedMessage}

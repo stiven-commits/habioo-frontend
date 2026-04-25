@@ -248,6 +248,7 @@ const Zonas: React.FC<ZonasProps> = () => {
     <div className="space-y-6 relative">
       <PageHeader
         title="Áreas / Sectores del Condominio"
+        subtitle="Organiza sectores para distribuir gastos y operaciones"
         actions={
           <button
             onClick={handleCreate}

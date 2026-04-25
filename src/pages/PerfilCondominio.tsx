@@ -16,6 +16,7 @@ import { $convertFromMarkdownString, $convertToMarkdownString, TRANSFORMERS } fr
 import { useParams } from 'react-router-dom';
 import { API_BASE_URL } from '../config/api';
 import PanelElecciones from '../components/junta-general/PanelElecciones';
+import PageHeader from '../components/ui/PageHeader';
 
 type UploadTipo = 'logo' | 'logo-condominio' | 'firma';
 
@@ -552,17 +553,20 @@ const PerfilCondominio: FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-black text-gray-900 dark:text-white">Perfil y Configuración</h1>
-        <button
-          type="button"
-          onClick={() => void handleGuardarCambios()}
-          disabled={loading || saving}
-          className="rounded-xl bg-donezo-primary px-5 py-2.5 text-sm font-bold text-white shadow-md transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {saving ? 'Guardando...' : 'Guardar Cambios'}
-        </button>
-      </div>
+      <PageHeader
+        title="Perfil y Configuración"
+        subtitle="Gestiona los datos del condominio, reglas de cobranza y seguridad."
+        actions={(
+          <button
+            type="button"
+            onClick={() => void handleGuardarCambios()}
+            disabled={loading || saving}
+            className="px-5 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {saving ? 'Guardando...' : 'Guardar Cambios'}
+          </button>
+        )}
+      />
 
       {errorMessage && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">

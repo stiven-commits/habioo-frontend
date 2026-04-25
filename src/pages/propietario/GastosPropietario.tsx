@@ -8,6 +8,7 @@ import { formatMoney } from '../../utils/currency';
 import { formatDateVE } from '../../utils/datetime';
 import DataTable from '../../components/ui/DataTable';
 import StatusBadge from '../../components/ui/StatusBadge';
+import PageHeader from '../../components/ui/PageHeader';
 
 interface PropiedadActiva {
   id_condominio: number;
@@ -164,36 +165,44 @@ const GastosPropietario: FC = () => {
     <section className="space-y-5">
       {!loading && gastos.length > 0 && (
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-donezo-card-dark">
-          <div className="grid grid-cols-1 items-center gap-3 lg:grid-cols-5">
-            <div className="relative lg:col-span-2">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400" aria-hidden>
-                <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current">
-                  <path d="M10 2a8 8 0 1 1 5.293 14.002l4.352 4.353-1.414 1.414-4.353-4.352A8 8 0 0 1 10 2Zm0 2a6 6 0 1 0 0 12A6 6 0 0 0 10 4Z" />
-                </svg>
-              </span>
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">🔍</span>
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Buscar por concepto, nota o etiqueta..."
-                className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 p-2.5 pl-10 outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-              />
+          <PageHeader
+            title="Cartelera de Gastos"
+            subtitle="Consulta y filtra los gastos comunes del condominio"
+          >
+            <div className="grid grid-cols-1 items-center gap-3 lg:grid-cols-4">
+              <div className="relative lg:col-span-2">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400" aria-hidden>
+                  <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current">
+                    <path d="M10 2a8 8 0 1 1 5.293 14.002l4.352 4.353-1.414 1.414-4.353-4.352A8 8 0 0 1 10 2Zm0 2a6 6 0 1 0 0 12A6 6 0 0 0 10 4Z" />
+                  </svg>
+                </span>
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">🔍</span>
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Buscar por concepto, nota o etiqueta..."
+                  className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 p-2.5 pl-10 outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                />
+              </div>
+              <div className="lg:col-span-2">
+                <DateRangePicker
+                  from={fechaDesde}
+                  to={fechaHasta}
+                  onChange={({ from, to }) => {
+                    setFechaDesde(from);
+                    setFechaHasta(to);
+                  }}
+                  locale={es}
+                  placeholderText="Rango (dd/mm/yyyy - dd/mm/yyyy)"
+                  wrapperClassName="w-full min-w-0"
+                  className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 p-2.5 pr-10 outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                />
+              </div>
             </div>
-            <div className="lg:col-span-2">
-              <DateRangePicker
-                from={fechaDesde}
-                to={fechaHasta}
-                onChange={({ from, to }) => {
-                  setFechaDesde(from);
-                  setFechaHasta(to);
-                }}
-                locale={es}
-                placeholderText="Rango (dd/mm/yyyy - dd/mm/yyyy)"
-                wrapperClassName="w-full min-w-0"
-                className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 p-2.5 pr-10 outline-none transition-all focus:ring-2 focus:ring-donezo-primary dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-              />
-            </div>
+          </PageHeader>
+
+          <div className="mt-3 flex justify-end">
             <button
               type="button"
               onClick={() => {
@@ -201,7 +210,7 @@ const GastosPropietario: FC = () => {
                 setFechaDesde(null);
                 setFechaHasta(null);
               }}
-              className="h-11 w-full rounded-xl bg-gray-100 px-4 text-sm font-bold hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 lg:col-span-1"
+              className="h-11 rounded-xl bg-gray-100 px-4 text-sm font-bold hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
             >
               Limpiar filtros
             </button>
@@ -272,4 +281,3 @@ const GastosPropietario: FC = () => {
 };
 
 export default GastosPropietario;
-

@@ -3,7 +3,7 @@ import type { FC, ReactNode } from 'react';
 export type BadgeColor =
   | 'green' | 'yellow' | 'amber' | 'red' | 'rose'
   | 'blue' | 'sky' | 'indigo' | 'violet' | 'orange'
-  | 'emerald' | 'purple' | 'slate' | 'gray';
+  | 'emerald' | 'purple' | 'slate' | 'gray' | 'white';
 
 type BadgeSize  = 'sm' | 'md' | 'lg';
 type BadgeShape = 'pill' | 'badge' | 'tag';
@@ -32,6 +32,7 @@ const COLOR_MAP: Record<BadgeColor, { base: string; border: string }> = {
   purple:  { base: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',     border: 'border border-purple-200 dark:border-purple-800/50' },
   slate:   { base: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',            border: 'border border-slate-200 dark:border-slate-700' },
   gray:    { base: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',                border: 'border border-gray-200 dark:border-gray-700' },
+  white:   { base: 'bg-white/20 text-white border border-white/30',                                border: 'border border-white/30' },
 };
 
 const SIZE_MAP: Record<BadgeSize, string> = {

@@ -1506,6 +1506,7 @@ const Propiedades: FC<PropiedadesProps> = () => {
       
       <PageHeader
         title="Inmuebles y Residentes"
+        subtitle="Gestión de inmuebles, propietarios y residentes"
         actions={
           <>
             {canDeleteAll && propiedades.length > 0 && (
