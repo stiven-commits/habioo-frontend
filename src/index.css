@@ -11,19 +11,25 @@
 
   --background-image-donezo-pattern: url('/textures/tu-textura.webp');
 
-  /* Escala tipográfica consistente (basada en rem) */
-  --font-size-xs: 0.75rem;    /* 12px */
-  --font-size-sm: 0.875rem;   /* 14px */
-  --font-size-base: 1rem;     /* 16px */
-  --font-size-lg: 1.125rem;   /* 18px */
-  --font-size-xl: 1.25rem;    /* 20px */
-  --font-size-2xl: 1.5rem;    /* 24px */
-  --font-size-3xl: 1.875rem;  /* 30px */
-  --font-size-4xl: 2.25rem;   /* 36px */
+  /* Escala tipográfica fluida con clamp() - mobile first, escala hasta desktop */
+  /* Tamaño base del documento: 14px en mobile, 16px en desktop */
+  --fs-fluid-base: clamp(0.75rem, 0.682rem + 0.37vw, 1rem);
+  
+  /* Headings fluidos */
+  --fs-fluid-xs: clamp(0.625rem, 0.568rem + 0.31vw, 0.875rem);
+  --fs-fluid-sm: clamp(0.75rem, 0.682rem + 0.37vw, 1rem);
+  --fs-fluid-base: clamp(0.875rem, 0.795rem + 0.43vw, 1.125rem);
+  --fs-fluid-lg: clamp(1rem, 0.909rem + 0.49vw, 1.25rem);
+  --fs-fluid-xl: clamp(1.125rem, 1.023rem + 0.55vw, 1.5rem);
+  --fs-fluid-2xl: clamp(1.25rem, 1.136rem + 0.61vw, 1.625rem);
+  --fs-fluid-3xl: clamp(1.5rem, 1.364rem + 0.73vw, 1.875rem);
+  --fs-fluid-4xl: clamp(1.75rem, 1.591rem + 0.85vw, 2.25rem);
+  --fs-fluid-5xl: clamp(2rem, 1.818rem + 0.98vw, 2.625rem);
 
-  /* Tamaños de fuente específicos para mobile */
-  --font-size-heading-mobile: 1.5rem;
-  --font-size-subheading-mobile: 1.125rem;
+  /* Textos de énfasis */
+  --fs-fluid-mono: clamp(1.125rem, 1.023rem + 0.55vw, 1.5rem);
+  --fs-fluid-mono-lg: clamp(1.375rem, 1.25rem + 0.67vw, 1.875rem);
+  --fs-fluid-mono-xl: clamp(1.75rem, 1.591rem + 0.85vw, 2.25rem);
 }
 
 /* Dark mode con clase .dark */
@@ -129,6 +135,27 @@
   .font-cal-sans {
     font-family: "Cal Sans", sans-serif;
     letter-spacing: -0.01em;
+  }
+
+  /* Tipografía fluida - usa variables clamp() para escalar con el viewport */
+  .text-fluid-xs { font-size: var(--fs-fluid-xs); }
+  .text-fluid-sm { font-size: var(--fs-fluid-sm); }
+  .text-fluid-base { font-size: var(--fs-fluid-base); }
+  .text-fluid-lg { font-size: var(--fs-fluid-lg); }
+  .text-fluid-xl { font-size: var(--fs-fluid-xl); }
+  .text-fluid-2xl { font-size: var(--fs-fluid-2xl); }
+  .text-fluid-3xl { font-size: var(--fs-fluid-3xl); }
+  .text-fluid-4xl { font-size: var(--fs-fluid-4xl); }
+  .text-fluid-5xl { font-size: var(--fs-fluid-5xl); }
+
+  /* Textos mono fluidos para énfasis (montos, números) */
+  .text-fluid-mono { font-size: var(--fs-fluid-mono); font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+  .text-fluid-mono-lg { font-size: var(--fs-fluid-mono-lg); font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+  .text-fluid-mono-xl { font-size: var(--fs-fluid-mono-xl); font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+
+  /* Utility para escalar elementos con viewport */
+  .scale-fluid {
+    transform: scale(clamp(0.75, 0.7 + 0.5vw, 1));
   }
 
   @keyframes fadeIn {

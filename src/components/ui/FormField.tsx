@@ -21,12 +21,12 @@ export const inputClass =
  */
 const FormField: FC<FormFieldProps> = ({ label, required, error, hint, children }) => (
   <div>
-    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">
+    <label className="block text-fluid-sm font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">
       {label}{required && <span className="text-red-500 ml-0.5">*</span>}
     </label>
     {children}
-    {error && <p className="mt-1 text-xs font-bold text-red-500">{error}</p>}
-    {hint && !error && <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">{hint}</p>}
+    {error && <p className="mt-1 text-fluid-sm font-bold text-red-500">{error}</p>}
+    {hint && !error && <p className="mt-1 text-fluid-xs text-gray-400 dark:text-gray-500">{hint}</p>}
   </div>
 );
 

@@ -43,7 +43,7 @@ export const ModalEstadoCuenta: FC<ModalEstadoCuentaProps> = ({
       onClose={() => setEstadoCuentaModalOpen(false)}
       closeOnOverlayClick={false}
       title={`${selectedPropCuenta.identificador} | ${selectedPropCuenta.prop_nombre}`}
-      subtitle={selectedPropCuenta.inq_nombre ? <>Residente: <span className="text-gray-700 dark:text-gray-300">{selectedPropCuenta.inq_nombre}</span></> : undefined}
+      subtitle={selectedPropCuenta.inq_nombre ? <>Residente: <span className="text-white">{selectedPropCuenta.inq_nombre}</span></> : undefined}
       maxWidth="7xl"
     >
       <div className="-mx-6 -my-5 flex flex-col">

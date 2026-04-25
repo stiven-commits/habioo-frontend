@@ -786,15 +786,18 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
         ) : (
           <>
             <div className={`p-4 rounded-xl mb-4 text-center border ${toNumber(propiedadPreseleccionada.saldo_actual) > 0 ? 'bg-red-50 border-red-100 dark:bg-red-900/20 dark:border-red-800/50' : 'bg-green-50 border-green-100 dark:bg-green-900/20 dark:border-green-800/50'}`}>
-              <p className={`text-xs font-bold mb-1 uppercase tracking-wider ${toNumber(propiedadPreseleccionada.saldo_actual) > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+              <p className={`text-fluid-sm font-bold mb-1 uppercase tracking-wider ${toNumber(propiedadPreseleccionada.saldo_actual) > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
                 {toNumber(propiedadPreseleccionada.saldo_actual) > 0 ? 'Deuda Pendiente' : 'Saldo a Favor'}
               </p>
-              <p className={`text-3xl font-black font-mono ${toNumber(propiedadPreseleccionada.saldo_actual) > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                ${formatMoney(Math.abs(toNumber(propiedadPreseleccionada.saldo_actual) || 0))}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 font-bold mt-2">
-                Inmueble: <span className="text-gray-800 dark:text-white">{propiedadPreseleccionada.identificador}</span>
-              </p>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-center gap-2 sm:gap-3">
+                <p className={`text-fluid-mono-xl font-black ${toNumber(propiedadPreseleccionada.saldo_actual) > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                  ${formatMoney(Math.abs(toNumber(propiedadPreseleccionada.saldo_actual) || 0))}
+                </p>
+                <p className="text-fluid-sm text-gray-500 dark:text-gray-400 font-bold sm:border-l sm:border-gray-300 sm:pl-3 sm:ml-1">
+                  <span className="sm:hidden">Inmueble:</span>
+                  <span className="hidden sm:inline">Inmueble:</span> <span className="text-gray-800 dark:text-white">{propiedadPreseleccionada.identificador}</span>
+                </p>
+              </div>
             </div>
 
             <form onSubmit={handleSubmitPago} className="space-y-4 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-4">
@@ -1031,16 +1034,17 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                     }}
                     className="text-sm font-semibold text-donezo-primary hover:text-donezo-primary/80 transition-colors"
                   >
-                    {mostrarDesvioExtra ? '- Quitar desvío a Gasto Extra' : '+ Asignar parte del pago a un Gasto Extra'}
+                    {mostrarDesvioExtra ? '- Quitar desvío' : '+ Asignar monto a Gasto Extra'}
                   </button>
 
                   {mostrarDesvioExtra && (
                     <div className="mt-3 space-y-3">
-                      <div className="grid grid-cols-12 gap-2 text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                        <div className="col-span-6">Gasto Extra / Proyecto</div>
-                        <div className="col-span-3">Monto a desviar (Bs)</div>
-                        <div className="col-span-2">Equiv. USD</div>
-                        <div className="col-span-1 text-right">Acción</div>
+                      <div className="grid grid-cols-12 gap-2 text-fluid-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                        <div className="col-span-5 sm:col-span-6">Gasto Extra / Proyecto</div>
+                        <div className="col-span-4 sm:col-span-3 hidden sm:block">Monto a desviar (Bs)</div>
+                        <div className="col-span-4 sm:col-span-3 block sm:hidden">Monto (Bs)</div>
+                        <div className="col-span-2 sm:col-span-2">USD</div>
+                        <div className="col-span-1 text-right">X</div>
                       </div>
                       {desviosGastos.map((row: DesvioGastoDraftItem) => {
                         const tasa = getEffectiveRateForDesvio();
@@ -1048,7 +1052,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                         const optionsForRow = getGastoOptionsForRow(row.id);
                         return (
                           <div key={row.id} className="grid grid-cols-12 gap-2 items-center">
-                            <div className="col-span-6">
+                            <div className="col-span-5 sm:col-span-6">
                               <SearchableCombobox
                                 options={optionsForRow}
                                 value={row.gastoId}
@@ -1058,7 +1062,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                                 className="w-full p-3 rounded-xl border border-gray-200 bg-white dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary"
                               />
                             </div>
-                            <div className="col-span-3">
+                            <div className="col-span-4 sm:col-span-3">
                               <input
                                 type="text"
                                 value={row.montoBs}
@@ -1067,7 +1071,7 @@ const ModalRegistrarPago: FC<ModalRegistrarPagoProps> = ({
                                 className="w-full p-3 rounded-xl border border-gray-200 dark:bg-gray-800 dark:text-white dark:border-gray-600 outline-none focus:ring-2 focus:ring-donezo-primary"
                               />
                             </div>
-                            <div className="col-span-2 text-sm font-black text-emerald-600 dark:text-emerald-400">${formatMoney(usd)}</div>
+                            <div className="col-span-2 sm:col-span-2 text-sm font-black text-emerald-600 dark:text-emerald-400">${formatMoney(usd)}</div>
                             <div className="col-span-1 text-right">
                               <button
                                 type="button"

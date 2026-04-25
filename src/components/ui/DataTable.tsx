@@ -382,7 +382,7 @@ function DataTable<T>({
               return (
                 <th
                   key={header.id}
-                  className={`p-3 font-bold uppercase text-[11px] text-gray-500 dark:text-gray-400 border-r border-gray-300 dark:border-gray-600 last:border-r-0 ${responsiveHeaderClass} ${headerClassName}`}
+                  className={`p-3 font-bold uppercase text-fluid-xs text-gray-500 dark:text-gray-400 border-r border-gray-300 dark:border-gray-600 last:border-r-0 ${responsiveHeaderClass} ${headerClassName}`}
                   style={{
                     ...meta.headerStyle,
                     ...(!useResponsiveFluidLayout
