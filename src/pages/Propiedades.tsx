@@ -1570,14 +1570,14 @@ const Propiedades: FC<PropiedadesProps> = () => {
         actions={
           <>
             {canDeleteAll && propiedades.length > 0 && (
-              <button onClick={handleEliminarTodos} className="flex-1 xl:flex-none bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:border-red-800/50 dark:text-red-400 font-bold py-2.5 px-5 rounded-xl transition-all shadow-sm text-sm">
+              <button key="delete-all" onClick={handleEliminarTodos} className="flex-1 xl:flex-none bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:border-red-800/50 dark:text-red-400 font-bold py-2.5 px-5 rounded-xl transition-all shadow-sm text-sm">
                 Eliminar todos
               </button>
             )}
-            <button onClick={() => setLoteModalOpen(true)} className="flex-1 xl:flex-none bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 dark:border-green-800/50 dark:text-green-400 font-bold py-2.5 px-5 rounded-xl transition-all shadow-sm text-sm">
+            <button key="bulk-upload" onClick={() => setLoteModalOpen(true)} className="flex-1 xl:flex-none bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 dark:border-green-800/50 dark:text-green-400 font-bold py-2.5 px-5 rounded-xl transition-all shadow-sm text-sm">
               Carga Masiva
             </button>
-            <button onClick={handleCreateNew} className="flex-1 xl:flex-none bg-donezo-primary hover:bg-blue-700 text-white font-bold py-2.5 px-5 rounded-xl transition-all shadow-md text-sm whitespace-nowrap">
+            <button key="create-property" onClick={handleCreateNew} className="flex-1 xl:flex-none bg-donezo-primary hover:bg-blue-700 text-white font-bold py-2.5 px-5 rounded-xl transition-all shadow-md text-sm whitespace-nowrap">
               + Agregar Inmueble
             </button>
           </>
