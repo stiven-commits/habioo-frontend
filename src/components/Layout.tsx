@@ -43,6 +43,7 @@ interface MeResponse {
 
 interface SessionData {
   role?: 'Administrador' | 'Propietario' | 'SuperUsuario';
+  condominio_id?: number | null;
   is_support_session?: boolean;
   support_superuser_id?: number | null;
   support_superuser_nombre?: string | null;
@@ -408,6 +409,12 @@ const Layout: React.FC<LayoutProps> = () => {
         setCondominioTipo('');
         return;
       }
+      const condominioId = toNumber(sessionData?.condominio_id);
+      if (condominioId <= 0) {
+        setHeaderDisplayName(String(user.nombre || '').trim() || 'Usuario');
+        setCondominioTipo('');
+        return;
+      }
 
       try {
         const res = await fetch(`${API_BASE_URL}/api/perfil`, {
@@ -430,7 +437,7 @@ const Layout: React.FC<LayoutProps> = () => {
     };
 
     void loadHeaderDisplayName();
-  }, [isSupportScopedAdmin, userRole, user]);
+  }, [isSupportScopedAdmin, sessionData?.condominio_id, userRole, user]);
 
   useEffect(() => {
     setMobileSidebarOpen(false);

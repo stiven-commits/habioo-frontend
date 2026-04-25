@@ -18,6 +18,7 @@ interface LoginResponse {
   user?: LoginUser;
   session?: {
     role?: 'Administrador' | 'Propietario' | 'SuperUsuario';
+    condominio_id?: number | null;
     [key: string]: unknown;
   };
   message?: string;
@@ -84,6 +85,13 @@ const Login: FC<LoginProps> = () => {
 
         // Para administradores, resolvemos tipo real del condominio antes de navegar.
       if (role === 'Administrador') {
+        const condominioId = Number(data.session?.condominio_id);
+        const hasCondominio = Number.isFinite(condominioId) && condominioId > 0;
+        if (!hasCondominio) {
+          navigate('/dashboard');
+          return;
+        }
+
         try {
           const perfilResponse = await fetch(`${API_BASE_URL}/api/perfil`, {
             headers: { Authorization: `Bearer ${token}` },
