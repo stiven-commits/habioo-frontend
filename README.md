@@ -2,11 +2,14 @@
 
 Documento tecnico y funcional del estado actual del sistema.
 
-- Ultima actualizacion: 2026-04-17
+- Ultima actualizacion: 2026-04-25
 - Frontend: React 19 + Vite 7 + Tailwind CSS 4 + TypeScript (mixto)
 - Backend: Node.js + Express + PostgreSQL
 - **Nuevo**: Rate limit distribuido en login con Redis (backend `habioo-auth/routes/auth.ts`)
-- **Nuevo**: TipografÃ­a global unificada para valores numÃ©ricos/monetarios via `@layer base` en CSS
+- **Nuevo**: Tipografía global unificada para valores numéricos/monetarios via `@layer base` en CSS
+- **Nuevo**: Escala tipográfica consistente basada en `rem` con variables CSS (`--font-size-xs` a `--font-size-4xl`)
+- **Nuevo**: Normalización de tamaños de fuente en vistas (CuentasPorCobrar, Bancos, etc.)
+- **Nuevo**: Mejoras de responsive design en cuentas bancarias y cuentas por cobrar
 
 ---
 
@@ -180,6 +183,9 @@ Fuente: `habioo-frontend/src/App.jsx`
   - Propietario: cambios de estado de pagos (Validado/Rechazado/PendienteAprobacion).
   - Admin: nuevos pagos pendientes, solicitudes de alquiler, notificaciones de Junta General.
 - **Nuevo**: Tema oscuro/claro con toggle (almacenado en `localStorage.theme`).
+- **Nuevo**: Escala tipográfica consistente basada en `rem` con variables CSS globales.
+- **Nuevo**: Normalización de tamaños de fuente en todas las vistas principales.
+- **Nuevo**: Mejoras responsive en Bancos y Cuentas por Cobrar.
 
 ### 3.5 Soporte SuperUsuario
 - Vista de todos los condominios registrados.
@@ -235,6 +241,9 @@ Fuente: `habioo-frontend/src/App.jsx`
 - **Nuevo**: Referencia de origen y banco de origen eliminados de flujos de pago.
 - **Nuevo**: Fecha de operacion agregada a registros de cobranza.
 - **Nuevo**: Label de pago pendiente por aprobar visible en cuentas por cobrar.
+- **Nuevo**: Escala tipográfica consistente basada en `rem` con variables CSS globales.
+- **Nuevo**: Cuentas bancarias principales con fondo verde Habioo y texto blanco.
+- **Nuevo**: Botones de accion en группа (button groups) para móviles en vistas de cierre.
 
 ---
 

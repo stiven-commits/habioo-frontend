@@ -2,7 +2,7 @@
 
 Guia operativa para asistentes IA y soporte funcional.
 
-- Ultima actualizacion: 2026-04-03
+- Ultima actualizacion: 2026-04-25
 - Objetivo: orientar acciones segun rol, modulos y restricciones reales del sistema.
 
 Las etiquetas [JUNTA], [PROPIETARIO], [AMBOS], [SOPORTE], [JUNTA_GENERAL] indican que perfil puede realizar cada accion. Son de uso interno del agente: nunca las muestres al usuario.
