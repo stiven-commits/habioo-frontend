@@ -38,6 +38,7 @@ interface OutletContextType {
 interface CuentaBancaria {
   id: number | string;
   nombre_banco?: string;
+  numero_cuenta?: string | null;
   apodo?: string;
   moneda?: string;
   tipo?: string;
@@ -277,12 +278,14 @@ const getCuentaLabel = (cuenta: CuentaBancaria): string => {
     || inferSource.includes('USD')
     || inferSource.includes('ZELLE');
 
+  const ultimosCuatro = String(cuenta.numero_cuenta || '').trim().slice(-4) || apodo || 'Cuenta';
+
   if (isUsd) {
     const base = banco ? `Cuenta USD - ${banco}` : 'Cuenta USD';
-    return `${base} (${apodo || 'Cuenta'})`;
+    return `${base} (${ultimosCuatro})`;
   }
 
-  return `${banco || 'Banco'} (${apodo || 'Cuenta'})`;
+  return `${banco || 'Banco'} (${ultimosCuatro})`;
 };
 
 const parseFilterDate = (value: string): Date | null => {
