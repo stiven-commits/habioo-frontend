@@ -278,14 +278,15 @@ const getCuentaLabel = (cuenta: CuentaBancaria): string => {
     || inferSource.includes('USD')
     || inferSource.includes('ZELLE');
 
-  const ultimosCuatro = String(cuenta.numero_cuenta || '').trim().slice(-4) || apodo || 'Cuenta';
+  const ultimosCuatro = String(cuenta.numero_cuenta || '').trim().slice(-4) || apodo || '';
+  const bancoNombre = banco.replace(/^\d{4}\s*-\s*/, '').trim() || banco;
 
   if (isUsd) {
-    const base = banco ? `Cuenta USD - ${banco}` : 'Cuenta USD';
-    return `${base} (${ultimosCuatro})`;
+    const base = bancoNombre ? `Cuenta USD - ${bancoNombre}` : 'Cuenta USD';
+    return ultimosCuatro ? `${ultimosCuatro} - ${base}` : base;
   }
 
-  return `${banco || 'Banco'} (${ultimosCuatro})`;
+  return ultimosCuatro ? `${ultimosCuatro} - ${bancoNombre || 'Banco'}` : (bancoNombre || 'Banco');
 };
 
 const parseFilterDate = (value: string): Date | null => {
